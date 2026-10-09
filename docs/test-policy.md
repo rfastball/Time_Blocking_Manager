@@ -148,3 +148,12 @@ Cycle 3 Test delta 결과: 새 순수 표시 owner src/schedule.test.ts 4사례 
 - Evidence to retire: 없음. 기존 작업 단일 변경과 다른 다항목 원자성·생성 이력 경계다.
 
 Test delta 결과: added/extended/removed **3/3/0**, 수집 **13→16**. `cargo test --manifest-path src-tauri/Cargo.toml --no-default-features --locked` **16/16**, 본체 **2.65초**, 전체 **5.22초**(컴파일 1.99초 포함). 같은 조건의 통과 baseline이 없어 runtime delta는 미측정. 기본 sandbox에서는 기존 canonicalize 테스트 4개가 변경 전후 모두 실패하여, 승인된 제한 외 실행에서 임시 DB만 검증했다. 새 heavy-resource launch·dependency·CI lane·coverage-floor 영향 0.
+
+
+## 드래그와 클릭 분리 Test delta brief (2026-10-09)
+
+- Unique risk: pointerup 이후 지연 click이 상세·시간 팝업을 다시 열거나 다음 실제 클릭을 차단함.
+- Existing owner / Selected layer: `src/schedule.test.ts`에 문서 EventTarget 대역으로 click suppression 컨트롤러를 검증한다. 기존 제스처·시간축 owner를 확장한다.
+- Expected cost delta / Evidence to retire: 사례 1개, 새 실행 프로세스·브라우저·의존성·파일·CI lane 0, 퇴역할 증거 없음.
+
+Test delta 결과: added/extended/removed **1/0/0**, 기본 Node 수집 **21→22**, `npm test` **22/22 · 101.2982ms**. 사례 본체 1.8778ms이며 같은 조건의 변경 전 baseline이 없어 runtime delta는 미측정. heavy-resource launch delta 0, coverage-floor 영향 0. 브라우저 수동 검증은 기존 미리보기 세션을 재사용하며 자동 suite에 넣지 않는다.

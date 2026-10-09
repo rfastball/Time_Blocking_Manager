@@ -12,7 +12,7 @@ import {bindCalendarGestures} from './calendar-gestures';
 import {createTimeAxis,timeAxisForDays,readTimeAxis,timeAxisAttributes,timeAxisLabelVisible,paintCalendarAxis} from './time-axis';
 import type {RawSchedule} from './availability';
 import type {AvailabilityTarget,AvailabilityEdge} from './availability-band';
-import type {Task,Snapshot,Action,Command,AppError,WorkingDay,Settings,ManagedBackup,BackupInspection} from './types';
+import type {Task,Snapshot,Action,Command,AppError,WorkingDay,Settings,Routine,ManagedBackup,BackupInspection} from './types';
 import {resolveTheme,readTheme,saveTheme,themePickerHTML,themeStorageKey} from './theme';
 import './fonts.css';
 import './tokens.css';
@@ -38,7 +38,7 @@ const minutes=(s:string)=>Number(s.slice(0,2))*60+Number(s.slice(3,5));
 const taskMinute=(t:Task)=>minutes(t.starts_at!.slice(11));
 const dateLabel=(s:string)=>dateOf(s).toLocaleDateString('ko-KR',{month:'long',day:'numeric',weekday:'long'});
 const plusDays=(date:string,n:number)=>{const d=dateOf(date);d.setDate(d.getDate()+n);return dateKey(d);};
-const icon=(name:string)=>`<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${({today:'<rect x="4" y="4" width="16" height="17" rx="2"/><path d="M4 9h16M8 2v4M16 2v4M8 13h3M8 17h7"/>',plan:'<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M9 9v12M15 9v12M3 15h18"/>',inbox:'<path d="M3 13l3-8h12l3 8v7H3zM3 13h5l2 3h4l2-3h5"/>',settings:'<path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',left:'<path d="M15 5l-7 7 7 7"/>',right:'<path d="M9 5l7 7-7 7"/>',plus:'<path d="M12 5v14M5 12h14"/>',close:'<path d="M6 6l12 12M18 6L6 18"/>',check:'<path d="M5 12l4 4L19 6"/>'} as Record<string,string>)[name]}</svg>`;
+const icon=(name:string)=>`<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${({today:'<rect x="4" y="4" width="16" height="17" rx="2"/><path d="M4 9h16M8 2v4M16 2v4M8 13h3M8 17h7"/>',plan:'<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M9 9v12M15 9v12M3 15h18"/>',inbox:'<path d="M3 13l3-8h12l3 8v7H3zM3 13h5l2 3h4l2-3h5"/>',settings:'<path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',left:'<path d="M15 5l-7 7 7 7"/>',right:'<path d="M9 5l7 7-7 7"/>',delete:'<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v5M14 11v5"/>',plus:'<path d="M12 5v14M5 12h14"/>',close:'<path d="M6 6l12 12M18 6L6 18"/>',check:'<path d="M5 12l4 4L19 6"/>'} as Record<string,string>)[name]}</svg>`;
 
 let snapshot:Snapshot|null=null,view:'today'|'plan'|'inbox'|'settings'='today',selected=today(),period='week',inboxOpen=true;
 let planAnchor=selected,backupExpanded=false,inboxCompletedOpen=false;
@@ -50,6 +50,10 @@ let draftTimer:ReturnType<typeof setTimeout>|undefined,settingsDraft:Settings|nu
 let rawSchedules:Record<string,RawSchedule>={};
 let shortcut="Ctrl+Shift+Space";
 let settingsBase:{epoch:string;revision:number}|null=null,lastBackup='';
+type RoutineDraft={id:string;title:string;body:string;weekdays:number[];start:string;duration:string;epoch:string;revision:number};
+let routineDraft:RoutineDraft|null=null;
+let routineRangePending=false;
+const routineRanges=new Set<string>(),previewOccurrences=new Set<string>();
 let message='',errorMessage='',loadError='',warning='',dbPath='',autoStart=false,exitOnClose=false,dragId='';
 let ready=false,refreshNeeded=false;
 let quitRequest:string|null=null,quitSaving=false;
@@ -65,9 +69,10 @@ const queue=new SaveQueue(()=>{
   updateStatus();
   if(native)void invoke('set_dirty',{dirty:unsaved()}).catch(()=>{errorMessage='종료 보호 상태를 전달하지 못했습니다.';updateStatus();});
   if(!queue.busy&&refreshNeeded){refreshNeeded=false;void reload();}
+  else if(!queue.busy)void ensureVisibleRoutines();
 });
-function unsaved(){return !!(ready&&!storedDraft.loaded||captureDraft.text||editorDirty||Object.keys(rawSchedules).length||settingsDraft||queue.busy||draftTimer);}
-const draftContent=()=>captureDraft.text||editorDirty||Object.keys(rawSchedules).length||settingsDraft ? JSON.stringify({capture:captureDraft.text,captureCommand:captureDraft.command,calendarComposer:captureDraft.text?calendarComposer:null,editor:editorDirty?editor:null,rawSchedules,settingsBase,settingsDraft,epoch:snapshot?.epoch}):'';
+function unsaved(){return !!(ready&&!storedDraft.loaded||captureDraft.text||editorDirty||Object.keys(rawSchedules).length||settingsDraft||routineDraft||queue.busy||draftTimer);}
+const draftContent=()=>captureDraft.text||editorDirty||Object.keys(rawSchedules).length||settingsDraft||routineDraft ? JSON.stringify({capture:captureDraft.text,captureCommand:captureDraft.command,calendarComposer:captureDraft.text?calendarComposer:null,editor:editorDirty?editor:null,rawSchedules,settingsBase,settingsDraft,routineDraft,epoch:snapshot?.epoch}):'';
 function draftChanged(){
   clearTimeout(draftTimer); draftTimer=setTimeout(()=>{draftTimer=undefined;persistDraft();},200);updateStatus();
   if(native)void invoke('set_dirty',{dirty:true});
@@ -179,6 +184,23 @@ function previewMutation(command:Command):Snapshot {
       if(a.type==='set_schedule'&&a.move_conflicts){t.starts_at=null;t.revision++;}else throw Error('배치된 작업과 겹칩니다.');
     }}
   }
+  else if(a.type==='set_routines'){
+    if(a.expected_revision!==s.settings.revision)throw Error('정기 업무 설정이 변경됐습니다. 다시 확인하세요.');
+    s.settings.routines=a.routines;s.settings.revision++;
+  }
+  else if(a.type==='ensure_routines'){
+    for(let date=a.from;date<=a.to;date=plusDays(date,1))for(const routine of s.settings.routines??[]){
+      const key=routine.id+':'+date;
+      if(previewOccurrences.has(key)||!routine.weekdays.includes((dateOf(date).getDay()+6)%7))continue;
+      const id=crypto.randomUUID(),starts_at=checkPlacement(id,date,routine.start,routine.duration,effectiveDay(s.settings,date),s.tasks)?null:date+'T'+time(routine.start);
+      s.tasks.push({id,title:routine.title,body:routine.body,starts_at,duration:routine.duration,completed:false,revision:1});previewOccurrences.add(key);
+    }
+  }
+  else if(a.type==='clear_day'){
+    const tasks=s.tasks.filter(t=>t.starts_at?.slice(0,10)===a.date);
+    if(tasks.length!==a.expected_tasks.length||tasks.some(t=>!a.expected_tasks.some(expected=>expected.id===t.id&&expected.revision===t.revision)))throw Error('일정이 변경됐습니다. 다시 확인하세요.');
+    for(const task of tasks){task.starts_at=null;task.revision++;}
+  }
   else {const t=s.tasks.find(t=>t.id===a.id)!;
     if(a.type==='delete')s.tasks=s.tasks.filter(t=>t.id!==a.id);
     else if(a.type==='set_completed'){t.completed=a.completed;t.revision++;}
@@ -194,9 +216,9 @@ async function reload(){
 }
 async function loadStoredDraft(allowBusy=false){
   try{const [sequence,content]=await invoke<[number,string]>('load_draft');
-    if(captureDraft.text||editorDirty||Object.keys(rawSchedules).length||settingsDraft||(!allowBusy&&queue.busy)||draftTimer)return;
+    if(captureDraft.text||editorDirty||Object.keys(rawSchedules).length||settingsDraft||routineDraft||(!allowBusy&&queue.busy)||draftTimer)return;
     const draft=storedDraft.read(sequence,content);
-    if(draft){captureDraft.text=draft.capture||'';captureDraft.command=draft.captureCommand||null;calendarComposer=draft.calendarComposer||null;editor=draft.editor||null;editorDirty=!!editor;rawSchedules=draft.rawSchedules||{};settingsBase=draft.settingsBase||null;settingsDraft=draft.settingsDraft||null;message='';}
+    if(draft){captureDraft.text=draft.capture||'';captureDraft.command=draft.captureCommand||null;calendarComposer=draft.calendarComposer||null;editor=draft.editor||null;editorDirty=!!editor;rawSchedules=draft.rawSchedules||{};settingsBase=draft.settingsBase||null;settingsDraft=draft.settingsDraft||null;routineDraft=draft.routineDraft||null;message='';}
     draftLoadFailed=false;
   }catch{draftLoadFailed=true;}
   void invoke('set_dirty',{dirty:unsaved()});
@@ -221,7 +243,7 @@ function dayRule(date:string){return effectiveDay(settingsDraft??snapshot!.setti
 function refreshCalendar(reloadData=false){
   if(captureWindow)return;
   if(reloadData&&native)refreshNeeded=true;
-  if(!calendarRefreshAllowed({view,ready:ready&&storedDraft.loaded,visible:document.visibilityState==='visible',dirty:editorDirty||!!Object.keys(rawSchedules).length||!!settingsDraft||calendarComposing,input:!!document.activeElement?.matches('input,textarea,[contenteditable]'),modal:!!document.querySelector('dialog[open]'),gesture:!!dragId||resizing}))return;
+  if(!calendarRefreshAllowed({view,ready:ready&&storedDraft.loaded,visible:document.visibilityState==='visible',dirty:!!routineDraft||editorDirty||!!Object.keys(rawSchedules).length||!!settingsDraft||calendarComposing,input:!!document.activeElement?.matches('input,textarea,[contenteditable]'),modal:!!document.querySelector('dialog[open]'),gesture:!!dragId||resizing}))return;
   if(refreshNeeded&&!queue.busy){refreshNeeded=false;void reload();}else renderContent();
 }
 function tasksOn(date:string){return snapshot!.tasks.filter(t=>t.starts_at?.startsWith(date)).sort((a,b)=>a.starts_at!.localeCompare(b.starts_at!));}
@@ -298,6 +320,7 @@ function renderContent(){
   $<HTMLButtonElement>('#go-today').disabled=selected===today();
   const unit=view==='today'?'날':period==='month'?'달':period==='two'?'2주':'주';$('#prev').setAttribute('aria-label','이전 '+unit);$('#next').setAttribute('aria-label','다음 '+unit);
   bindContent();fitTimeline();
+  void ensureVisibleRoutines();
   if(calendarComposer)openComposer(calendarComposer.date,calendarComposer.start,calendarComposer.duration,true);
   updateStatus();
   for(const {selector,top} of scrollPositions){const pane=content.querySelector(selector);if(!pane)continue;if(top!==null)pane.scrollTop=top;else if(view==='plan'){const surface=pane.querySelector<HTMLElement>('[data-calendar-surface]');if(surface){const axis=readTimeAxis(surface);pane.scrollTop=Math.max(0,axis.position(axis.start)-12);}}}
@@ -306,19 +329,19 @@ function renderContent(){
 }
 function taskRow(t:Task,old=false,state=''){
   const current=state==='current',past=old||state==='overdue';
-  return `<div class="agenda-task ${current?'current':''}" ${current?'aria-current="true"':''}><div class="task-row ${t.completed?'completed':''}" data-drag="${esc(t.id)}"><label class="check-target"><input aria-label="${esc(t.title)} 완료" type="checkbox" data-complete="${esc(t.id)}" ${t.completed?'checked':''}></label><span class="row-time">${t.starts_at?time(taskMinute(t)):'미배치'}</span><button class="task-title" data-task="${esc(t.id)}">${esc(t.title)}${old?`<small>${dateLabel(t.starts_at!.slice(0,10))}${t.body.trim()?' · '+esc(t.body.split('\n').find(Boolean)):''}</small>`:''}</button>${past?'<span class="badge overdue-badge">지남</span>':''}<span class="duration">${formatDuration(t.duration)}</span></div>${current?`<div class="current-detail"><span class="badge">진행 중</span>${t.body?`<p class="memo-preview">${esc(t.body.split('\n').slice(0,3).join('\n'))}</p>`:''}<div class="detail-actions"><button class="primary" data-complete="${esc(t.id)}">완료로 표시</button><button data-task="${esc(t.id)}">상세 열기</button></div></div>`:''}</div>`;
+  return `<div class="agenda-task ${current?'current':''}" ${current?'aria-current="true"':''}><div class="task-row ${t.completed?'completed':''}" data-drag="${esc(t.id)}"><label class="check-target"><input aria-label="${esc(t.title)} 완료" type="checkbox" data-complete="${esc(t.id)}" ${t.completed?'checked':''}></label><span class="row-time">${t.starts_at?time(taskMinute(t)):'미계획'}</span><button class="task-title" data-task="${esc(t.id)}">${esc(t.title)}${old?`<small>${dateLabel(t.starts_at!.slice(0,10))}${t.body.trim()?' · '+esc(t.body.split('\n').find(Boolean)):''}</small>`:''}</button>${past?'<span class="badge overdue-badge">지남</span>':''}<span class="duration">${formatDuration(t.duration)}</span></div>${current?`<div class="current-detail"><span class="badge">진행 중</span>${t.body?`<p class="memo-preview">${esc(t.body.split('\n').slice(0,3).join('\n'))}</p>`:''}<div class="detail-actions"><button class="primary" data-complete="${esc(t.id)}">완료로 표시</button><button data-task="${esc(t.id)}">상세 열기</button></div></div>`:''}</div>`;
 }
 function todayHTML(){
   const tasks=tasksOn(selected),old=overdue(),items=agenda(selected,snapshot!.tasks,dayRule(selected),selected===today()?nowMinute():null);
   const done=tasks.filter(t=>t.completed).length,remaining=tasks.filter(t=>!t.completed).reduce((sum,t)=>sum+t.duration,0);
-  return `${tasks.length?`<div class="today-summary">배치 ${tasks.length}건${done?` · 완료 ${done}`:''}${remaining?` · 남은 배치 ${formatDuration(remaining)}`:''}</div>`:''}<div class="today-layout"><section class="panel task-list"><div class="section-header"><h2>${selected===today()?'오늘 순서':dateLabel(selected)+' 순서'}</h2></div>${!tasks.length?'<p class="empty-small">아직 배치한 일이 없어요. <button id="go-plan">계획 열기</button></p>':''}${items.map(item=>item.kind==='task'?taskRow(item.task,false,item.state):`<div class="agenda-interval ${item.kind}"><span class="row-time">${time(item.start)}</span><span>${item.kind==='unavailable'?esc(item.label)+' · 작업 불가 ':''}${formatDuration(item.end-item.start)}</span></div>`).join('')}${old.length?`<section class="overdue"><div class="section-header"><h3>지난 미완료 ${old.length}</h3><button id="review">계획에서 옮기기</button></div>${old.map(t=>taskRow(t,true)).join('')}</section>`:''}</section><section class="panel timeline-panel"><div class="section-header"><h2>시간표</h2></div>${dayAvailabilityHTML(snapshot!.settings,selected)}${timelineHTML(selected)}</section></div>`;
+  return `${tasks.length?`<div class="today-summary">배치 ${tasks.length}건${done?` · 완료 ${done}`:''}${remaining?` · 남은 배치 ${formatDuration(remaining)}`:''}</div>`:''}<div class="today-layout"><section class="panel task-list"><div class="section-header"><h2>${selected===today()?'오늘 순서':dateLabel(selected)+' 순서'}</h2></div>${!tasks.length?'<p class="empty-small">아직 배치한 일이 없어요. <button id="go-plan">계획 열기</button></p>':''}${items.map(item=>item.kind==='task'?taskRow(item.task,false,item.state):`<div class="agenda-interval ${item.kind}"><span class="row-time">${time(item.start)}</span><span>${item.kind==='unavailable'?esc(item.label)+' · 작업 불가 ':''}${formatDuration(item.end-item.start)}</span></div>`).join('')}${old.length?`<section class="overdue"><div class="section-header"><h3>지난 미완료 ${old.length}</h3><button id="review">계획에서 옮기기</button></div>${old.map(t=>taskRow(t,true)).join('')}</section>`:''}</section><section class="panel timeline-panel"><div class="section-header"><h2>시간표</h2>${calendarScheduleButton()}${clearDayButton()}</div>${dayAvailabilityHTML(snapshot!.settings,selected)}${timelineHTML(selected)}</section></div>`;
 }
 function inboxChip(t:Task,old=false){return `<button class="inbox-chip ${old?'past':''} ${dragId===t.id?'dragging':''}" data-drag="${esc(t.id)}" data-task="${esc(t.id)}" aria-label="${esc(t.title)}, ${formatDuration(t.duration)}, 상세 열기"><svg aria-hidden="true" viewBox="0 0 12 20" fill="currentColor"><path d="M3 4h2v2H3zm4 0h2v2H7zM3 9h2v2H3zm4 0h2v2H7zM3 14h2v2H3zm4 0h2v2H7z"/></svg><span>${esc(t.title)}</span><small>${old?dateLabel(t.starts_at!.slice(0,10)):formatDuration(t.duration)}</small></button>`;}
 function inboxHTML(){
   const tasks=inboxTasks(),total=tasks.reduce((sum,t)=>sum+t.duration,0);
   const completed=snapshot!.tasks.filter(t=>!t.starts_at&&t.completed);
-  const row=(t:Task)=>`<div class="inbox-item ${t.completed?'completed':''}"><label class="check-target"><input type="checkbox" data-complete="${esc(t.id)}" aria-label="${esc(t.title)} 완료" ${t.completed?'checked':''}></label><button class="inbox-item-main" data-task="${esc(t.id)}" aria-label="${esc(t.title)} 편집"><span><strong>${esc(t.title)}</strong><small>${t.body?esc(t.body.split('\n')[0]):''}</small></span></button><button class="size-button" data-edit-time="${esc(t.id)}" aria-label="${esc(t.title)} 블록 크기 변경">${formatDuration(t.duration)}</button>${t.completed?'':`<button class="text-button" data-plan-task="${esc(t.id)}">배치</button>`}<button class="text-button danger" data-delete="${esc(t.id)}" aria-label="${esc(t.title)} 삭제">삭제</button></div>`;
-  return `<section class="inbox-page"><form id="inbox-form" class="inbox-entry"><label class="sr-only" for="inbox-capture">할 일 담기</label>${icon('plus')}<input id="inbox-capture" autocomplete="off" maxlength="650" placeholder="어떤 일을 해야 하나요?" value="${esc(captureDraft.text)}"><button type="submit">담기</button></form>${tasks.length?`<div class="inbox-list-heading"><h3>배치를 기다리는 일 <span>${tasks.length}</span></h3><span>${formatDuration(total)} 분량</span><button id="go-plan">계획에 배치하기 ${icon('right')}</button></div>`:''}<div class="inbox-list">${tasks.map(row).join('')||'<div class="empty"><p>미계획이 비어 있어요.</p></div>'}</div>${completed.length?`<details class="inbox-completed" ${inboxCompletedOpen?'open':''}><summary>완료 ${completed.length}</summary><div class="inbox-list">${completed.map(row).join('')}</div></details>`:''}</section>`;
+  const row=(t:Task)=>`<div class="inbox-item ${t.completed?'completed':''}"><label class="check-target"><input type="checkbox" data-complete="${esc(t.id)}" aria-label="${esc(t.title)} 완료" ${t.completed?'checked':''}></label><button class="inbox-item-main" data-task="${esc(t.id)}" aria-label="${esc(t.title)} 편집"><span><strong>${esc(t.title)}</strong><small>${t.body?esc(t.body.split('\n')[0]):''}</small></span></button><button class="size-button" data-edit-time="${esc(t.id)}" aria-label="${esc(t.title)} 블록 크기 변경">${formatDuration(t.duration)}</button><button class="icon-button danger" data-delete="${esc(t.id)}" aria-label="${esc(t.title)} 삭제" title="삭제">${icon('delete')}</button></div>`;
+  return `<section class="inbox-page"><form id="inbox-form" class="inbox-entry"><label class="sr-only" for="inbox-capture">할 일 담기</label>${icon('plus')}<input id="inbox-capture" autocomplete="off" maxlength="650" placeholder="어떤 일을 해야 하나요?" value="${esc(captureDraft.text)}"></form>${tasks.length?`<div class="inbox-list-heading"><h3>배치를 기다리는 일 <span>${tasks.length}</span></h3><span>${formatDuration(total)} 분량</span><button id="go-plan">계획에 배치하기 ${icon('right')}</button></div>`:''}<div class="inbox-list">${tasks.map(row).join('')||'<div class="empty"><p>미계획이 비어 있어요.</p></div>'}</div>${completed.length?`<details class="inbox-completed" ${inboxCompletedOpen?'open':''}><summary>완료 ${completed.length}</summary><div class="inbox-list">${completed.map(row).join('')}</div></details>`:''}</section>`;
 }
 function planHTML(){
   const first=dateOf(planAnchor);if(period==='month')first.setDate(1);first.setDate(first.getDate()-(first.getDay()+6)%7);
@@ -329,7 +352,7 @@ function planHTML(){
     const d=dateOf(key),tasks=tasksOn(key),capacity=available(key),off=!dayRule(key).enabled,exception=snapshot!.settings.exceptions?.find(e=>e.date===key),used=tasks.reduce((n,t)=>n+t.duration,0);
     return `<button data-date="${key}" aria-pressed="${key===selected}" aria-label="${dateLabel(key)}, 작업 ${tasks.length}건" class="day-cell ${key===today()?'is-today':''} ${off?'off-day':''} ${d.getMonth()!==dateOf(planAnchor).getMonth()?'outside-month':''}"><span class="day-number">${d.getDate()===1?d.getMonth()+1+'/':''}${d.getDate()}${key===today()?'<small>오늘</small>':''}</span>${exception?`<small class="day-exception">${exception.kind==='leave'?'휴가':exception.kind==='early'?'조퇴':'시간 변경'}</small>`:''}${period==='two'?`<span class="day-tasks">${tasks.slice(0,4).map(t=>`<span role="button" tabindex="0" data-task="${t.id}" class="mini-task ${t.completed?'done':''}"><small>${time(taskMinute(t))}</small>${esc(t.title)}</span>`).join('')}${tasks.length>4?`<small>+${tasks.length-4}건</small>`:''}</span>`:tasks.length?`<span class="day-summary">${tasks.length}건 · ${formatDuration(used)}</span>`:''}${off?`<small>${exception?.kind==='leave'?'':'휴무'}</small>`:period==='month'?`<span class="occupancy" style="--segments:1" aria-label="배치 ${formatDuration(used)}"><i style="width:${capacity?Math.min(100,used/capacity*100):0}%"></i></span>`:''}</button>`;
   }).join('')}</div>`;
-  return `<div class="plan-toolbar"><div class="segmented" aria-label="계획 기간">${[['week','주'],['two','2주'],['month','월']].map(([key,label])=>`<button data-period="${key}" aria-pressed="${period===key}">${label}</button>`).join('')}</div><span class="week-summary">${weeklySummary(snapshot!.settings,selected)}</span><button id="toggle-inbox" aria-expanded="${inboxOpen}" aria-controls="inbox-drawer">${icon('inbox')} 미계획 ${inbox.length?`<span>${inbox.length}</span>`:''}</button></div><div class="planning-desk ${inboxOpen?'with-inbox':''}"><div class="plan-layout ${period==='week'?'week-layout':''}"><section class="panel month-panel" aria-label="${period==='week'?'주간 시간표':period==='two'?'2주 작업 목록':'월간 작업량'}">${calendar}</section>${period==='week'?'':`<section class="panel day-panel"><div class="section-header"><h2>${dateLabel(selected)}</h2></div>${dayAvailabilityHTML(settingsDraft??snapshot!.settings,selected)}${timelineHTML(selected)}</section>`}</div><aside class="inbox-panel" id="inbox-drawer" data-inbox-drop ${inboxOpen?'':'hidden'}><div class="section-header"><h2>미계획 ${inbox.length?`<span>${inbox.length}</span>`:''}</h2><button class="icon-button" id="close-inbox" aria-label="미계획 패널 닫기">${icon('close')}</button></div><form id="inbox-form" class="tray-entry"><label class="sr-only" for="inbox-capture">미계획에 추가</label><input id="inbox-capture" autocomplete="off" maxlength="650" placeholder="새 할 일" value="${esc(captureDraft.text)}"><button type="submit" class="icon-button" aria-label="미계획에 추가">${icon('plus')}</button></form><div class="inbox-chips">${inbox.map(t=>inboxChip(t)).join('')||'<p class="empty-small">미계획 없음</p>'}</div>${old.length?`<h3 class="carryover-title">지난 미완료 <span>${old.length}</span></h3><div class="inbox-chips">${old.map(t=>inboxChip(t,true)).join('')}</div>`:''}</aside></div>`;
+  return `<div class="plan-toolbar"><div class="segmented" aria-label="계획 기간">${[['week','주'],['two','2주'],['month','월']].map(([key,label])=>`<button data-period="${key}" aria-pressed="${period===key}">${label}</button>`).join('')}</div><span class="week-summary">${weeklySummary(snapshot!.settings,selected)}</span><button id="go-routines">정기 업무</button>${calendarScheduleButton()}${clearDayButton()}<button id="toggle-inbox" aria-expanded="${inboxOpen}" aria-controls="inbox-drawer">${icon('inbox')} 미계획 ${inbox.length?`<span>${inbox.length}</span>`:''}</button></div><div class="planning-desk ${inboxOpen?'with-inbox':''}"><div class="plan-layout ${period==='week'?'week-layout':''}"><section class="panel month-panel" aria-label="${period==='week'?'주간 시간표':period==='two'?'2주 작업 목록':'월간 작업량'}">${calendar}</section>${period==='week'?'':`<section class="panel day-panel"><div class="section-header"><h2>${dateLabel(selected)}</h2></div>${dayAvailabilityHTML(settingsDraft??snapshot!.settings,selected)}${timelineHTML(selected)}</section>`}</div><aside class="inbox-panel" id="inbox-drawer" data-inbox-drop ${inboxOpen?'':'hidden'}><div class="section-header"><h2>미계획 ${inbox.length?`<span>${inbox.length}</span>`:''}</h2><button class="icon-button" id="close-inbox" aria-label="미계획 패널 닫기">${icon('close')}</button></div><form id="inbox-form" class="tray-entry"><label class="sr-only" for="inbox-capture">미계획에 추가</label><input id="inbox-capture" autocomplete="off" maxlength="650" placeholder="새 할 일" value="${esc(captureDraft.text)}"></form><div class="inbox-chips">${inbox.map(t=>inboxChip(t)).join('')||'<p class="empty-small">미계획 없음</p>'}</div>${old.length?`<h3 class="carryover-title">지난 미완료 <span>${old.length}</span></h3><div class="inbox-chips">${old.map(t=>inboxChip(t,true)).join('')}</div>`:''}</aside></div>`;
 
 }
 function weekHTML(dates:string[]){
@@ -358,6 +381,9 @@ function fitTimeline(){
 }
 
 function bindContent(){
+  document.querySelector('#clear-day')?.addEventListener('click',()=>void clearDay());
+  document.querySelector('#go-routines')?.addEventListener('click',()=>{view='settings';render();$('#routine-title').focus();});
+  document.querySelector('#review-calendar-schedule')?.addEventListener('click',()=>openCalendarAvailability(selected,'work'));
   const completed=document.querySelector<HTMLDetailsElement>('.inbox-completed');if(completed)completed.ontoggle=()=>{if(completed.isConnected)inboxCompletedOpen=completed.open;};
   document.querySelectorAll<HTMLButtonElement>('[data-delete]').forEach(b=>b.onclick=()=>{const task=snapshot!.tasks.find(t=>t.id===b.dataset.delete);if(task)void deleteTask(task);});
   document.querySelectorAll<HTMLButtonElement>('[data-edit-time]').forEach(b=>b.onclick=()=>{openEditor(b.dataset.editTime!);$<HTMLDetailsElement>('.editor-schedule').open=true;$('#edit-duration').focus();});
@@ -371,7 +397,6 @@ function bindContent(){
   document.querySelectorAll<HTMLElement>('[data-day-step]').forEach(b=>b.onclick=()=>{selected=plusDays(selected,Number(b.dataset.dayStep));renderContent();});
   const inboxInput=document.querySelector<HTMLInputElement>('#inbox-capture');
   if(inboxInput){inboxInput.oninput=()=>{captureDraft.edit(inboxInput.value);draftChanged();};inboxInput.onkeydown=e=>{if(e.key==='Enter'&&isCompositionKey(e))e.preventDefault();};$('#inbox-form').onsubmit=e=>{e.preventDefault();void submitCapture();};}
-  document.querySelectorAll<HTMLElement>('[data-plan-task]').forEach(b=>b.onclick=()=>{view='plan';planAnchor=selected;inboxOpen=true;render();const block=document.querySelector<HTMLElement>(`[data-drag="${CSS.escape(b.dataset.planTask!)}"]`);block?.focus();});
   document.querySelectorAll<HTMLElement>('[data-add-date]').forEach(b=>b.onclick=e=>{if(e.detail===0)openComposer(b.dataset.addDate!,Number(b.dataset.addMinute));});
   bindCalendarGestures($('#content'),{
     task:id=>snapshot!.tasks.find(t=>t.id===id),
@@ -392,6 +417,32 @@ function bindContent(){
   document.querySelectorAll<HTMLElement>('[data-adjust-date]').forEach(b=>b.onclick=e=>openCalendarAvailability(b.dataset.adjustDate!,'work',e.clientX,e.clientY));
   document.querySelectorAll<HTMLElement>('.timeline .unavailable').forEach(b=>{b.tabIndex=0;b.setAttribute('role','button');b.setAttribute('aria-label',(b.textContent||'근무 외 시간')+' 조정');const adjust=()=>{const rect=b.getBoundingClientRect();openCalendarAvailability(b.closest<HTMLElement>('[data-calendar-surface]')!.dataset.date!,'work',rect.left,rect.top);};b.onclick=adjust;b.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();adjust();}};});
 }
+
+function calendarScheduleButton(){return settingsDraft?'<button id="review-calendar-schedule">시간 변경 검토</button>':'';}
+function clearDayButton(){return `<button id="clear-day" class="text-button" aria-label="${esc(dateLabel(selected))} 일정 비우기" ${tasksOn(selected).length?'':'disabled'}>하루 비우기</button>`;}
+async function clearDay(){
+  if(queue.busy||queue.failed)return;
+  if(captureDraft.text||editorDirty||settingsDraft||routineDraft||Object.keys(rawSchedules).length){showError(Error('작성 중인 내용을 저장하거나 되돌린 뒤 하루 일정을 비워 주세요.'));return;}
+  const date=selected,epoch=snapshot!.epoch,expected_tasks=tasksOn(date).map(({id,revision})=>({id,revision}));
+  if(!expected_tasks.length||!await ask(`${dateLabel(date)}의 블록 ${expected_tasks.length}개를 미계획으로 돌릴까요? 제목·메모·완료 상태는 유지됩니다.`))return;
+  await dispatch({type:'clear_day',date,expected_tasks},epoch,undefined,()=>{message='하루 일정을 비웠습니다. 작업은 미계획에 보관했습니다.';});
+}
+async function ensureVisibleRoutines(){
+  if(!ready||!storedDraft.loaded||captureWindow||quitSaving||routineRangePending||queue.busy||queue.failed||settingsDraft||routineDraft||Object.keys(rawSchedules).length||editorDirty||captureDraft.text||calendarComposing||resizing||!snapshot?.settings.routines?.length||!['today','plan'].includes(view))return;
+  let from=selected,to=selected;
+  if(view==='plan'){
+    const first=dateOf(planAnchor);if(period==='month')first.setDate(1);first.setDate(first.getDate()-(first.getDay()+6)%7);from=dateKey(first);
+    const last=dateOf(planAnchor);last.setMonth(last.getMonth()+1,0);
+    const monthStart=dateOf(planAnchor);monthStart.setDate(1);
+    to=plusDays(from,period==='week'?6:period==='two'?13:Math.ceil(((monthStart.getDay()+6)%7+last.getDate())/7)*7-1);
+  }
+  from=from<today()?today():from;if(from>to)return;
+  const key=[snapshot.epoch,snapshot.settings.revision,from,to].join(':');if(routineRanges.has(key))return;
+  routineRangePending=true;
+  const existingIds=new Set(snapshot.tasks.map(t=>t.id));
+  try{await dispatch({type:'ensure_routines',from,to},snapshot.epoch,undefined,()=>{routineRanges.add(key);const unplanned=snapshot!.tasks.filter(t=>!existingIds.has(t.id)&&!t.starts_at);if(unplanned.length)message=`시간이 겹치거나 근무 외인 정기 업무 ${unplanned.length}건을 미계획에 보관했습니다.`;});}
+  finally{routineRangePending=false;void ensureVisibleRoutines();}
+}
 async function moveTask(t:Task,start:number,duration:number){
   const date=selected,issue=placementIssue(t.id,date,start,duration);if(issue){showError(Error(issue.label));return;}
   await dispatch({type:'update',id:t.id,expected_revision:t.revision,title:t.title,body:t.body,starts_at:date+'T'+time(start),duration},snapshot!.epoch,undefined,()=>{placedId=t.id;message=`‘${t.title}’ ${time(start)}–${time(start+duration)}에 배치했어요`;setTimeout(()=>{placedId='';document.querySelectorAll('.placed').forEach(el=>el.classList.remove('placed'));},600);});
@@ -400,18 +451,26 @@ async function moveTask(t:Task,start:number,duration:number){
 function openCalendarAvailability(date:string,target:AvailabilityTarget,x=innerWidth/2,y=150){
   document.querySelector('#calendar-availability-editor')?.remove();
   selected=date;const panel=document.createElement('section');panel.id='calendar-availability-editor';panel.className='calendar-availability-editor';panel.setAttribute('popover','auto');panel.setAttribute('aria-label',dateLabel(date)+' 근무시간 조정');
-  panel.innerHTML=`<div class="section-header"><h3>${esc(dateLabel(date))}</h3><button type="button" class="icon-button" data-close-availability aria-label="시간 조정 닫기">${icon('close')}</button></div>${dayAvailabilityHTML(settingsDraft??snapshot!.settings,date)}`;
+  panel.innerHTML=`<div class="section-header"><h3>${esc(dateLabel(date))}</h3><button type="button" class="icon-button" data-close-availability aria-label="시간 조정 닫기">${icon('close')}</button></div>${dayAvailabilityHTML(settingsDraft??snapshot!.settings,date,true)}`;
   document.body.append(panel);bindSchedule(panel,date);panel.showPopover();focusAvailabilityBand(panel,target);
   panel.style.left=Math.max(8,Math.min(x,innerWidth-panel.offsetWidth-8))+'px';panel.style.top=Math.max(8,Math.min(y,innerHeight-panel.offsetHeight-8))+'px';
   panel.querySelector<HTMLButtonElement>('[data-close-availability]')!.onclick=()=>{panel.hidePopover();panel.remove();};
   panel.addEventListener('toggle',e=>{if((e as ToggleEvent).newState==='closed')panel.remove();});
 }
-function changeCalendarAvailability(date:string,target:AvailabilityTarget,edge:AvailabilityEdge,value:number,x:number,y:number){
+function changeCalendarAvailability(date:string,target:AvailabilityTarget,edge:AvailabilityEdge,value:number,x:number,y:number,openEditor=true){
   try{
     if(rawSchedules[date]?.invalid)throw Error('작성 중인 시간을 먼저 확인하세요.');
+    const hadDraft=!!settingsDraft||!!Object.keys(rawSchedules).length;
     const day=changeAvailabilityBand(dayRule(date),target,edge,value),draft=structuredClone(settingsDraft??snapshot!.settings);
     draft.exceptions=[...(draft.exceptions??[]).filter(e=>e.date!==date),{date,kind:'custom',day}];
-    settingsBase??={epoch:snapshot!.epoch,revision:snapshot!.settings.revision};settingsDraft=draft;delete rawSchedules[date];draftChanged();selected=date;renderContent();openCalendarAvailability(date,target,x,y);
+    settingsBase??={epoch:snapshot!.epoch,revision:snapshot!.settings.revision};settingsDraft=draft;delete rawSchedules[date];draftChanged();selected=date;document.querySelector('#calendar-availability-editor')?.remove();renderContent();
+    if(openEditor)openCalendarAvailability(date,target,x,y);
+    else if(!hadDraft){
+      const conflicts=snapshot!.tasks.filter(t=>t.starts_at&&checkPlacement(t.id,t.starts_at.slice(0,10),taskMinute(t),t.duration,effectiveDay(draft,t.starts_at.slice(0,10)),[]));
+      if(conflicts.length){showError(Error(`‘${conflicts.map(t=>t.title).join(', ')}’과 시간이 충돌합니다. 시간 변경 검토에서 확인하세요.`));return;}
+      const base=settingsBase;
+      void dispatch({type:'set_schedule',expected_revision:base.revision,days:draft.days,exceptions:draft.exceptions??[],weekly_target:draft.weekly_target??2400,work_days:draft.work_days??5,move_conflicts:false},base.epoch,undefined,()=>{if(settingsDraft===draft){settingsDraft=null;settingsBase=null;}else if(settingsDraft){settingsBase={epoch:snapshot!.epoch,revision:snapshot!.settings.revision};}persistDraft();});
+    }
   }catch(e){showError(e);}
 }
 function openComposer(date:string,start=540,duration=30,restoring=false){
@@ -640,13 +699,53 @@ async function restoreBackup(){
   if(recovery&&!await ask('현재 손상 기록은 복구 자료로 보존됩니다. 선택한 백업으로 현재 기록을 교체할까요?'))return;
   await queue.add(async()=>{
     backups.busy='restore';backupReport('');
-    try{if(backups.selected!==id)throw Error('복원할 백업을 다시 확인하세요.');if(captureDraft.text||editorDirty||Object.keys(rawSchedules).length||settingsDraft||draftTimer)throw Error('작성 중인 내용을 저장하거나 되돌린 뒤 복원하세요.');snapshot=await invoke<Snapshot>(recovery?'recover_backup':'restore',recovery?{id}:{id,epoch});ready=true;loadError='';editor=null;if(recovery){await loadStoredDraft(true);view='settings';}backups.selected=null;backups.inspection=null;++backupInspectionSequence;backupReport(recovery?'기록을 복구했습니다. 손상 기록은 복구 자료로 보존했습니다.':'기록을 복원했습니다. 교체 전 기록도 백업에 보관했습니다.');await refreshAppInfo();await loadBackups();render();document.querySelector<HTMLElement>('#backup-heading')?.focus();}
+    try{if(backups.selected!==id)throw Error('복원할 백업을 다시 확인하세요.');if(captureDraft.text||editorDirty||Object.keys(rawSchedules).length||settingsDraft||routineDraft||draftTimer)throw Error('작성 중인 내용을 저장하거나 되돌린 뒤 복원하세요.');snapshot=await invoke<Snapshot>(recovery?'recover_backup':'restore',recovery?{id}:{id,epoch});ready=true;loadError='';editor=null;if(recovery){await loadStoredDraft(true);view='settings';}backups.selected=null;backups.inspection=null;++backupInspectionSequence;backupReport(recovery?'기록을 복구했습니다. 손상 기록은 복구 자료로 보존했습니다.':'기록을 복원했습니다. 교체 전 기록도 백업에 보관했습니다.');await refreshAppInfo();await loadBackups();render();document.querySelector<HTMLElement>('#backup-heading')?.focus();}
     catch(e){backupReport(backupError(e),true);throw e;}
     finally{backups.busy=null;paintBackupManager();}
   }).catch(()=>{});
 }
 
-function settingsHTML(){return `<div class="settings-layout"><section class="panel" id="availability-settings">${availabilityHTML(settingsDraft??snapshot!.settings)}</section><section class="panel operations">${themePickerHTML(resolveTheme(document.documentElement.dataset.theme))}<hr><h2>빠른 캡처</h2><form id="shortcut-form"><label for="shortcut">단축키</label><div class="shortcut-control"><input id="shortcut" value="${esc(shortcut)}" readonly aria-label="빠른 캡처 단축키"><button type="submit">변경</button></div><p id="shortcut-result" role="status"></p></form><hr><h2>실행과 기록 보관</h2><label class="check-line"><input id="autostart" type="checkbox" ${autoStart?'checked':''} ${native?'':'disabled'}>Windows 로그인 시 자동실행</label><label class="check-line"><input id="exit-on-close" type="checkbox" ${exitOnClose?'checked':''} ${native?'':'disabled'}>창을 닫으면 앱 종료</label><hr>${backupManagerHTML()}<details class="diagnostics"><summary>진단 정보</summary><label>저장소 위치<input readonly value="${esc(dbPath||'데스크톱 앱에서 확인')}" aria-label="저장소 위치"></label><p>시간별 24개 · 일별 30개 보관</p></details></section></div>`;}
+function settingsHTML(){return `<div class="settings-layout"><section class="panel"><div id="availability-settings">${availabilityHTML(settingsDraft??snapshot!.settings)}</div>${routinesHTML()}</section><section class="panel operations">${themePickerHTML(resolveTheme(document.documentElement.dataset.theme))}<hr><h2>빠른 캡처</h2><form id="shortcut-form"><label for="shortcut">단축키</label><div class="shortcut-control"><input id="shortcut" value="${esc(shortcut)}" readonly aria-label="빠른 캡처 단축키"><button type="submit">변경</button></div><p id="shortcut-result" role="status"></p></form><hr><h2>실행과 기록 보관</h2><label class="check-line"><input id="autostart" type="checkbox" ${autoStart?'checked':''} ${native?'':'disabled'}>Windows 로그인 시 자동실행</label><label class="check-line"><input id="exit-on-close" type="checkbox" ${exitOnClose?'checked':''} ${native?'':'disabled'}>창을 닫으면 앱 종료</label><hr>${backupManagerHTML()}<details class="diagnostics"><summary>진단 정보</summary><label>저장소 위치<input readonly value="${esc(dbPath||'데스크톱 앱에서 확인')}" aria-label="저장소 위치"></label><p>시간별 24개 · 일별 30개 보관</p></details></section></div>`;}
+const routineWeekdays=['월','화','수','목','금','토','일'];
+function routinesHTML(){
+  const routines=snapshot!.settings.routines??[],draft=routineDraft;
+  return `<section id="routines" class="routines" aria-labelledby="routines-heading"><div class="section-header"><h2 id="routines-heading">정기 업무</h2></div><div class="routine-list">${routines.map(r=>`<div class="routine-row"><button type="button" data-edit-routine="${esc(r.id)}"><strong>${esc(r.title)}</strong><small>${r.weekdays.map(d=>routineWeekdays[d]).join('·')} · ${time(r.start)}–${time(r.start+r.duration)}</small></button><button type="button" class="icon-button danger" data-delete-routine="${esc(r.id)}" aria-label="${esc(r.title)} 정기 업무 삭제">${icon('delete')}</button></div>`).join('')}</div><form id="routine-form"><label for="routine-title">${draft&&routines.some(r=>r.id===draft.id)?'정기 업무 수정':'새 정기 업무'}</label><input id="routine-title" value="${esc(draft?.title??'')}" placeholder="업무 이름" maxlength="650" required><fieldset class="routine-weekdays"><legend>반복 요일</legend>${routineWeekdays.map((label,i)=>`<label><input type="checkbox" name="routine-weekday" value="${i}" ${(draft?.weekdays??[0,1,2,3,4]).includes(i)?'checked':''}>${label}</label>`).join('')}</fieldset><div class="schedule-line"><div><label for="routine-start">시작 시각</label><input id="routine-start" type="time" step="900" value="${esc(draft?.start??'09:00')}" required></div><div><label for="routine-duration">소요시간 (분)</label><input id="routine-duration" type="number" min="15" max="1440" step="15" value="${esc(draft?.duration??'30')}" required></div></div><label for="routine-body">메모</label><textarea id="routine-body" rows="2">${esc(draft?.body??'')}</textarea><p id="routine-error" class="error" role="alert"></p><div class="detail-actions"><button type="submit" class="primary">${draft&&routines.some(r=>r.id===draft.id)?'저장':'추가'}</button><button type="button" id="routine-cancel" ${draft?'':'hidden'}>되돌리기</button></div></form></section>`;
+}
+function bindRoutines(){
+  const form=$<HTMLFormElement>('#routine-form');
+  const read=()=>{
+    routineDraft={id:routineDraft?.id??crypto.randomUUID(),epoch:routineDraft?.epoch??snapshot!.epoch,revision:routineDraft?.revision??snapshot!.settings.revision,title:$<HTMLInputElement>('#routine-title').value,body:$<HTMLTextAreaElement>('#routine-body').value,start:$<HTMLInputElement>('#routine-start').value,duration:$<HTMLInputElement>('#routine-duration').value,weekdays:Array.from(form.querySelectorAll<HTMLInputElement>('[name=routine-weekday]:checked')).map(input=>Number(input.value))};
+    $('#routine-cancel').hidden=false;$('#routine-error').textContent='';draftChanged();return routineDraft;
+  };
+  form.oninput=()=>{read();};
+  form.onkeydown=e=>{if(e.key==='Enter'&&isCompositionKey(e))e.preventDefault();};
+  form.onsubmit=async e=>{
+    e.preventDefault();if(queue.busy||queue.failed)return;
+    const draft=read(),start=minutes(draft.start),duration=Number(draft.duration);
+    if(!draft.title.trim()||!draft.weekdays.length||!Number.isFinite(start)||start%15||!Number.isInteger(duration)||duration<15||duration%15||start+duration>1440){$('#routine-error').textContent='제목과 반복 요일을 선택하고, 하루 안의 시간을 15분 단위로 입력하세요.';return;}
+    if(settingsDraft){$('#routine-error').textContent='근무시간 변경을 먼저 저장하거나 되돌려 주세요.';return;}
+    if(draft.epoch!==snapshot!.epoch||draft.revision!==snapshot!.settings.revision){
+      if(!await ask('정기 업무 설정이 변경됐습니다. 최신 목록에 지금 입력을 적용할까요?'))return;
+      draft.epoch=snapshot!.epoch;draft.revision=snapshot!.settings.revision;
+    }
+    const routine:Routine={id:draft.id,title:draft.title.trim(),body:draft.body,weekdays:draft.weekdays,start,duration};
+    const routines=[...(snapshot!.settings.routines??[]).filter(r=>r.id!==routine.id),routine];
+    await dispatch({type:'set_routines',expected_revision:draft.revision,routines},draft.epoch,undefined,()=>{if(routineDraft===draft)routineDraft=null;persistDraft();});
+  };
+  $('#routine-cancel').onclick=async()=>{if(!await ask('작성 중인 정기 업무 변경을 버릴까요?'))return;routineDraft=null;persistDraft();renderContent();};
+  document.querySelectorAll<HTMLButtonElement>('[data-edit-routine]').forEach(button=>button.onclick=()=>{
+    if(routineDraft){$('#routine-error').textContent='작성 중인 정기 업무를 저장하거나 되돌려 주세요.';return;}
+    const routine=snapshot!.settings.routines!.find(r=>r.id===button.dataset.editRoutine)!;
+    routineDraft={...routine,start:time(routine.start),duration:String(routine.duration),epoch:snapshot!.epoch,revision:snapshot!.settings.revision};draftChanged();renderContent();$('#routine-title').focus();
+  });
+  document.querySelectorAll<HTMLButtonElement>('[data-delete-routine]').forEach(button=>button.onclick=async()=>{
+    if(queue.busy||queue.failed)return;
+    if(routineDraft||settingsDraft){$('#routine-error').textContent='작성 중인 변경을 먼저 저장하거나 되돌려 주세요.';return;}
+    const base=snapshot!,routine=base.settings.routines!.find(r=>r.id===button.dataset.deleteRoutine)!;
+    if(!await ask(`‘${routine.title}’ 정기 업무를 삭제할까요? 이미 생성된 블록은 유지됩니다.`))return;
+    await dispatch({type:'set_routines',expected_revision:base.settings.revision,routines:base.settings.routines!.filter(r=>r.id!==routine.id)},base.epoch);
+  });
+}
 function bindSchedule(root:HTMLElement,date:string|null){
   root.addEventListener('click',e=>{if((e.target as HTMLElement).closest('#select-exception-date')){view='plan';planAnchor=selected;render();}});
   bindAvailability(root,settingsDraft??snapshot!.settings,snapshot!.tasks,date,{
@@ -659,6 +758,7 @@ function bindSchedule(root:HTMLElement,date:string|null){
 }
 function bindSettings(){
   bindSchedule($('#availability-settings'),null);
+  bindRoutines();
   document.querySelectorAll<HTMLInputElement>('input[name=theme]').forEach(input=>input.onchange=()=>{
     try{
       document.documentElement.dataset.theme=saveTheme(localStorage,input.value);

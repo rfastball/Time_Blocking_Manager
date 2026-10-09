@@ -1,9 +1,9 @@
 import type {Task,WorkingDay} from './types';
 import type {AvailabilityTarget,AvailabilityEdge} from './availability-band';
-import {changeAvailabilityBand} from './availability-band';
-import {selectionRange} from './placement';
-import {formatDuration} from './format';
-import {readTimeAxis,expandTimeAxis,paintCalendarAxis} from './time-axis';
+import {changeAvailabilityBand} from './availability-band.ts';
+import {selectionRange} from './placement.ts';
+import {formatDuration} from './format.ts';
+import {readTimeAxis,expandTimeAxis,paintCalendarAxis} from './time-axis.ts';
 import type {TimeAxis} from './time-axis';
 
 type CalendarActions={
@@ -17,8 +17,18 @@ type CalendarActions={
   error:(label:string)=>void;
   availabilityDay:(date:string)=>WorkingDay;
   availabilitySelect:(date:string,target:AvailabilityTarget,x:number,y:number)=>void;
-  availabilityChange:(date:string,target:AvailabilityTarget,edge:AvailabilityEdge,start:number,x:number,y:number)=>void;
+  availabilityChange:(date:string,target:AvailabilityTarget,edge:AvailabilityEdge,start:number,x:number,y:number,openEditor?:boolean)=>void;
 };
+export function suppressGestureClick(pointerId:number){
+  const cleanup=()=>{document.removeEventListener('click',suppress,{capture:true});document.removeEventListener('pointerdown',cleanup,{capture:true});document.removeEventListener('keydown',cleanup,{capture:true});};
+  const suppress=(click:MouseEvent)=>{
+    if(click.detail===0||'pointerId' in click&&(click as PointerEvent).pointerId!==pointerId)return;
+    cleanup();click.preventDefault();click.stopImmediatePropagation();
+  };
+  document.addEventListener('click',suppress,{capture:true});
+  document.addEventListener('pointerdown',cleanup,{capture:true});
+  document.addEventListener('keydown',cleanup,{capture:true});
+}
 const clock=(m:number)=>`${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`;
 const rawMinuteAt=(surface:HTMLElement,y:number)=>readTimeAxis(surface).minute(y-surface.getBoundingClientRect().top);
 const minuteAt=(surface:HTMLElement,y:number)=>Math.max(0,Math.min(1425,Math.floor((rawMinuteAt(surface,y)+.000001)/15)*15));
@@ -40,7 +50,7 @@ export function bindCalendarGestures(root:HTMLElement,actions:CalendarActions){
   root.querySelectorAll<HTMLElement>('[data-availability-edge][data-date]').forEach(el=>el.onkeydown=e=>{
     if(!['ArrowUp','ArrowDown'].includes(e.key))return;e.preventDefault();e.stopPropagation();
     const date=el.dataset.date!,target:AvailabilityTarget=el.dataset.availabilityBand==='work'?'work':Number(el.dataset.availabilityBand),day=actions.availabilityDay(date),band=target==='work'?day:day.breaks[target],edge=el.dataset.availabilityEdge as 'start'|'end',rect=el.getBoundingClientRect();
-    actions.availabilityChange(date,target,edge,band[edge]+(e.key==='ArrowUp'?-15:15),rect.left,rect.top);
+    actions.availabilityChange(date,target,edge,band[edge]+(e.key==='ArrowUp'?-15:15),rect.left,rect.top,true);
   });
   root.querySelectorAll<HTMLElement>('[data-drag]').forEach(el=>{el.draggable=false;el.ondragstart=e=>e.preventDefault();});
   root.querySelectorAll<HTMLElement>('[data-resize]').forEach(el=>el.onkeydown=e=>{
@@ -82,8 +92,8 @@ export function bindCalendarGestures(root:HTMLElement,actions:CalendarActions){
       };
       const cleanup=()=>{document.removeEventListener('pointermove',move);document.removeEventListener('pointerup',finish);document.removeEventListener('pointercancel',cancel);document.removeEventListener('keydown',escape);window.removeEventListener('blur',cancel);preview.remove();restoreAxes();actions.active(false);};
       const finish=(event:PointerEvent)=>{if(event.pointerId!==e.pointerId)return;cleanup();if(!moved)return;
-        const suppress=(click:MouseEvent)=>{click.preventDefault();click.stopPropagation();};document.addEventListener('click',suppress,{capture:true,once:true});setTimeout(()=>document.removeEventListener('click',suppress,true),0);
-        if(problem)actions.error(problem);else actions.availabilityChange(date,bandTarget,edge,value,event.clientX,event.clientY);
+        suppressGestureClick(e.pointerId);
+        if(problem)actions.error(problem);else actions.availabilityChange(date,bandTarget,edge,value,event.clientX,event.clientY,false);
       };
       const cancel=()=>cleanup(),escape=(event:KeyboardEvent)=>{if(event.key==='Escape'){event.preventDefault();cancel();}};
       document.addEventListener('pointermove',move,{passive:false});document.addEventListener('pointerup',finish);document.addEventListener('pointercancel',cancel);document.addEventListener('keydown',escape);window.addEventListener('blur',cancel);return;
@@ -133,7 +143,7 @@ export function bindCalendarGestures(root:HTMLElement,actions:CalendarActions){
     const finish=(event:PointerEvent)=>{
       if(event.pointerId!==e.pointerId)return;cleanup();
       if(moved||(!task&&surface)){
-        const suppress=(click:MouseEvent)=>{click.preventDefault();click.stopPropagation();};document.addEventListener('click',suppress,{capture:true,once:true});setTimeout(()=>document.removeEventListener('click',suppress,true),0);
+        suppressGestureClick(e.pointerId);
         if(dropInbox&&task){actions.unschedule(task);return;}
         if(issue){actions.error(issue);return;}
         if(task){if(date)actions.move(task,date,start,duration);}

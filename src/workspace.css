@@ -223,6 +223,23 @@
 .calendar-availability-editor .day-availability>summary { display: none; }
 .calendar-availability-editor .availability-date-sheet { padding: 0; margin: 0; }
 .availability-gesture-preview { z-index: 9; }
+.block-title,.calendar-band-label,[data-drag],.availability-band { user-select: none; }
+.availability-time-fields { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-control); margin-block: var(--space-control); }
+.availability-time-fields label { display: flex; flex-direction: column; gap: var(--space-tight); font-size: var(--font-size-label); }
+.availability-band-options { display: flex; flex-wrap: wrap; gap: var(--space-tight); }
+.availability-band-options button[aria-pressed=true] { background: var(--color-selection); color: var(--color-action); border-color: var(--color-selection-border); }
+.routines { margin-top: var(--space-frame); padding-top: var(--space-section); border-top: var(--border-width) solid var(--color-divider); }
+.routine-row { display: flex; align-items: center; gap: var(--space-control); border-bottom: var(--border-width) solid var(--color-divider); }
+.routine-row>button:first-child { flex: 1; min-width: 0; text-align: left; border: 0; background: transparent; padding-block: var(--space-control); }
+.routine-row strong,.routine-row small { display: block; overflow-wrap: anywhere; }
+.routine-row small { margin-top: var(--space-tight); font-size: var(--font-size-label); color: var(--color-text-muted); }
+#routine-form { margin-top: var(--space-section); }
+#routine-form>label { display: block; font-size: var(--font-size-label); margin-block: var(--space-control) var(--space-tight); }
+#routine-form>input,#routine-form>textarea { width: 100%; }
+.routine-weekdays { display: flex; flex-wrap: wrap; gap: var(--space-control); border: 0; padding: 0; margin-block: var(--space-section); }
+.routine-weekdays legend { font-size: var(--font-size-label); margin-bottom: var(--space-related); }
+.routine-weekdays label { display: flex; align-items: center; gap: var(--space-tight); }
+#routine-error:empty { display: none; }
 
 .split-choice { width: min(300px,calc(100vw - 32px)); padding: var(--space-section); border: 0; border-radius: var(--radius-panel); background: var(--color-surface); color: var(--color-text); box-shadow: var(--shadow-dialog); }
 .split-choice h3 { overflow-wrap: anywhere; margin-bottom: var(--space-control); }

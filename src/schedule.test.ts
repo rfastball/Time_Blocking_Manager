@@ -5,9 +5,31 @@ import {agenda,calendarRefreshAllowed} from './today.ts';
 import {placementIssue,selectionRange,splitDuration} from './placement.ts';
 import {createTimeAxis,timeAxisForDays,expandTimeAxis,timeAxisLabelVisible} from './time-axis.ts';
 import type {Task,WorkingDay} from './types.ts';
+import {suppressGestureClick} from './calendar-gestures.ts';
 
 const date='2026-10-08',rule:WorkingDay={enabled:true,start:540,end:1080,breaks:[{start:720,end:780,label:'점심'}]};
 const task:Task={id:'a',title:'초안',body:'',starts_at:date+'T13:00',duration:90,completed:false,revision:1};
+
+test('a completed drag suppresses its delayed click and keeps the next pointer or keyboard action',async()=>{
+  const original=Object.getOwnPropertyDescriptor(globalThis,'document'),document=new EventTarget();
+  Object.defineProperty(globalThis,'document',{value:document,configurable:true});
+  const click=(pointerId:number,detail=1)=>Object.assign(new Event('click',{cancelable:true}),{pointerId,detail});
+  try{
+    suppressGestureClick(7);
+    await new Promise(resolve=>setTimeout(resolve,1));
+    const dragged=click(7);document.dispatchEvent(dragged);assert.equal(dragged.defaultPrevented,true);
+    const following=click(7);document.dispatchEvent(following);assert.equal(following.defaultPrevented,false);
+    suppressGestureClick(7);
+    const keyboard=click(-1,0);document.dispatchEvent(keyboard);assert.equal(keyboard.defaultPrevented,false);
+    document.dispatchEvent(new Event('keydown'));
+    const keyboardPointer=click(7);document.dispatchEvent(keyboardPointer);assert.equal(keyboardPointer.defaultPrevented,false);
+    suppressGestureClick(7);document.dispatchEvent(new Event('pointerdown'));
+    const nextPointer=click(7);document.dispatchEvent(nextPointer);assert.equal(nextPointer.defaultPrevented,false);
+  }finally{
+    document.dispatchEvent(new Event('pointerdown'));
+    if(original)Object.defineProperty(globalThis,'document',original);else Reflect.deleteProperty(globalThis,'document');
+  }
+});
 
 test('focused time axes preserve all-day boundaries and invert compressed coordinates',()=>{
   for(const axis of [timeAxisForDays([rule],1.2),createTimeAxis(0,1440,.8),createTimeAxis(1380,1440,1)]){
