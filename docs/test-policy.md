@@ -1,5 +1,16 @@
 # 검증 범위
 
+## 개발 서버 포트 Test delta brief
+
+- Unique risk: 1420이 사용 중이면 미리보기가 시작하지 않거나 데스크톱이 다른 서버를 열고, 종료·실패 후 개발 포트가 남음.
+- Existing owner: `src/*.test.ts`와 실행 스크립트 검색 결과 개발 서버 실행 경계의 owner 없음. 기존 순수 큐·시간표·설정 사례는 포트 확보와 Tauri 주소 전달을 실행하지 않음.
+- Selected layer: `node --test scripts/desktop.test.mjs` 명시적 리소스 확인. 실제 Vite listener와 임시 HTTP blocker를 사용하고 네이티브 실행 함수만 대체해 정상/충돌·설정 우선순위·실패 종료를 확인. 기본 `npm test` 순수 경로에 포함하지 않음.
+- Expected cost delta: 명시적 확인에서 Node worker 1개·Vite 서버 3회와 임시 HTTP listener를 사용함. 기본 suite·브라우저·앱·DB·native build·CI lane 증가0. 확보한 포트를 반환한 뒤 blocker로 사용하며 기존 프로세스를 종료하지 않음.
+- Evidence to retire: 없음. 신규 실행 경계이며 기존 테스트와 실패 신호가 다름. coverage 기준 변경0.
+- Baseline: 변경 전 `npm test` 18/18, 126.7843ms (단일 실행).
+
+Test delta 결과: 명시적 `scripts/desktop.test.mjs` owner에 사례1개 추가(added/extended/removed **1/0/0**), 기본 수집18개 유지·worker/리소스 실행 증가0. 별도 확인1/1은 본체156.3298ms·전체397.3657ms이며 Vite3회와 임시 HTTP listener4회를 사용했다(포트 반환 probe3회 포함). 기존1420 listener를 유지한 환경에서 최초1421, blocker 이후1422 주소로 실제 HTML을 읽고, 전달 옵션·동일 키 config 우선순위·정상/실패 후 포트 재확보·blocker 생존을 검증했다. 새 명시적 확인의 baseline이 없어 runtime delta는 미측정, coverage floor 영향0. 기본 `npm test` 18/18·139.8398ms, `npm run build` 성공(Vite238ms). 기본 suite 시간은 동시 명령 실행이라 baseline과 성능 비교하지 않는다. 실제 `npm run dev` 충돌 전환1421·ready260ms와 Ctrl+C 종료, `npm run desktop -- --help` 실제 CLI API·선택주소1421·exit0를 확인했다. 종료 후 listener는 기존1420 프로세스만 남았다. GUI·Rust build·사용자 DB 실행0이며 네이티브 앱 연결/종료는 이 확인으로 합격 처리하지 않는다.
+
 ## 캘린더 품질 목표 1단계 Test delta brief
 
 - Unique risk: 상세 Ctrl+Enter와 미계획 Enter가 한글 조합을 저장 명령으로 해석함. 날짜가 바뀌거나 절전에서 돌아올 때 달력 표시가 낡은 상태로 남거나 사용자가 선택한 날짜가 강제로 이동함. 초안 읽기/해석 실패 뒤 낡은 sequence로 새 입력을 저장해 성공으로 오인하거나 보관된 내용을 잃음.
