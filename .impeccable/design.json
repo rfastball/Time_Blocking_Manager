@@ -1,0 +1,445 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-08T22:53:51.010160+00:00",
+  "title": "Design System: BLOKKY",
+  "extensions": {
+    "colorMeta": {
+      "blue": {
+        "role": "primary",
+        "displayName": "파랑",
+        "tonalRamp": [
+          "oklch(15.00% 0.20354 265.53)",
+          "oklch(26.43% 0.20354 265.53)",
+          "oklch(37.86% 0.20354 265.53)",
+          "oklch(49.29% 0.20354 265.53)",
+          "oklch(60.71% 0.20354 265.53)",
+          "oklch(72.14% 0.20354 265.53)",
+          "oklch(83.57% 0.20354 265.53)",
+          "oklch(95.00% 0.20354 265.53)"
+        ]
+      },
+      "blue-soft": {
+        "role": "primary",
+        "displayName": "연한 파랑",
+        "tonalRamp": [
+          "oklch(15.00% 0.02420 267.93)",
+          "oklch(26.43% 0.02420 267.93)",
+          "oklch(37.86% 0.02420 267.93)",
+          "oklch(49.29% 0.02420 267.93)",
+          "oklch(60.71% 0.02420 267.93)",
+          "oklch(72.14% 0.02420 267.93)",
+          "oklch(83.57% 0.02420 267.93)",
+          "oklch(95.00% 0.02420 267.93)"
+        ]
+      },
+      "blue-hover": {
+        "role": "primary",
+        "displayName": "주요 버튼 호버",
+        "tonalRamp": [
+          "oklch(15.00% 0.18468 265.55)",
+          "oklch(26.43% 0.18468 265.55)",
+          "oklch(37.86% 0.18468 265.55)",
+          "oklch(49.29% 0.18468 265.55)",
+          "oklch(60.71% 0.18468 265.55)",
+          "oklch(72.14% 0.18468 265.55)",
+          "oklch(83.57% 0.18468 265.55)",
+          "oklch(95.00% 0.18468 265.55)"
+        ]
+      },
+      "text": {
+        "role": "neutral",
+        "displayName": "짙은 먹색",
+        "tonalRamp": [
+          "oklch(15.00% 0.01064 260.69)",
+          "oklch(26.43% 0.01064 260.69)",
+          "oklch(37.86% 0.01064 260.69)",
+          "oklch(49.29% 0.01064 260.69)",
+          "oklch(60.71% 0.01064 260.69)",
+          "oklch(72.14% 0.01064 260.69)",
+          "oklch(83.57% 0.01064 260.69)",
+          "oklch(95.00% 0.01064 260.69)"
+        ]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "회색 보조 글자",
+        "tonalRamp": [
+          "oklch(15.00% 0.02402 264.33)",
+          "oklch(26.43% 0.02402 264.33)",
+          "oklch(37.86% 0.02402 264.33)",
+          "oklch(49.29% 0.02402 264.33)",
+          "oklch(60.71% 0.02402 264.33)",
+          "oklch(72.14% 0.02402 264.33)",
+          "oklch(83.57% 0.02402 264.33)",
+          "oklch(95.00% 0.02402 264.33)"
+        ]
+      },
+      "canvas": {
+        "role": "neutral",
+        "displayName": "밝은 회색",
+        "tonalRamp": [
+          "oklch(15.00% 0.00287 264.54)",
+          "oklch(26.43% 0.00287 264.54)",
+          "oklch(37.86% 0.00287 264.54)",
+          "oklch(49.29% 0.00287 264.54)",
+          "oklch(60.71% 0.00287 264.54)",
+          "oklch(72.14% 0.00287 264.54)",
+          "oklch(83.57% 0.00287 264.54)",
+          "oklch(95.00% 0.00287 264.54)"
+        ]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "흰색",
+        "tonalRamp": [
+          "oklch(15.00% 0.00000 89.88)",
+          "oklch(26.43% 0.00000 89.88)",
+          "oklch(37.86% 0.00000 89.88)",
+          "oklch(49.29% 0.00000 89.88)",
+          "oklch(60.71% 0.00000 89.88)",
+          "oklch(72.14% 0.00000 89.88)",
+          "oklch(83.57% 0.00000 89.88)",
+          "oklch(95.00% 0.00000 89.88)"
+        ]
+      },
+      "border": {
+        "role": "neutral",
+        "displayName": "외곽 경계",
+        "tonalRamp": [
+          "oklch(15.00% 0.00756 260.73)",
+          "oklch(26.43% 0.00756 260.73)",
+          "oklch(37.86% 0.00756 260.73)",
+          "oklch(49.29% 0.00756 260.73)",
+          "oklch(60.71% 0.00756 260.73)",
+          "oklch(72.14% 0.00756 260.73)",
+          "oklch(83.57% 0.00756 260.73)",
+          "oklch(95.00% 0.00756 260.73)"
+        ]
+      },
+      "line": {
+        "role": "neutral",
+        "displayName": "내부 구분선",
+        "tonalRamp": [
+          "oklch(15.00% 0.00582 264.53)",
+          "oklch(26.43% 0.00582 264.53)",
+          "oklch(37.86% 0.00582 264.53)",
+          "oklch(49.29% 0.00582 264.53)",
+          "oklch(60.71% 0.00582 264.53)",
+          "oklch(72.14% 0.00582 264.53)",
+          "oklch(83.57% 0.00582 264.53)",
+          "oklch(95.00% 0.00582 264.53)"
+        ]
+      },
+      "control-hover": {
+        "role": "neutral",
+        "displayName": "컨트롤 호버",
+        "tonalRamp": [
+          "oklch(15.00% 0.00990 267.36)",
+          "oklch(26.43% 0.00990 267.36)",
+          "oklch(37.86% 0.00990 267.36)",
+          "oklch(49.29% 0.00990 267.36)",
+          "oklch(60.71% 0.00990 267.36)",
+          "oklch(72.14% 0.00990 267.36)",
+          "oklch(83.57% 0.00990 267.36)",
+          "oklch(95.00% 0.00990 267.36)"
+        ]
+      },
+      "selected-surface": {
+        "role": "neutral",
+        "displayName": "선택 날짜 바탕",
+        "tonalRamp": [
+          "oklch(15.00% 0.00986 267.36)",
+          "oklch(26.43% 0.00986 267.36)",
+          "oklch(37.86% 0.00986 267.36)",
+          "oklch(49.29% 0.00986 267.36)",
+          "oklch(60.71% 0.00986 267.36)",
+          "oklch(72.14% 0.00986 267.36)",
+          "oklch(83.57% 0.00986 267.36)",
+          "oklch(95.00% 0.00986 267.36)"
+        ]
+      },
+      "nav-muted": {
+        "role": "neutral",
+        "displayName": "메뉴 보조 글자",
+        "tonalRamp": [
+          "oklch(15.00% 0.01822 264.46)",
+          "oklch(26.43% 0.01822 264.46)",
+          "oklch(37.86% 0.01822 264.46)",
+          "oklch(49.29% 0.01822 264.46)",
+          "oklch(60.71% 0.01822 264.46)",
+          "oklch(72.14% 0.01822 264.46)",
+          "oklch(83.57% 0.01822 264.46)",
+          "oklch(95.00% 0.01822 264.46)"
+        ]
+      },
+      "nav-hover": {
+        "role": "neutral",
+        "displayName": "메뉴 호버",
+        "tonalRamp": [
+          "oklch(15.00% 0.02329 261.20)",
+          "oklch(26.43% 0.02329 261.20)",
+          "oklch(37.86% 0.02329 261.20)",
+          "oklch(49.29% 0.02329 261.20)",
+          "oklch(60.71% 0.02329 261.20)",
+          "oklch(72.14% 0.02329 261.20)",
+          "oklch(83.57% 0.02329 261.20)",
+          "oklch(95.00% 0.02329 261.20)"
+        ]
+      },
+      "error": {
+        "role": "neutral",
+        "displayName": "오류 글자",
+        "tonalRamp": [
+          "oklch(15.00% 0.15923 33.23)",
+          "oklch(26.43% 0.15923 33.23)",
+          "oklch(37.86% 0.15923 33.23)",
+          "oklch(49.29% 0.15923 33.23)",
+          "oklch(60.71% 0.15923 33.23)",
+          "oklch(72.14% 0.15923 33.23)",
+          "oklch(83.57% 0.15923 33.23)",
+          "oklch(95.00% 0.15923 33.23)"
+        ]
+      },
+      "warning-surface": {
+        "role": "neutral",
+        "displayName": "경고 바탕",
+        "tonalRamp": [
+          "oklch(15.00% 0.02029 62.87)",
+          "oklch(26.43% 0.02029 62.87)",
+          "oklch(37.86% 0.02029 62.87)",
+          "oklch(49.29% 0.02029 62.87)",
+          "oklch(60.71% 0.02029 62.87)",
+          "oklch(72.14% 0.02029 62.87)",
+          "oklch(83.57% 0.02029 62.87)",
+          "oklch(95.00% 0.02029 62.87)"
+        ]
+      },
+      "overdue": {
+        "role": "semantic",
+        "displayName": "overdue"
+      },
+      "overdue-surface": {
+        "role": "semantic",
+        "displayName": "overdue-surface"
+      },
+      "overdue-border": {
+        "role": "semantic",
+        "displayName": "overdue-border"
+      },
+      "stripe": {
+        "role": "semantic",
+        "displayName": "stripe"
+      },
+      "stripe-soft": {
+        "role": "semantic",
+        "displayName": "stripe-soft"
+      },
+      "modal-shadow": {
+        "role": "semantic",
+        "displayName": "modal-shadow"
+      },
+      "backdrop": {
+        "role": "semantic",
+        "displayName": "backdrop"
+      }
+    },
+    "typographyMeta": {
+      "capture": {
+        "displayName": "capture",
+        "purpose": "별도 빠른 캡처 입력."
+      },
+      "composer": {
+        "displayName": "composer",
+        "purpose": "할 일 추가 제목 입력."
+      },
+      "headline": {
+        "displayName": "headline",
+        "purpose": "날짜와 상세 제목."
+      },
+      "title": {
+        "displayName": "title",
+        "purpose": "패널 제목."
+      },
+      "body": {
+        "displayName": "body",
+        "purpose": "기본 본문."
+      },
+      "paragraph": {
+        "displayName": "paragraph",
+        "purpose": "여러 줄 설명."
+      },
+      "label": {
+        "displayName": "label",
+        "purpose": "시간과 보조 정보."
+      },
+      "summary": {
+        "displayName": "summary",
+        "purpose": "요약과 보관함 칩."
+      },
+      "nav-label": {
+        "displayName": "nav-label",
+        "purpose": "메뉴와 작은 메타, 최소 글자 크기."
+      }
+    },
+    "shadows": [
+      {
+        "name": "dialog",
+        "value": "0 16px 64px #16224430",
+        "purpose": "상세 모달 전용."
+      },
+      {
+        "name": "selected-day",
+        "value": "inset 0 0 0 2px var(--blue)",
+        "purpose": "달력의 선택 표시. 고도 효과가 아님."
+      }
+    ],
+    "motion": [
+      {
+        "name": "button-state",
+        "value": "background-color 100ms ease-out,border-color 100ms ease-out",
+        "purpose": "prefers-reduced-motion:no-preference에서만 적용."
+      },
+      {
+        "name": "dialog-appear",
+        "value": "140ms ease-out; opacity 0 → 1; translateY(6px) → translateY(0)",
+        "purpose": "prefers-reduced-motion:no-preference에서 열린 모달에 적용."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "compact-topbar",
+        "value": "1250px"
+      },
+      {
+        "name": "toolbar-wrap",
+        "value": "1100px"
+      },
+      {
+        "name": "today-stack",
+        "value": "960px"
+      },
+      {
+        "name": "plan-stack",
+        "value": "680px"
+      },
+      {
+        "name": "editor-compact-height",
+        "value": "740px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "주요 버튼",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "주요 저장 실행.",
+      "html": "<button class=\"ds-primary\">저장</button>",
+      "css": ".ds-primary{font-family:\"Segoe UI\",\"Malgun Gothic\",sans-serif;font-size:14px;color:var(--text,#1b1e23);cursor:pointer;background:var(--surface,#fff);border:1px solid var(--border,#d9dce1);border-radius:6px;padding:8px 12px;min-height:34px;background:var(--blue,#2b55d6);border-color:var(--blue,#2b55d6);color:var(--surface,#fff);}.ds-primary:hover{background:var(--blue-hover,#2145b7);}.ds-primary:focus-visible{outline:2px solid var(--focus,#2b55d6);outline-offset:3px;}.ds-primary:disabled{opacity:.55;cursor:default;}@media(prefers-reduced-motion:no-preference){.ds-primary{transition:background-color 100ms ease-out,border-color 100ms ease-out;}}"
+    },
+    {
+      "name": "기본 버튼",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "오늘 이동과 일반 조작.",
+      "html": "<button class=\"ds-secondary\">오늘</button>",
+      "css": ".ds-secondary{font-family:\"Segoe UI\",\"Malgun Gothic\",sans-serif;font-size:14px;color:var(--text,#1b1e23);cursor:pointer;background:var(--surface,#fff);border:1px solid var(--border,#d9dce1);border-radius:6px;padding:8px 12px;min-height:34px;}.ds-secondary:hover{background:var(--control-hover,#f0f3fa);}.ds-secondary:focus-visible{outline:2px solid var(--focus,#2b55d6);outline-offset:3px;}.ds-secondary:disabled{opacity:.55;cursor:default;}@media(prefers-reduced-motion:no-preference){.ds-secondary{transition:background-color 100ms ease-out,border-color 100ms ease-out;}}"
+    },
+    {
+      "name": "텍스트 입력",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "제목과 편집용 단일 행 입력.",
+      "html": "<label class=\"ds-label\">제목<input class=\"ds-input\" value=\"설계 문서 초안 작성\"></label>",
+      "css": ".ds-label{font-family:\"Segoe UI\",\"Malgun Gothic\",sans-serif;font-size:14px;color:var(--text,#1b1e23);display:block;font-size:12px;color:var(--muted,#5b6270);}.ds-input{font-family:\"Segoe UI\",\"Malgun Gothic\",sans-serif;font-size:14px;color:var(--text,#1b1e23);display:block;width:100%;background:var(--surface,#fff);border:1px solid var(--border,#d9dce1);border-radius:6px;padding:9px 11px;caret-color:var(--blue,#2b55d6);}.ds-input:focus-visible{outline:2px solid var(--focus,#2b55d6);outline-offset:3px;}"
+    },
+    {
+      "name": "활성 메뉴",
+      "kind": "nav",
+      "refersTo": "navigation-active",
+      "description": "오늘·계획·보관함·설정 탐색. 로고와 오늘은 실제 오늘로 이동.",
+      "html": "<nav class=\"ds-rail\" aria-label=\"주 메뉴\"><button class=\"ds-nav\" aria-current=\"page\"><svg aria-hidden=\"true\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\"><rect x=\"3\" y=\"4\" width=\"18\" height=\"17\" rx=\"2\"/><path d=\"M3 9h18M9 9v12M15 9v12M3 15h18\"/></svg><span>계획</span></button></nav>",
+      "css": ".ds-rail{background:var(--text,#1b1e23);padding:18px 8px;width:max-content;}.ds-nav{font-family:\"Segoe UI\",\"Malgun Gothic\",sans-serif;font-size:14px;color:var(--text,#1b1e23);cursor:pointer;background:var(--surface,#fff);border:1px solid var(--border,#d9dce1);border-radius:6px;padding:8px 12px;min-height:34px;background:var(--blue,#2b55d6);color:var(--surface,#fff);border:0;width:56px;min-height:54px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;padding:7px 3px;}.ds-nav svg{width:20px;height:20px;}.ds-nav span{font-size:11px;}.ds-nav:hover{background:var(--blue,#2b55d6);}.ds-nav:focus-visible{outline:2px solid var(--focus,#2b55d6);outline-offset:3px;}"
+    },
+    {
+      "name": "패널",
+      "kind": "card",
+      "refersTo": "panel",
+      "description": "목록·시간표·설정의 평면 구획.",
+      "html": "<section class=\"ds-panel\"><h2>시간표</h2><p>시간을 정하고 오늘 할 일을 확인하세요.</p></section>",
+      "css": ".ds-panel{font-family:\"Segoe UI\",\"Malgun Gothic\",sans-serif;font-size:14px;color:var(--text,#1b1e23);background:var(--surface,#fff);border:1px solid var(--border,#d9dce1);border-radius:10px;padding:20px;}.ds-panel h2{font-size:16px;font-weight:600;margin:0;}.ds-panel p{color:var(--muted,#5b6270);line-height:1.7;}"
+    },
+    {
+      "name": "기간 선택",
+      "kind": "custom",
+      "refersTo": "period-selected",
+      "description": "주: 시간 격자, 2주: 제목, 월: 작업량.",
+      "html": "<div class=\"ds-period\" aria-label=\"계획 기간\"><button aria-pressed=\"false\">주</button><button aria-pressed=\"false\">2주</button><button aria-pressed=\"true\">월</button></div>",
+      "css": ".ds-period{display:flex;border:1px solid var(--border,#d9dce1);border-radius:6px;overflow:hidden;width:max-content;}.ds-period button{font-family:\"Segoe UI\",\"Malgun Gothic\",sans-serif;font-size:14px;color:var(--text,#1b1e23);cursor:pointer;background:var(--surface,#fff);border:1px solid var(--border,#d9dce1);border-radius:6px;padding:8px 12px;min-height:34px;border:0;border-radius:0;min-width:48px;}.ds-period button:hover{background:var(--control-hover,#f0f3fa);}.ds-period [aria-pressed=true]{background:var(--blue,#2b55d6);color:var(--surface,#fff);}.ds-period button:focus-visible{outline:2px solid var(--focus,#2b55d6);outline-offset:3px;outline-offset:-2px;}"
+    },
+    {
+      "name": "시간 블록",
+      "kind": "custom",
+      "refersTo": "time-block",
+      "description": "소요시간에 비례하는 작업, 예시는 90분.",
+      "html": "<div class=\"ds-block\"><button class=\"ds-title\"><span>설계 문서 초안 작성</span><small>13:00–14:30 · 1시간 30분</small></button><div class=\"ds-resize\" role=\"separator\" aria-label=\"소요시간 조절\" aria-orientation=\"horizontal\" aria-valuemin=\"15\" aria-valuemax=\"1440\" aria-valuenow=\"90\" aria-valuetext=\"90분\" tabindex=\"0\"></div></div>",
+      "css": ".ds-block{font-family:\"Segoe UI\",\"Malgun Gothic\",sans-serif;font-size:14px;color:var(--text,#1b1e23);position:relative;background:var(--blue-soft,#e3eafb);border:1px solid var(--blue-soft,#e3eafb);border-radius:6px;height:108px;min-height:12px;overflow:hidden;}.ds-title{font-family:\"Segoe UI\",\"Malgun Gothic\",sans-serif;font-size:14px;color:var(--text,#1b1e23);border:0;background:transparent;width:100%;height:100%;padding:4px 8px;text-align:left;display:flex;flex-direction:column;gap:3px;font-size:12px;cursor:pointer;}.ds-title span{overflow:hidden;white-space:nowrap;text-overflow:ellipsis;}.ds-title small{font-size:11px;}.ds-title:hover{background:var(--blue-soft,#e3eafb);}.ds-title:focus-visible{outline:2px solid var(--focus,#2b55d6);outline-offset:3px;outline-offset:-2px;}.ds-resize{position:absolute;bottom:0;left:0;right:0;height:12px;opacity:0;cursor:ns-resize;touch-action:none;}.ds-resize:after{content:\"\";display:block;width:26px;height:3px;border-radius:2px;background:var(--blue,#2b55d6);margin:3px auto;}.ds-block:hover .ds-resize,.ds-resize:focus-visible{opacity:1;}.ds-resize:focus-visible{outline:2px solid var(--focus,#2b55d6);outline-offset:3px;outline-offset:-2px;}"
+    },
+    {
+      "name": "선택 날짜",
+      "kind": "custom",
+      "refersTo": "calendar-day-selected",
+      "description": "월간 작업량과 여유시간.",
+      "html": "<button class=\"ds-day\" aria-pressed=\"true\"><span class=\"ds-number\">9 <small>오늘</small></span><small>2건 · 2시간</small><span class=\"ds-capacity\"><i></i></span><small>여유 6시간</small></button>",
+      "css": ".ds-day{font-family:\"Segoe UI\",\"Malgun Gothic\",sans-serif;font-size:14px;color:var(--text,#1b1e23);cursor:pointer;background:var(--surface,#fff);border:1px solid var(--border,#d9dce1);border-radius:6px;padding:8px 12px;min-height:34px;border:0;min-height:92px;padding:8px 6px;text-align:left;display:flex;flex-direction:column;gap:6px;background:var(--selected-surface,#f4f7fe);box-shadow:inset 0 0 0 2px var(--blue,#2b55d6);}.ds-number{font-size:13px;color:var(--blue,#2b55d6);font-weight:700;}.ds-day small{font-size:11px;color:var(--muted,#5b6270);font-weight:400;}.ds-capacity{margin-top:auto;height:6px;background:var(--line,#e4e6ea);width:100%;border-radius:2px;overflow:hidden;}.ds-capacity i{display:block;height:100%;width:25%;background:var(--blue,#2b55d6);}.ds-day:hover{background:var(--selected-surface,#f4f7fe);}.ds-day:focus-visible{outline:2px solid var(--focus,#2b55d6);outline-offset:3px;}"
+    },
+    {
+      "name": "빠른 캡처",
+      "kind": "input",
+      "refersTo": "capture-input",
+      "description": "620×148 native 창의 단일 입력과 Enter/Esc 안내.",
+      "html": "<div class=\"ds-capture\"><form class=\"ds-capture-form\"><input aria-label=\"빠른 캡처\" placeholder=\"할 일을 입력하세요\"><button type=\"button\" aria-label=\"저장\">↵</button></form><div class=\"ds-meta\"><span>보관함 3</span><span><kbd>Enter</kbd> 추가 <kbd>Esc</kbd> 닫기</span></div></div>",
+      "css": ".ds-capture{font-family:\"Segoe UI\",\"Malgun Gothic\",sans-serif;font-size:14px;color:var(--text,#1b1e23);background:var(--surface,#fff);padding:20px 24px;}.ds-capture-form{display:flex;gap:12px;align-items:center;}.ds-capture input{font-family:\"Segoe UI\",\"Malgun Gothic\",sans-serif;font-size:14px;color:var(--text,#1b1e23);width:100%;min-width:0;height:54px;font-size:24px;border:0;background:transparent;padding:8px 0;outline:none;caret-color:var(--blue,#2b55d6);}.ds-capture input::placeholder{color:var(--muted,#5b6270);}.ds-capture button{font-family:\"Segoe UI\",\"Malgun Gothic\",sans-serif;font-size:14px;color:var(--text,#1b1e23);cursor:pointer;background:var(--surface,#fff);border:1px solid var(--border,#d9dce1);border-radius:6px;padding:8px 12px;min-height:34px;border:0;background:transparent;color:var(--blue,#2b55d6);font-size:24px;}.ds-capture button:hover{background:transparent;}.ds-capture button:focus-visible{outline:2px solid var(--focus,#2b55d6);outline-offset:3px;}.ds-meta{display:flex;justify-content:space-between;color:var(--muted,#5b6270);font-size:11px;margin-top:10px;}.ds-meta kbd{font:inherit;padding:2px 4px;border:1px solid var(--border,#d9dce1);border-radius:6px;margin-left:8px;}"
+    },
+    {
+      "name": "보관함 칩",
+      "kind": "chip",
+      "refersTo": "inbox-chip",
+      "description": "미배치 작업과 지난 미완료를 드래그해 배치.",
+      "html": "<button class=\"ds-chip\"><svg aria-hidden=\"true\" width=\"12\" height=\"20\" viewBox=\"0 0 12 20\" fill=\"currentColor\"><circle cx=\"4\" cy=\"5\" r=\"1\"/><circle cx=\"8\" cy=\"5\" r=\"1\"/><circle cx=\"4\" cy=\"10\" r=\"1\"/><circle cx=\"8\" cy=\"10\" r=\"1\"/><circle cx=\"4\" cy=\"15\" r=\"1\"/><circle cx=\"8\" cy=\"15\" r=\"1\"/></svg><span>검토 의견 정리</span><small>30분</small></button>",
+      "css": ".ds-chip{font-family:\"Segoe UI\",\"Malgun Gothic\",sans-serif;font-size:14px;color:var(--text,#1b1e23);cursor:pointer;background:var(--surface,#fff);border:1px solid var(--border,#d9dce1);border-radius:6px;padding:8px 12px;min-height:34px;display:inline-flex;align-items:center;gap:6px;height:36px;min-height:36px;max-width:100%;border-radius:18px;padding:0 12px;font-size:13px;font-weight:500;cursor:grab;}.ds-chip svg,.ds-chip small{color:var(--muted,#5b6270);}.ds-chip small{font-size:11px;white-space:nowrap;}.ds-chip>span{max-width:260px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;}.ds-chip:hover{background:var(--control-hover,#f0f3fa);}.ds-chip:active{cursor:grabbing;}.ds-chip:focus-visible{outline:2px solid var(--focus,#2b55d6);outline-offset:3px;}"
+    }
+  ],
+  "narrative": {
+    "northStar": "확정 B/D 업무 화면",
+    "overview": "사용자가 확정한 오늘 B안과 계획 D안의 파랑·회색 Windows 업무 화면을 유지한다. 짙은 왼쪽 메뉴, 밝은 작업 영역, 흰 패널과 파란 선택 상태로 현재 위치와 수행할 일을 드러낸다. 2026-10-09의 로고·캡처·기간·설정 변경은 이 시각 체계 안에서 구현한 확장이다.\n\n이 문서는 `src/style.css`, `src/main.ts`, `src/availability.ts`, `public/logo.svg`와 Tauri 창 설정의 구현을 기록한다. 앞의 토큰은 규범적 값이며 아래 설명은 적용 맥락이다. 별도 시안이나 새로운 시각 체계를 도입하지 않는다.\n\n함께 저장한 `.impeccable/design.json`의 8단계 색상 램프는 패널 미리보기용으로 합성한 것이다. 앱의 새 색상 단계나 규범 토큰을 뜻하지 않는다. 컴포넌트 예시는 외형과 CSS 상태를 재현하며 앱 동작을 실행하지 않는다.",
+    "keyCharacteristics": [
+      "짙은 세로 메뉴와 밝은 작업 영역의 대비.",
+      "얇은 경계선과 흰 패널로 구획하는 평면적 화면.",
+      "파란색으로 주요 실행과 현재 선택을 표시.",
+      "작은 시간·건수 표기와 업무 제목을 함께 읽는 밀도.",
+      "주·2주·월의 정보 밀도를 달리하는 계획 화면."
+    ],
+    "rules": [
+      {
+        "name": "The Flat Surface Rule",
+        "body": "일반 패널에 모달 그림자를 적용하지 않는다.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** 확정 B/D의 파랑·회색 체계와 기존 글꼴·반경을 유지한다.",
+      "**Do** 선택·완료·금지시간·오류를 색과 글자 또는 형태로 함께 구분한다.",
+      "**Do** 주·2주·월 각각의 시간·제목·작업량 정보 우선순위를 유지한다.",
+      "**Do** 주요 조작의 키보드 포커스와 11px 이상의 글자 크기를 유지한다.",
+      "**Do** 미배치 작업을 사용자 화면에서 ‘보관함’으로 표기한다."
+    ],
+    "donts": [
+      "**Don't** 사용자 확인 없이 새로운 브랜드 스타일로 교체한다.",
+      "**Don't** 평면 패널에 모달용 그림자를 적용한다.",
+      "**Don't** 제거한 4주 모드·상단 캡처·레일 캡처를 다시 추가한다.",
+      "**Don't** 저장 실패·로딩 실패를 정상 빈 상태나 저장 성공으로 보이게 한다.",
+      "**Don't** 설정 충돌을 사용자의 보관함 이동 동의 없이 처리한다."
+    ]
+  }
+}

@@ -1,0 +1,37 @@
+/* Bundled from google/fonts. Each family includes its OFL license in public/fonts. */
+@font-face {
+  font-family: "Gowun Batang";
+  src: url('/fonts/gowunbatang/GowunBatang-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Gowun Dodum";
+  src: url('/fonts/gowundodum/GowunDodum-Regular.woff2') format('woff2');
+  font-weight: 400 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: "IBM Plex Sans KR";
+  src: url('/fonts/ibmplexsanskr/IBMPlexSansKR-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "IBM Plex Sans KR";
+  src: url('/fonts/ibmplexsanskr/IBMPlexSansKR-Medium.woff2') format('woff2');
+  font-weight: 500;
+  font-display: swap;
+}
+@font-face {
+  font-family: "IBM Plex Sans KR";
+  src: url('/fonts/ibmplexsanskr/IBMPlexSansKR-SemiBold.woff2') format('woff2');
+  font-weight: 600 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Noto Sans KR";
+  src: url('/fonts/notosanskr/NotoSansKR[wght].woff2') format('woff2');
+  font-weight: 100 900;
+  font-display: swap;
+}

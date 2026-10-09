@@ -1,0 +1,18 @@
+export interface Task { id:string; title:string; body:string; starts_at:string|null; duration:number; completed:boolean; revision:number }
+export interface Break {start:number;end:number;label:string}
+export interface WorkingDay { enabled:boolean;start:number;end:number;breaks:Break[] }
+export interface DayException {date:string;kind:'custom'|'leave'|'early';day:WorkingDay}
+export interface Settings {days:WorkingDay[];revision:number;exceptions?:DayException[];weekly_target?:number;work_days?:number}
+export interface Snapshot {epoch:string;tasks:Task[];settings:Settings}
+export interface AppError {code:string;message:string;retryable:boolean}
+export interface BackupInspection {created_at:string|null;tasks:number;completed:number;scheduled:number}
+export interface ManagedBackup {id:string;kind:'hour'|'day'|'manual'|'safety';created_at:string|null;tasks:number|null;completed:number|null;scheduled:number|null;error:string|null}
+export type Action = {type:'create';id:string;title:string}
+ | {type:'update';id:string;expected_revision:number;title:string;body:string;starts_at:string|null;duration:number}
+ | {type:'set_completed';id:string;expected_revision:number;completed:boolean}
+ | {type:'delete';id:string;expected_revision:number}
+ | {type:'split';id:string;expected_revision:number;new_id:string;first_duration:number}
+ | {type:'set_settings';expected_revision:number;days:WorkingDay[]}
+ | {type:'set_schedule';expected_revision:number;days:WorkingDay[];exceptions:DayException[];weekly_target:number;work_days:number;move_conflicts:boolean}
+ | {type:'create_scheduled';id:string;title:string;starts_at:string|null;duration:number};
+export interface Command { request_id:string;epoch:string;action:Action }

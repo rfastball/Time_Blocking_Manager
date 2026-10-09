@@ -1,0 +1,11 @@
+{
+  "status": "failed",
+  "target": "http://127.0.0.1:1420/?now=14:10",
+  "command": "impeccable detect --json http://127.0.0.1:1420/?now=14:10",
+  "exitCode": 1,
+  "findings": [],
+  "findingsAreConclusive": false,
+  "stderr": "Error: Protocol error: connection closed (IO error: 현재 연결은 원격 호스트에 의해 강제로 끊겼습니다. (os error 10054))",
+  "independentBrowserAttempt": "cua.createBrowserTab iab",
+  "independentBrowserError": "Browser is not available: iab"
+}

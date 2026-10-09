@@ -1,0 +1,310 @@
+---
+name: BLOKKY
+description: B/D 기능 구조와 기본·G1·G3·G4 역할 토큰 테마를 제공하는 Windows 업무 실행 화면
+colors:
+  text: "#1b1e23"
+  canvas: "#f7f8fa"
+  border: "#d9dce1"
+  muted: "#5b6270"
+  blue: "#2b55d6"
+  blue-soft: "#e3eafb"
+  blue-hover: "#2145b7"
+  error: "#ac351d"
+  surface: "#fff"
+  line: "#e4e6ea"
+  control-hover: "#f0f3fa"
+  selected-surface: "#f4f7fe"
+  nav-muted: "#b5bbc7"
+  nav-hover: "#303743"
+  warning-surface: "#fff2e7"
+  overdue: "#b4451f"
+  overdue-surface: "#fbf3ef"
+  overdue-border: "#f0c9b8"
+  stripe: "#e6e8ec"
+  stripe-soft: "#f1f2f4"
+  modal-shadow: "#16224430"
+  backdrop: "#1b24334d"
+typography:
+  capture:
+    fontFamily: '"Segoe UI", "Malgun Gothic", sans-serif'
+    fontSize: "24px"
+    fontWeight: 400
+  composer:
+    fontFamily: '"Segoe UI", "Malgun Gothic", sans-serif'
+    fontSize: "20px"
+    fontWeight: 400
+  headline:
+    fontFamily: '"Segoe UI", "Malgun Gothic", sans-serif'
+    fontSize: "20px"
+    fontWeight: 600
+    letterSpacing: "-.01em"
+  title:
+    fontFamily: '"Segoe UI", "Malgun Gothic", sans-serif'
+    fontSize: "16px"
+    fontWeight: 600
+  body:
+    fontFamily: '"Segoe UI", "Malgun Gothic", sans-serif'
+    fontSize: "14px"
+    fontWeight: 400
+  paragraph:
+    fontFamily: '"Segoe UI", "Malgun Gothic", sans-serif'
+    fontSize: "14px"
+    fontWeight: 400
+    lineHeight: 1.7
+  label:
+    fontFamily: '"Segoe UI", "Malgun Gothic", sans-serif'
+    fontSize: "12px"
+    fontWeight: 400
+  summary:
+    fontFamily: '"Segoe UI", "Malgun Gothic", sans-serif'
+    fontSize: "13px"
+    fontWeight: 500
+  nav-label:
+    fontFamily: '"Segoe UI", "Malgun Gothic", sans-serif'
+    fontSize: "11px"
+    fontWeight: 400
+rounded:
+  control: "6px"
+  panel: "10px"
+  dialog: "12px"
+  indicator: "2px"
+  chip: "18px"
+spacing:
+  tight: "4px"
+  compact: "8px"
+  control-x: "12px"
+  section: "16px"
+  panel: "20px"
+  frame: "24px"
+components:
+  button-primary:
+    backgroundColor: "{colors.blue}"
+    textColor: "{colors.surface}"
+    typography: "{typography.body}"
+    rounded: "{rounded.control}"
+    padding: "8px 12px"
+  button-primary-hover:
+    backgroundColor: "{colors.blue-hover}"
+  button-secondary:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.text}"
+    typography: "{typography.body}"
+    rounded: "{rounded.control}"
+    padding: "8px 12px"
+  button-icon:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.text}"
+    rounded: "{rounded.control}"
+    padding: "7px"
+    width: "34px"
+    height: "34px"
+  input:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.text}"
+    typography: "{typography.body}"
+    rounded: "{rounded.control}"
+    padding: "9px 11px"
+  panel:
+    backgroundColor: "{colors.surface}"
+    rounded: "{rounded.panel}"
+    padding: "{spacing.panel}"
+  navigation-active:
+    backgroundColor: "{colors.blue}"
+    textColor: "{colors.surface}"
+    rounded: "{rounded.control}"
+    padding: "7px 3px"
+    width: "56px"
+  period-selected:
+    backgroundColor: "{colors.blue}"
+    textColor: "{colors.surface}"
+    padding: "8px 12px"
+  time-block:
+    backgroundColor: "{colors.blue-soft}"
+    textColor: "{colors.text}"
+    rounded: "{rounded.control}"
+  calendar-day-selected:
+    backgroundColor: "{colors.selected-surface}"
+    textColor: "{colors.text}"
+    rounded: "{rounded.control}"
+    padding: "8px 6px"
+  capture-input:
+    backgroundColor: "transparent"
+    textColor: "{colors.text}"
+    typography: "{typography.capture}"
+    padding: "8px 0"
+    height: "54px"
+  inbox-chip:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.text}"
+    typography: "{typography.summary}"
+    rounded: "{rounded.chip}"
+    padding: "0 12px"
+    height: "36px"
+---
+
+# Design System: BLOKKY
+
+## 역할 토큰과 선택 테마 (2026-10-09)
+
+실행 시 디자인 값의 기준은 `src/tokens.css`다. 위 YAML과 아래 기존 설명은 **기본 테마**의 기록이며, 선택 테마의 값은 tokens.css가 우선한다. 컴포넌트는 `src/style.css`와 `src/workspace.css`에서 역할 토큰을 소비하고 테마 선택자별 컴포넌트 복제는 하지 않는다. 미계획·캘린더 조작 확장은 토큰 값과 네 테마를 유지한다.
+
+| 역할 | 토큰 예시 |
+|---|---|
+| 바탕·표면·패널 | `--color-canvas`, `--color-surface`, `--color-panel` |
+| 주요 동작·선택·포커스 | `--color-action`, `--color-selection-border`, `--color-focus` |
+| 현재 시각·오류·미완료 | `--color-now`, `--color-error`, `--color-overdue` (독립 변경 가능) |
+| 시간 블록·완료·금지시간 | `--color-block`, `--color-block-completed`, `--background-unavailable` |
+| 글꼴·크기·굵기 | `--font-body`, `--font-heading`, `--font-size-label`, `--font-size-capture` |
+| 간격·형태·경계 | `--space-panel`, `--control-padding`, `--radius-block`, `--border-structure-width` |
+| 깊이·모션 | `--shadow-dialog`, `--shadow-hover`, `--duration-control`, `--ease-feedback` |
+
+시간 위치·길이는 실제 분 단위 자료에서 계산하며 테마 토큰으로 바꾸지 않는다. 격자 열 구성·화면 분기점·최소 창 크기 등 기능적 기하도 컴포넌트에 유지한다. 공통 `0`·`auto`·`inherit`는 토큰으로 감싸지 않는다.
+
+| 선택 | 시안에서 가져온 시각 체계 |
+|---|---|
+| 기본 | 파랑·회색, Segoe UI/맑은 고딕, 얇은 패널 경계 |
+| G1 · 종이 플래너 | #F4EFE6 종이, #FBF8F2 표면, #244C9E 잉크 강조. 고운바탕 제목/고운돋움 본문, 정시 실선·반시 점선 |
+| G3 · 톤 레이어 | #F3F2EF 바탕/#ECEBE7 패널/흰 표면, #3F6F5E 세이지. IBM Plex Sans KR, 무테 면·둥근 블록·호버 그림자 |
+| G4 · 사무 장부 | 흑백과 #C8102E 현재·미완료 표시. Noto Sans KR, 2px 제목 괘선, 직각 블록, 검정 선택·동작 |
+
+설정 → 화면 테마에서 라디오 선택 즉시 적용·저장한다. 키보드 화살표 선택을 지원하고, 외형 전환으로 일정/항목 초안을 재렌더링하지 않는다. 현재 시각과 오류는 같은 색이어도 별개의 역할이다. G3의 미완료 본문색은 읽기 대비를 위해 시안 클레이보다 조금 진한 #A44732다.
+
+외형은 이 기기의 WebView localStorage `blokky.appearance.theme`에 저장한다. 작업 SQLite·백업과 독립적이며 storage 이벤트와 창 복귀 시 주 창/캡처창에 반영한다. 없거나 알 수 없는 값은 기본 테마. 저장 실패는 이전 선택으로 되돌리고 설정에 오류를 표시한다. 브라우저 미리보기와 설치 앱은 각자의 저장소를 사용한다.
+
+고운바탕 Bold, 고운돋움 Regular, IBM Plex Sans KR Regular/Medium/SemiBold, Noto Sans KR variable을 Google Fonts 공식 저장소에서 받아 전체 문자 범위를 보존한 WOFF2로 번들한다. 각 OFL 라이선스는 `public/fonts/<family>/OFL.txt`에 있다. 실행 중 외부 폰트 요청은 없다. 앱 안의 로고는 기존 시간 블록 형상을 유지하며 테마 동작색을 따르고, 설치 아이콘은 기본 파랑이다.
+
+## Overview
+
+**Creative North Star: "확정 B/D 업무 화면"**
+
+사용자가 확정한 오늘 B안과 계획 D안의 파랑·회색 Windows 업무 화면을 유지한다. 짙은 왼쪽 메뉴, 밝은 작업 영역, 흰 패널과 파란 선택 상태로 현재 위치와 수행할 일을 드러낸다. 2026-10-09의 로고·캡처·기간·설정 변경은 이 시각 체계 안에서 구현한 확장이다.
+
+이 문서는 `src/style.css`, `src/workspace.css`, `src/main.ts`, `src/calendar-gestures.ts`, `src/availability.ts`, `public/logo.svg`와 Tauri 창 설정의 구현을 기록한다. 앞의 토큰은 규범적 값이며 아래 설명은 적용 맥락이다. 별도 시안이나 새로운 시각 체계를 도입하지 않는다.
+
+함께 저장한 `.impeccable/design.json`의 8단계 색상 램프는 패널 미리보기용으로 합성한 것이다. 앱의 새 색상 단계나 규범 토큰을 뜻하지 않는다. 컴포넌트 예시는 외형과 CSS 상태를 재현하며 앱 동작을 실행하지 않는다.
+
+**Key Characteristics:**
+
+- 짙은 세로 메뉴와 밝은 작업 영역의 대비.
+- 얇은 경계선과 흰 패널로 구획하는 평면적 화면.
+- 파란색으로 주요 실행과 현재 선택을 표시.
+- 작은 시간·건수 표기와 업무 제목을 함께 읽는 밀도.
+- 주·2주·월의 정보 밀도를 달리하는 계획 화면.
+
+## Colors
+
+하나의 파란 강조색과 회색 바탕이 기본이며 오류와 경고만 별도의 의미 색을 쓴다.
+
+### Primary
+
+- **파랑 (`blue`)**: 주요 실행, 활성 메뉴, 기간 선택, 선택 날짜 선과 키보드 포커스.
+- **연한 파랑 (`blue-soft`)**: 미완료 시간 블록과 2주 작업 제목 바탕. `blue-hover`는 주요 버튼 호버와 날짜 변경 상태에 사용한다.
+
+### Neutral
+
+- **짙은 먹색 (`text`)**: 본문과 레일 바탕. 레일 내부는 흰색과 `nav-muted`로 대비한다.
+- **회색 보조 글자 (`muted`)**: 시간, 소요시간, 건수, 설명과 상태 표시.
+- **밝은 회색 (`canvas`) / 흰색 (`surface`)**: 앱 바탕과 패널·상단·하단·캡처 창.
+- **경계선 (`border`, `line`)**: 컨트롤 외곽, 시간 격자와 설정 행 구분.
+- **상태 바탕 (`control-hover`, `selected-surface`, `nav-hover`)**: 컨트롤, 선택 날짜, 비활성 메뉴 호버.
+
+지난 미완료는 `overdue` 글자, `overdue-surface` 바탕, `overdue-border` 테두리와 문구를 함께 쓴다. 오류는 `error`, 설정 충돌은 `warning-surface`다. 완료는 회색과 완료 문구 또는 취소선을 사용한다. 날짜 시간표의 금지시간은 `stripe`/`stripe-soft` 사선과 이름, 주간 시간표의 금지시간은 `line` 바탕과 이름으로 구별한다.
+
+## Typography
+
+Segoe UI / Malgun Gothic을 유지한다. 기본 크기는 11·12·13·14·16·20px이며 캡처 입력만 24px를 사용한다. 패널 제목은 title, 날짜와 상세 제목은 headline, 새 작업 제목 입력은 composer다. 업무 제목은 14px/500, 요약·미계획 칩은 summary, 시간·보조 정보는 label, 가장 작은 메타는 nav-label이다. 11px보다 작은 글자는 사용하지 않는다.
+
+업무 행은 줄바꿈하고 시간표·칩은 말줄임한다. 시간과 날짜는 tabular-nums를 사용한다. 소요시간은 “1시간 30분” 형식이다. 날짜 선택은 OS 입력을 사용하고 근무 규칙의 시각은 HH:MM 형식의 개별 필드로 입력한다.
+
+## Layout
+
+앱 셸은 100vh다. 레일·상단을 유지하고 남은 높이를 콘텐츠에 준다. 상태줄은 로딩·저장 중·오류·편집 초안 재개가 필요할 때만 드러난다. 레일은 72px, 콘텐츠 좌우는 frame, 주요 패널 간격은 section이다. 상단에는 날짜 탐색을 둔다.
+
+오늘은 목록과 시간표를 같은 비율로 배치하고 최대 폭 1200px로 늘린다. 시간표는 1.2px/분이며 콘텐츠 전체가 스크롤한다. 현재 작업은 목록과 블록의 2px 파란 테두리와 진행 중 문구로 연결한다. 읽기 전용 메모는 세 줄까지 보여 주며 상세창에서 편집한다.
+
+계획은 넓은 달력과 열고 닫을 수 있는 우측 250px 미계획 드로어로 구성한다. 기본 기간인 주는 별도 날짜 상세 없이 7일 시간 격자를 채운다. 2주·월은 기간 보기와 선택 날짜 시간표를 두 열(`minmax(0,1fr) minmax(250px,.65fr)`)로 유지한다. 2주 셀은 두 행, 각 행 최소 190px이며 작업 네 건과 추가 건수를 보여 준다. 월 셀은 최소 92px 행이다. 주간 시간 격자는 시간축 46px와 동일한 일곱 열, 최소 폭 510px로 구성하고 좁으면 스크롤한다. 주간 날짜 헤더는 스크롤 중에도 상단에 유지한다.
+
+선택 날짜 시간표 배율은 clamp(.8, (실제 내부 높이−패딩)/표시 분, 1.2)다. 포인터·미리보기·블록·시간선은 같은 배율을 공유한다. 15분 블록 최소 높이는 12px다. 드로어는 제목이 줄바꿈되는 최소 높이 76px 미계획 작업 카드를 세로로 배치하고 독립 스크롤한다. 드로어를 닫으면 달력이 확보한 너비를 쓴다. 독립 미계획 화면은 최대 폭 860px 안에 제목 캡처 행·작업 목록·블록 크기·계획 진입을 모은다.
+
+설정은 근무 규칙과 운영 설정 두 열(1.7fr/1fr), 근무 규칙은 요일 라벨 100px와 입력 영역으로 구성한다. 금지시간은 이름·시작·종료·삭제가 같은 행에 놓이며 추가 버튼은 바로 아래에 둔다. 저장 바는 편집 영역 아래에 유지한다. 날짜 예외는 선택 날짜 시간표 위의 ‘시간 조정’을 펼쳐 편집한다.
+
+- 1250px 이하: 상단 간격과 제목 크기를 줄인다.
+- 1100px 이하: 계획 도구 모음을 줄바꿈하며 주간 요약의 강제 전체 행을 해제한다. 주간 트레이는 215px, 2주·월 트레이는 아래 180px 영역과 두 열 카드로 바뀐다. 설정 요일 라벨은 80px로 줄이고 금지시간은 줄바꿈한다.
+- 960px 이하: 오늘은 한 열, 레일은 62px다. 계획의 월·2주 날짜 상세 두 열과 하단 트레이를 유지한다.
+- 760px 이하: 계획 내부는 한 열이며 날짜 시간표와 드로어를 아래에 둔다.
+- 680px 이하: 설정은 한 열, 레일은 54px다. 2주 셀 최소 높이는 160px이고 주 보기는 높이 480px다.
+
+빠른 캡처는 가운데 열리는 520×132 프레임 없는 고정 크기 native 창이다. 흰 바탕에 두 줄 입력과 저장/닫기 버튼을 둔다. Enter는 저장, Shift+Enter는 줄바꿈, Esc는 입력 초안을 보존하고 창을 숨긴다. 초점 이동과 창 복귀는 입력 상태를 유지한다.
+
+## Elevation & Depth
+
+일반 패널은 그림자 없이 바탕과 얇은 경계선으로 구분한다. 상세·확인 대화상자는 그림자로 앞면을 구별하며 외곽 테두리는 없다.
+
+- **상세·확인 대화상자 그림자**: `var(--shadow-dialog)`.
+- **대화상자 배경막**: `var(--color-backdrop)`.
+- **선택 날짜 안쪽 선**: `inset 0 0 0 2px var(--color-selection-border)`.
+
+**The Flat Surface Rule.** 일반 패널에 대화상자 그림자를 적용하지 않는다.
+
+## Shapes
+
+컨트롤·시간 블록은 control, 패널은 panel, 대화상자는 dialog 반경을 쓴다. 미계획 트레이 카드는 `--radius-block`을 쓴다. 달력 셀은 control 반경과 6px 간격, 선택은 2px 안쪽 선을 사용한다. 대부분의 선은 1px, 공통 키보드 포커스는 2px 바깥 윤곽과 3px 간격이다. 길이 조절 손잡이는 포커스 간격 -2px를 사용한다.
+
+로고는 파란 둥근 정사각형에 서로 다른 길이의 흰 시간 블록 세 개를 배치한 기하학적 마크다. `public/logo.svg`와 앱 아이콘을 동일하게 유지한다. 레일에서 표시 크기는 38px이며 투명 버튼 위에 놓인다.
+
+## Components
+
+### Buttons
+
+기본 버튼은 흰 바탕과 얇은 테두리, 최소 높이 34px다. 주요 저장은 파랑과 흰 글자, 이전·다음·닫기는 정사각형 아이콘 버튼이다. 비활성은 불투명도 .55를 사용한다. 키보드 포커스 윤곽을 유지한다.
+
+reduced-motion 요청이 없을 때만 버튼 배경·테두리를 100ms ease-out으로 전환한다. 모달은 140ms ease-out으로 opacity 0→1과 아래 6px→제자리 이동을 쓴다. 이동 거부는 이유를 1.5초 유지한 뒤 180ms로 사라지고, 배치 성공은 600ms 외곽선으로 알린다.
+
+### Inputs / Fields
+
+일반 입력은 흰 바탕·얇은 경계·control 반경이며 필요한 명시적 라벨을 둔다. 반복적인 설명 문구 대신 입력 위치·버튼·블록과 눈금으로 조작을 드러낸다. 체크박스는 17px이며 파랑으로 강조한다. 새 작업 제목 입력은 20px와 아래 경계선, 캡처 입력은 24px의 경계 없는 두 줄 입력이다. 캡처 입력은 입력에 집중하도록 별도 윤곽을 숨기며 저장 버튼의 키보드 포커스는 유지한다.
+
+근무 설정은 요일 켜기/끄기, 시작·종료, 여러 금지시간 행으로 구성한다. 기본 주간 규칙은 주간 시간표의 근무/금지 구간으로 그린다. 선택 날짜의 구간 가장자리를 직접 조절할 수 있고, 날짜별 변경·조퇴·휴가는 반복 규칙과 구분해 표시한다. 시간 오류는 같은 폼 안에 구체적인 문구로 표시한다. 충돌 작업은 경고 바탕 안에 제목 목록과 기본 미선택인 ‘미계획으로 이동’ 체크박스를 보여 준다.
+
+상세창은 폭 510px, 최대 높이 95vh로 상단 제목·닫기와 하단 행동·오류 복구를 유지하고 중간 편집 영역만 스크롤한다. 제목과 메모를 먼저 보여 주며 시간·날짜·시각·블록 크기는 접힌 일정 영역에서 수정한다. 블록 크기는 15·30·60·90·120분 버튼과 직접 입력으로 정하고 8칸 눈금은 보조 표시다. 체크리스트는 기본 접힘이다. 체크 상태 변경은 같은 체크박스와 펼침 상태를 유지해 Space·Tab 흐름을 끊지 않는다. 저장 성공 후 새 변경이 없으면 닫는다. 닫을 때 변경이 있으면 저장/초안 유지/버리기를 인라인으로 선택하며, 복원 초안은 자동 팝업 대신 ‘이어서 편집’으로 연다.
+
+백업은 설정 안에서 관리한다. 목록 항목은 유형·생성 시각·작업 수를 보여 주며, 손상된 항목은 이유를 표시하고 선택을 막는다. 유효한 항목 선택 시 전체·배치·완료 건수를 확인하고, 현재 데이터 교체를 인라인으로 확인한 다음 복원한다. **지금 백업**은 앱 데이터의 로컬 `backups` 폴더에 만든다. 외부 파일 열기/저장 대화상자나 외부 경로 내보내기는 제공하지 않는다.
+
+### Navigation
+
+짙은 레일 위에 선형 SVG 아이콘 20px과 작은 한국어 라벨을 세로로 배치한다. 오늘·계획·미계획·설정의 탐색을 유지하며 설정은 아래쪽에 둔다. 활성은 파랑·흰색, 비활성은 nav-muted다. 버튼 최소 높이는 54px다. 로고와 오늘은 실제 오늘로 돌아간다. 설정에서는 날짜 탐색을 숨긴다. 레일 빠른 캡처 버튼과 상단 캡처 입력은 사용하지 않는다.
+
+### Cards / Containers
+
+패널은 흰 바탕·얇은 외곽선·panel 반경이다. 일반 패널 여백은 panel, 계획 달력과 미계획 트레이는 section을 사용한다. 빈 상태는 실제 입력이나 행동 컨트롤만 보여 준다.
+
+### Period selector / Calendar day
+
+주·2주·월 버튼을 맞붙여 놓고 선택만 파랗게 채운다. 오늘은 날짜 색과 ‘오늘’ 문구, 선택은 연한 바탕과 파란 안쪽 선이다. 휴무·휴가·조퇴·시간 변경은 문구로 구별한다. 2주는 시작시각과 제목, 월은 건수·배치시간·연속 점유 막대를 보여 준다. 월 밖의 날짜는 불투명도 .55다. 주간 요약은 선택한 주의 금지시간을 제외한 근무 가능 시간과 근무일 수를 목표와 비교한다.
+
+### Task row / Time block / 미계획
+
+행의 체크박스는 완료, 제목은 상세 열기, 끝 숫자는 소요시간이다. 완료 행은 취소선을 쓴다. 시간 블록은 연한 파랑이며 완료는 회색과 문구로 구별한다. 이동 미리보기는 파란 점선이고 겹침은 붉은 상태와 문구를 함께 표시한다.
+
+주간 격자와 날짜 시간표는 빈 공간 클릭·범위 드래그 후 인라인 제목 입력, 날짜 사이 길이 보존 이동, 하단 손잡이 크기 조절을 공유한다. 손잡이는 hover/focus 때 보이고 separator 역할과 최소 15·최대 1440·현재 소요시간, 위/아래 화살표의 15분 조절을 제공한다. 분할 가능한 시간 블록은 내부 경계 손잡이를 끌어 분할 위치를 조정하며, 키보드 화살표로도 이동할 수 있다. 날짜 시간표의 15분 블록은 높이 12–18px, 제목 여백 0 32px 0 4px와 11px 줄높이를 쓴다.
+
+미계획 트레이 카드는 grab 커서를 가진 상세 열기·드래그 버튼이며 제목과 소요시간을 함께 보여 준다. 블록 우클릭 메뉴는 편집·완료·나누기·미계획 이동을 제공한다. 분할은 총 시간을 보존하고 뒤 블록은 미계획에 두며 메모를 복사한다. 별도 빠른 캡처는 Enter로 저장 후 숨기고 Shift+Enter로 줄바꿈하며 Esc로 초안을 유지하고 숨긴다. 저장 오류는 창 안에 남긴다.
+
+## Do's and Don'ts
+
+### Do:
+
+- **Do** 확정 B/D의 파랑·회색 체계와 기존 글꼴·반경을 유지한다.
+- **Do** 선택·완료·금지시간·오류를 색과 글자 또는 형태로 함께 구분한다.
+- **Do** 주·2주·월 각각의 시간·제목·작업량 정보 우선순위를 유지한다.
+- **Do** 주요 조작의 키보드 포커스와 11px 이상의 글자 크기를 유지한다.
+- **Do** 미배치 작업을 사용자 화면에서 ‘미계획’으로 표기한다.
+- **Do** 조작은 시간표와 블록 자체에서 알아볼 수 있게 하고 반복 설명 문구를 줄인다.
+
+### Don't:
+
+- **Don't** 사용자 확인 없이 새로운 브랜드 스타일로 교체한다.
+- **Don't** 평면 패널에 모달용 그림자를 적용한다.
+- **Don't** 제거한 4주 모드·상단 캡처·레일 캡처를 다시 추가한다.
+- **Don't** 저장 실패·로딩 실패를 정상 빈 상태나 저장 성공으로 보이게 한다.
+- **Don't** 설정 충돌을 사용자의 미계획 이동 동의 없이 처리한다.
