@@ -1,6 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 use blokky_core::{db::{managed_backup_path, BackupInspection, ManagedBackup, Store}, model::*};
-use std::{collections::HashSet, fs::{self, OpenOptions}, io::Write, path::PathBuf, sync::Mutex};
+use std::{collections::HashSet, fs::{self, OpenOptions}, io::Write, path::{Path,PathBuf}, sync::Mutex};
 use tauri::{Emitter, Manager};
 use tauri_plugin_autostart::ManagerExt;
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, ShortcutState};
@@ -12,6 +12,7 @@ struct State {
     warning: Mutex<Option<String>>,
     last_backup: Mutex<Option<String>>,
     shortcut: Mutex<String>,
+    exit_on_close: Mutex<bool>,
 }
 fn audit(s: &State, event: &str, code: &str) {
     if let Ok(mut f) = OpenOptions::new().create(true).append(true).open(s.root.join("blokky.log")) {
@@ -133,6 +134,25 @@ fn autostart(app: tauri::AppHandle, enabled: Option<bool>) -> Result<bool> {
     }
     manager.is_enabled().map_err(|_|error("storage","자동실행 설정을 읽지 못했습니다."))
 }
+fn exit_on_close_setting(root:&Path,enabled:Option<bool>)->Result<bool>{
+    let path=root.join("exit-on-close.txt");
+    if let Some(enabled)=enabled {
+        fs::write(path,if enabled {"true"} else {"false"})?;
+        return Ok(enabled);
+    }
+    match fs::read_to_string(path) {
+        Ok(value)=>value.trim().parse().map_err(|_|error("storage","창 닫기 설정을 읽지 못했습니다. 설정을 다시 선택하세요.")),
+        Err(e) if e.kind()==std::io::ErrorKind::NotFound=>Ok(false),
+        Err(e)=>Err(e.into()),
+    }
+}
+#[tauri::command]
+fn exit_on_close(s:tauri::State<State>,enabled:Option<bool>)->Result<bool>{
+    let mut current=s.exit_on_close.lock().map_err(|_|error("internal","창 닫기 설정을 변경하지 못했습니다."))?;
+    let saved=exit_on_close_setting(&s.root,enabled)?;
+    *current=saved;
+    Ok(saved)
+}
 #[derive(serde::Serialize)]
 struct Diagnostics { db_path:String, warning:Option<String>, last_backup:Option<String> }
 #[tauri::command]
@@ -166,12 +186,13 @@ fn main() {
                 std::thread::spawn(move || {let app=handle.clone();let _=handle.run_on_main_thread(move || show(&app,"capture"));});
             }
         }).build())
-        .invoke_handler(tauri::generate_handler![load,load_draft,save_draft,mutate,create_backup,list_backups,inspect_backup,restore,recover_backup,set_dirty,hide_capture,show_capture,capture_shortcut,autostart,diagnostics])
+        .invoke_handler(tauri::generate_handler![load,load_draft,save_draft,mutate,create_backup,list_backups,inspect_backup,restore,recover_backup,set_dirty,hide_capture,show_capture,capture_shortcut,autostart,exit_on_close,diagnostics])
         .setup(|app| {
             let root=if cfg!(debug_assertions) {std::env::var_os("BLOKKY_TEST_DATA_DIR").map(PathBuf::from).unwrap_or(app.path().app_local_data_dir()?)} else {app.path().app_local_data_dir()?}; fs::create_dir_all(&root)?;
             let store=Store::open(&root.join("blokky.sqlite"));
             let shortcut=fs::read_to_string(root.join("capture-shortcut.txt")).unwrap_or_else(|_|"Ctrl+Shift+Space".into());
-            let state=State {store:Mutex::new(store),busy:Mutex::new(HashSet::new()),root,warning:Mutex::new(None),last_backup:Mutex::new(None),shortcut:Mutex::new(shortcut.clone())};
+            let close=exit_on_close_setting(&root,None).unwrap_or(false);
+            let state=State {store:Mutex::new(store),busy:Mutex::new(HashSet::new()),root,warning:Mutex::new(None),last_backup:Mutex::new(None),shortcut:Mutex::new(shortcut.clone()),exit_on_close:Mutex::new(close)};
             if let Ok(mut f)=OpenOptions::new().create(true).append(true).open(state.root.join("blokky.log")) {
                 let _=writeln!(f,"startup app={} exe={} db={}",env!("CARGO_PKG_VERSION"),std::env::current_exe()?.display(),state.root.join("blokky.sqlite").display());
             }
@@ -208,7 +229,35 @@ fn main() {
             Ok(())
         })
         .on_window_event(|window,event| {
-            if let tauri::WindowEvent::CloseRequested {api,..}=event {api.prevent_close();let _=hide(window);}
+            if let tauri::WindowEvent::CloseRequested {api,..}=event {
+                api.prevent_close();
+                let exit=window.label()=="main"&&*window.state::<State>().exit_on_close.lock().unwrap();
+                if exit {quit(window.app_handle());} else {let _=hide(window);}
+            }
         })
         .run(tauri::generate_context!()).expect("BLOKKY desktop startup failed");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn close_preference_persists_and_reports_invalid_or_failed_storage(){
+        let dir=tempfile::tempdir().unwrap();let root=dir.path();
+        assert!(!exit_on_close_setting(root,None).unwrap());
+        for value in [true,false] {
+            assert_eq!(exit_on_close_setting(root,Some(value)).unwrap(),value);
+            assert_eq!(exit_on_close_setting(root,None).unwrap(),value);
+        }
+        fs::write(root.join("exit-on-close.txt"),"invalid").unwrap();
+        assert!(exit_on_close_setting(root,None).is_err());
+        assert!(exit_on_close_setting(root,Some(true)).unwrap());
+        let missing=root.join("missing");
+        assert!(exit_on_close_setting(&missing,Some(true)).is_err());
+        fs::remove_file(root.join("exit-on-close.txt")).unwrap();
+        fs::create_dir(root.join("exit-on-close.txt")).unwrap();
+        assert!(exit_on_close_setting(root,None).is_err());
+        assert!(exit_on_close_setting(root,Some(false)).is_err());
+    }
 }

@@ -1,5 +1,13 @@
 # 검증 범위
 
+## 창 닫기 설정 Test delta brief
+
+- Unique risk: 종료 옵션이 재시작 후 사라지거나 읽기·저장 실패가 성공으로 표시됨.
+- Existing owner: 파일 저장 경계는 Rust가 소유하지만 desktop 전용 운영 설정은 기존 storage.rs와 Node 설정 시험에서 실행되지 않음. 관련 main.rs 운영 설정 함수 옆의 단위 시험에 배치한다.
+- Selected layer: 실제 GUI 없이 임시 디렉터리에서 기본값·저장/재조회·손상 값·쓰기 실패를 묶어 검증한다.
+- Expected cost delta: desktop binary unit test에 동기 사례1개. native 의존성 컴파일이 필요하지만 GUI·네트워크 실행이나 기본 Node 경로 증가는0. 새 테스트 파일·의존성·CI lane 없음.
+- Evidence to retire: 없음. DB 복원/일정 검증과 다른 기기별 설정 경계이며 coverage 기준 변경 없음.
+
 ## 개발 서버 포트 Test delta brief
 
 - Unique risk: 1420이 사용 중이면 미리보기가 시작하지 않거나 데스크톱이 다른 서버를 열고, 종료·실패 후 개발 포트가 남음.
@@ -118,3 +126,5 @@ Cycle 3 Test delta 결과: 새 순수 표시 owner src/schedule.test.ts 4사례 
 - Runtime delta: 전체 단독 실행 123.5188→119.9894ms. 단일 실행 차이 −3.5294ms이며 성능 개선 추정이 아니다. 새 두 사례 본체 0.9958ms / 0.1247ms.
 - Heavy-resource launch delta: 자동 suite의 worker·브라우저·DB·네트워크 증가 0. UI 연결은 수동 브라우저 묶음 검증이 소유한다.
 - Coverage-floor impact: 변경 없음. 새 의존성·테스트 파일·CI lane 없음.
+
+창 닫기 설정 Test delta 결과: `cargo test --manifest-path src-tauri/Cargo.toml --bin blokky --offline`의 기존 main.rs 인라인 owner에 사례1개 추가(added/extended/removed 1/0/0), desktop 단위 수집0→1. 본체0.01초, 최초 증분 컴파일3.74초. 신규 경계라 비교 baseline과 runtime delta는 미측정. GUI·네트워크 자동 실행 증가0, 기본 Node·no-default-features 경로 증가0, coverage 기준 변경0.

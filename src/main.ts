@@ -51,7 +51,7 @@ let draftTimer:ReturnType<typeof setTimeout>|undefined,settingsDraft:Settings|nu
 let rawSchedules:Record<string,RawSchedule>={};
 let shortcut="Ctrl+Shift+Space";
 let settingsBase:{epoch:string;revision:number}|null=null,lastBackup='';
-let message='',errorMessage='',loadError='',warning='',dbPath='',autoStart=false,dragId='';
+let message='',errorMessage='',loadError='',warning='',dbPath='',autoStart=false,exitOnClose=false,dragId='';
 let ready=false,refreshNeeded=false;
 let draftLoadFailed=false,appInfoFailed=false;
 const backups={items:[] as ManagedBackup[],loaded:false,loading:false,error:'',selected:null as string|null,inspection:null as BackupInspection|null,inspecting:false,inspectionError:'',busy:null as 'create'|'restore'|null,status:'',statusError:false};
@@ -154,11 +154,12 @@ async function discardStoredDraft(){
 async function refreshAppInfo(){
   const results=await Promise.allSettled([
     invoke<{db_path:string;warning:string|null;last_backup:string|null}>('diagnostics'),
-    invoke<boolean>('autostart',{enabled:null}),invoke<string>('capture_shortcut',{value:null})
+    invoke<boolean>('autostart',{enabled:null}),invoke<string>('capture_shortcut',{value:null}),invoke<boolean>('exit_on_close',{enabled:null})
   ]);
   if(results[0].status==='fulfilled'){const info=results[0].value;dbPath=info.db_path;warning=info.warning||'';lastBackup=info.last_backup||'';}
   if(results[1].status==='fulfilled')autoStart=results[1].value;
   if(results[2].status==='fulfilled')shortcut=results[2].value;
+  if(results[3].status==='fulfilled')exitOnClose=results[3].value;
   appInfoFailed=results.some(result=>result.status==='rejected');updateStatus();
 }
 function dayRule(date:string){return effectiveDay(settingsDraft??snapshot!.settings,date);}
@@ -586,7 +587,7 @@ async function restoreBackup(){
   }).catch(()=>{});
 }
 
-function settingsHTML(){return `<div class="settings-layout"><section class="panel" id="availability-settings">${availabilityHTML(settingsDraft??snapshot!.settings)}</section><section class="panel operations">${themePickerHTML(resolveTheme(document.documentElement.dataset.theme))}<hr><h2>빠른 캡처</h2><form id="shortcut-form"><label for="shortcut">단축키</label><div class="shortcut-control"><input id="shortcut" value="${esc(shortcut)}" readonly aria-label="빠른 캡처 단축키"><button type="submit">변경</button></div><p id="shortcut-result" role="status"></p></form><hr><h2>실행과 기록 보관</h2><label class="check-line"><input id="autostart" type="checkbox" ${autoStart?'checked':''} ${native?'':'disabled'}>Windows 로그인 시 자동실행</label><hr>${backupManagerHTML()}<details class="diagnostics"><summary>진단 정보</summary><label>저장소 위치<input readonly value="${esc(dbPath||'데스크톱 앱에서 확인')}" aria-label="저장소 위치"></label><p>시간별 24개 · 일별 30개 보관</p></details></section></div>`;}
+function settingsHTML(){return `<div class="settings-layout"><section class="panel" id="availability-settings">${availabilityHTML(settingsDraft??snapshot!.settings)}</section><section class="panel operations">${themePickerHTML(resolveTheme(document.documentElement.dataset.theme))}<hr><h2>빠른 캡처</h2><form id="shortcut-form"><label for="shortcut">단축키</label><div class="shortcut-control"><input id="shortcut" value="${esc(shortcut)}" readonly aria-label="빠른 캡처 단축키"><button type="submit">변경</button></div><p id="shortcut-result" role="status"></p></form><hr><h2>실행과 기록 보관</h2><label class="check-line"><input id="autostart" type="checkbox" ${autoStart?'checked':''} ${native?'':'disabled'}>Windows 로그인 시 자동실행</label><label class="check-line"><input id="exit-on-close" type="checkbox" ${exitOnClose?'checked':''} ${native?'':'disabled'}>창을 닫으면 앱 종료</label><hr>${backupManagerHTML()}<details class="diagnostics"><summary>진단 정보</summary><label>저장소 위치<input readonly value="${esc(dbPath||'데스크톱 앱에서 확인')}" aria-label="저장소 위치"></label><p>시간별 24개 · 일별 30개 보관</p></details></section></div>`;}
 function bindSchedule(root:HTMLElement,date:string|null){
   root.addEventListener('click',e=>{if((e.target as HTMLElement).closest('#select-exception-date')){view='plan';planAnchor=selected;render();}});
   bindAvailability(root,settingsDraft??snapshot!.settings,snapshot!.tasks,date,{
@@ -613,6 +614,12 @@ function bindSettings(){
   shortcutInput.onkeydown=e=>{if(e.key==='Tab')return;e.preventDefault();const value=shortcutFromKey(e);if(value){shortcutInput.value=value;$('#shortcut-result').textContent='';}else if(!['Control','Alt','Shift','Meta'].includes(e.key))$('#shortcut-result').textContent='Ctrl 또는 Alt와 문자, 숫자, 기능 키를 함께 누르세요.';};
   $('#shortcut-form').onsubmit=async e=>{e.preventDefault();try{shortcut=native?await invoke<string>('capture_shortcut',{value:shortcutInput.value}):shortcutInput.value;$('#shortcut-result').textContent=native?'단축키를 변경했습니다.':'미리보기에서 변경됨';}catch(e){$('#shortcut-result').textContent=(e as AppError).message||String(e);}};
   $<HTMLInputElement>('#autostart').onchange=async e=>{try{autoStart=await invoke<boolean>('autostart',{enabled:(e.target as HTMLInputElement).checked});}catch(e){showError(e);$<HTMLInputElement>('#autostart').checked=autoStart;}};
+  $<HTMLInputElement>('#exit-on-close').onchange=async e=>{
+    const input=e.target as HTMLInputElement;input.disabled=true;
+    try{exitOnClose=await invoke<boolean>('exit_on_close',{enabled:input.checked});}
+    catch(e){showError(e);}
+    finally{input.checked=exitOnClose;input.disabled=false;}
+  };
   bindBackupManager();
 }
 async function start(){

@@ -188,3 +188,10 @@
 실행 중인 `src-tauri/target/debug/blokky.exe` 때문에 `run.ps1 dev`에서 Cargo가 실행 파일 삭제에 실패하는 os error5를 재현했다. 실행 프로세스의 정확한 경로를 확인했으며 강제 종료하지 않았다. 스크립트는 동일 개발 실행 파일의 프로세스를 사전 감지해 트레이 종료 방법을 표시한다. 그 외 실패도 종료 코드와 오류를 표시하고, 대화형 콘솔에서 Enter까지 유지한다. `-NoPause` 또는 입력 리디렉션은 대기를 생략한다. Windows PowerShell5의 한글 해석을 위해 UTF-8 BOM을 사용한다.
 
 Windows PowerShell의 `dev -NoPause`가 설명과 exit1을 반환하는지 확인했다. 실제 PTY에서 기본 `dev`가 오류 뒤 Read-Host 입력 대기로 남고 Enter 후 exit1로 종료하는 것도 확인했다. `test -NoPause`는 Node20/20 (97.9939ms), Rust storage13/13 (3.59초)을 실행하고 exit0으로 반환했다. 자동 테스트 추가·수정0, 기본 suite 비용 증가0. 실행 중인 앱을 종료한 뒤 dev 정상 재시작 및 package 경로는 이번에 실행하지 않았다.
+
+
+## 2026-10-09 창 닫기 종료 옵션
+
+설정의 기본 꺼짐 체크박스를 추가하고 `exit_on_close` IPC로 기기별 저장·재조회를 연결했다. main 창 CloseRequested만 저장된 옵션에 따라 기존 quit 함수를 호출하며 capture는 기존 hide를 유지한다. quit의 busy/보관 초안 차단은 변경하지 않았다.
+
+Rust desktop 단위1/1 (0.01초, 컴파일3.74초), 프런트 TypeScript·Vite 배포 빌드 통과 (228ms). 단위 시험은 초기 false, true/false 저장·재조회, 손상 값·읽기/쓰기 오류와 재설정을 검증한다. 실행 중인 이전 개발 앱을 강제 종료하지 않았으며 실제 OS X/Alt+F4·재시작 동작은 이번에 실행 검증하지 않았다.
