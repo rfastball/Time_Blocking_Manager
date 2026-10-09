@@ -128,3 +128,13 @@ Cycle 3 Test delta 결과: 새 순수 표시 owner src/schedule.test.ts 4사례 
 - Coverage-floor impact: 변경 없음. 새 의존성·테스트 파일·CI lane 없음.
 
 창 닫기 설정 Test delta 결과: `cargo test --manifest-path src-tauri/Cargo.toml --bin blokky --offline`의 기존 main.rs 인라인 owner에 사례1개 추가(added/extended/removed 1/0/0), desktop 단위 수집0→1. 본체0.01초, 최초 증분 컴파일3.74초. 신규 경계라 비교 baseline과 runtime delta는 미측정. GUI·네트워크 자동 실행 증가0, 기본 Node·no-default-features 경로 증가0, coverage 기준 변경0.
+
+
+## 2026-10-09 자동 저장 종료와 시간축 Test delta
+
+- Unique risk: 마지막 저장이나 후속 초안 쓰기가 끝나기 전에 종료하거나, 실패한 창을 무시하고 다른 창 응답만으로 종료함. 로그 압축이 있어도 근무 밖 영역이 과도하게 넓음.
+- Existing owner / layer: src/queue.test.ts의 실제 SaveQueue 순수 상태, src-tauri/src/main.rs의 desktop 단위 coordinator, src/schedule.test.ts의 시간축 순수 계산. UI CRUD와 IPC 연결은 별도 수동 브라우저·격리 Windows 시험이 소유함.
+- Expected cost / retired evidence: 기존 owner에 작은 사례 두 개 추가, 시간축 기존 사례 하나 확장. 제거 대상 중복 증거 없음. 새 파일·의존성·자동 GUI/DB/network launch·CI lane·coverage floor 변경 없음.
+- Added / extended / removed: 2 / 1 / 0. Node 수집 20→21, desktop 단위 1→2, storage 13 유지. Node 전체 106.8831ms, 새 queue 사례 0.2056ms. desktop 2/2 본체 0.01초, storage 13/13 본체 2.46초. 전체 변경 전 동일 조건 baseline이 없어 신뢰할 runtime delta는 not measured.
+- 시간축 좁은 owner schedule/settings 15개는 100.2691→92.4225ms; 단일 실행차이며 성능 개선 추정으로 사용하지 않음.
+- 자동 heavy-resource launch delta 0. 수동 IPC 검증은 별도 ID의 시험 앱 3회 실행, 시험 SQLite에만 초안/오류 trigger를 준비하여 성공·실패·복구 경계를 확인했다.
