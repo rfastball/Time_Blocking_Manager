@@ -190,7 +190,7 @@ async function reload(){
   const draftWasLoaded=storedDraft.loaded;
   try{if(native)snapshot=await invoke<Snapshot>('load');ready=true;loadError='';}
   catch(e){ready=false;loadError=(e as AppError).message||String(e);render();}
-  if(ready){if(native){if(!storedDraft.loaded)await loadStoredDraft();await refreshAppInfo();}if(captureWindow&&!draftWasLoaded&&storedDraft.loaded)render();else renderContent();const input=document.querySelector<HTMLTextAreaElement>('#capture');if(input)input.disabled=!storedDraft.loaded;}
+  if(ready){if(native){if(!storedDraft.loaded)await loadStoredDraft();await refreshAppInfo();}if(captureWindow&&!draftWasLoaded&&storedDraft.loaded)render();else renderContent();const input=document.querySelector<HTMLTextAreaElement>('#capture');if(input)input.disabled=!storedDraft.loaded;syncCaptureSave();}
 }
 async function loadStoredDraft(allowBusy=false){
   try{const [sequence,content]=await invoke<[number,string]>('load_draft');
@@ -230,13 +230,15 @@ function available(date:string){const d=dayRule(date);return d.enabled?d.end-d.s
 function canPlace(id:string,date:string,start:number,duration:number){
   return placementIssue(id,date,start,duration)===null;
 }
-function captureForm(){return `<form id="capture-form" class="capture-form"><span class="capture-mark" aria-hidden="true">${icon('plus')}</span><label class="sr-only" for="capture">빠른 캡처</label><textarea id="capture" autocomplete="off" placeholder="어떤 일을 해야 하나요?" maxlength="650" rows="2" ${!ready||!storedDraft.loaded?'disabled':''}>${esc(captureDraft.text)}</textarea><button class="icon-button capture-save" aria-label="미계획에 저장" title="미계획에 저장" type="submit">${icon('check')}</button><button class="icon-button" aria-label="빠른 캡처 닫기" title="빠른 캡처 닫기" type="button" id="close-capture">${icon('close')}</button></form>`;}
+const brandMark=(cls='brand-mark')=>`<svg class="${cls}" aria-hidden="true" viewBox="0 0 64 64"><rect x="14" y="14" width="12" height="36" rx="3"/><rect x="32" y="14" width="18" height="14" rx="3"/><rect x="32" y="34" width="12" height="16" rx="3"/></svg>`;
+function captureHTML(){return `<main class="capture-window"><form id="capture-form" class="capture-form">${brandMark('brand-mark capture-mark')}<label class="sr-only" for="capture">빠른 캡처</label><textarea id="capture" autocomplete="off" placeholder="어떤 일을 해야 하나요?" maxlength="650" rows="2" ${!ready||!storedDraft.loaded?'disabled':''}>${esc(captureDraft.text)}</textarea></form><div class="capture-bar"><div id="status"></div><button type="button" id="close-capture" class="capture-close">닫기</button><button type="submit" form="capture-form" class="capture-save">미계획에 저장</button></div></main>`;}
+function syncCaptureSave(){const input=document.querySelector<HTMLTextAreaElement>('#capture'),save=document.querySelector<HTMLButtonElement>('.capture-save');if(input&&save)save.disabled=input.disabled||!input.value.trim();}
 function hideCapture(){persistDraft();if(native)void invoke('hide_capture').catch(showError);else document.querySelector<HTMLElement>('.capture-window')!.hidden=true;}
 
 function render(){
   document.querySelector('#calendar-availability-editor')?.remove();
-  $('#app').innerHTML=captureWindow?`<main class="capture-window">${captureForm()}<div id="status"></div></main>`:
-    `<div class="app-shell"><nav class="rail" aria-label="주 메뉴"><button class="brand" id="brand-home" aria-label="BLOKKY 오늘로 이동" title="오늘로 이동"><svg class="brand-mark" aria-hidden="true" viewBox="0 0 64 64"><rect x="14" y="14" width="12" height="36" rx="3"/><rect x="32" y="14" width="18" height="14" rx="3"/><rect x="32" y="34" width="12" height="16" rx="3"/></svg></button>${(['today','plan','inbox','settings']as const).map(v=>`<button class="nav-button ${view===v?'active':''}" data-view="${v}" aria-label="${{today:'오늘',plan:'계획',inbox:'미계획',settings:'설정'}[v]}" title="${{today:'오늘',plan:'계획',inbox:'미계획',settings:'설정'}[v]}">${icon(v)}<span>${{today:'오늘',plan:'계획',inbox:'미계획',settings:'설정'}[v]}</span></button>`).join('')}</nav>
+  $('#app').innerHTML=captureWindow?captureHTML():
+    `<div class="app-shell"><nav class="rail" aria-label="주 메뉴"><button class="brand" id="brand-home" aria-label="BLOKKY 오늘로 이동" title="오늘로 이동">${brandMark()}</button>${(['today','plan','inbox','settings']as const).map(v=>`<button class="nav-button ${view===v?'active':''}" data-view="${v}" aria-label="${{today:'오늘',plan:'계획',inbox:'미계획',settings:'설정'}[v]}" title="${{today:'오늘',plan:'계획',inbox:'미계획',settings:'설정'}[v]}">${icon(v)}<span>${{today:'오늘',plan:'계획',inbox:'미계획',settings:'설정'}[v]}</span></button>`).join('')}</nav>
     <main class="workspace"><header class="topbar"><div class="date-nav" ${view==='settings'||view==='inbox'?'hidden':''}><button class="icon-button" id="prev" aria-label="이전 기간">${icon('left')}</button><button class="icon-button" id="next" aria-label="다음 기간">${icon('right')}</button><button id="go-today" aria-label="오늘 날짜로 이동">오늘</button></div><h1 id="heading"></h1></header><div id="notice"></div><div id="content"></div><footer id="status"></footer></main></div><dialog id="editor-dialog" aria-labelledby="editor-heading"></dialog>`;
   $('#app').insertAdjacentHTML('beforeend','<div id="announcer" class="sr-only" role="status" aria-live="polite"></div>');
   if(captureWindow)bindCapture();
@@ -254,22 +256,23 @@ function navigate(direction:number){
 }
 function bindCapture(){
   const input=$<HTMLTextAreaElement>('#capture');
-  input.oninput=()=>{captureDraft.edit(input.value);const inline=document.querySelector<HTMLInputElement>('#inbox-capture');if(inline)inline.value=input.value;draftChanged();};
+  input.oninput=()=>{captureDraft.edit(input.value);syncCaptureSave();const inline=document.querySelector<HTMLInputElement>('#inbox-capture');if(inline)inline.value=input.value;draftChanged();};
   input.onkeydown=e=>{const action=captureEnterAction(e);if(action==='compose')e.preventDefault();if(action==='submit'){e.preventDefault();void submitCapture();}};
   $('#close-capture').onclick=hideCapture;
   $('#capture-form').onsubmit=e=>{e.preventDefault();void submitCapture();};
+  syncCaptureSave();
 }
 async function submitCapture(){
   if(!captureDraft.text.trim()||!ready||!storedDraft.loaded||queue.failed)return;
   const title=captureDraft.text.trim();calendarComposer=null;if(captureDraft.command?.action.type!=='create')captureDraft.command=null;captureDraft.command??={request_id:crypto.randomUUID(),epoch:snapshot!.epoch,action:{type:'create',id:crypto.randomUUID(),title}};
   const command=captureDraft.command;persistDraft();
-  const captureInput=document.querySelector<HTMLTextAreaElement>('#capture');if(captureInput)captureInput.disabled=true;
+  const captureInput=document.querySelector<HTMLTextAreaElement>('#capture');if(captureInput)captureInput.disabled=true;syncCaptureSave();
   await dispatch(command.action,command.epoch,command.request_id,()=>{
     if(!captureDraft.acknowledge(command)){message='이전 항목을 저장했습니다. 새 입력은 유지했습니다.';return;}
     if(captureInput)captureInput.value='';const inline=document.querySelector<HTMLInputElement>('#inbox-capture');if(inline)inline.value='';persistDraft();message='미계획에 저장했어요.';
     if(captureWindow&&native)void queue.add(async()=>{await invoke('hide_capture');});
   });
-  if(captureInput){captureInput.disabled=false;captureInput.focus();}
+  if(captureInput){captureInput.disabled=false;syncCaptureSave();captureInput.focus();}
 }
 function renderContent(){
   if(calendarComposing&&document.querySelector('#calendar-composer')){calendarRefreshPending=true;updateStatus();return;}

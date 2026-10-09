@@ -26,7 +26,6 @@
   --space-input-inset: 9px;
   --space-panel-compact: 14px;
   --space-section-loose: 18px;
-  --space-capture-inline: 22px;
   --space-group: 26px;
   --space-block-actions: 32px;
   --space-agenda-label: 38px;
@@ -57,6 +56,7 @@
   --radius-indicator: 2px;
   --radius-chip: 18px;
   --radius-now: 0;
+  --radius-capture: 18px;
   --border-width: 1px;
   --border-panel-width: 1px;
   --border-control-width: 1px;
@@ -122,6 +122,7 @@
   --color-backdrop: #1b24334d;
   --shadow-dialog: 0 16px 64px #16224430;
   --shadow-hover: none;
+  --shadow-capture: 0 0 0 1px color-mix(in srgb,var(--color-text) 11%,transparent), 0 1px 2px color-mix(in srgb,var(--color-text) 10%,transparent), 0 8px 18px -6px color-mix(in srgb,var(--color-text) 30%,transparent);
   --background-unavailable: repeating-linear-gradient(135deg, var(--color-unavailable) 0 6px, var(--color-unavailable-soft) 6px 12px);
   --timeline-half-hour-style: none;
   --timeline-axis-width: 0px;
@@ -129,6 +130,7 @@
 }
 
 [data-theme="g1"] {
+  --radius-capture: 10px;
   --font-body: "Gowun Dodum", "Malgun Gothic", sans-serif;
   --font-heading: "Gowun Batang", "Batang", serif;
   --font-size-heading: 22px;
@@ -189,6 +191,7 @@
 }
 
 [data-theme="g3"] {
+  --radius-capture: 20px;
   --font-body: "IBM Plex Sans KR", "Malgun Gothic", sans-serif;
   --font-size-title: 14px;
   --radius-control: 10px;
@@ -248,6 +251,8 @@
 }
 
 [data-theme="g4"] {
+  --radius-capture: 2px;
+  --shadow-capture: 0 0 0 1px var(--color-structure), 0 8px 16px -8px color-mix(in srgb,var(--color-text) 35%,transparent);
   --font-body: "Noto Sans KR", "Malgun Gothic", sans-serif;
   --font-size-heading: 24px;
   --font-size-title: 14px;

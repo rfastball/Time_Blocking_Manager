@@ -155,8 +155,8 @@ components:
 | 현재 시각·오류·미완료 | `--color-now`, `--color-error`, `--color-overdue` (독립 변경 가능) |
 | 시간 블록·완료·금지시간 | `--color-block`, `--color-block-completed`, `--background-unavailable` |
 | 글꼴·크기·굵기 | `--font-body`, `--font-heading`, `--font-size-label`, `--font-size-capture` |
-| 간격·형태·경계 | `--space-panel`, `--control-padding`, `--radius-block`, `--border-structure-width` |
-| 깊이·모션 | `--shadow-dialog`, `--shadow-hover`, `--duration-control`, `--ease-feedback` |
+| 간격·형태·경계 | `--space-panel`, `--control-padding`, `--radius-block`, `--radius-capture`, `--border-structure-width` |
+| 깊이·모션 | `--shadow-dialog`, `--shadow-hover`, `--shadow-capture`, `--duration-control`, `--ease-feedback` |
 
 시간 위치·길이는 실제 분 단위 자료에서 계산하며 테마 토큰으로 바꾸지 않는다. 격자 열 구성·화면 분기점·최소 창 크기 등 기능적 기하도 컴포넌트에 유지한다. 공통 `0`·`auto`·`inherit`는 토큰으로 감싸지 않는다.
 
@@ -236,13 +236,13 @@ Segoe UI / Malgun Gothic을 유지한다. 기본 크기는 11·12·13·14·16·2
 - 760px 이하: 계획 내부는 한 열이며 날짜 시간표와 드로어를 아래에 둔다.
 - 680px 이하: 설정은 한 열, 레일은 54px다. 2주 셀 최소 높이는 160px이고 주 보기는 높이 480px다.
 
-빠른 캡처는 가운데 열리는 620×176 프레임 없는 고정 크기 native 창이다. 투명 창 안쪽 12px 여백에 반경 24px 표면을 두고, 20px 내부 여백·64px 높이의 두 줄 입력·36px 원형 저장/닫기 버튼을 배치한다. 상태·오류와 복구 버튼은 남은 아래 공간에서 스크롤한다. 480px 이하 미리보기에서는 외곽 여백 8px·반경 20px·내부 여백 16px로 줄이고 입력 앞 마크를 숨긴다. Enter는 저장, Shift+Enter는 줄바꿈, Esc는 입력 초안을 보존하고 창을 숨긴다. 초점 이동과 창 복귀는 입력 상태를 유지한다.
+빠른 캡처는 가운데 열리는 620×176 프레임 없는 고정 크기 native 창이다. 투명 창 안쪽 위 12px·좌우 14px·아래 20px 여백(그림자 공간)에 `--radius-capture` 반경의 단일 패널을 두고, 위는 입력 영역, 아래는 헤어라인으로 나뉜 액션 바다. 입력 영역은 30px 앱 로고 타일과 24px 두 줄 입력이다. 액션 바는 왼쪽 상태·오류·복구 버튼, 오른쪽 조용한 ‘닫기’와 동작색 ‘미계획에 저장’ 버튼을 둔다. 저장 버튼은 입력이 비었거나 잠겨 있으면 비활성이다. 오류가 길어지면 액션 바가 늘고 입력 영역이 줄어든다. 안쪽 반경은 바깥 반경에서 여백을 뺀 동심 반경(최소 `--radius-control`)이다. 480px 이하 미리보기에서는 여백·내부 여백을 줄이고 로고 타일을 숨긴다. Enter는 저장, Shift+Enter는 줄바꿈, Esc는 입력 초안을 보존하고 창을 숨긴다. 초점 이동과 창 복귀는 입력 상태를 유지한다.
 
 ## Elevation & Depth
 
 일반 패널은 그림자 없이 바탕과 얇은 경계선으로 구분한다. 상세·확인 대화상자는 그림자로 앞면을 구별하며 외곽 테두리는 없다.
 
-빠른 캡처만 Spotlight를 참고한 반투명 독립 창으로 표현한다. 테마 표면색의 알파 .94와 `0 5px 12px` 그림자, 내부 하이라이트를 사용한다. 입력 포커스는 창 내부 강조선으로 드러낸다. CSS `backdrop-filter: blur(24px) saturate(1.15)`는 웹 콘텐츠에 적용되며 Windows 바탕화면을 블러 처리하지 않는다. native 창은 투명 합성과 CSS 둥근 모서리를 사용하고 OS 창 그림자는 끈다. 투명도 감소 또는 강제 색 모드에서는 불투명 표면으로 전환한다.
+빠른 캡처만 Spotlight를 참고한 반투명 독립 창으로 표현한다. 테마 표면색 알파 .97→.92 세로 그라데이션과 상단 1px 내부 하이라이트, 액션 바의 바탕색 혼합으로 재질을 만든다. 깊이는 `--shadow-capture`(헤어라인 외곽 + 짧은 접지 그림자 + 넓은 확산 그림자)이며 G4는 구조색 1px 외곽선을 쓴다. 입력은 동작색 캐럿으로 초점을 드러내고 별도 윤곽선을 두지 않는다. 버튼은 키보드 포커스 윤곽을 유지한다. CSS `backdrop-filter`는 웹 콘텐츠에만 적용되며 Windows 바탕화면을 블러 처리하지 않는다. native 창은 투명 합성과 CSS 둥근 모서리를 사용하고 OS 창 그림자는 끈다. 투명도 감소 또는 강제 색 모드에서는 불투명 표면으로 전환한다.
 
 - **상세·확인 대화상자 그림자**: `var(--shadow-dialog)`.
 - **대화상자 배경막**: `var(--color-backdrop)`.
