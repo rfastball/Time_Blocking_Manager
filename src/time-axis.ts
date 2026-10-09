@@ -5,10 +5,10 @@ const clamp=(n:number,min:number,max:number)=>Math.max(min,Math.min(max,n));
 
 export function createTimeAxis(start:number,end:number,scale=1):TimeAxis{
   start=clamp(start,0,1425);end=clamp(end,start+15,1440);
-  const tail=(distance:number)=>60*Math.log1p(distance/60)*scale;
+  const tail=(distance:number)=>15*Math.log1p(distance/15)*scale;
   const before=tail(start),middle=(end-start)*scale,height=before+middle+tail(1440-end);
   const position=(minute:number)=>{const m=clamp(minute,0,1440);return m<start?before-tail(start-m):m>end?before+middle+tail(m-end):before+(m-start)*scale;};
-  const minute=(y:number)=>{const p=clamp(y,0,height);return clamp(p<before?start-60*Math.expm1((before-p)/(60*scale)):p>before+middle?end+60*Math.expm1((p-before-middle)/(60*scale)):start+(p-before)/scale,0,1440);};
+  const minute=(y:number)=>{const p=clamp(y,0,height);if(p===0)return 0;if(p===height)return 1440;return clamp(p<before?start-15*Math.expm1((before-p)/(15*scale)):p>before+middle?end+15*Math.expm1((p-before-middle)/(15*scale)):start+(p-before)/scale,0,1440);};
   return {start,end,scale,height,position,minute};
 }
 

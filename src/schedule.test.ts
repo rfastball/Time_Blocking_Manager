@@ -17,6 +17,10 @@ test('focused time axes preserve all-day boundaries and invert compressed coordi
   }
   const axis=timeAxisForDays([rule],1.2);
   assert.equal(axis.start,510);assert.equal(axis.end,1110);
+  const workingHour=axis.position(600)-axis.position(540);
+  assert.ok(axis.position(axis.start)<workingHour,'morning off-hours fit within one working-hour height');
+  assert.ok(axis.height-axis.position(axis.end)<workingHour,'evening off-hours fit within one working-hour height');
+  assert.equal(axis.position(555)-axis.position(540),15*axis.scale);
   assert.ok(axis.position(60)-axis.position(0)<axis.position(600)-axis.position(540));
   assert.equal(timeAxisLabelVisible(axis,60),false);assert.equal(timeAxisLabelVisible(axis,600),true);
   assert.deepEqual([timeAxisForDays([{...rule,enabled:false}]).start,timeAxisForDays([]).end],[510,1110]);
