@@ -208,6 +208,73 @@ fn invalid_existing_database_is_not_reinitialized() {
     let empty=dir.path().join("empty.db"); std::fs::write(&empty,[]).unwrap();
     assert!(Store::open(&empty).is_err());assert!(Store::inspect_backup(&empty).is_err()); assert_eq!(std::fs::metadata(empty).unwrap().len(),0);
     let missing=dir.path().join("missing.db");assert!(Store::inspect_backup(&missing).is_err());assert!(!missing.exists());
+    let damaged=dir.path().join("damaged.db");
+    for (suffix,bytes) in [("",b"damaged primary".as_slice()),("-wal",b"original wal".as_slice()),("-shm",b"original shm".as_slice())] {
+        std::fs::write(dir.path().join(format!("damaged.db{suffix}")),bytes).unwrap();
+    }
+    assert!(Store::open(&damaged).is_err());
+    for (suffix,bytes) in [("",b"damaged primary".as_slice()),("-wal",b"original wal".as_slice()),("-shm",b"original shm".as_slice())] {
+        assert_eq!(std::fs::read(dir.path().join(format!("damaged.db{suffix}"))).unwrap(),bytes);
+    }
+    let wal_path=dir.path().join("wal.db");let mut writer=Store::open(&wal_path).unwrap();let primary=std::fs::read(&wal_path).unwrap();
+    create(&mut writer,"wal-only");assert_eq!(std::fs::read(&wal_path).unwrap(),primary);
+    assert!(dir.path().join("wal.db-wal").exists());
+    let reader=Store::open(&wal_path).unwrap();assert_eq!(reader.snapshot().unwrap().tasks[0].id,"wal-only");drop(reader);drop(writer);
+    assert!(!std::fs::read_dir(dir.path()).unwrap().any(|e|e.unwrap().file_name().to_string_lossy().contains(".validation-")));
+}
+
+#[test]
+fn unavailable_store_recovery_preserves_evidence_and_invalidates_old_requests() {
+    let dir=tempdir().unwrap();let path=dir.path().join("blokky.sqlite");let mut s=Store::open(&path).unwrap();
+    let a=create(&mut s,"a");let c=command(&s,update(&a,"2026-10-08T10:00",45));s.apply(&c).unwrap();
+    s.save_draft("main",1,"백업에 남은 오래된 초안").unwrap();
+    let expected=s.snapshot().unwrap();let backup=s.create_backup(dir.path()).unwrap();
+    let stale=command(&s,Action::Create{id:"old-request".into(),title:"복원 전 요청".into()});drop(s);
+    let originals=[("blokky.sqlite",b"damaged database".as_slice()),("blokky.sqlite-wal",b"damaged wal".as_slice()),("blokky.sqlite-shm",b"damaged shm".as_slice())];
+    for (name,bytes) in originals {std::fs::write(dir.path().join(name),bytes).unwrap();}
+    let mut recovered=Store::recover_from_backup(dir.path(),&backup.id).unwrap();let snapshot=recovered.snapshot().unwrap();
+    assert_eq!(snapshot.tasks,expected.tasks);assert_eq!(snapshot.settings,expected.settings);assert_ne!(snapshot.epoch,expected.epoch);
+    assert_eq!(recovered.draft("main").unwrap(),(0,String::new()));assert_eq!(recovered.apply(&stale).unwrap_err().code,"epoch");
+    let archives:Vec<_>=std::fs::read_dir(dir.path().join("backups")).unwrap().map(|e|e.unwrap().path()).filter(|p|p.is_dir()).collect();
+    assert_eq!(archives.len(),1);for (name,bytes) in originals {assert_eq!(std::fs::read(archives[0].join(name)).unwrap(),bytes);}
+    drop(recovered);assert_eq!(Store::open(&path).unwrap().snapshot().unwrap().tasks,expected.tasks);
+    assert!(!dir.path().join("blokky.sqlite.recovering").exists());
+
+    // An interrupted rename must not become a new empty database on restart.
+    std::fs::remove_file(&path).unwrap();std::fs::write(dir.path().join("blokky.sqlite.recovering"),[]).unwrap();
+    assert_eq!(Store::open(&path).err().unwrap().code,"recovery_pending");assert!(!path.exists());
+    let retried=Store::recover_from_backup(dir.path(),&backup.id).unwrap();assert_eq!(retried.snapshot().unwrap().tasks,expected.tasks);drop(retried);
+    for (name,bytes) in originals {assert_eq!(std::fs::read(archives[0].join(name)).unwrap(),bytes);}
+}
+
+#[test]
+fn unavailable_store_recovery_rejects_unsafe_changes_and_rolls_back_archive_failure() {
+    let dir=tempdir().unwrap();let path=dir.path().join("blokky.sqlite");let mut s=Store::open(&path).unwrap();create(&mut s,"a");
+    let backup=s.create_backup(dir.path()).unwrap();s.save_draft("main",1,"현재 초안").unwrap();
+    assert_eq!(Store::recover_from_backup(dir.path(),&backup.id).err().unwrap().code,"conflict");
+    assert_eq!(s.draft("main").unwrap().1,"현재 초안");drop(s);
+    let originals=[("blokky.sqlite",b"original damaged database".as_slice()),("blokky.sqlite-wal",b"original damaged wal".as_slice())];
+    for (name,bytes) in originals {std::fs::write(dir.path().join(name),bytes).unwrap();}
+    let broken="day-20261008.sqlite";std::fs::write(dir.path().join("backups").join(broken),b"invalid backup").unwrap();
+    for id in [broken,"../blokky.sqlite"] {
+        assert!(Store::recover_from_backup(dir.path(),id).is_err());
+        for (name,bytes) in originals {assert_eq!(std::fs::read(dir.path().join(name)).unwrap(),bytes);}
+    }
+    let shm=dir.path().join("blokky.sqlite-shm");std::fs::write(&shm,b"original damaged shm").unwrap();
+    // Windows permits reading the third file but denies its archival rename.
+    #[cfg(windows)]
+    let locked={use std::os::windows::fs::OpenOptionsExt;std::fs::OpenOptions::new().read(true).share_mode(3).open(&shm).unwrap()};
+    #[cfg(not(windows))]
+    {std::fs::remove_file(&shm).unwrap();std::fs::create_dir(&shm).unwrap();}
+    assert!(Store::recover_from_backup(dir.path(),&backup.id).is_err());
+    for (name,bytes) in originals {assert_eq!(std::fs::read(dir.path().join(name)).unwrap(),bytes);}
+    #[cfg(windows)]
+    {assert_eq!(std::fs::read(&shm).unwrap(),b"original damaged shm");drop(locked);}
+    #[cfg(not(windows))]
+    assert!(shm.is_dir());
+    assert!(!dir.path().join("blokky.sqlite.recovering").exists());
+    assert!(Store::inspect_backup(&managed_backup_path(dir.path(),&backup.id).unwrap()).is_ok());
+    assert!(!std::fs::read_dir(dir.path()).unwrap().any(|e|e.unwrap().file_name().to_string_lossy().starts_with("recovery-stage-")));
 }
 
 #[test]

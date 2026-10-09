@@ -5,6 +5,10 @@ use std::{fs, path::{Path, PathBuf}, time::Duration};
 
 pub struct Store { conn: Connection, pub path: PathBuf }
 
+fn sidecar(path: &Path, suffix: &str) -> PathBuf {
+    let mut name=path.as_os_str().to_os_string();name.push(suffix);PathBuf::from(name)
+}
+
 #[derive(Debug, serde::Serialize)]
 pub struct BackupInspection {
     pub created_at: Option<String>, pub tasks: usize, pub completed: usize, pub scheduled: usize,
@@ -114,9 +118,36 @@ fn check_database(conn: &Connection) -> Result<Snapshot> {
     Ok(snapshot)
 }
 
+fn check_database_copy(path: &Path) -> Result<Snapshot> {
+    let copy=sidecar(path,&format!(".validation-{}.sqlite",uuid::Uuid::new_v4()));
+    // Opening SQLite can change or delete sidecars even when validation fails.
+    let result=(|| {
+        for suffix in ["","-wal","-shm"] {
+            let original=sidecar(path,suffix);
+            match fs::symlink_metadata(&original) {
+                Err(e) if e.kind()==std::io::ErrorKind::NotFound && !suffix.is_empty()=>continue,
+                Err(e)=>return Err(e.into()),
+                Ok(m) if !m.is_file() || m.file_type().is_symlink()=>return Err(error("storage","기존 저장소 자료를 안전하게 검사할 수 없습니다.")),
+                Ok(_)=>{},
+            }
+            fs::copy(original,sidecar(&copy,suffix))?;
+        }
+        let conn=Connection::open_with_flags(&copy,OpenFlags::SQLITE_OPEN_READ_ONLY)?;
+        check_database(&conn)
+    })();
+    for suffix in ["","-wal","-shm"] {
+        let temporary=sidecar(&copy,suffix);if temporary.exists(){fs::remove_file(temporary)?;}
+    }
+    result
+}
+
 impl Store {
     pub fn open(path: &Path) -> Result<Self> {
+        if sidecar(path,".recovering").exists() {
+            return Err(error("recovery_pending","중단된 복구 자료가 보존되어 있습니다. 백업을 선택해 복구를 완료하세요."));
+        }
         let exists = path.exists();
+        if exists {check_database_copy(path)?;}
         // An existing empty/foreign file is never silently initialized.
         let mut conn = Connection::open(path)?;
         conn.busy_timeout(Duration::from_millis(750))?;
@@ -305,6 +336,87 @@ impl Store {
             completed: snapshot.tasks.iter().filter(|t| t.completed).count(),
             scheduled: snapshot.tasks.iter().filter(|t| t.starts_at.is_some()).count(),
         })
+    }
+
+    pub fn recover_from_backup(root: &Path, id: &str) -> Result<Self> {
+        let source=managed_backup_path(root,id)?;
+        let incoming=Connection::open_with_flags(&source,OpenFlags::SQLITE_OPEN_READ_ONLY)?;
+        let restored=check_database(&incoming)?;drop(incoming);
+        let path=root.join("blokky.sqlite");let marker=sidecar(&path,".recovering");
+        let stage=root.join(format!("recovery-stage-{}.sqlite",uuid::Uuid::new_v4()));
+        if !marker.exists() && path.exists() {
+            match check_database_copy(&path) {
+                Ok(_)=>return Err(error("conflict","저장소를 다시 읽을 수 있습니다. 기록을 다시 불러온 뒤 일반 복원을 사용하세요.")),
+                Err(e) if e.code=="busy" || e.code=="storage"=>return Err(e),
+                Err(_)=>{},
+            }
+        }
+        let archive=backup_directory(root)?.join(format!("recovery-{}",uuid::Uuid::new_v4()));
+        let mut moved=Vec::new();let mut installed=false;let mut marker_created=false;
+        let result=(|| {
+            let mut staged=Self::open(&stage)?;
+            let tx=staged.conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
+            for t in &restored.tasks {
+                tx.execute("INSERT INTO tasks VALUES(?1,?2,?3,?4,?5,?6,?7)",params![t.id,t.title,t.body,t.starts_at,t.duration,t.completed,t.revision])?;
+            }
+            tx.execute("UPDATE meta SET value=?1 WHERE key='settings'",[serde_json::to_string(&restored.settings)?])?;
+            tx.commit()?;
+            staged.conn.execute_batch("PRAGMA wal_checkpoint(TRUNCATE); PRAGMA journal_mode=DELETE;")?;
+            check_database(&staged.conn)?;drop(staged);
+            fs::OpenOptions::new().write(true).open(&stage)?.sync_all()?;
+            fs::create_dir(&archive)?;
+            if marker.exists() {
+                let metadata=fs::symlink_metadata(&marker)?;
+                if !metadata.is_file() || metadata.file_type().is_symlink() {return Err(error("storage","중단된 복구 표시 파일을 확인하세요."));}
+            } else {
+                let flag=fs::OpenOptions::new().write(true).create_new(true).open(&marker)?;marker_created=true;flag.sync_all()?;
+            }
+            // The marker prevents a restart in this rename window from creating an empty database.
+            for suffix in ["","-wal","-shm"] {
+                let original=sidecar(&path,suffix);
+                match fs::symlink_metadata(&original) {
+                    Err(e) if e.kind()==std::io::ErrorKind::NotFound=>continue,
+                    Err(e)=>return Err(e.into()),
+                    Ok(m) if !m.is_file() || m.file_type().is_symlink()=>return Err(error("storage","기존 저장소 자료를 보존할 수 없습니다. 파일 위치와 권한을 확인하세요.")),
+                    Ok(_)=>{},
+                }
+                let saved=archive.join(original.file_name().unwrap());
+                fs::rename(&original,&saved)?;moved.push((original,saved));
+            }
+            fs::rename(&stage,&path)?;installed=true;
+            // Opening only the replacement verifies normal app operation before accepting recovery.
+            let store=Self::open_recovered(&path)?;
+            fs::remove_file(&marker)?;
+            Ok(store)
+        })();
+        if result.is_err() {
+            let rollback=(|| -> Result<()> {
+                if installed {
+                    for suffix in ["","-wal","-shm"] {
+                        let replacement=sidecar(&path,suffix);
+                        if replacement.exists() {fs::rename(&replacement,archive.join(format!("failed-blokky.sqlite{suffix}")))?;}
+                    }
+                }
+                for (original,saved) in moved.iter().rev() {
+                    if original.exists() {return Err(error("storage","복구 전 자료가 보존되어 있지만 원래 위치로 되돌리지 못했습니다."));}
+                    fs::rename(saved,original)?;
+                }
+                if marker_created && marker.exists() {fs::remove_file(&marker)?;}
+                Ok(())
+            })();
+            if rollback.is_err() {
+                return Err(error("recovery_pending","복구를 완료하지 못했습니다. 원본 자료는 backups의 recovery 폴더에 보존되어 있습니다. 파일 접근 문제를 해결한 뒤 다시 복구하세요."));
+            }
+        }
+        for suffix in ["","-wal","-shm"] {let _=fs::remove_file(sidecar(&stage,suffix));}
+        result
+    }
+
+    fn open_recovered(path: &Path) -> Result<Self> {
+        let conn=Connection::open(path)?;
+        conn.busy_timeout(Duration::from_millis(750))?;check_database(&conn)?;
+        conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA foreign_keys=ON;")?;
+        Ok(Self{conn,path:path.into()})
     }
 
     pub fn restore(&mut self, source: &Path, expected_epoch: &str, safety_path: &Path) -> Result<Snapshot> {

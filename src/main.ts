@@ -2,7 +2,7 @@ import {invoke,isTauri} from '@tauri-apps/api/core';
 import {listen} from '@tauri-apps/api/event';
 import {confirm} from '@tauri-apps/plugin-dialog';
 import {SaveQueue} from './queue';
-import {CaptureDraft,captureEnterAction,isCompositionKey} from './capture';
+import {CaptureDraft,StoredDraft,captureEnterAction,isCompositionKey} from './capture';
 import {effectiveDay,shortcutFromKey} from './settings';
 import {availabilityHTML,dayAvailabilityHTML,bindAvailability,weeklySummary,calendarAvailabilityHTML,focusAvailabilityBand,changeAvailabilityBand} from './availability';
 import {formatDuration,rangeTitle} from './format';
@@ -41,14 +41,16 @@ const icon=(name:string)=>`<svg aria-hidden="true" viewBox="0 0 24 24" fill="non
 
 let snapshot:Snapshot|null=null,view:'today'|'plan'|'inbox'|'settings'='today',selected=today(),period='week',inboxOpen=true;
 const captureDraft=new CaptureDraft();
+const storedDraft=new StoredDraft();storedDraft.loaded=!native;
 let calendarComposer:{date:string;start:number;duration:number}|null=null,calendarComposing=false,calendarRefreshPending=false;
 let editor:(Task&{epoch:string})|null=null,editorDirty=false,editorSequence=0;
-let draftSequence=0,draftTimer:ReturnType<typeof setTimeout>|undefined,settingsDraft:Settings|null=null;
+let draftTimer:ReturnType<typeof setTimeout>|undefined,settingsDraft:Settings|null=null;
 let rawSchedules:Record<string,RawSchedule>={};
 let shortcut="Ctrl+Shift+Space";
 let settingsBase:{epoch:string;revision:number}|null=null,lastBackup='';
 let message='',errorMessage='',loadError='',warning='',dbPath='',autoStart=false,dragId='';
 let ready=false,refreshNeeded=false;
+let draftLoadFailed=false,appInfoFailed=false;
 const backups={items:[] as ManagedBackup[],loaded:false,loading:false,error:'',selected:null as string|null,inspection:null as BackupInspection|null,inspecting:false,inspectionError:'',busy:null as 'create'|'restore'|null,status:'',statusError:false};
 let backupListSequence=0,backupInspectionSequence=0,backupListScroll=0;
 let pendingEditorId:string|null=null,resizing=false,placedId='';
@@ -61,14 +63,15 @@ const queue=new SaveQueue(()=>{
   if(native)void invoke('set_dirty',{dirty:unsaved()}).catch(()=>{errorMessage='종료 보호 상태를 전달하지 못했습니다.';updateStatus();});
   if(!queue.busy&&refreshNeeded){refreshNeeded=false;void reload();}
 });
-function unsaved(){return !!(captureDraft.text||editorDirty||Object.keys(rawSchedules).length||settingsDraft||queue.busy||draftTimer);}
+function unsaved(){return !!(ready&&!storedDraft.loaded||captureDraft.text||editorDirty||Object.keys(rawSchedules).length||settingsDraft||queue.busy||draftTimer);}
 const draftContent=()=>captureDraft.text||editorDirty||Object.keys(rawSchedules).length||settingsDraft ? JSON.stringify({capture:captureDraft.text,captureCommand:captureDraft.command,calendarComposer:captureDraft.text?calendarComposer:null,editor:editorDirty?editor:null,rawSchedules,settingsBase,settingsDraft,epoch:snapshot?.epoch}):'';
 function draftChanged(){
   clearTimeout(draftTimer); draftTimer=setTimeout(()=>{draftTimer=undefined;persistDraft();},200);updateStatus();
   if(native)void invoke('set_dirty',{dirty:true});
 }
 function persistDraft(){
-  const content=draftContent(),sequence=++draftSequence;
+  if(!storedDraft.loaded)return;
+  const content=draftContent(),sequence=storedDraft.nextSequence();
   void queue.add(async()=>{if(native)await invoke('save_draft',{sequence,content});}).catch(showError);
 }
 function showError(e:unknown){errorMessage=typeof e==='object'&&e&&'message'in e?String(e.message):String(e);updateStatus();}
@@ -76,12 +79,14 @@ function updateStatus(){
   updateBackupControls();
   const el=document.querySelector<HTMLElement>('#status');if(!el)return;
   const failed=queue.failed as AppError|null,dialogOpen=!!document.querySelector('dialog[open]');
-  const issue=errorMessage|| (failed?'저장하지 못했어요. 입력한 내용은 그대로 있어요.':'');
-  const state=!ready?'기록 불러오는 중 · 편집 잠시 중지':queue.busy?'저장 중…':'';
+  const issue=errorMessage||(draftLoadFailed?'보관 중인 초안을 불러오지 못했습니다. 저장된 작업은 그대로입니다.':'')||(appInfoFailed?'일부 운영 설정을 불러오지 못했습니다. 다시 불러와 주세요.':'')||(failed?'저장하지 못했어요. 입력한 내용은 그대로 있어요.':'');
+  const state=!ready?'기록 불러오는 중 · 편집 잠시 중지':!storedDraft.loaded?'초안 불러오는 중 · 편집 잠시 중지':queue.busy?'저장 중…':'';
   const resume=editorDirty&&!captureWindow&&!dialogOpen;
-  el.innerHTML=`<span class="${issue&&!dialogOpen?'error':''}" ${issue&&!dialogOpen?'role="alert"':''}>${esc(issue&&!dialogOpen?issue:state)}</span>${failed&&!dialogOpen?'<button id="retry">다시 시도</button><button id="release">입력 유지하고 수정</button>':''}${resume?`<button id="resume-editor">‘${esc(editor!.title)}’ 이어서 편집</button>`:''}`;
+  el.innerHTML=`<span class="${issue&&!dialogOpen?'error':''}" ${issue&&!dialogOpen?'role="alert"':''}>${esc(issue&&!dialogOpen?issue:state)}</span>${failed&&!dialogOpen?'<button id="retry">다시 시도</button><button id="release">입력 유지하고 수정</button>':''}${ready&&!dialogOpen&&(draftLoadFailed||appInfoFailed)?'<button id="retry-initialization">다시 불러오기</button>':''}${ready&&draftLoadFailed&&storedDraft.sequenceKnown&&!dialogOpen?'<button id="discard-stored-draft">보관 초안 버리기</button>':''}${resume?`<button id="resume-editor">‘${esc(editor!.title)}’ 이어서 편집</button>`:''}`;
   el.hidden=!issue&&!resume&&!state;
   document.querySelector('#resume-editor')?.addEventListener('click',()=>openEditor(editor!.id));
+  document.querySelector('#retry-initialization')?.addEventListener('click',()=>{if(!queue.busy)void reload();});
+  document.querySelector('#discard-stored-draft')?.addEventListener('click',()=>void discardStoredDraft());
   const retry=()=>{if(failed?.code==='conflict'||failed?.code==='epoch'){void refreshForConflict();return;}errorMessage='';queue.retry();};
   const release=()=>{queue.discardFailed();errorMessage='';message='입력한 내용은 그대로 있어요. 확인한 뒤 다시 저장해 주세요.';updateStatus();};
   document.querySelector('#retry')?.addEventListener('click',retry);document.querySelector('#release')?.addEventListener('click',release);
@@ -96,7 +101,7 @@ async function refreshForConflict(){
   renderEditor();updateStatus();
 }
 async function dispatch(action:Action, epoch=snapshot!.epoch, requestId:string=crypto.randomUUID(), done?:()=>void){
-  if(!ready)throw Error('저장소 로드가 끝나지 않았습니다.');
+  if(!ready||!storedDraft.loaded)throw Error('기록과 초안을 불러온 뒤 입력해 주세요.');
   const command:Command={request_id:requestId,epoch,action};
   return queue.add(async()=>{
     const result=native?await invoke<Snapshot>('mutate',{command}):previewMutation(command);
@@ -124,14 +129,40 @@ function previewMutation(command:Command):Snapshot {
   } return s;
 }
 async function reload(){
-  try{if(native)snapshot=await invoke<Snapshot>('load');ready=true;loadError='';renderContent();const input=document.querySelector<HTMLTextAreaElement>('#capture');if(input)input.disabled=false;}
+  const draftWasLoaded=storedDraft.loaded;
+  try{if(native)snapshot=await invoke<Snapshot>('load');ready=true;loadError='';}
   catch(e){ready=false;loadError=(e as AppError).message||String(e);render();}
+  if(ready){if(native){if(!storedDraft.loaded)await loadStoredDraft();await refreshAppInfo();}if(captureWindow&&!draftWasLoaded&&storedDraft.loaded)render();else renderContent();const input=document.querySelector<HTMLTextAreaElement>('#capture');if(input)input.disabled=!storedDraft.loaded;}
+}
+async function loadStoredDraft(allowBusy=false){
+  try{const [sequence,content]=await invoke<[number,string]>('load_draft');
+    if(captureDraft.text||editorDirty||Object.keys(rawSchedules).length||settingsDraft||(!allowBusy&&queue.busy)||draftTimer)return;
+    const draft=storedDraft.read(sequence,content);
+    if(draft){captureDraft.text=draft.capture||'';captureDraft.command=draft.captureCommand||null;calendarComposer=draft.calendarComposer||null;editor=draft.editor||null;editorDirty=!!editor;rawSchedules=draft.rawSchedules||{};settingsBase=draft.settingsBase||null;settingsDraft=draft.settingsDraft||null;message='';}
+    draftLoadFailed=false;
+  }catch{draftLoadFailed=true;}
+  void invoke('set_dirty',{dirty:unsaved()});
+}
+async function discardStoredDraft(){
+  if(queue.busy||!storedDraft.sequenceKnown||!await ask('읽을 수 없는 보관 초안을 버릴까요? 저장된 작업은 유지됩니다.'))return;
+  const sequence=storedDraft.discardSequence();
+  await queue.add(async()=>{await invoke('save_draft',{sequence,content:''});storedDraft.loaded=true;draftLoadFailed=false;render();}).catch(showError);
+}
+async function refreshAppInfo(){
+  const results=await Promise.allSettled([
+    invoke<{db_path:string;warning:string|null;last_backup:string|null}>('diagnostics'),
+    invoke<boolean>('autostart',{enabled:null}),invoke<string>('capture_shortcut',{value:null})
+  ]);
+  if(results[0].status==='fulfilled'){const info=results[0].value;dbPath=info.db_path;warning=info.warning||'';lastBackup=info.last_backup||'';}
+  if(results[1].status==='fulfilled')autoStart=results[1].value;
+  if(results[2].status==='fulfilled')shortcut=results[2].value;
+  appInfoFailed=results.some(result=>result.status==='rejected');updateStatus();
 }
 function dayRule(date:string){return effectiveDay(settingsDraft??snapshot!.settings,date);}
 function refreshCalendar(reloadData=false){
   if(captureWindow)return;
   if(reloadData&&native)refreshNeeded=true;
-  if(!calendarRefreshAllowed({view,ready,visible:document.visibilityState==='visible',dirty:editorDirty||!!Object.keys(rawSchedules).length||!!settingsDraft||calendarComposing,input:!!document.activeElement?.matches('input,textarea,[contenteditable]'),modal:!!document.querySelector('dialog[open]'),gesture:!!dragId||resizing}))return;
+  if(!calendarRefreshAllowed({view,ready:ready&&storedDraft.loaded,visible:document.visibilityState==='visible',dirty:editorDirty||!!Object.keys(rawSchedules).length||!!settingsDraft||calendarComposing,input:!!document.activeElement?.matches('input,textarea,[contenteditable]'),modal:!!document.querySelector('dialog[open]'),gesture:!!dragId||resizing}))return;
   if(refreshNeeded&&!queue.busy){refreshNeeded=false;void reload();}else renderContent();
 }
 function tasksOn(date:string){return snapshot!.tasks.filter(t=>t.starts_at?.startsWith(date)).sort((a,b)=>a.starts_at!.localeCompare(b.starts_at!));}
@@ -140,7 +171,7 @@ function available(date:string){const d=dayRule(date);return d.enabled?d.end-d.s
 function canPlace(id:string,date:string,start:number,duration:number){
   return placementIssue(id,date,start,duration)===null;
 }
-function captureForm(){return `<form id="capture-form" class="capture-form"><label class="sr-only" for="capture">빠른 캡처</label><textarea id="capture" autocomplete="off" placeholder="할 일" maxlength="650" rows="2" ${!ready?'disabled':''}>${esc(captureDraft.text)}</textarea><button class="icon-button" aria-label="미계획에 저장" type="submit">${icon('check')}</button><button class="icon-button" aria-label="빠른 캡처 닫기" type="button" id="close-capture">${icon('close')}</button></form>`;}
+function captureForm(){return `<form id="capture-form" class="capture-form"><label class="sr-only" for="capture">빠른 캡처</label><textarea id="capture" autocomplete="off" placeholder="할 일" maxlength="650" rows="2" ${!ready||!storedDraft.loaded?'disabled':''}>${esc(captureDraft.text)}</textarea><button class="icon-button" aria-label="미계획에 저장" type="submit">${icon('check')}</button><button class="icon-button" aria-label="빠른 캡처 닫기" type="button" id="close-capture">${icon('close')}</button></form>`;}
 function hideCapture(){persistDraft();if(native)void invoke('hide_capture').catch(showError);else document.querySelector<HTMLElement>('.capture-window')!.hidden=true;}
 
 function render(){
@@ -169,7 +200,7 @@ function bindCapture(){
   $('#capture-form').onsubmit=e=>{e.preventDefault();void submitCapture();};
 }
 async function submitCapture(){
-  if(!captureDraft.text.trim()||!ready||queue.failed)return;
+  if(!captureDraft.text.trim()||!ready||!storedDraft.loaded||queue.failed)return;
   const title=captureDraft.text.trim();calendarComposer=null;if(captureDraft.command?.action.type!=='create')captureDraft.command=null;captureDraft.command??={request_id:crypto.randomUUID(),epoch:snapshot!.epoch,action:{type:'create',id:crypto.randomUUID(),title}};
   const command=captureDraft.command;persistDraft();
   const captureInput=document.querySelector<HTMLTextAreaElement>('#capture');if(captureInput)captureInput.disabled=true;
@@ -192,7 +223,13 @@ function renderContent(){
   const scrollPositions=['.timeline-scroll','.inbox-panel','.week-view'].map(selector=>({selector,top:content.querySelector(selector)?.scrollTop??0}));
   $('#heading').textContent=view==='settings'?'설정':view==='inbox'?'미계획':view==='plan'?rangeTitle(period,selected):dateLabel(selected);
   $('#notice').innerHTML=!native?'<div class="notice">미리보기 · 예시 데이터</div>':warning?`<div class="notice warning">${esc(warning)}</div>`:'';
-  if(!ready||!snapshot){$('#content').innerHTML=`<section class="load-state"><h2>${loadError?'저장소를 열지 못했습니다':'로컬 기록을 불러오는 중입니다'}</h2><p>${esc(loadError||'기록을 불러오는 중이에요. 잠시 후 편집할 수 있어요.')}</p>${loadError?'<button id="reload">다시 불러오기</button>':''}</section>`;document.querySelector('#reload')?.addEventListener('click',()=>{if(editorDirty||captureDraft.text||Object.keys(rawSchedules).length)void reload();else location.reload();});return;}
+  if(!ready||!snapshot){
+    content.dataset.view='recovery';
+    content.innerHTML=`<section class="load-state"><h2>${loadError?'저장소를 열지 못했습니다':'로컬 기록을 불러오는 중입니다'}</h2><p ${loadError?'role="alert"':''}>${esc(loadError||'기록을 불러오는 중이에요. 잠시 후 편집할 수 있어요.')}</p>${loadError?'<button id="reload">다시 불러오기</button>':''}</section>${native&&loadError?`<section class="panel operations">${backupManagerHTML()}</section>`:''}`;
+    document.querySelector('#reload')?.addEventListener('click',()=>{if(!backups.busy&&!queue.busy)void reload();});
+    if(native&&loadError)bindBackupManager();return;
+  }
+  if(!storedDraft.loaded){content.dataset.view='recovery';content.innerHTML=`<section class="load-state"><h2>${draftLoadFailed?'초안을 불러오지 못했습니다':'초안 불러오는 중'}</h2><p ${draftLoadFailed?'role="alert"':''}>저장된 작업은 그대로입니다.</p></section>`;updateStatus();return;}
   $('#content').innerHTML=view==='settings'?settingsHTML():view==='inbox'?inboxHTML():view==='today'?todayHTML():planHTML();
   content.dataset.view=view;
   document.querySelectorAll<HTMLElement>('.rail [data-view]').forEach(b=>{const active=b.dataset.view===view;b.classList.toggle('active',active);if(active)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');if(b.dataset.view==='inbox'){b.setAttribute('aria-label','미계획 '+inboxTasks().length+'건');b.querySelector('span')!.textContent='미계획'+(inboxTasks().length?' '+inboxTasks().length:'');}});
@@ -463,26 +500,28 @@ const backupError=(e:unknown)=>typeof e==='object'&&e&&'message'in e?String(e.me
 function backupManagerHTML(){return `<section id="backup-manager" class="backup-manager" aria-labelledby="backup-heading">${backupManagerBody()}</section>`;}
 function backupManagerBody(){
   const selectedBackup=backups.items.find(b=>b.id===backups.selected),info=backups.inspection;
-  return `<div class="backup-heading"><h3 id="backup-heading">백업·복원</h3><button type="button" data-backup-action="create" ${!native||backups.busy||queue.busy||queue.failed?'disabled':''}>${backups.busy==='create'?'백업 중…':'지금 백업'}</button></div>${native?`<p class="backup-retention">자동 백업 · ${lastBackup?esc(backupDate(lastBackup)):'아직 없음'}</p>`:'<p class="backup-retention">데스크톱 앱에서 백업을 관리합니다.</p>'}
+  return `<div class="backup-heading"><h3 id="backup-heading" tabindex="-1">백업·복원</h3><button type="button" data-backup-action="create" ${!native||!ready||backups.busy||queue.busy||queue.failed?'disabled':''}>${backups.busy==='create'?'백업 중…':'지금 백업'}</button></div>${native?`<p class="backup-retention">자동 백업 · ${lastBackup?esc(backupDate(lastBackup)):'아직 없음'}</p>`:'<p class="backup-retention">데스크톱 앱에서 백업을 관리합니다.</p>'}
   ${backups.status?`<p class="backup-result ${backups.statusError?'error':''}" role="${backups.statusError?'alert':'status'}">${esc(backups.status)}</p>`:''}
   ${native?`${backups.loading?'<p class="backup-loading" role="status">백업 불러오는 중…</p>':''}${backups.error?`<div class="backup-list-error"><p class="error" role="alert">${esc(backups.error)}</p><button type="button" data-backup-action="retry-list" ${backups.loading?'disabled':''}>다시 불러오기</button></div>`:''}
   ${backups.items.length?`<ul class="backup-list" aria-label="보관된 백업" aria-busy="${backups.loading}">${backups.items.map(b=>`<li class="${b.error?'backup-damaged':''}"><button type="button" data-backup-id="${esc(b.id)}" aria-pressed="${b.id===backups.selected}" ${b.error||backups.busy||queue.failed?'disabled':''} ${b.error?`aria-describedby="backup-damage-${esc(b.id)}"`:''}><span class="backup-kind">${backupKind(b.kind)}</span><time ${b.created_at?`datetime="${esc(b.created_at)}"`:''}>${esc(backupDate(b.created_at))}</time><span class="backup-count">${b.tasks===null?'손상됨':`작업 ${b.tasks}건`}</span></button>${b.error?`<p id="backup-damage-${esc(b.id)}" class="backup-damage">복원할 수 없음 · ${esc(b.error)}</p>`:''}</li>`).join('')}</ul>`:backups.loaded&&!backups.error&&!backups.loading?'<p class="backup-empty">보관된 백업이 없습니다.</p>':''}
-  ${selectedBackup&&!selectedBackup.error?`<section class="restore-review" aria-labelledby="restore-heading" aria-busy="${backups.inspecting}"><h4 id="restore-heading">${backupKind(selectedBackup.kind)} 백업</h4><p>${esc(backupDate(info?.created_at??selectedBackup.created_at))}</p>${backups.inspecting?'<p role="status">백업 확인 중…</p>':backups.inspectionError?`<p class="error" role="alert">${esc(backups.inspectionError)}</p><button type="button" data-backup-action="retry-inspect">다시 확인</button>`:info?`<dl><div><dt>전체 작업</dt><dd>${info.tasks}건</dd></div><div><dt>배치</dt><dd>${info.scheduled}건</dd></div><div><dt>완료</dt><dd>${info.completed}건</dd></div></dl><p class="restore-warning">현재 기록을 이 백업으로 교체합니다. 교체 전 기록은 ‘복원 전’ 백업으로 보존됩니다.</p><p id="restore-blocked" class="error" ${unsaved()&&!backups.busy?'':'hidden'}>작성 중인 내용을 저장하거나 되돌린 뒤 복원하세요.</p><div class="detail-actions"><button type="button" data-backup-action="cancel" ${backups.busy||queue.failed?'disabled':''}>취소</button><button type="button" data-backup-action="restore" class="primary" aria-describedby="restore-blocked" ${backups.busy||unsaved()||queue.failed?'disabled':''}>${backups.busy==='restore'?'복원 중…':'현재 기록을 교체하고 복원'}</button></div>`:''}</section>`:''}`:''}`;
+  ${selectedBackup&&!selectedBackup.error?`<section class="restore-review" aria-labelledby="restore-heading" aria-busy="${backups.inspecting}"><h4 id="restore-heading">${backupKind(selectedBackup.kind)} 백업</h4><p>${esc(backupDate(info?.created_at??selectedBackup.created_at))}</p>${backups.inspecting?'<p role="status">백업 확인 중…</p>':backups.inspectionError?`<p class="error" role="alert">${esc(backups.inspectionError)}</p><button type="button" data-backup-action="retry-inspect">다시 확인</button>`:info?`<dl><div><dt>전체 작업</dt><dd>${info.tasks}건</dd></div><div><dt>배치</dt><dd>${info.scheduled}건</dd></div><div><dt>완료</dt><dd>${info.completed}건</dd></div></dl><p class="restore-warning">${ready?'현재 기록을 이 백업으로 교체합니다. 교체 전 기록은 ‘복원 전’ 백업으로 보존됩니다.':'현재 손상 기록은 복구 자료로 보존하고, 이 백업으로 교체합니다.'}</p><p id="restore-blocked" class="error" ${unsaved()&&!backups.busy?'':'hidden'}>작성 중인 내용을 저장하거나 되돌린 뒤 복원하세요.</p><div class="detail-actions"><button type="button" data-backup-action="cancel" ${backups.busy||queue.failed?'disabled':''}>취소</button><button type="button" data-backup-action="restore" class="primary" aria-describedby="restore-blocked" ${backups.busy||unsaved()||queue.failed?'disabled':''}>${backups.busy==='restore'?'복원 중…':'현재 기록을 교체하고 복원'}</button></div>`:''}</section>`:''}`:''}`;
 }
 function paintBackupManager(){
   const root=document.querySelector<HTMLElement>('#backup-manager');
-  if(!root||!root.isConnected||view!=='settings')return;
+  if(!root||!root.isConnected||(ready&&view!=='settings'))return;
   const focused=(document.activeElement as HTMLElement)?.closest<HTMLElement>('[data-backup-action],[data-backup-id]');
+  const headingFocused=document.activeElement?.id==='backup-heading';
   const action=focused?.dataset.backupAction,id=focused?.dataset.backupId;
   const list=root.querySelector<HTMLElement>('.backup-list');if(list)backupListScroll=list.scrollTop;
   root.innerHTML=backupManagerBody();
   bindBackupScroll(root);
   if(action||id)Array.from(root.querySelectorAll<HTMLButtonElement>('button')).find(b=>action?b.dataset.backupAction===action:b.dataset.backupId===id)?.focus({preventScroll:true});
+  else if(headingFocused)root.querySelector<HTMLElement>('#backup-heading')?.focus({preventScroll:true});
 }
 function bindBackupScroll(root:HTMLElement){const list=root.querySelector<HTMLElement>('.backup-list');if(list){list.scrollTop=backupListScroll;list.onscroll=()=>{backupListScroll=list.scrollTop;};}}
 function updateBackupControls(){
   const root=document.querySelector('#backup-manager');if(!root)return;
-  const create=root.querySelector<HTMLButtonElement>('[data-backup-action=create]');if(create)create.disabled=!native||!!backups.busy||queue.busy||!!queue.failed;
+  const create=root.querySelector<HTMLButtonElement>('[data-backup-action=create]');if(create)create.disabled=!native||!ready||!!backups.busy||queue.busy||!!queue.failed;
   const restore=root.querySelector<HTMLButtonElement>('[data-backup-action=restore]');if(restore)restore.disabled=!!backups.busy||unsaved()||!!queue.failed;
   root.querySelectorAll<HTMLButtonElement>('[data-backup-id]').forEach(button=>button.disabled=!!backups.busy||!!queue.failed||!!backups.items.find(b=>b.id===button.dataset.backupId)?.error);
   const cancel=root.querySelector<HTMLButtonElement>('[data-backup-action=cancel]');if(cancel)cancel.disabled=!!backups.busy||!!queue.failed;
@@ -520,7 +559,7 @@ function bindBackupManager(){
   if(native&&!backups.loading)void loadBackups();
 }
 async function createBackup(){
-  if(backups.busy||queue.busy||queue.failed)return;
+  if(!ready||backups.busy||queue.busy||queue.failed)return;
   await queue.add(async()=>{
     backups.busy='create';backupReport('');
     try{await invoke<ManagedBackup>('create_backup');backupReport('백업을 보관했습니다.');await loadBackups();}
@@ -530,11 +569,12 @@ async function createBackup(){
 }
 async function restoreBackup(){
   if(backups.busy||queue.failed||!backups.selected||!backups.inspection)return;
-  if(unsaved()){backupReport('작성 중인 내용을 저장하거나 되돌린 뒤 복원하세요.',true);return;}
-  const id=backups.selected,epoch=snapshot!.epoch;
+  if(unsaved()){backupReport('초안을 불러오고 작성 중인 내용을 저장하거나 되돌린 뒤 복원하세요.',true);return;}
+  const id=backups.selected,recovery=!ready,epoch=snapshot?.epoch;
+  if(recovery&&!await ask('현재 손상 기록은 복구 자료로 보존됩니다. 선택한 백업으로 현재 기록을 교체할까요?'))return;
   await queue.add(async()=>{
     backups.busy='restore';backupReport('');
-    try{if(backups.selected!==id)throw Error('복원할 백업을 다시 확인하세요.');if(captureDraft.text||editorDirty||Object.keys(rawSchedules).length||settingsDraft||draftTimer)throw Error('작성 중인 내용을 저장하거나 되돌린 뒤 복원하세요.');snapshot=await invoke<Snapshot>('restore',{id,epoch});editor=null;backups.selected=null;backups.inspection=null;++backupInspectionSequence;backupReport('기록을 복원했습니다. 교체 전 기록도 백업에 보관했습니다.');await loadBackups();renderContent();}
+    try{if(backups.selected!==id)throw Error('복원할 백업을 다시 확인하세요.');if(captureDraft.text||editorDirty||Object.keys(rawSchedules).length||settingsDraft||draftTimer)throw Error('작성 중인 내용을 저장하거나 되돌린 뒤 복원하세요.');snapshot=await invoke<Snapshot>(recovery?'recover_backup':'restore',recovery?{id}:{id,epoch});ready=true;loadError='';editor=null;if(recovery){await loadStoredDraft(true);view='settings';}backups.selected=null;backups.inspection=null;++backupInspectionSequence;backupReport(recovery?'기록을 복구했습니다. 손상 기록은 복구 자료로 보존했습니다.':'기록을 복원했습니다. 교체 전 기록도 백업에 보관했습니다.');await refreshAppInfo();await loadBackups();render();document.querySelector<HTMLElement>('#backup-heading')?.focus();}
     catch(e){backupReport(backupError(e),true);throw e;}
     finally{backups.busy=null;paintBackupManager();}
   }).catch(()=>{});
@@ -573,16 +613,15 @@ async function start(){
   render();
   if(native){
     try{
-      snapshot=await invoke<Snapshot>('load');const [sequence,content]=await invoke<[number,string]>('load_draft');draftSequence=sequence;
-      if(content){const draft=JSON.parse(content);captureDraft.text=draft.capture||'';captureDraft.command=draft.captureCommand||null;calendarComposer=draft.calendarComposer||null;editor=draft.editor||null;editorDirty=!!editor;rawSchedules=draft.rawSchedules||{};settingsBase=draft.settingsBase||null;settingsDraft=draft.settingsDraft||null;message='';}
-      ready=true;const info=await invoke<{db_path:string;warning:string|null;last_backup:string|null}>('diagnostics');dbPath=info.db_path;warning=info.warning||'';lastBackup=info.last_backup||'';
-      autoStart=await invoke<boolean>('autostart',{enabled:null});shortcut=await invoke<string>('capture_shortcut',{value:null});
-      await listen('data-changed',()=>{if(queue.busy)refreshNeeded=true;else void reload();});
-      await listen('window-shown',()=>{syncTheme();if(captureWindow){void reload();$('#capture')?.focus();}else refreshCalendar(true);});
-      if(captureWindow)await listen('capture-hide-request',hideCapture);
-      await listen('quit-blocked',()=>{errorMessage='저장하지 않은 입력이 있어 종료하지 않았어요. 본 창과 캡처 창의 변경을 저장하거나 버려 주세요.';updateStatus();});
-      await listen('backup-warning',async()=>{const info=await invoke<{warning:string|null;last_backup:string|null}>('diagnostics');warning=info.warning||'';lastBackup=info.last_backup||'';if(!Object.keys(rawSchedules).length&&!settingsDraft)renderContent();});
+      snapshot=await invoke<Snapshot>('load');ready=true;
     }catch(e){loadError=(e as AppError).message||String(e);ready=false;}
+    if(ready)await loadStoredDraft();
+    await refreshAppInfo();
+    await listen('data-changed',()=>{if(queue.busy)refreshNeeded=true;else void reload();});
+    await listen('window-shown',()=>{syncTheme();if(captureWindow){void reload();$('#capture')?.focus();}else refreshCalendar(true);});
+    if(captureWindow)await listen('capture-hide-request',hideCapture);
+    await listen('quit-blocked',()=>{errorMessage='저장하지 않은 입력이 있어 종료하지 않았어요. 본 창과 캡처 창의 변경을 저장하거나 버려 주세요.';updateStatus();});
+    await listen('backup-warning',async()=>{const info=await invoke<{warning:string|null;last_backup:string|null}>('diagnostics');warning=info.warning||'';lastBackup=info.last_backup||'';if(!Object.keys(rawSchedules).length&&!settingsDraft)renderContent();});
   }else{
     const days=Array.from({length:7},(_,i)=>({enabled:i<5,start:540,end:1080,breaks:[{start:720,end:780,label:'점심'}]}));
     snapshot={epoch:'preview',settings:{revision:1,days},tasks:[

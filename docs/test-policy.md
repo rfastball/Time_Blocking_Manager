@@ -1,5 +1,29 @@
 # 검증 범위
 
+## 캘린더 품질 목표 1단계 Test delta brief
+
+- Unique risk: 상세 Ctrl+Enter와 미계획 Enter가 한글 조합을 저장 명령으로 해석함. 날짜가 바뀌거나 절전에서 돌아올 때 달력 표시가 낡은 상태로 남거나 사용자가 선택한 날짜가 강제로 이동함. 초안 읽기/해석 실패 뒤 낡은 sequence로 새 입력을 저장해 성공으로 오인하거나 보관된 내용을 잃음.
+- Existing owner: `src/queue.test.ts:35`의 캡처 Enter/IME 분기는 상세·미계획 입력 경로가 공유하지 않았다. `src/schedule.test.ts`는 표시/기간 경계 소유자지만 화면 갱신 가능 조건은 실행하지 않는다. 복구 UI는 기존 백업 컴포넌트와 Rust 파일 DB owner가 각각 UI 연결/실제 파일을 소유한다.
+- Selected layer: 기존 Enter 사례를 공유 조합 판정으로 확장하고, 기존 schedule owner에서 실제 갱신 gate 함수를 가상 상태로 실행한다. 기존 queue owner에서 StoredDraft의 미로드 쓰기 거부/해석 실패 sequence 보존/명시적 초안 버리기 경계를 실행한다. UI/네이티브 연결 확인은 실행 가능한 환경에서 별도이며 순수 시험으로 대체하지 않는다.
+- Expected cost delta: Node 기존 사례1개 확장·작은 동기 사례2개 추가, worker/브라우저/DB/네트워크 자동 실행 증가0. backend 파일 DB 확장은 별도 기록한다.
+- Evidence to retire: 독립 캡처의 중복 조합 판정을 공유 helper로 교체하며 기존 고유 큐/표시 증거는 유지한다. 새 테스트 파일·의존성·coverage 기준 없음.
+
+프런트 Test delta 결과: added/extended/removed **2/1/0**, 수집16→18. Node 파일 worker 증가0, heavy-resource 자동 실행 증가0, coverage floor 영향0. 최종18/18 전체123.371ms, 새 draft 사례0.1988ms·gate 사례0.5557ms. 앞선 동일환경 실행125.1684ms 대비 단일 실행차−1.7974ms이며 실행 시점 차이가 있어 안정적인 증분 runtime은 미측정이다. 중간17개 실행273.5304ms는 동시 빌드가 있어 성능 비교에 사용하지 않는다. 리뷰 후 단독 build218ms, 최종 패키징의 프런트 build282ms 성공. 실제 UI 연결·IME·시계/절전은 이 순수 시험으로 합격 처리하지 않는다.
+
+### 손상 저장소 복구 backend Test delta brief
+
+- Unique risk: 손상 현재 DB에서 복원에 진입하지 못하거나, 실패/중단한 교체가 원본/WAL/SHM을 잃고 빈 DB를 생성함. 건강한 저장소의 epoch/초안 보호를 우회함.
+- Existing owner: `src-tauri/tests/storage.rs`의 invalid_existing_database/verified_restore/managed_backups 및 기존 test-policy를 검색·확인했다.
+- Selected layer: 기존 Rust 실제 임시 SQLite owner에서 복구 성공/거부·보존 실패 2그룹 추가.
+- Expected cost delta: 기존 실행 파일 안의 tempfile 시나리오+2. 새 dependency/worker/browser/network/CI lane 없음. baseline11/11 본체3.49초.
+- Evidence to retire: 없음. 건강한 Store의 복원/원본 보존과 다른 실패 경계. coverage floor 변경0.
+
+backend Test delta 결과: 기존 storage.rs owner에 added/extended/removed **2/1/0**, 수집11→13. 신규2그룹 좁은 실행0.41초. 최종 기존 손상 DB 사례 확장1/1은0.09초, 전체13/13 본체3.67초, desktop cargo check1.25초. baseline3.49초 대비+0.18초는 단일 실행차이며 성능 추정이 아니다. 새 worker/heavy-resource launch/dependency/CI lane0, coverage floor 영향0. 기존 file DB 실행 파일 안에서 Windows sharing lock으로 세 번째 SHM archive 실패를 주입하고 DB/WAL/SHM 원바이트 보존·marker 정리를 확인했다. 성공 복구의 새 epoch·task/settings·3파일 archive·과거 요청 거부·백업 초안 미복원, marker 중단 상태의 빈 DB 자동 초기화 차단과 복구 재시도도 검증했다.
+
+네이티브 실행에서 최초 `Store::open`이 손상 DB의 WAL/SHM을 제거하는 문제를 발견해 기존 invalid_existing_database owner를 확장했다. 원본에 RW connection을 열기 전에 DB/WAL/SHM의 임시 복사본으로 검증하는 helper를 startup/복구에서 공유한다. 확장 사례는 손상3파일의 정확한 바이트 보존과 정상 DB에서 WAL에만 commit된 작업을 읽을 수 있음을 검증한다. 새 사례/실행 파일 없이 같은 owner 안에서 실행했다. 복사 preflight의 시작 I/O 및 메모리/앱 최초 실행 성능 영향은 정식 측정하지 않았다.
+
+자동 suite 밖의 격리 Windows UI 묶음 검증은 자체 시험 프로세스3개를 사용한 뒤 정리했다. 확인한 UI/IPC 연결은 파일 DB·순수 함수와 다른 경계이며 자동 worker/CI 비용에 추가하지 않았다. 이 수동 검증의 전체 runtime은 미측정이며 실제 범위/제한은 validation.md에 기록했다.
+
 ## 테마 Test delta brief
 
 - Unique risk: 저장된 테마가 재시작 시 사라지거나, 알 수 없는 값 때문에 화면이 깨지거나, 저장 실패를 성공으로 표시함.

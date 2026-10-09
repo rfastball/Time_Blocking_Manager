@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {SaveQueue} from './queue.ts';
-import {CaptureDraft,captureEnterAction,isCompositionKey} from './capture.ts';
+import {CaptureDraft,StoredDraft,captureEnterAction,isCompositionKey} from './capture.ts';
 
 test('failure keeps later writes pending and explicit retry preserves order',async()=>{
   const q=new SaveQueue(()=>{});const written:number[]=[];let fail=true;
@@ -38,4 +38,17 @@ test('capture Enter saves only outside IME and Shift+Enter retains a newline',()
     enter,{...enter,shiftKey:true},{...enter,isComposing:true},{...enter,keyCode:229},{...enter,key:'Escape'}
   ].map(captureEnterAction),['submit','newline','compose','compose',null]);
   assert.deepEqual([enter,{...enter,isComposing:true},{...enter,keyCode:229}].map(isCompositionKey),[false,true,true]);
+});
+
+test('unread drafts block writes, and malformed content retains its known sequence for explicit discard',()=>{
+  const draft=new StoredDraft();
+  assert.throws(()=>draft.nextSequence(),/초안/);
+  assert.throws(()=>draft.discardSequence(),/초안/);
+  assert.throws(()=>draft.read(12,'{broken'),SyntaxError);
+  assert.equal(draft.loaded,false);assert.equal(draft.sequence,12);
+  assert.throws(()=>draft.nextSequence(),/초안/);
+  assert.equal(draft.discardSequence(),13);
+  assert.deepEqual(draft.read(13,'{"capture":"보관 입력"}'),{capture:'보관 입력'});
+  assert.equal(draft.nextSequence(),14);
+  assert.equal(draft.read(14,''),null);assert.equal(draft.loaded,true);
 });

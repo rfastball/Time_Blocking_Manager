@@ -70,6 +70,19 @@ fn restore(s: tauri::State<State>, app: tauri::AppHandle, window: tauri::Webview
     if result.is_ok(){ let _=app.emit("data-changed",()); } result
 }
 #[tauri::command]
+fn recover_backup(s: tauri::State<State>, app: tauri::AppHandle, window: tauri::WebviewWindow, id: String) -> Result<Snapshot> {
+    let busy=s.busy.lock().map_err(|_|error("internal","미저장 입력 상태를 확인하지 못했습니다."))?;
+    if busy.iter().any(|label|label!=window.label()) {return Err(error("pending","다른 창의 미저장 입력을 먼저 저장하세요."));}
+    let mut guard=s.store.lock().map_err(|_|error("internal","저장소 잠금을 얻지 못했습니다."))?;
+    if guard.is_ok() {return Err(error("conflict","정상 저장소는 기록을 다시 불러온 뒤 일반 복원을 사용하세요."));}
+    let result=Store::recover_from_backup(&s.root,&id).and_then(|store|{
+        let snapshot=store.snapshot()?;*guard=Ok(store);Ok(snapshot)
+    });
+    drop(guard);drop(busy);
+    audit(&s,"recovery",result.as_ref().err().map_or("ok",|e|e.code.as_str()));
+    if result.is_ok(){let _=app.emit("data-changed",());}result
+}
+#[tauri::command]
 fn set_dirty(s: tauri::State<State>, window: tauri::WebviewWindow, dirty: bool) {
     let mut busy=s.busy.lock().unwrap();
     if dirty { busy.insert(window.label().into()); } else { busy.remove(window.label()); }
@@ -153,7 +166,7 @@ fn main() {
                 std::thread::spawn(move || {let app=handle.clone();let _=handle.run_on_main_thread(move || show(&app,"capture"));});
             }
         }).build())
-        .invoke_handler(tauri::generate_handler![load,load_draft,save_draft,mutate,create_backup,list_backups,inspect_backup,restore,set_dirty,hide_capture,show_capture,capture_shortcut,autostart,diagnostics])
+        .invoke_handler(tauri::generate_handler![load,load_draft,save_draft,mutate,create_backup,list_backups,inspect_backup,restore,recover_backup,set_dirty,hide_capture,show_capture,capture_shortcut,autostart,diagnostics])
         .setup(|app| {
             let root=if cfg!(debug_assertions) {std::env::var_os("BLOKKY_TEST_DATA_DIR").map(PathBuf::from).unwrap_or(app.path().app_local_data_dir()?)} else {app.path().app_local_data_dir()?}; fs::create_dir_all(&root)?;
             let store=Store::open(&root.join("blokky.sqlite"));

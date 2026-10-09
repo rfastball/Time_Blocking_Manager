@@ -142,3 +142,22 @@
 - 첨부된 CAL-01~12/T-01~40을 대조한 [통합 보고서](calendar-quality-report-2026-10-09.md)를 추가했다. 현재 제품의 지원 제외·미구현 목표 격차, 부분 검증, 미검증과 소스상 결함을 구분했다. 원문 P0 목표는 미달이며 전체 40행 합격을 선언하지 않는다.
 - 기존 Node 16개/Rust 파일 DB 11개가 통과했고 TypeScript/Vite 빌드가 성공했다. 격리 저장소의 commit 후 child 강제 종료·SQL 실패 원자성·빈 복원·v1 이관을 추가 확인했다. 10,000개 저장소만의 debug p95 36.740ms는 정식 UI 성능 합격이 아니다.
 - 현재 DB 손상 시 앱 내 복원 진입 차단(T-26) 소스상 결함과 상세 Ctrl+Enter의 IME 보호 누락 위험을 기록했다. 이번 UI 연결은 unavailable이라 실제 조작/OS 장애/보조기술/정식 성능 검증은 미실행이다. 제품과 사용자 데이터는 수정하지 않았다. 세부 실행 근거는 [프런트엔드](calendar-quality-frontend-2026-10-09.md)·[저장소](calendar-quality-storage-2026-10-09.md)에 있다.
+
+## 2026-10-09 품질 개선 1단계
+
+- 사용자 요청에 따라 [3단계 실행 계획](calendar-quality-action-plan-2026-10-09.md)을 작성하고 손상 저장소 복구·IME 명령 보호·달력 날짜/시각 갱신부터 구현했다. 첨부40개 목표 전체는 계속 계획 대상으로 두며 일반 캘린더 기능 확장은 아직 구현하지 않았다.
+- 로드 오류에서도 관리 백업 목록/검사/명시적 교체 확인을 열고 `recover_backup`으로 복구한다. 손상 DB/WAL/SHM은 복구 자료로 보존하며 실패/중단 marker는 빈 저장소 자동 생성을 막는다. 정상 Store는 기존 epoch/초안 보호를 우회할 수 없다. 완료 포커스를 유지하고 복구 뒤 운영 정보를 다시 읽는다. 초안·진단·단축키 등 부가정보 실패는 Store 손상과 구분해 다시 불러올 수 있다.
+- 캡처·미계획·시간표 제목·상세 Enter/Ctrl+Enter가 공유 조합 판정을 사용한다. 오늘/계획의 minute·focus·visibility 갱신은 선택 날짜를 유지하고 편집·조합·모달·드래그가 끝날 때까지 보류한다.
+- Node **18/18** (123.371ms), 최종 Rust 실제 파일 DB **13/13** (3.67초), desktop cargo check1.25초 통과. 단독 프런트 빌드218ms, 최종 패키징 프런트 빌드282ms. 새 의존성/테스트 파일/worker/coverage 기준 없음. Test delta는 [test-policy](test-policy.md)에 기록했다.
+- 초기 초안 조회/JSON 오류 뒤 낡은 sequence로 새 입력을 쓰지 않도록 별도 읽기 완료 경계를 둔다. 실패 중 편집·초안 쓰기·정상 복원을 막고 재조회하거나, 읽은 sequence가 확인된 손상 초안을 명시적 확인 후 버린다. 캡처창도 재조회 성공 후 보관 텍스트를 표시한다.
+- 아래 범위의 네이티브 UI를 추가 확인했다. 순수 상태/파일 DB/빌드와 이 UI 흐름을 합해도 물리 IME·자정/절전·접근성·정식 성능·OS 장애 전체 목표 합격을 뜻하지 않는다. 사용자 DB를 시험에 사용하지 않았다.
+
+### 격리 Windows 앱과 최종 산출물
+
+- `com.blokky.quality-remediation` 식별자와 `BLOKKY_TEST_DATA_DIR`로 사용자의 앱/저장소와 분리했다. `cargo rustc` release + custom-protocol + `-C debug-assertions=yes`로 시험 데이터 override가 가능한 실행 파일을 만들어 `.tools`의 별도 사본을 실행했다. 일반 배포 앱과 같은 UI/IPC/파일 DB 경로를 사용하되 이것은 기존 설치 앱 실행이 아니다. 사용자의 기존 debug 앱은 조작하거나 종료하지 않았다.
+- 첫 실제 실행에서 손상 DB의 초기 `Store::open`이 원본 WAL/SHM을 제거하는 문제를 발견했다. 원본 RW open 전 임시 DB/WAL/SHM 복사본으로 검사하는 공유 helper로 수정했고, 기존 손상 DB 테스트에3파일 바이트 보존과 정상 WAL commit 가시성을 추가했다. 이 시작 I/O가 정식 앱 실행 p95에 미치는 영향은 미측정이다.
+- 최종 새 fixture(`.tools/quality-remediation/active-fixture.txt`가 시험 당시 위치를 가리킴)에서 시작 후 원본 DB/WAL/SHM3개 해시가 모두 시험 전과 같았다. 실제 UI에서 백업 목록→검사(작업2개/배치1개)→교체 확인→복구→설정 화면을 완료했다. 주30시간/4일,10:00~17:00와 `복구점심` 근무 설정이 복원됐고, archive3개 해시가 원본과 같으며 `.recovering` 파일은 없었다.
+- 첫 fixture에서 교체 확인을 취소한 뒤 primary DB가 변경되지 않음을 확인했다. 실제 작업 상세의 한글 제목·여러 줄 메모를 읽고 Escape로 닫았으며 복귀 위치의 포커스 outline을 관찰했다. UIA의 넓은 포커스 조회는 신뢰하기 어려워 전체 포커스 순서/트랩/스크린리더 합격으로 확장하지 않았다.
+- 별도 정상 DB의 메인/캡처 초안 JSON을 잘못된 내용/sequence7로 만들었다. 실제 메인 화면은 초안 오류로 편집을 막고 DB 복구 화면을 표시하지 않았으며, 실제 캡처 textarea도 비활성화됐다. 시험 측 DB 읽기로 두 초안의 sequence7/내용이 그대로임을 확인했다. 시험 측에서 정상 내용/sequence8로 바꾼 뒤 UI의 다시 불러오기를 실행하자 메인은 정상 오늘 화면, 캡처는 활성화된 `재조회된 보관 초안` 값을 표시했다. 이 흐름은 잘못된 초안의 명시적 버리기 버튼 실행이나 모든 IPC 오류 주입을 검증한 것은 아니다.
+- 자체 시험 프로세스3개를 정리했고 실행 중인 QA 앱은 남기지 않았다. 물리 한국어 IME 조합·실제 자정 유지/절전·최소 폭·확대/보조기술/터치·OS 실패·정식 p95는 여전히 미검증이다.
+- 최종 `./scripts/run.ps1 package` 성공: TypeScript/Vite282ms, Rust release20.36초, NSIS. `src-tauri/target/release/blokky.exe`는18,587,648바이트, `src-tauri/target/release/bundle/nsis/BLOKKY_0.1.0_x64-setup.exe`는226,591,720바이트(약216.09MiB), WebView2 오프라인 설치기를 포함한다. 일반 설치 파일은 설치/실행하지 않았으며 기존 설치와 사용자 기록을 교체하지 않았다.
