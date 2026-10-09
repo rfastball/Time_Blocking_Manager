@@ -46,7 +46,7 @@ impl QuitCoordinator {
 }
 fn audit(s: &State, event: &str, code: &str) {
     if let Ok(mut f) = OpenOptions::new().create(true).append(true).open(s.root.join("blokky.log")) {
-        let _ = writeln!(f, "{} app={} schema=2 event={} code={}", chrono::Local::now().to_rfc3339(), env!("CARGO_PKG_VERSION"), event, code);
+        let _ = writeln!(f, "{} app={} schema=3 event={} code={}", chrono::Local::now().to_rfc3339(), env!("CARGO_PKG_VERSION"), event, code);
     }
 }
 fn with_store<T>(s: &State, f: impl FnOnce(&mut Store) -> Result<T>) -> Result<T> {

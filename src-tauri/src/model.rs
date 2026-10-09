@@ -27,11 +27,21 @@ pub struct WorkingDay {
 pub struct DayException { pub date:String, pub kind:String, pub day:WorkingDay }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct Routine {
+    pub id: String, pub title: String, pub body: String,
+    pub weekdays: Vec<usize>, pub start: i64, pub duration: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TaskRevision { pub id: String, pub revision: i64 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Settings {
     pub days: Vec<WorkingDay>, pub revision: i64,
     #[serde(default)] pub exceptions:Vec<DayException>,
     #[serde(default="default_target")] pub weekly_target:i64,
     #[serde(default="default_work_days")] pub work_days:i64,
+    #[serde(default)] pub routines:Vec<Routine>,
 }
 fn default_target()->i64 {2400}
 fn default_work_days()->i64 {5}
@@ -45,7 +55,7 @@ impl Settings {
 
 impl Default for Settings {
     fn default() -> Self {
-        Self { revision: 1, exceptions:vec![],weekly_target:2400,work_days:5,days: (0..7).map(|i| WorkingDay {
+        Self { revision: 1, exceptions:vec![],routines:vec![],weekly_target:2400,work_days:5,days: (0..7).map(|i| WorkingDay {
             enabled: i < 5, start: 540, end: 1080,
             breaks: vec![Unavailable { start: 720, end: 780, label: "점심".into() }],
         }).collect() }
@@ -73,6 +83,9 @@ pub enum Action {
     Split { id:String, expected_revision:i64, new_id:String, first_duration:i64 },
     SetSettings { expected_revision: i64, days: Vec<WorkingDay> },
     SetSchedule { expected_revision:i64,days:Vec<WorkingDay>,exceptions:Vec<DayException>,weekly_target:i64,work_days:i64,move_conflicts:bool },
+    SetRoutines { expected_revision:i64, routines:Vec<Routine> },
+    EnsureRoutines { from:String, to:String },
+    ClearDay { date:String, expected_tasks:Vec<TaskRevision> },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -112,6 +125,17 @@ impl From<serde_json::Error> for AppError {
 }
 
 pub fn validate_settings(settings: &Settings) -> Result<()> {
+    let mut routine_ids=std::collections::HashSet::new();
+    for routine in &settings.routines {
+        let mut weekdays=std::collections::HashSet::new();
+        if routine.id.is_empty() || routine.id.len()>100 || !routine_ids.insert(&routine.id)
+            || routine.title.trim().is_empty() || routine.title.len()>2000 || routine.body.len()>200_000
+            || routine.weekdays.is_empty() || routine.weekdays.iter().any(|day|*day>6 || !weekdays.insert(*day))
+            || routine.start<0 || routine.start%15!=0 || routine.duration<15 || routine.duration>1440
+            || routine.duration%15!=0 || routine.start>1440-routine.duration {
+            return Err(error("validation","정기 업무의 제목, 요일, 시작시각과 소요시간을 확인하세요."));
+        }
+    }
     if settings.days.len() != 7 { return Err(error("validation", "월요일부터 일요일까지 7일의 설정이 필요합니다.")); }
     if !(15..=10080).contains(&settings.weekly_target)||settings.weekly_target%15!=0||!(1..=7).contains(&settings.work_days) {
         return Err(error("validation","주간 목표 시간과 근무일 수를 확인하세요."));

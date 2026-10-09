@@ -11,6 +11,90 @@ fn create(s: &mut Store, id: &str) -> Task {
 fn update(t: &Task, start: &str, duration: i64) -> Action {
     Action::Update { id: t.id.clone(), expected_revision: t.revision, title: t.title.clone(), body: "[x] 확인\n메모 보존".into(), starts_at: Some(start.into()), duration }
 }
+fn routine(id:&str,start:i64) -> Routine {
+    Routine{id:id.into(),title:"정기 확인".into(),body:"보존할 정기 메모".into(),weekdays:vec![0,1],start,duration:30}
+}
+fn ensure(s:&mut Store,from:&str,to:&str) -> Snapshot {
+    let c=command(s,Action::EnsureRoutines{from:from.into(),to:to.into()});s.apply(&c).unwrap()
+}
+
+#[test]
+fn clearing_a_day_checks_the_complete_revision_set_atomically() {
+    let dir=tempdir().unwrap();let mut s=Store::open(&dir.path().join("app.db")).unwrap();
+    for (id,start) in [("a","2026-10-08T10:00"),("b","2026-10-08T11:00"),("other","2026-10-09T10:00")] {
+        let task=create(&mut s,id);let c=command(&s,update(&task,start,30));s.apply(&c).unwrap();
+    }
+    let a=s.snapshot().unwrap().tasks.into_iter().find(|task|task.id=="a").unwrap();
+    let c=command(&s,Action::SetCompleted{id:a.id,expected_revision:a.revision,completed:true});s.apply(&c).unwrap();
+    let before=s.snapshot().unwrap();
+    let expected:Vec<_>=before.tasks.iter().filter(|t|t.id!="other").map(|t|TaskRevision{id:t.id.clone(),revision:t.revision}).collect();
+    for bad in [vec![],vec![expected[0].clone()],vec![TaskRevision{revision:1,..expected[0].clone()},expected[1].clone()]] {
+        let c=command(&s,Action::ClearDay{date:"2026-10-08".into(),expected_tasks:bad});
+        assert_eq!(s.apply(&c).unwrap_err().code,"conflict");assert_eq!(s.snapshot().unwrap().tasks,before.tasks);
+    }
+    let invalid=command(&s,Action::ClearDay{date:"2026-10-08".into(),expected_tasks:vec![expected[0].clone(),expected[0].clone()]});
+    assert_eq!(s.apply(&invalid).unwrap_err().code,"validation");assert_eq!(s.snapshot().unwrap().tasks,before.tasks);
+    let c=command(&s,Action::ClearDay{date:"2026-10-08".into(),expected_tasks:expected});
+    let result=s.apply(&c).unwrap();assert_eq!(s.apply(&c).unwrap().tasks,result.tasks);
+    for old in before.tasks {
+        let task=result.tasks.iter().find(|t|t.id==old.id).unwrap();
+        assert_eq!((task.title.clone(),task.body.clone(),task.completed),(old.title,old.body,old.completed));
+        assert_eq!(task.starts_at,if old.id=="other" {old.starts_at}else {None});
+        assert_eq!(task.revision,old.revision+i64::from(old.id!="other"));
+    }
+    for date in ["2026-02-30","2026-1-01"] {
+        let c=command(&s,Action::ClearDay{date:date.into(),expected_tasks:vec![]});assert_eq!(s.apply(&c).unwrap_err().code,"validation");
+    }
+}
+
+#[test]
+fn routine_occurrences_survive_moves_deletion_settings_restart_and_restore() {
+    let dir=tempdir().unwrap();let path=dir.path().join("app.db");let mut s=Store::open(&path).unwrap();
+    let occupied=create(&mut s,"occupied");let c=command(&s,update(&occupied,"2026-10-05T10:00",30));s.apply(&c).unwrap();
+    let c=command(&s,Action::SetRoutines{expected_revision:1,routines:vec![routine("morning",600),routine("lunch",720)]});
+    s.apply(&c).unwrap();assert_eq!(s.apply(&c).unwrap().settings.revision,2);
+    let stale=command(&s,Action::SetRoutines{expected_revision:1,routines:vec![]});assert_eq!(s.apply(&stale).unwrap_err().code,"conflict");
+    for (from,to) in [("2026-02-30","2026-10-05"),("2026-10-06","2026-10-05"),("2026-10-01","2026-12-02")] {
+        let c=command(&s,Action::EnsureRoutines{from:from.into(),to:to.into()});assert_eq!(s.apply(&c).unwrap_err().code,"validation");
+    }
+    let snapshot=ensure(&mut s,"2026-10-05","2026-10-07");assert_eq!(snapshot.tasks.len(),5);
+    // Overlap and lunch preserve the work in the unplanned list; Wednesday is not a selected weekday.
+    assert_eq!(snapshot.tasks.iter().filter(|t|t.starts_at.is_none()).count(),3);
+    let t=snapshot.tasks.iter().find(|t|t.starts_at.as_deref()==Some("2026-10-06T10:00")).unwrap();
+    let c=command(&s,update(t,"2026-10-07T10:00",30));let moved=s.apply(&c).unwrap();
+    let t=moved.tasks.iter().find(|task|task.id==t.id).unwrap();
+    let c=command(&s,Action::ClearDay{date:"2026-10-07".into(),expected_tasks:vec![TaskRevision{id:t.id.clone(),revision:t.revision}]});s.apply(&c).unwrap();
+    let deleted=snapshot.tasks.iter().find(|t|t.starts_at.is_none()).unwrap();
+    let c=command(&s,Action::Delete{id:deleted.id.clone(),expected_revision:deleted.revision});s.apply(&c).unwrap();
+    let mut settings=s.snapshot().unwrap().settings;settings.routines[0].title="변경된 정기 업무".into();settings.routines.pop();
+    let c=command(&s,Action::SetRoutines{expected_revision:settings.revision,routines:settings.routines.clone()});settings=s.apply(&c).unwrap().settings;
+    let c=command(&s,Action::SetSchedule{expected_revision:settings.revision,days:settings.days.clone(),exceptions:settings.exceptions.clone(),weekly_target:settings.weekly_target,work_days:settings.work_days,move_conflicts:false});
+    assert_eq!(s.apply(&c).unwrap().settings.routines,settings.routines);
+    let saved=ensure(&mut s,"2026-10-05","2026-10-06");assert_eq!(saved.tasks.len(),4);assert!(saved.tasks.iter().all(|t|t.title!="변경된 정기 업무"));
+    let backup=dir.path().join("backup.db");s.backup(&backup).unwrap();drop(s);
+    let mut s=Store::open(&path).unwrap();assert_eq!(ensure(&mut s,"2026-10-05","2026-10-06").tasks,saved.tasks);
+    assert_eq!(ensure(&mut s,"2026-10-12","2026-10-12").tasks.len(),5);
+    let epoch=s.snapshot().unwrap().epoch;s.restore(&backup,&epoch,&dir.path().join("safety.db")).unwrap();
+    assert_eq!(ensure(&mut s,"2026-10-05","2026-10-06").tasks,saved.tasks);
+}
+
+#[test]
+fn legacy_databases_and_backups_migrate_without_losing_work() {
+    let dir=tempdir().unwrap();
+    for version in [1,2] {
+        let path=dir.path().join(format!("legacy-{version}.db"));let mut s=Store::open(&path).unwrap();let task=create(&mut s,"legacy");drop(s);
+        let conn=rusqlite::Connection::open(&path).unwrap();
+        let mut settings=serde_json::to_value(Settings::default()).unwrap();settings.as_object_mut().unwrap().remove("routines");
+        conn.execute("UPDATE meta SET value=?1 WHERE key='settings'",[settings.to_string()]).unwrap();
+        conn.execute_batch(&format!("DROP TABLE routine_occurrences; PRAGMA user_version={version};")).unwrap();drop(conn);
+        assert_eq!(Store::inspect_backup(&path).unwrap().tasks,1);
+        let mut target=Store::open(&dir.path().join(format!("restored-{version}.db"))).unwrap();let epoch=target.snapshot().unwrap().epoch;
+        assert_eq!(target.restore(&path,&epoch,&dir.path().join(format!("safety-{version}.db"))).unwrap().tasks,vec![task.clone()]);
+        let mut s=Store::open(&path).unwrap();assert_eq!(s.snapshot().unwrap().tasks,vec![task]);assert!(s.snapshot().unwrap().settings.routines.is_empty());
+        let c=command(&s,Action::SetRoutines{expected_revision:1,routines:vec![routine("new",600)]});s.apply(&c).unwrap();assert_eq!(ensure(&mut s,"2026-10-05","2026-10-05").tasks.len(),2);
+        assert_eq!(rusqlite::Connection::open(&path).unwrap().query_row::<i64,_,_>("PRAGMA user_version",[],|r|r.get(0)).unwrap(),3);
+    }
+}
 
 #[test]
 fn splitting_preserves_total_time_notes_and_atomic_retry() {
@@ -99,7 +183,7 @@ fn date_exceptions_are_atomic_persistent_and_restorable() {
 #[test]
 fn settings_reject_invalid_exceptions_and_accept_legacy_json() {
     let mut settings=Settings::default();let mut value=serde_json::to_value(&settings).unwrap();
-    for key in ["exceptions","weekly_target","work_days"] {value.as_object_mut().unwrap().remove(key);}
+    for key in ["exceptions","weekly_target","work_days","routines"] {value.as_object_mut().unwrap().remove(key);}
     let legacy:Settings=serde_json::from_value(value).unwrap();assert_eq!(legacy.weekly_target,2400);assert!(legacy.exceptions.is_empty());
     let day=settings.days[0].clone();
     for date in ["2026-02-30","2026-1-01"] {settings.exceptions=vec![DayException{date:date.into(),kind:"custom".into(),day:day.clone()}];assert!(validate_settings(&settings).is_err());}
@@ -107,6 +191,12 @@ fn settings_reject_invalid_exceptions_and_accept_legacy_json() {
     settings.exceptions=vec![exception.clone()];assert!(validate_settings(&settings).is_ok());
     settings.exceptions.push(exception);assert!(validate_settings(&settings).is_err());
     settings.exceptions.clear();settings.weekly_target=-15;assert!(validate_settings(&settings).is_err());
+    settings.weekly_target=2400;
+    for (field,value) in [("id",serde_json::json!("")),("title",serde_json::json!(" ")),("title",serde_json::json!("a".repeat(2001))),("body",serde_json::json!("a".repeat(200001))),("weekdays",serde_json::json!([])),("weekdays",serde_json::json!([7])),("weekdays",serde_json::json!([0,0])),("start",serde_json::json!(601)),("start",serde_json::json!(-15)),("start",serde_json::json!(1440)),("duration",serde_json::json!(20)),("duration",serde_json::json!(0))] {
+        let mut value_routine=serde_json::to_value(routine("routine",600)).unwrap();value_routine[field]=value;
+        settings.routines=vec![serde_json::from_value(value_routine).unwrap()];assert_eq!(validate_settings(&settings).unwrap_err().code,"validation","accepted {field}");
+    }
+    settings.routines=vec![routine("same",600),routine("same",630)];assert!(validate_settings(&settings).is_err());
 }
 
 #[test]
@@ -190,7 +280,7 @@ fn backup_inspection_reports_validated_contents_without_changing_files() {
     assert!(Store::inspect_backup(&source).unwrap().created_at.is_none());
     assert_eq!(std::fs::read(&source).unwrap(),legacy);
     let safety=dir.path().join("safety.db");let epoch=s.snapshot().unwrap().epoch;
-    for (sql,code) in [("UPDATE tasks SET id='' WHERE id='a'","validation"),("PRAGMA user_version=3","schema")] {
+    for (sql,code) in [("UPDATE tasks SET id='' WHERE id='a'","validation"),("PRAGMA user_version=4","schema")] {
         {rusqlite::Connection::open(&source).unwrap().execute_batch(sql).unwrap();}
         let original=std::fs::read(&source).unwrap();
         assert_eq!(Store::inspect_backup(&source).unwrap_err().code,code);
@@ -228,6 +318,9 @@ fn unavailable_store_recovery_preserves_evidence_and_invalidates_old_requests() 
     let dir=tempdir().unwrap();let path=dir.path().join("blokky.sqlite");let mut s=Store::open(&path).unwrap();
     let a=create(&mut s,"a");let c=command(&s,update(&a,"2026-10-08T10:00",45));s.apply(&c).unwrap();
     s.save_draft("main",1,"백업에 남은 오래된 초안").unwrap();
+    let c=command(&s,Action::SetRoutines{expected_revision:1,routines:vec![routine("recovered",600)]});s.apply(&c).unwrap();
+    let generated=ensure(&mut s,"2026-10-05","2026-10-05");let t=generated.tasks.iter().find(|t|t.starts_at.as_deref()==Some("2026-10-05T10:00")).unwrap();
+    let c=command(&s,Action::ClearDay{date:"2026-10-05".into(),expected_tasks:vec![TaskRevision{id:t.id.clone(),revision:t.revision}]});s.apply(&c).unwrap();
     let expected=s.snapshot().unwrap();let backup=s.create_backup(dir.path()).unwrap();
     let stale=command(&s,Action::Create{id:"old-request".into(),title:"복원 전 요청".into()});drop(s);
     let originals=[("blokky.sqlite",b"damaged database".as_slice()),("blokky.sqlite-wal",b"damaged wal".as_slice()),("blokky.sqlite-shm",b"damaged shm".as_slice())];
@@ -235,6 +328,7 @@ fn unavailable_store_recovery_preserves_evidence_and_invalidates_old_requests() 
     let mut recovered=Store::recover_from_backup(dir.path(),&backup.id).unwrap();let snapshot=recovered.snapshot().unwrap();
     assert_eq!(snapshot.tasks,expected.tasks);assert_eq!(snapshot.settings,expected.settings);assert_ne!(snapshot.epoch,expected.epoch);
     assert_eq!(recovered.draft("main").unwrap(),(0,String::new()));assert_eq!(recovered.apply(&stale).unwrap_err().code,"epoch");
+    assert_eq!(ensure(&mut recovered,"2026-10-05","2026-10-05").tasks,expected.tasks);
     let archives:Vec<_>=std::fs::read_dir(dir.path().join("backups")).unwrap().map(|e|e.unwrap().path()).filter(|p|p.is_dir()).collect();
     assert_eq!(archives.len(),1);for (name,bytes) in originals {assert_eq!(std::fs::read(archives[0].join(name)).unwrap(),bytes);}
     drop(recovered);assert_eq!(Store::open(&path).unwrap().snapshot().unwrap().tasks,expected.tasks);

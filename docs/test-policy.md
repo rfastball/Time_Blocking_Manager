@@ -138,3 +138,13 @@ Cycle 3 Test delta 결과: 새 순수 표시 owner src/schedule.test.ts 4사례 
 - Added / extended / removed: 2 / 1 / 0. Node 수집 20→21, desktop 단위 1→2, storage 13 유지. Node 전체 106.8831ms, 새 queue 사례 0.2056ms. desktop 2/2 본체 0.01초, storage 13/13 본체 2.46초. 전체 변경 전 동일 조건 baseline이 없어 신뢰할 runtime delta는 not measured.
 - 시간축 좁은 owner schedule/settings 15개는 100.2691→92.4225ms; 단일 실행차이며 성능 개선 추정으로 사용하지 않음.
 - 자동 heavy-resource launch delta 0. 수동 IPC 검증은 별도 ID의 시험 앱 3회 실행, 시험 SQLite에만 초안/오류 trigger를 준비하여 성공·실패·복구 경계를 확인했다.
+
+
+## 정기 업무·하루 비우기 Test delta brief (2026-10-09)
+
+- Unique risk: 이동·삭제·초기화 뒤 정기 업무가 중복 생성되거나, 복원 시 생성 이력을 잃거나, 변경된 하루 일정을 일부만 초기화하여 데이터가 유실됨.
+- Existing owner / Selected layer: `src-tauri/tests/storage.rs`의 실제 임시 SQLite 통합 owner를 확장한다. 기존 설정·복구·버전 거부 사례를 함께 확장하며 새 파일·의존성·실행 lane은 만들지 않는다.
+- Expected cost delta: 같은 storage executable 안의 시나리오 3개 추가. 새 프로세스·GUI·네트워크·CI lane 0, coverage floor 변경 0.
+- Evidence to retire: 없음. 기존 작업 단일 변경과 다른 다항목 원자성·생성 이력 경계다.
+
+Test delta 결과: added/extended/removed **3/3/0**, 수집 **13→16**. `cargo test --manifest-path src-tauri/Cargo.toml --no-default-features --locked` **16/16**, 본체 **2.65초**, 전체 **5.22초**(컴파일 1.99초 포함). 같은 조건의 통과 baseline이 없어 runtime delta는 미측정. 기본 sandbox에서는 기존 canonicalize 테스트 4개가 변경 전후 모두 실패하여, 승인된 제한 외 실행에서 임시 DB만 검증했다. 새 heavy-resource launch·dependency·CI lane·coverage-floor 영향 0.

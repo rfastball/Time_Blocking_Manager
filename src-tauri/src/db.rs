@@ -1,4 +1,5 @@
 use crate::model::*;
+use chrono::Datelike;
 use rusqlite::{params, Connection, OpenFlags, OptionalExtension, TransactionBehavior};
 use sha2::{Digest,Sha256};
 use std::{fs, path::{Path, PathBuf}, time::Duration};
@@ -80,7 +81,25 @@ CREATE TABLE tasks (
 CREATE INDEX task_start ON tasks(starts_at);
 CREATE TABLE receipts (id TEXT PRIMARY KEY, payload TEXT NOT NULL);
 CREATE TABLE drafts (slot TEXT PRIMARY KEY, sequence INTEGER NOT NULL, content TEXT NOT NULL);
-PRAGMA user_version = 2;";
+CREATE TABLE routine_occurrences (routine_id TEXT NOT NULL, date TEXT NOT NULL, PRIMARY KEY(routine_id,date));
+PRAGMA user_version = 3;";
+
+fn parse_date(value: &str) -> Result<chrono::NaiveDate> {
+    Ok(parse_start(&format!("{value}T00:00"))?.date())
+}
+
+fn occurrences(conn: &Connection) -> Result<Vec<(String,String)>> {
+    let version:i64=conn.query_row("PRAGMA user_version",[],|r|r.get(0))?;
+    if version<3 {return Ok(vec![]);}
+    let mut stmt=conn.prepare("SELECT routine_id,date FROM routine_occurrences")?;
+    let rows=stmt.query_map([],|r|Ok((r.get::<_,String>(0)?,r.get::<_,String>(1)?)))?.collect::<std::result::Result<Vec<_>,_>>()?;
+    let mut seen=std::collections::HashSet::new();
+    for (id,date) in &rows {
+        if id.is_empty() || id.len()>100 || !seen.insert((id,date)) {return Err(error("schema","정기 업무 생성 기록을 확인할 수 없습니다."));}
+        parse_date(date)?;
+    }
+    Ok(rows)
+}
 
 fn read(conn: &Connection) -> Result<Snapshot> {
     let epoch = conn.query_row("SELECT value FROM meta WHERE key='epoch'", [], |r| r.get(0))?;
@@ -109,12 +128,13 @@ fn validate_snapshot(s: &Snapshot) -> Result<()> {
 
 fn check_database(conn: &Connection) -> Result<Snapshot> {
     let version: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
-    if version != 1 && version != 2 { return Err(error("schema", "지원하지 않는 저장소 버전입니다. 원본은 변경하지 않았습니다.")); }
+    if !(1..=3).contains(&version) { return Err(error("schema", "지원하지 않는 저장소 버전입니다. 원본은 변경하지 않았습니다.")); }
     let mut stmt = conn.prepare("PRAGMA integrity_check")?;
     let results = stmt.query_map([], |r| r.get::<_, String>(0))?.collect::<std::result::Result<Vec<_>, _>>()?;
     if results != ["ok"] { return Err(error("corrupt", "무결성 검사에 실패했습니다. 원본은 변경하지 않았습니다.")); }
     let snapshot = read(conn)?;
     validate_snapshot(&snapshot)?;
+    occurrences(conn)?;
     Ok(snapshot)
 }
 
@@ -159,8 +179,13 @@ impl Store {
             tx.commit()?;
         }
         check_database(&conn)?;
-        // Older executables must not silently ignore date exceptions in the settings JSON.
-        conn.pragma_update(None,"user_version",2)?;
+        // Older executables must not discard routines or their generation history.
+        let version:i64=conn.query_row("PRAGMA user_version",[],|r|r.get(0))?;
+        if version<3 {
+            let tx=conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
+            tx.execute_batch("CREATE TABLE routine_occurrences (routine_id TEXT NOT NULL, date TEXT NOT NULL, PRIMARY KEY(routine_id,date)); PRAGMA user_version=3;")?;
+            tx.commit()?;
+        }
         conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA foreign_keys=ON;")?;
         Ok(Self { conn, path: path.into() })
     }
@@ -207,7 +232,7 @@ impl Store {
             }
             Action::SetSchedule {expected_revision,days,exceptions,weekly_target,work_days,move_conflicts} => {
                 if *expected_revision!=snapshot.settings.revision {return Err(error("conflict","다른 창에서 시간 설정이 변경됐습니다. 다시 확인하세요."));}
-                let settings=Settings{days:days.clone(),exceptions:exceptions.clone(),weekly_target:*weekly_target,work_days:*work_days,revision:expected_revision+1};
+                let settings=Settings{days:days.clone(),exceptions:exceptions.clone(),weekly_target:*weekly_target,work_days:*work_days,revision:expected_revision+1,routines:snapshot.settings.routines.clone()};
                 validate_settings(&settings)?;
                 for t in &snapshot.tasks {
                     if let Err(e)=validate_task(t,&snapshot.tasks,&settings) {
@@ -216,6 +241,45 @@ impl Store {
                     }
                 }
                 tx.execute("UPDATE meta SET value=?1 WHERE key='settings'",[serde_json::to_string(&settings)?])?;
+            }
+            Action::SetRoutines {expected_revision,routines} => {
+                if *expected_revision!=snapshot.settings.revision {return Err(error("conflict","다른 창에서 정기 업무 설정이 변경됐습니다. 다시 확인하세요."));}
+                let mut settings=Settings{routines:routines.clone(),revision:expected_revision+1,..snapshot.settings.clone()};
+                for routine in &mut settings.routines {routine.title=routine.title.trim().into();}
+                validate_settings(&settings)?;
+                tx.execute("UPDATE meta SET value=?1 WHERE key='settings'",[serde_json::to_string(&settings)?])?;
+            }
+            Action::EnsureRoutines {from,to} => {
+                let from=parse_date(from)?;let to=parse_date(to)?;
+                let count=(to-from).num_days()+1;
+                if !(1..=62).contains(&count) {return Err(error("validation","정기 업무 생성 기간은 1일부터 62일까지 지정하세요."));}
+                let mut tasks=snapshot.tasks.clone();
+                for offset in 0..count {
+                    let date=from+chrono::Duration::days(offset);let key=date.format("%Y-%m-%d").to_string();
+                    for routine in &snapshot.settings.routines {
+                        if !routine.weekdays.contains(&(date.weekday().num_days_from_monday() as usize)) {continue;}
+                        let generated=tx.execute("INSERT OR IGNORE INTO routine_occurrences(routine_id,date) VALUES(?1,?2)",params![routine.id,key])?;
+                        if generated==0 {continue;}
+                        let mut task=Task{id:uuid::Uuid::new_v4().to_string(),title:routine.title.clone(),body:routine.body.clone(),starts_at:Some(format!("{key}T{:02}:{:02}",routine.start/60,routine.start%60)),duration:routine.duration,completed:false,revision:1};
+                        if let Err(e)=validate_task(&task,&tasks,&snapshot.settings) {
+                            if e.code!="unavailable" && e.code!="overlap" {return Err(e);}
+                            task.starts_at=None;
+                        }
+                        tx.execute("INSERT INTO tasks(id,title,body,starts_at,duration) VALUES(?1,?2,?3,?4,?5)",params![task.id,task.title,task.body,task.starts_at,task.duration])?;
+                        tasks.push(task);
+                    }
+                }
+            }
+            Action::ClearDay {date,expected_tasks} => {
+                parse_date(date)?;
+                let mut expected=std::collections::HashMap::new();
+                for task in expected_tasks {
+                    if task.id.is_empty() || task.id.len()>100 || task.revision<1 || expected.insert(&task.id,task.revision).is_some() {return Err(error("validation","하루 초기화 항목 정보를 확인하세요."));}
+                }
+                let prefix=format!("{date}T");
+                let scheduled:Vec<_>=snapshot.tasks.iter().filter(|task|task.starts_at.as_deref().is_some_and(|start|start.starts_with(&prefix))).collect();
+                if scheduled.len()!=expected.len() || scheduled.iter().any(|task|expected.get(&task.id)!=Some(&task.revision)) {return Err(error("conflict","다른 창에서 하루 일정이 변경됐습니다. 다시 확인하세요."));}
+                for task in scheduled {tx.execute("UPDATE tasks SET starts_at=NULL,revision=revision+1 WHERE id=?1",[&task.id])?;}
             }
             action => {
                 let (id, revision) = match action {
@@ -341,7 +405,7 @@ impl Store {
     pub fn recover_from_backup(root: &Path, id: &str) -> Result<Self> {
         let source=managed_backup_path(root,id)?;
         let incoming=Connection::open_with_flags(&source,OpenFlags::SQLITE_OPEN_READ_ONLY)?;
-        let restored=check_database(&incoming)?;drop(incoming);
+        let restored=check_database(&incoming)?;let generated=occurrences(&incoming)?;drop(incoming);
         let path=root.join("blokky.sqlite");let marker=sidecar(&path,".recovering");
         let stage=root.join(format!("recovery-stage-{}.sqlite",uuid::Uuid::new_v4()));
         if !marker.exists() && path.exists() {
@@ -360,6 +424,7 @@ impl Store {
                 tx.execute("INSERT INTO tasks VALUES(?1,?2,?3,?4,?5,?6,?7)",params![t.id,t.title,t.body,t.starts_at,t.duration,t.completed,t.revision])?;
             }
             tx.execute("UPDATE meta SET value=?1 WHERE key='settings'",[serde_json::to_string(&restored.settings)?])?;
+            for (id,date) in &generated {tx.execute("INSERT INTO routine_occurrences VALUES(?1,?2)",params![id,date])?;}
             tx.commit()?;
             staged.conn.execute_batch("PRAGMA wal_checkpoint(TRUNCATE); PRAGMA journal_mode=DELETE;")?;
             check_database(&staged.conn)?;drop(staged);
@@ -424,6 +489,7 @@ impl Store {
         if drafts>0 {return Err(error("pending","남아 있는 편집 초안을 먼저 저장하거나 명시적으로 버려주세요."));}
         let incoming = Connection::open_with_flags(source, OpenFlags::SQLITE_OPEN_READ_ONLY)?;
         let restored = check_database(&incoming)?;
+        let generated=occurrences(&incoming)?;
         drop(incoming);
         if self.snapshot()?.epoch != expected_epoch { return Err(error("epoch", "복원 이후 데이터가 변경됐습니다. 화면을 다시 확인하세요.")); }
         self.backup(safety_path)?;
@@ -431,10 +497,12 @@ impl Store {
         let tx = self.conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
         tx.execute("DELETE FROM tasks", [])?;
         tx.execute("DELETE FROM receipts", [])?;
+        tx.execute("DELETE FROM routine_occurrences", [])?;
         for t in &restored.tasks {
             tx.execute("INSERT INTO tasks VALUES(?1,?2,?3,?4,?5,?6,?7)", params![t.id,t.title,t.body,t.starts_at,t.duration,t.completed,t.revision])?;
         }
         tx.execute("UPDATE meta SET value=?1 WHERE key='settings'", [serde_json::to_string(&restored.settings)?])?;
+        for (id,date) in &generated {tx.execute("INSERT INTO routine_occurrences VALUES(?1,?2)",params![id,date])?;}
         tx.execute("UPDATE meta SET value=?1 WHERE key='epoch'", [uuid::Uuid::new_v4().to_string()])?;
         let result = read(&tx)?;
         tx.commit()?;
