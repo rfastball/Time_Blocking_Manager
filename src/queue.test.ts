@@ -20,6 +20,20 @@ test('earlier response cannot report idle while a newer write remains',async()=>
   releaseNext();await second;assert.equal(q.busy,false);
 });
 
+test('exit waits for follow-up writes and fails instead of acknowledging an unsaved queue',async()=>{
+  const q=new SaveQueue(()=>{});let release!:()=>void,releaseDraft!:()=>void,finished=false;
+  void q.add(async()=>{await new Promise<void>(r=>{release=r;});void q.add(()=>new Promise<void>(r=>{releaseDraft=r;}));});
+  const idle=q.whenIdle().then(()=>{finished=true;});
+  release();await Promise.resolve();await Promise.resolve();
+  assert.equal(finished,false);releaseDraft();await idle;assert.equal(q.busy,false);
+  let fail!:()=>void;
+  const write=q.add(async()=>{await new Promise<void>(r=>{fail=r;});throw Error('disk full');});
+  const waiting=assert.rejects(q.whenIdle(),/disk full/),failed=assert.rejects(write,/disk full/);
+  fail();await Promise.all([waiting,failed]);
+  await assert.rejects(q.whenIdle(),/disk full/);
+  q.discardFailed();await q.whenIdle();
+});
+
 test('retried capture acknowledges only its own draft, preserving newer input',async()=>{
   const q=new SaveQueue(()=>{}),draft=new CaptureDraft();let fail=true,hidden=false;
   draft.edit('first');

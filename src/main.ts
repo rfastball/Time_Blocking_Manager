@@ -53,6 +53,7 @@ let shortcut="Ctrl+Shift+Space";
 let settingsBase:{epoch:string;revision:number}|null=null,lastBackup='';
 let message='',errorMessage='',loadError='',warning='',dbPath='',autoStart=false,exitOnClose=false,dragId='';
 let ready=false,refreshNeeded=false;
+let quitRequest:string|null=null,quitSaving=false;
 let draftLoadFailed=false,appInfoFailed=false;
 const backups={items:[] as ManagedBackup[],loaded:false,loading:false,error:'',selected:null as string|null,inspection:null as BackupInspection|null,inspecting:false,inspectionError:'',busy:null as 'create'|'restore'|null,status:'',statusError:false};
 let backupListSequence=0,backupInspectionSequence=0,backupListScroll=0;
@@ -75,7 +76,62 @@ function draftChanged(){
 function persistDraft(){
   if(!storedDraft.loaded)return;
   const content=draftContent(),sequence=storedDraft.nextSequence();
-  void queue.add(async()=>{if(native)await invoke('save_draft',{sequence,content});}).catch(showError);
+  return queue.add(async()=>{if(native)await invoke('save_draft',{sequence,content});}).catch(showError);
+}
+function lockQuitInputs(locked:boolean){
+  document.querySelectorAll<HTMLElement>('#app,dialog,[popover]').forEach(el=>{el.inert=locked;});
+}
+async function saveBeforeQuit(requestId:string){
+  if(quitSaving){await invoke('finish_quit',{requestId,error:'이전 자동 저장이 진행 중입니다. 잠시 후 다시 종료해 주세요.'});return;}
+  const pendingShortcut=document.querySelector<HTMLInputElement>('#shortcut')?.value;
+  quitSaving=true;quitRequest=requestId;lockQuitInputs(true);
+  try{
+    if(!ready||!storedDraft.loaded)throw Error('기록과 초안을 불러오지 못했습니다. 다시 불러온 뒤 종료해 주세요.');
+    clearTimeout(draftTimer);draftTimer=undefined;
+    await queue.whenIdle();
+    await persistDraft();await queue.whenIdle();
+    if(quitRequest!==requestId)return;
+    if(editorDirty){
+      if(!document.querySelector('#editor-form'))renderEditor();
+      if(!$<HTMLFormElement>('#editor-form').checkValidity())throw Error('항목의 제목과 시간을 확인해 주세요. 입력은 초안으로 보관했습니다.');
+      if(!await saveEditor())throw Error(errorMessage||'항목을 저장하지 못했습니다. 입력을 확인해 주세요.');
+      await queue.whenIdle();
+    }
+    if(quitRequest!==requestId)return;
+    if(settingsDraft&&!Object.values(rawSchedules).some(raw=>raw.invalid)){
+      const s=settingsDraft,base=settingsBase??{epoch:snapshot!.epoch,revision:snapshot!.settings.revision};
+      const conflicts=snapshot!.tasks.some(t=>t.starts_at&&checkPlacement(t.id,t.starts_at.slice(0,10),taskMinute(t),t.duration,effectiveDay(s,t.starts_at.slice(0,10)),[]));
+      // Conflicting schedules remain durable drafts until the user agrees to move tasks.
+      if(!conflicts){
+        await dispatch({type:'set_schedule',expected_revision:base.revision,days:s.days,exceptions:s.exceptions??[],weekly_target:s.weekly_target??2400,work_days:s.work_days??5,move_conflicts:false},base.epoch,undefined,()=>{settingsDraft=null;settingsBase=null;rawSchedules={};});
+        await queue.whenIdle();
+      }
+    }
+    if(quitRequest!==requestId)return;
+    if(captureDraft.text.trim()){
+      if(calendarComposer){
+        const {date,start,duration}=calendarComposer;
+        captureDraft.command??={request_id:crypto.randomUUID(),epoch:snapshot!.epoch,action:{type:'create_scheduled',id:crypto.randomUUID(),title:captureDraft.text.trim(),starts_at:date+'T'+time(start),duration}};
+        const command=captureDraft.command;
+        await persistDraft();await queue.whenIdle();
+        await dispatch(command.action,command.epoch,command.request_id,()=>{if(captureDraft.acknowledge(command))calendarComposer=null;});
+      }else await submitCapture();
+      await queue.whenIdle();
+    }
+    if(quitRequest!==requestId)return;
+    if(pendingShortcut&&pendingShortcut!==shortcut)shortcut=await invoke<string>('capture_shortcut',{value:pendingShortcut});
+    clearTimeout(draftTimer);draftTimer=undefined;
+    await persistDraft();await queue.whenIdle();
+    if(quitRequest===requestId)await invoke('finish_quit',{requestId,error:null});
+  }catch(e){
+    quitRequest=null;
+    const shortcutInput=document.querySelector<HTMLInputElement>('#shortcut');if(shortcutInput&&pendingShortcut)shortcutInput.value=pendingShortcut;
+    showError(e);
+    await invoke('finish_quit',{requestId,error:errorMessage}).catch(showError);
+  }finally{
+    quitSaving=false;
+    if(quitRequest!==requestId)lockQuitInputs(false);
+  }
 }
 function showError(e:unknown){errorMessage=typeof e==='object'&&e&&'message'in e?String(e.message):String(e);updateStatus();}
 function updateStatus(){
@@ -633,7 +689,8 @@ async function start(){
     await listen('data-changed',()=>{if(queue.busy)refreshNeeded=true;else void reload();});
     await listen('window-shown',()=>{syncTheme();if(captureWindow){void reload();$('#capture')?.focus();}else refreshCalendar(true);});
     if(captureWindow)await listen('capture-hide-request',hideCapture);
-    await listen('quit-blocked',()=>{errorMessage='저장하지 않은 입력이 있어 종료하지 않았어요. 본 창과 캡처 창의 변경을 저장하거나 버려 주세요.';updateStatus();});
+    await listen<string>('quit-request',event=>{void saveBeforeQuit(event.payload);});
+    await listen<string>('quit-cancelled',event=>{quitRequest=null;if(!quitSaving)lockQuitInputs(false);errorMessage=event.payload;updateStatus();});
     await listen('backup-warning',async()=>{const info=await invoke<{warning:string|null;last_backup:string|null}>('diagnostics');warning=info.warning||'';lastBackup=info.last_backup||'';if(!Object.keys(rawSchedules).length&&!settingsDraft)renderContent();});
   }else{
     const days=Array.from({length:7},(_,i)=>({enabled:i<5,start:540,end:1080,breaks:[{start:720,end:780,label:'점심'}]}));

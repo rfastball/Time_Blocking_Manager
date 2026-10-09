@@ -13,6 +13,36 @@ struct State {
     last_backup: Mutex<Option<String>>,
     shortcut: Mutex<String>,
     exit_on_close: Mutex<bool>,
+    quit: Mutex<QuitCoordinator>,
+}
+
+#[derive(Default)]
+struct QuitCoordinator {
+    request_id: Option<String>,
+    pending: HashSet<String>,
+}
+#[derive(Debug, PartialEq)]
+enum QuitProgress { Ignore, Waiting, Exit, Cancel }
+impl QuitCoordinator {
+    fn begin(&mut self, request_id: String, windows: impl Iterator<Item=String>) -> bool {
+        if self.request_id.is_some() { return false; }
+        self.request_id=Some(request_id);
+        self.pending=windows.collect();
+        true
+    }
+    fn finish(&mut self, request_id: &str, window: &str, success: bool) -> QuitProgress {
+        if self.request_id.as_deref()!=Some(request_id) || !self.pending.remove(window) {
+            return QuitProgress::Ignore;
+        }
+        if !success {
+            self.request_id=None;
+            self.pending.clear();
+            QuitProgress::Cancel
+        } else if self.pending.is_empty() {
+            // Keep the token until exit so another close cannot start a second request.
+            QuitProgress::Exit
+        } else { QuitProgress::Waiting }
+    }
 }
 fn audit(s: &State, event: &str, code: &str) {
     if let Ok(mut f) = OpenOptions::new().create(true).append(true).open(s.root.join("blokky.log")) {
@@ -161,13 +191,42 @@ fn diagnostics(s:tauri::State<State>) -> Diagnostics {
 }
 fn quit(app: &tauri::AppHandle) {
     let s=app.state::<State>();
-    if !s.busy.lock().unwrap().is_empty() {
-        show(app,"main"); let _=app.emit("quit-blocked",()); return;
+    let mut quit=s.quit.lock().unwrap();
+    let request_id=uuid::Uuid::new_v4().to_string();
+    if !quit.begin(request_id.clone(),app.webview_windows().into_keys()) { return; }
+    if quit.pending.is_empty() { app.exit(0); return; }
+    if app.emit("quit-request",&request_id).is_err() {
+        quit.request_id=None;
+        quit.pending.clear();
+        show(app,"main");
+        let _=app.emit("quit-cancelled","자동 저장을 시작하지 못했습니다. 다시 종료해 주세요.");
+        return;
     }
-    if with_store(&s,|db|Ok(!db.draft("main")?.1.is_empty()||!db.draft("capture")?.1.is_empty())).unwrap_or(true) {
-        show(app,"main");let _=app.emit("quit-blocked",());return;
+    let handle=app.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_secs(30));
+        let s=handle.state::<State>();
+        let mut quit=s.quit.lock().unwrap();
+        if quit.request_id.as_deref()==Some(&request_id) {
+            if let Some(label)=quit.pending.iter().next().cloned() {
+                quit.finish(&request_id,&label,false);
+                show(&handle,&label);
+                let _=handle.emit("quit-cancelled","자동 저장 응답을 확인하지 못했습니다. 잠시 후 다시 종료해 주세요.");
+            }
+        }
+    });
+}
+#[tauri::command]
+fn finish_quit(s:tauri::State<State>,app:tauri::AppHandle,window:tauri::WebviewWindow,request_id:String,error:Option<String>) {
+    let mut quit=s.quit.lock().unwrap();
+    match quit.finish(&request_id,window.label(),error.is_none()) {
+        QuitProgress::Exit=>app.exit(0),
+        QuitProgress::Cancel=>{
+            show(&app,window.label());
+            let _=app.emit("quit-cancelled",error.unwrap());
+        },
+        QuitProgress::Ignore|QuitProgress::Waiting=>{},
     }
-    app.exit(0);
 }
 fn main() {
     tauri::Builder::default()
@@ -186,13 +245,13 @@ fn main() {
                 std::thread::spawn(move || {let app=handle.clone();let _=handle.run_on_main_thread(move || show(&app,"capture"));});
             }
         }).build())
-        .invoke_handler(tauri::generate_handler![load,load_draft,save_draft,mutate,create_backup,list_backups,inspect_backup,restore,recover_backup,set_dirty,hide_capture,show_capture,capture_shortcut,autostart,exit_on_close,diagnostics])
+        .invoke_handler(tauri::generate_handler![load,load_draft,save_draft,mutate,create_backup,list_backups,inspect_backup,restore,recover_backup,set_dirty,hide_capture,show_capture,capture_shortcut,autostart,exit_on_close,diagnostics,finish_quit])
         .setup(|app| {
             let root=if cfg!(debug_assertions) {std::env::var_os("BLOKKY_TEST_DATA_DIR").map(PathBuf::from).unwrap_or(app.path().app_local_data_dir()?)} else {app.path().app_local_data_dir()?}; fs::create_dir_all(&root)?;
             let store=Store::open(&root.join("blokky.sqlite"));
             let shortcut=fs::read_to_string(root.join("capture-shortcut.txt")).unwrap_or_else(|_|"Ctrl+Shift+Space".into());
             let close=exit_on_close_setting(&root,None).unwrap_or(false);
-            let state=State {store:Mutex::new(store),busy:Mutex::new(HashSet::new()),root,warning:Mutex::new(None),last_backup:Mutex::new(None),shortcut:Mutex::new(shortcut.clone()),exit_on_close:Mutex::new(close)};
+            let state=State {store:Mutex::new(store),busy:Mutex::new(HashSet::new()),root,warning:Mutex::new(None),last_backup:Mutex::new(None),shortcut:Mutex::new(shortcut.clone()),exit_on_close:Mutex::new(close),quit:Mutex::new(QuitCoordinator::default())};
             if let Ok(mut f)=OpenOptions::new().create(true).append(true).open(state.root.join("blokky.log")) {
                 let _=writeln!(f,"startup app={} exe={} db={}",env!("CARGO_PKG_VERSION"),std::env::current_exe()?.display(),state.root.join("blokky.sqlite").display());
             }
@@ -241,6 +300,24 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn quit_requires_every_window_and_ignores_duplicate_or_obsolete_replies() {
+        let mut quit=QuitCoordinator::default();
+        let windows=||["main".to_string(),"capture".to_string()].into_iter();
+        assert!(quit.begin("first".into(),windows()));
+        assert!(!quit.begin("concurrent".into(),windows()));
+        assert_eq!(quit.finish("first","unknown",true),QuitProgress::Ignore);
+        assert_eq!(quit.finish("first","main",true),QuitProgress::Waiting);
+        assert_eq!(quit.finish("first","main",false),QuitProgress::Ignore);
+        assert_eq!(quit.finish("first","capture",false),QuitProgress::Cancel);
+        assert!(quit.begin("retry".into(),windows()));
+        assert_eq!(quit.finish("first","capture",true),QuitProgress::Ignore);
+        assert_eq!(quit.finish("retry","capture",true),QuitProgress::Waiting);
+        assert_eq!(quit.finish("retry","main",true),QuitProgress::Exit);
+        assert_eq!(quit.finish("retry","main",false),QuitProgress::Ignore);
+        assert!(!quit.begin("after-success".into(),windows()));
+    }
 
     #[test]
     fn close_preference_persists_and_reports_invalid_or_failed_storage(){
