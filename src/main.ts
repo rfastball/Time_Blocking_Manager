@@ -231,7 +231,7 @@ function canPlace(id:string,date:string,start:number,duration:number){
   return placementIssue(id,date,start,duration)===null;
 }
 const brandMark=(cls='brand-mark')=>`<svg class="${cls}" aria-hidden="true" viewBox="0 0 64 64"><rect x="14" y="14" width="12" height="36" rx="3"/><rect x="32" y="14" width="18" height="14" rx="3"/><rect x="32" y="34" width="12" height="16" rx="3"/></svg>`;
-function captureHTML(){return `<main class="capture-window"><form id="capture-form" class="capture-form">${brandMark('brand-mark capture-mark')}<label class="sr-only" for="capture">빠른 캡처</label><textarea id="capture" autocomplete="off" placeholder="어떤 일을 해야 하나요?" maxlength="650" rows="2" ${!ready||!storedDraft.loaded?'disabled':''}>${esc(captureDraft.text)}</textarea></form><div class="capture-bar"><div id="status"></div><button type="button" id="close-capture" class="capture-close">닫기</button><button type="submit" form="capture-form" class="capture-save">미계획에 저장</button></div></main>`;}
+function captureHTML(){return `<main class="capture-window"><form id="capture-form" class="capture-form">${brandMark('brand-mark capture-mark')}<label class="sr-only" for="capture">빠른 캡처</label><textarea id="capture" autocomplete="off" placeholder="어떤 일을 해야 하나요?" maxlength="650" rows="2" ${!ready||!storedDraft.loaded?'disabled':''}>${esc(captureDraft.text)}</textarea></form><div class="capture-bar"><div id="status"></div><button type="button" id="close-capture" class="capture-close">닫기</button><button type="submit" form="capture-form" class="capture-save">저장</button></div></main>`;}
 function syncCaptureSave(){const input=document.querySelector<HTMLTextAreaElement>('#capture'),save=document.querySelector<HTMLButtonElement>('.capture-save');if(input&&save)save.disabled=input.disabled||!input.value.trim();}
 function hideCapture(){persistDraft();if(native)void invoke('hide_capture').catch(showError);else document.querySelector<HTMLElement>('.capture-window')!.hidden=true;}
 
@@ -269,7 +269,7 @@ async function submitCapture(){
   const captureInput=document.querySelector<HTMLTextAreaElement>('#capture');if(captureInput)captureInput.disabled=true;syncCaptureSave();
   await dispatch(command.action,command.epoch,command.request_id,()=>{
     if(!captureDraft.acknowledge(command)){message='이전 항목을 저장했습니다. 새 입력은 유지했습니다.';return;}
-    if(captureInput)captureInput.value='';const inline=document.querySelector<HTMLInputElement>('#inbox-capture');if(inline)inline.value='';persistDraft();message='미계획에 저장했어요.';
+    if(captureInput)captureInput.value='';const inline=document.querySelector<HTMLInputElement>('#inbox-capture');if(inline)inline.value='';persistDraft();message='저장했어요.';
     if(captureWindow&&native)void queue.add(async()=>{await invoke('hide_capture');});
   });
   if(captureInput){captureInput.disabled=false;syncCaptureSave();captureInput.focus();}
