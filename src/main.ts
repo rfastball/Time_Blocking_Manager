@@ -2,7 +2,7 @@ import {invoke,isTauri} from '@tauri-apps/api/core';
 import {listen} from '@tauri-apps/api/event';
 import {confirm} from '@tauri-apps/plugin-dialog';
 import {SaveQueue} from './queue';
-import {CaptureDraft,captureEnterAction} from './capture';
+import {CaptureDraft,captureEnterAction,isCompositionKey} from './capture';
 import {effectiveDay,shortcutFromKey} from './settings';
 import {availabilityHTML,dayAvailabilityHTML,bindAvailability,weeklySummary,calendarAvailabilityHTML,focusAvailabilityBand,changeAvailabilityBand} from './availability';
 import {formatDuration,rangeTitle} from './format';
@@ -266,7 +266,7 @@ function bindContent(){
   for(const id of ['go-plan','review'])document.querySelector('#'+id)?.addEventListener('click',()=>{view='plan';inboxOpen=true;render();});
   document.querySelectorAll<HTMLElement>('[data-day-step]').forEach(b=>b.onclick=()=>{selected=plusDays(selected,Number(b.dataset.dayStep));renderContent();});
   const inboxInput=document.querySelector<HTMLInputElement>('#inbox-capture');
-  if(inboxInput){inboxInput.oninput=()=>{captureDraft.edit(inboxInput.value);draftChanged();};inboxInput.onkeydown=e=>{if(e.key==='Enter'&&e.isComposing)e.preventDefault();};$('#inbox-form').onsubmit=e=>{e.preventDefault();void submitCapture();};}
+  if(inboxInput){inboxInput.oninput=()=>{captureDraft.edit(inboxInput.value);draftChanged();};inboxInput.onkeydown=e=>{if(e.key==='Enter'&&isCompositionKey(e))e.preventDefault();};$('#inbox-form').onsubmit=e=>{e.preventDefault();void submitCapture();};}
   document.querySelectorAll<HTMLElement>('[data-plan-task]').forEach(b=>b.onclick=()=>{view='plan';inboxOpen=true;render();const block=document.querySelector<HTMLElement>(`[data-drag="${CSS.escape(b.dataset.planTask!)}"]`);block?.focus();});
   document.querySelectorAll<HTMLElement>('[data-add-date]').forEach(b=>b.onclick=e=>{if(e.detail===0)openComposer(b.dataset.addDate!,Number(b.dataset.addMinute));});
   bindCalendarGestures($('#content'),{
@@ -325,7 +325,7 @@ function openComposer(date:string,start=540,duration=30,restoring=false){
   surface.append(form);const input=form.querySelector<HTMLInputElement>('input')!;
   input.oninput=()=>{captureDraft.edit(input.value);draftChanged();};
   input.addEventListener('compositionstart',()=>{calendarComposing=true;});input.addEventListener('compositionend',()=>{calendarComposing=false;if(calendarRefreshPending)queueMicrotask(renderContent);});
-  input.onkeydown=e=>{if(e.key==='Enter'&&(e.isComposing||e.keyCode===229))e.preventDefault();};
+  input.onkeydown=e=>{if(e.key==='Enter'&&isCompositionKey(e))e.preventDefault();};
   form.querySelector<HTMLButtonElement>('[type=button]')!.onclick=()=>{calendarComposer=null;calendarComposing=false;persistDraft();form.remove();};
   form.onkeydown=e=>{if(e.key==='Escape'){e.preventDefault();calendarComposer=null;calendarComposing=false;persistDraft();form.remove();}};
   form.onsubmit=async e=>{
@@ -415,7 +415,7 @@ function renderEditor(){
   $('#edit-body').addEventListener('change',()=>{$('#checklist').innerHTML=checklistHTML(editor!.body);bindChecklist(changed);});bindChecklist(changed);editorSummary();updateStatus();
   $('#editor-form').onsubmit=async e=>{e.preventDefault();if(await saveEditor())closeEditor();};
   $('#close-editor').onclick=requestEditorClose;d.oncancel=e=>{e.preventDefault();requestEditorClose();};d.onclose=()=>updateStatus();
-  d.onkeydown=e=>{if(e.ctrlKey&&e.key==='Enter'){e.preventDefault();$<HTMLFormElement>('#editor-form').requestSubmit();}};
+  d.onkeydown=e=>{if(e.key==='Enter'&&isCompositionKey(e)){e.preventDefault();return;}if(e.ctrlKey&&e.key==='Enter'){e.preventDefault();$<HTMLFormElement>('#editor-form').requestSubmit();}};
   $('#save-close').onclick=async()=>{if($<HTMLFormElement>('#editor-form').reportValidity()&&await saveEditor())closeEditor();};
   $('#keep-close').onclick=()=>closeEditor();$('#discard-close').onclick=()=>closeEditor(true);
   $('#discard-draft').onclick=async()=>{if(await ask('작성 중인 변경을 버리고 저장된 내용으로 돌아갈까요?'))closeEditor(true);};

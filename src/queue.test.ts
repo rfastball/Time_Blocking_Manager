@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {SaveQueue} from './queue.ts';
-import {CaptureDraft,captureEnterAction} from './capture.ts';
+import {CaptureDraft,captureEnterAction,isCompositionKey} from './capture.ts';
 
 test('failure keeps later writes pending and explicit retry preserves order',async()=>{
   const q=new SaveQueue(()=>{});const written:number[]=[];let fail=true;
@@ -37,4 +37,5 @@ test('capture Enter saves only outside IME and Shift+Enter retains a newline',()
   assert.deepEqual([
     enter,{...enter,shiftKey:true},{...enter,isComposing:true},{...enter,keyCode:229},{...enter,key:'Escape'}
   ].map(captureEnterAction),['submit','newline','compose','compose',null]);
+  assert.deepEqual([enter,{...enter,isComposing:true},{...enter,keyCode:229}].map(isCompositionKey),[false,true,true]);
 });

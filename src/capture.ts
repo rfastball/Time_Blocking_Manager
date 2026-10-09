@@ -13,6 +13,10 @@ export class CaptureDraft {
 
 export function captureEnterAction(event:Pick<KeyboardEvent,'key'|'shiftKey'|'isComposing'|'keyCode'>){
   if(event.key!=='Enter')return null;
-  if(event.isComposing||event.keyCode===229)return 'compose';
+  if(isCompositionKey(event))return 'compose';
   return event.shiftKey?'newline':'submit';
+}
+
+export function isCompositionKey(event:Pick<KeyboardEvent,'isComposing'|'keyCode'>){
+  return event.isComposing||event.keyCode===229;
 }
