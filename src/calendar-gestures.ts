@@ -1,7 +1,7 @@
 import type {Task,WorkingDay} from './types';
 import type {AvailabilityTarget,AvailabilityEdge} from './availability-band';
 import {changeAvailabilityBand} from './availability-band';
-import {selectionRange,splitDuration} from './placement';
+import {selectionRange} from './placement';
 import {formatDuration} from './format';
 import {readTimeAxis,expandTimeAxis,paintCalendarAxis} from './time-axis';
 import type {TimeAxis} from './time-axis';
@@ -12,7 +12,6 @@ type CalendarActions={
   move:(task:Task,date:string,start:number,duration:number)=>void;
   create:(date:string,start:number,duration:number)=>void;
   unschedule:(task:Task)=>void;
-  split:(task:Task,first:number)=>void;
   context:(task:Task|undefined,date:string,start:number,x:number,y:number)=>void;
   active:(value:boolean)=>void;
   error:(label:string)=>void;
@@ -43,23 +42,6 @@ export function bindCalendarGestures(root:HTMLElement,actions:CalendarActions){
     const date=el.dataset.date!,target:AvailabilityTarget=el.dataset.availabilityBand==='work'?'work':Number(el.dataset.availabilityBand),day=actions.availabilityDay(date),band=target==='work'?day:day.breaks[target],edge=el.dataset.availabilityEdge as 'start'|'end',rect=el.getBoundingClientRect();
     actions.availabilityChange(date,target,edge,band[edge]+(e.key==='ArrowUp'?-15:15),rect.left,rect.top);
   });
-  const paintSplit=(seam:HTMLElement,task:Task,position:number)=>{
-    const first=splitDuration(task.duration,position),axis=readTimeAxis(seam.closest<HTMLElement>('[data-calendar-surface]')!),start=Number(seam.closest<HTMLElement>('[data-minute]')!.dataset.minute);seam.dataset.splitDuration=String(first);seam.style.top=(axis.position(start+first)-axis.position(start))+'px';seam.setAttribute('aria-valuenow',String(first));seam.setAttribute('aria-valuetext',`앞 ${formatDuration(first)}, 뒤 ${formatDuration(task.duration-first)}`);
-    seam.querySelector('span')!.textContent=`${formatDuration(first)} + ${formatDuration(task.duration-first)}`;
-    let feedback=document.querySelector<HTMLElement>('.split-feedback');if(!feedback){feedback=document.createElement('div');feedback.className='gesture-feedback split-feedback';feedback.setAttribute('role','status');document.body.append(feedback);}
-    feedback.textContent=`${formatDuration(first)} + ${formatDuration(task.duration-first)}`;return first;
-  };
-  root.querySelectorAll<HTMLElement>('[data-split]').forEach(seam=>{
-    seam.onclick=e=>{e.preventDefault();e.stopPropagation();const task=actions.task(seam.dataset.split!);if(task){seam.focus();paintSplit(seam,task,Number(seam.dataset.splitDuration));}};
-    seam.onfocus=()=>{const task=actions.task(seam.dataset.split!);if(task)paintSplit(seam,task,Number(seam.dataset.splitDuration));};
-    seam.onblur=()=>document.querySelector('.split-feedback')?.remove();
-    seam.onkeydown=e=>{
-      const task=actions.task(seam.dataset.split!);if(!task)return;
-      if(e.key==='ArrowUp'||e.key==='ArrowDown'){e.preventDefault();e.stopPropagation();paintSplit(seam,task,Number(seam.dataset.splitDuration)+(e.key==='ArrowUp'?-15:15));}
-      if(e.key==='Enter'){e.preventDefault();e.stopPropagation();document.querySelector('.split-feedback')?.remove();actions.split(task,Number(seam.dataset.splitDuration));}
-      if(e.key==='Escape'){e.preventDefault();e.stopPropagation();paintSplit(seam,task,task.duration/2);seam.blur();}
-    };
-  });
   root.querySelectorAll<HTMLElement>('[data-drag]').forEach(el=>{el.draggable=false;el.ondragstart=e=>e.preventDefault();});
   root.querySelectorAll<HTMLElement>('[data-resize]').forEach(el=>el.onkeydown=e=>{
     if(e.key!=='ArrowDown'&&e.key!=='ArrowUp')return;
@@ -86,17 +68,6 @@ export function bindCalendarGestures(root:HTMLElement,actions:CalendarActions){
       paintCalendarAxis(surface,axis);if(scroll)scroll.scrollTop=top+axis.position(minute)-current.position(minute);
     }};
     const target=e.target as HTMLElement,availabilityBand=target.closest<HTMLElement>('[data-availability-band]'),calendar=target.closest<HTMLElement>('[data-calendar-surface]');
-    const seam=target.closest<HTMLElement>('[data-split]');
-    if(seam&&calendar){
-      const task=actions.task(seam.dataset.split!);if(!task)return;
-      const startY=e.clientY,origin=Number(seam.dataset.splitDuration),pointerOrigin=rawMinuteAt(calendar,e.clientY);let moved=false,first=origin;
-      seam.focus();
-      const move=(event:PointerEvent)=>{if(event.pointerId!==e.pointerId)return;if(!moved&&Math.abs(event.clientY-startY)<5)return;moved=true;actions.active(true);event.preventDefault();first=paintSplit(seam,task,origin+expandAt(calendar,event.clientY)-pointerOrigin);};
-      const cleanup=()=>{document.removeEventListener('pointermove',move);document.removeEventListener('pointerup',finish);document.removeEventListener('pointercancel',cancel);document.removeEventListener('keydown',escape,true);window.removeEventListener('blur',cancel);restoreAxes();actions.active(false);};
-      const finish=(event:PointerEvent)=>{if(event.pointerId!==e.pointerId)return;cleanup();if(!moved)return;document.querySelector('.split-feedback')?.remove();const suppress=(click:MouseEvent)=>{click.preventDefault();click.stopPropagation();};document.addEventListener('click',suppress,{capture:true,once:true});setTimeout(()=>document.removeEventListener('click',suppress,true),0);actions.split(task,first);};
-      const cancel=()=>{cleanup();paintSplit(seam,task,origin);document.querySelector('.split-feedback')?.remove();};const escape=(event:KeyboardEvent)=>{if(event.key==='Escape'){event.preventDefault();event.stopImmediatePropagation();cancel();}};
-      document.addEventListener('pointermove',move,{passive:false});document.addEventListener('pointerup',finish);document.addEventListener('pointercancel',cancel);document.addEventListener('keydown',escape,{capture:true});window.addEventListener('blur',cancel);return;
-    }
     if(availabilityBand&&calendar){
       const date=calendar.dataset.date!,bandTarget:AvailabilityTarget=availabilityBand.dataset.availabilityBand==='work'?'work':Number(availabilityBand.dataset.availabilityBand),source=actions.availabilityDay(date),band=bandTarget==='work'?source:source.breaks[bandTarget];
       if(!band)return;
@@ -118,7 +89,7 @@ export function bindCalendarGestures(root:HTMLElement,actions:CalendarActions){
       document.addEventListener('pointermove',move,{passive:false});document.addEventListener('pointerup',finish);document.addEventListener('pointercancel',cancel);document.addEventListener('keydown',escape);window.addEventListener('blur',cancel);return;
     }
     const resize=target.closest<HTMLElement>('[data-resize]'),source=target.closest<HTMLElement>('[data-drag]'),surface=target.closest<HTMLElement>('[data-calendar-surface]');
-    if(target.closest('input,textarea,.calendar-composer,[data-split],.unavailable,[data-adjust-date]')||(!source&&!surface))return;
+    if(target.closest('input,textarea,.calendar-composer,.unavailable,[data-adjust-date]')||(!source&&!surface))return;
     const task=actions.task(resize?.dataset.resize||source?.dataset.drag||'');
     if(!task&&target.closest('[data-task]'))return;
     const startY=e.clientY,startX=e.clientX,origin=surface?minuteAt(surface,startY):0,pointerOrigin=surface?rawMinuteAt(surface,startY):0;

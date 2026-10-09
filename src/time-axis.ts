@@ -44,8 +44,4 @@ export function paintCalendarAxis(surface:HTMLElement,axis:TimeAxis){
     if(el.dataset.duration)el.style.height=(axis.position(start+Number(el.dataset.duration))-axis.position(start))+'px';
     if(el.hasAttribute('data-hour-label'))el.hidden=!timeAxisLabelVisible(axis,start);
   });
-  container.querySelectorAll<HTMLElement>('[data-split]').forEach(el=>{
-    const block=el.closest<HTMLElement>('[data-drag]')!,start=Number(block.dataset.minute);
-    el.style.top=(axis.position(start+Number(el.dataset.splitDuration))-axis.position(start))+'px';
-  });
 }

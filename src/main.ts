@@ -10,7 +10,6 @@ import {agenda,calendarRefreshAllowed} from './today';
 import {placementIssue as checkPlacement,splitDuration} from './placement';
 import {bindCalendarGestures} from './calendar-gestures';
 import {createTimeAxis,timeAxisForDays,readTimeAxis,timeAxisAttributes,timeAxisLabelVisible,paintCalendarAxis} from './time-axis';
-import type {TimeAxis} from './time-axis';
 import type {RawSchedule} from './availability';
 import type {AvailabilityTarget,AvailabilityEdge} from './availability-band';
 import type {Task,Snapshot,Action,Command,AppError,WorkingDay,Settings,ManagedBackup,BackupInspection} from './types';
@@ -42,7 +41,7 @@ const plusDays=(date:string,n:number)=>{const d=dateOf(date);d.setDate(d.getDate
 const icon=(name:string)=>`<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${({today:'<rect x="4" y="4" width="16" height="17" rx="2"/><path d="M4 9h16M8 2v4M16 2v4M8 13h3M8 17h7"/>',plan:'<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M9 9v12M15 9v12M3 15h18"/>',inbox:'<path d="M3 13l3-8h12l3 8v7H3zM3 13h5l2 3h4l2-3h5"/>',settings:'<path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',left:'<path d="M15 5l-7 7 7 7"/>',right:'<path d="M9 5l7 7-7 7"/>',plus:'<path d="M12 5v14M5 12h14"/>',close:'<path d="M6 6l12 12M18 6L6 18"/>',check:'<path d="M5 12l4 4L19 6"/>'} as Record<string,string>)[name]}</svg>`;
 
 let snapshot:Snapshot|null=null,view:'today'|'plan'|'inbox'|'settings'='today',selected=today(),period='week',inboxOpen=true;
-let planAnchor=selected,backupExpanded=false;
+let planAnchor=selected,backupExpanded=false,inboxCompletedOpen=false;
 const captureDraft=new CaptureDraft();
 const storedDraft=new StoredDraft();storedDraft.loaded=!native;
 let calendarComposer:{date:string;start:number;duration:number}|null=null,calendarComposing=false,calendarRefreshPending=false;
@@ -275,7 +274,6 @@ async function submitCapture(){
 function renderContent(){
   if(calendarComposing&&document.querySelector('#calendar-composer')){calendarRefreshPending=true;updateStatus();return;}
   calendarRefreshPending=false;
-  document.querySelector('.split-feedback')?.remove();
   if(captureWindow){updateStatus();return;}
   const content=$('#content'),active=document.activeElement as HTMLElement|null;
   const caret=active?.id==='calendar-title'?{start:(active as HTMLInputElement).selectionStart,end:(active as HTMLInputElement).selectionEnd}:null;
@@ -315,7 +313,9 @@ function todayHTML(){
 function inboxChip(t:Task,old=false){return `<button class="inbox-chip ${old?'past':''} ${dragId===t.id?'dragging':''}" data-drag="${esc(t.id)}" data-task="${esc(t.id)}" aria-label="${esc(t.title)}, ${formatDuration(t.duration)}, 상세 열기"><svg aria-hidden="true" viewBox="0 0 12 20" fill="currentColor"><path d="M3 4h2v2H3zm4 0h2v2H7zM3 9h2v2H3zm4 0h2v2H7zM3 14h2v2H3zm4 0h2v2H7z"/></svg><span>${esc(t.title)}</span><small>${old?dateLabel(t.starts_at!.slice(0,10)):formatDuration(t.duration)}</small></button>`;}
 function inboxHTML(){
   const tasks=inboxTasks(),total=tasks.reduce((sum,t)=>sum+t.duration,0);
-  return `<section class="inbox-page"><form id="inbox-form" class="inbox-entry"><label class="sr-only" for="inbox-capture">할 일 담기</label>${icon('plus')}<input id="inbox-capture" autocomplete="off" maxlength="650" placeholder="어떤 일을 해야 하나요?" value="${esc(captureDraft.text)}"><button type="submit">담기</button></form>${tasks.length?`<div class="inbox-list-heading"><h3>배치를 기다리는 일 <span>${tasks.length}</span></h3><span>${formatDuration(total)} 분량</span><button id="go-plan">계획에 배치하기 ${icon('right')}</button></div>`:''}<div class="inbox-list">${tasks.map(t=>`<div class="inbox-item"><button class="inbox-item-main" data-task="${esc(t.id)}"><span class="task-block-mark" aria-hidden="true"></span><span><strong>${esc(t.title)}</strong><small>${t.body?esc(t.body.split('\n')[0]):''}</small></span></button><button class="size-button" data-edit-time="${esc(t.id)}" aria-label="${esc(t.title)} 블록 크기 변경">${formatDuration(t.duration)}</button><button class="text-button" data-plan-task="${esc(t.id)}">배치</button></div>`).join('')||'<div class="empty"><p>미계획이 비어 있어요.</p></div>'}</div></section>`;
+  const completed=snapshot!.tasks.filter(t=>!t.starts_at&&t.completed);
+  const row=(t:Task)=>`<div class="inbox-item ${t.completed?'completed':''}"><label class="check-target"><input type="checkbox" data-complete="${esc(t.id)}" aria-label="${esc(t.title)} 완료" ${t.completed?'checked':''}></label><button class="inbox-item-main" data-task="${esc(t.id)}" aria-label="${esc(t.title)} 편집"><span><strong>${esc(t.title)}</strong><small>${t.body?esc(t.body.split('\n')[0]):''}</small></span></button><button class="size-button" data-edit-time="${esc(t.id)}" aria-label="${esc(t.title)} 블록 크기 변경">${formatDuration(t.duration)}</button>${t.completed?'':`<button class="text-button" data-plan-task="${esc(t.id)}">배치</button>`}<button class="text-button danger" data-delete="${esc(t.id)}" aria-label="${esc(t.title)} 삭제">삭제</button></div>`;
+  return `<section class="inbox-page"><form id="inbox-form" class="inbox-entry"><label class="sr-only" for="inbox-capture">할 일 담기</label>${icon('plus')}<input id="inbox-capture" autocomplete="off" maxlength="650" placeholder="어떤 일을 해야 하나요?" value="${esc(captureDraft.text)}"><button type="submit">담기</button></form>${tasks.length?`<div class="inbox-list-heading"><h3>배치를 기다리는 일 <span>${tasks.length}</span></h3><span>${formatDuration(total)} 분량</span><button id="go-plan">계획에 배치하기 ${icon('right')}</button></div>`:''}<div class="inbox-list">${tasks.map(row).join('')||'<div class="empty"><p>미계획이 비어 있어요.</p></div>'}</div>${completed.length?`<details class="inbox-completed" ${inboxCompletedOpen?'open':''}><summary>완료 ${completed.length}</summary><div class="inbox-list">${completed.map(row).join('')}</div></details>`:''}</section>`;
 }
 function planHTML(){
   const first=dateOf(planAnchor);if(period==='month')first.setDate(1);first.setDate(first.getDate()-(first.getDay()+6)%7);
@@ -329,14 +329,9 @@ function planHTML(){
   return `<div class="plan-toolbar"><div class="segmented" aria-label="계획 기간">${[['week','주'],['two','2주'],['month','월']].map(([key,label])=>`<button data-period="${key}" aria-pressed="${period===key}">${label}</button>`).join('')}</div><span class="week-summary">${weeklySummary(snapshot!.settings,selected)}</span><button id="toggle-inbox" aria-expanded="${inboxOpen}" aria-controls="inbox-drawer">${icon('inbox')} 미계획 ${inbox.length?`<span>${inbox.length}</span>`:''}</button></div><div class="planning-desk ${inboxOpen?'with-inbox':''}"><div class="plan-layout ${period==='week'?'week-layout':''}"><section class="panel month-panel" aria-label="${period==='week'?'주간 시간표':period==='two'?'2주 작업 목록':'월간 작업량'}">${calendar}</section>${period==='week'?'':`<section class="panel day-panel"><div class="section-header"><h2>${dateLabel(selected)}</h2></div>${dayAvailabilityHTML(settingsDraft??snapshot!.settings,selected)}${timelineHTML(selected)}</section>`}</div><aside class="inbox-panel" id="inbox-drawer" data-inbox-drop ${inboxOpen?'':'hidden'}><div class="section-header"><h2>미계획 ${inbox.length?`<span>${inbox.length}</span>`:''}</h2><button class="icon-button" id="close-inbox" aria-label="미계획 패널 닫기">${icon('close')}</button></div><form id="inbox-form" class="tray-entry"><label class="sr-only" for="inbox-capture">미계획에 추가</label><input id="inbox-capture" autocomplete="off" maxlength="650" placeholder="새 할 일" value="${esc(captureDraft.text)}"><button type="submit" class="icon-button" aria-label="미계획에 추가">${icon('plus')}</button></form><div class="inbox-chips">${inbox.map(t=>inboxChip(t)).join('')||'<p class="empty-small">미계획 없음</p>'}</div>${old.length?`<h3 class="carryover-title">지난 미완료 <span>${old.length}</span></h3><div class="inbox-chips">${old.map(t=>inboxChip(t,true)).join('')}</div>`:''}</aside></div>`;
 
 }
-function splitSeam(t:Task,axis:TimeAxis){
-  if(t.completed||t.duration<30)return '';
-  const first=splitDuration(t.duration,t.duration/2);
-  return `<div class="split-seam" data-split="${esc(t.id)}" data-split-duration="${first}" role="separator" tabindex="0" aria-orientation="horizontal" aria-label="${esc(t.title)} 나누기 경계" aria-valuemin="15" aria-valuemax="${t.duration-15}" aria-valuenow="${first}" aria-valuetext="앞 ${formatDuration(first)}, 뒤 ${formatDuration(t.duration-first)}" style="top:${axis.position(taskMinute(t)+first)-axis.position(taskMinute(t))}px"><span>${formatDuration(first)} + ${formatDuration(t.duration-first)}</span></div>`;
-}
 function weekHTML(dates:string[]){
   const axis=timeAxisForDays(dates.map(dayRule),1.1);
-  return `<div class="week-view"><div class="week-head"><span></span>${dates.map(date=>`<button data-date="${date}" class="day-cell week-date ${date===today()?'is-today':''}" aria-pressed="${date===selected}"><small>${dateOf(date).toLocaleDateString('ko-KR',{weekday:'short'})}</small><strong class="day-number">${dateOf(date).getDate()}${date===today()?' · 오늘':''}</strong></button>`).join('')}</div><div class="week-scroll"><div class="week-time-grid" style="height:${axis.height}px"><div class="week-hours">${Array.from({length:25},(_,i)=>`<span data-minute="${i*60}" data-hour-label ${timeAxisLabelVisible(axis,i*60)?'':'hidden'} style="top:${axis.position(i*60)}px">${time(i*60)}</span>`).join('')}</div>${dates.map(date=>{const rule=dayRule(date);return `<div class="week-column" data-calendar-surface data-date="${date}" ${timeAxisAttributes(axis)}>${Array.from({length:48},(_,i)=>{const m=i*30,blocked=checkPlacement('',date,m,30,rule,[])!==null;return `<button class="week-slot ${blocked?'blocked':''}" data-minute="${m}" data-duration="30" style="top:${axis.position(m)}px;height:${axis.position(m+30)-axis.position(m)}px" ${blocked?`data-adjust-date="${date}"`:`data-add-date="${date}" data-add-minute="${m}"`} aria-label="${dateLabel(date)} ${time(m)} ${blocked?'금지시간 조정':'할 일 추가'}"></button>`;}).join('')}${calendarAvailabilityHTML(rule,date,axis)}${tasksOn(date).map(t=>`<div class="week-task ${t.completed?'completed':''}" data-drag="${t.id}" data-minute="${taskMinute(t)}" data-duration="${t.duration}" style="top:${axis.position(taskMinute(t))}px;height:${axis.position(taskMinute(t)+t.duration)-axis.position(taskMinute(t))}px" title="${esc(t.title)}"><button class="block-title" data-task="${t.id}"><span>${esc(t.title)}</span>${t.duration>=60?`<small>${time(taskMinute(t))}</small>`:''}</button>${splitSeam(t,axis)}<span class="resize-handle" role="separator" tabindex="0" aria-orientation="horizontal" aria-valuenow="${t.duration}" aria-valuemin="15" aria-valuemax="1440" aria-label="${esc(t.title)} 소요시간 조절" data-resize="${t.id}"></span></div>`).join('')}</div>`;}).join('')}</div></div></div>`;
+  return `<div class="week-view"><div class="week-head"><span></span>${dates.map(date=>`<button data-date="${date}" class="day-cell week-date ${date===today()?'is-today':''}" aria-pressed="${date===selected}"><small>${dateOf(date).toLocaleDateString('ko-KR',{weekday:'short'})}</small><strong class="day-number">${dateOf(date).getDate()}${date===today()?' · 오늘':''}</strong></button>`).join('')}</div><div class="week-scroll"><div class="week-time-grid" style="height:${axis.height}px"><div class="week-hours">${Array.from({length:25},(_,i)=>`<span data-minute="${i*60}" data-hour-label ${timeAxisLabelVisible(axis,i*60)?'':'hidden'} style="top:${axis.position(i*60)}px">${time(i*60)}</span>`).join('')}</div>${dates.map(date=>{const rule=dayRule(date);return `<div class="week-column" data-calendar-surface data-date="${date}" ${timeAxisAttributes(axis)}>${Array.from({length:48},(_,i)=>{const m=i*30,blocked=checkPlacement('',date,m,30,rule,[])!==null;return `<button class="week-slot ${blocked?'blocked':''}" data-minute="${m}" data-duration="30" style="top:${axis.position(m)}px;height:${axis.position(m+30)-axis.position(m)}px" ${blocked?`data-adjust-date="${date}"`:`data-add-date="${date}" data-add-minute="${m}"`} aria-label="${dateLabel(date)} ${time(m)} ${blocked?'금지시간 조정':'할 일 추가'}"></button>`;}).join('')}${calendarAvailabilityHTML(rule,date,axis)}${tasksOn(date).map(t=>`<div class="week-task ${t.completed?'completed':''}" data-drag="${t.id}" data-minute="${taskMinute(t)}" data-duration="${t.duration}" style="top:${axis.position(taskMinute(t))}px;height:${axis.position(taskMinute(t)+t.duration)-axis.position(taskMinute(t))}px" title="${esc(t.title)}"><button class="block-title" data-task="${t.id}"><span>${esc(t.title)}</span>${t.duration>=60?`<small>${time(taskMinute(t))}</small>`:''}</button><span class="resize-handle" role="separator" tabindex="0" aria-orientation="horizontal" aria-valuenow="${t.duration}" aria-valuemin="15" aria-valuemax="1440" aria-label="${esc(t.title)} 소요시간 조절" data-resize="${t.id}"></span></div>`).join('')}</div>`;}).join('')}</div></div></div>`;
 }
 function timelineHTML(date:string){
   const rule=dayRule(date),axis=timeAxisForDays([rule],1.2),start=0,end=1440;
@@ -349,7 +344,7 @@ function timelineHTML(date:string){
     if(item.kind==='gap')return view==='today'?`<div class="time-gap" ${position(item.start,item.end)}>${formatDuration(item.end-item.start)}</div>`:'';
     if(item.kind!=='task')return '';
     const t=item.task,state=item.state,label=state==='current'?'진행 중':state==='overdue'?'지남':t.completed?'완료':'';
-    return `<div class="time-block ${t.duration===15?'compact':''} ${state} ${t.completed?'completed':''} ${placedId===t.id?'placed':''}" ${position(item.start,item.end)} data-drag="${esc(t.id)}"><button class="block-title" data-task="${esc(t.id)}" aria-label="${esc(t.title)}, ${time(item.start)}–${time(item.end)}, ${formatDuration(t.duration)}${label?', '+label:''}" title="${esc(t.title)} · ${time(item.start)}–${time(item.end)}"><span>${label?label+' · ':''}${esc(t.title)}</span>${t.duration>=45?`<small>${time(item.start)}–${time(item.end)}</small>`:''}</button>${splitSeam(t,axis)}<div role="separator" aria-label="${esc(t.title)} 소요시간 조절" aria-orientation="horizontal" aria-valuemin="15" aria-valuemax="1440" aria-valuenow="${t.duration}" aria-valuetext="${formatDuration(t.duration)}" tabindex="0" class="resize-handle" data-resize="${esc(t.id)}"></div></div>`;
+    return `<div class="time-block ${t.duration===15?'compact':''} ${state} ${t.completed?'completed':''} ${placedId===t.id?'placed':''}" ${position(item.start,item.end)} data-drag="${esc(t.id)}"><button class="block-title" data-task="${esc(t.id)}" aria-label="${esc(t.title)}, ${time(item.start)}–${time(item.end)}, ${formatDuration(t.duration)}${label?', '+label:''}" title="${esc(t.title)} · ${time(item.start)}–${time(item.end)}"><span>${label?label+' · ':''}${esc(t.title)}</span>${t.duration>=45?`<small>${time(item.start)}–${time(item.end)}</small>`:''}</button><div role="separator" aria-label="${esc(t.title)} 소요시간 조절" aria-orientation="horizontal" aria-valuemin="15" aria-valuemax="1440" aria-valuenow="${t.duration}" aria-valuetext="${formatDuration(t.duration)}" tabindex="0" class="resize-handle" data-resize="${esc(t.id)}"></div></div>`;
   }).join('')}${date===today()&&now>=rule.start&&now<rule.end?`<div class="now-line" data-minute="${now}" style="top:${axis.position(now)}px"><span>${time(now)}</span></div>`:''}</div></div>`;
 }
 function fitTimeline(){
@@ -360,6 +355,8 @@ function fitTimeline(){
 }
 
 function bindContent(){
+  const completed=document.querySelector<HTMLDetailsElement>('.inbox-completed');if(completed)completed.ontoggle=()=>{if(completed.isConnected)inboxCompletedOpen=completed.open;};
+  document.querySelectorAll<HTMLButtonElement>('[data-delete]').forEach(b=>b.onclick=()=>{const task=snapshot!.tasks.find(t=>t.id===b.dataset.delete);if(task)void deleteTask(task);});
   document.querySelectorAll<HTMLButtonElement>('[data-edit-time]').forEach(b=>b.onclick=()=>{openEditor(b.dataset.editTime!);$<HTMLDetailsElement>('.editor-schedule').open=true;$('#edit-duration').focus();});
   document.querySelectorAll<HTMLButtonElement>('[data-task]').forEach(b=>b.onclick=e=>{e.stopPropagation();openEditor(b.dataset.task!);});
   document.querySelectorAll<HTMLElement>('[data-complete]').forEach(b=>{const complete=()=>{const t=snapshot!.tasks.find(t=>t.id===b.dataset.complete)!;if(b instanceof HTMLInputElement)b.checked=t.completed;void dispatch({type:'set_completed',id:t.id,expected_revision:t.revision,completed:!t.completed});};if(b instanceof HTMLInputElement)b.onchange=complete;else b.onclick=complete;});
@@ -379,7 +376,6 @@ function bindContent(){
     move:(task,date,start,duration)=>{selected=date;void moveTask(task,start,duration);},
     create:(date,start,duration)=>openComposer(date,start,duration),
     unschedule:task=>void returnToInbox(task),
-    split:(task,first)=>void splitTask(task,first),
     context:(task,date,start,x,y)=>openContextMenu(task,date,start,x,y),
     active:value=>{resizing=value;},
     error:label=>showError(Error(label)),
@@ -457,11 +453,14 @@ async function returnToInbox(task:Task){
   if(!task.starts_at)return;
   await dispatch({type:'update',id:task.id,expected_revision:task.revision,title:task.title,body:task.body,starts_at:null,duration:task.duration});
 }
+async function deleteTask(task:Task){
+  if(!await ask(`‘${task.title}’ 항목을 삭제할까요? 이 작업은 되돌릴 수 없어요.`))return;
+  await dispatch({type:'delete',id:task.id,expected_revision:task.revision},snapshot!.epoch,undefined,()=>{if(editor?.id===task.id)closeEditor(true);});
+}
 async function splitTask(task:Task,first?:number){
   if(editorDirty&&editor?.id===task.id){openEditor(task.id);showError(Error('변경을 저장한 뒤 블록을 나눠 주세요.'));return;}
   if(first===undefined){
-    const seam=document.querySelector<HTMLElement>(`[data-split="${CSS.escape(task.id)}"]`);
-    if(seam){if($<HTMLDialogElement>('#editor-dialog').open)closeEditor();seam.focus();return;}
+    if($<HTMLDialogElement>('#editor-dialog').open)closeEditor();
     document.querySelector('#split-choice')?.remove();
     const panel=document.createElement('section');panel.id='split-choice';panel.className='split-choice';panel.setAttribute('popover','auto');panel.setAttribute('aria-label',task.title+' 나누기');
     const value=splitDuration(task.duration,task.duration/2);
@@ -481,7 +480,8 @@ function openContextMenu(task:Task|undefined,date:string,start:number,x:number,y
     {label:'메모 열기',run:()=>openEditor(task.id)},
     {label:task.completed?'미완료로 되돌리기':'완료로 표시',run:()=>{void dispatch({type:'set_completed',id:task.id,expected_revision:task.revision,completed:!task.completed});}},
     ...(!task.completed&&task.duration>=30?[{label:'나누기 위치 정하기',run:()=>{void splitTask(task);}}]:[]),
-    ...(task.starts_at?[{label:'미계획으로 옮기기',run:()=>{void returnToInbox(task);}}]:[])
+    ...(task.starts_at?[{label:'미계획으로 옮기기',run:()=>{void returnToInbox(task);}}]:[]),
+    {label:'삭제',run:()=>{void deleteTask(task);}}
   ]:[{label:`${time(start)}에 블록 만들기`,run:()=>openComposer(date,start)},{label:'이 날짜의 근무시간 조정',run:()=>openCalendarAvailability(date,'work',x,y)}];
   menu.innerHTML=`<div class="context-heading">${task?esc(task.title):esc(dateLabel(date))}</div>`+items.map((item,i)=>`<button role="menuitem" data-menu-action="${i}">${esc(item.label)}</button>`).join('');document.body.append(menu);menu.showPopover();
   menu.style.left=Math.max(8,Math.min(x,innerWidth-menu.offsetWidth-8))+'px';menu.style.top=Math.max(8,Math.min(y,innerHeight-menu.offsetHeight-8))+'px';
@@ -530,7 +530,7 @@ function renderEditor(){
   document.querySelector('#split-task')?.addEventListener('click',()=>{if(editorDirty){showError(Error('변경을 저장한 뒤 블록을 나눠 주세요.'));return;}void splitTask(t);});
   $('#unschedule').onclick=()=>{$<HTMLInputElement>('#edit-date').value='';$<HTMLInputElement>('#edit-time').value='';changed();$('#editor-menu').hidden=true;$('#editor-more').setAttribute('aria-expanded','false');};
   $('#editor-complete').onclick=async()=>{
-    if(editorDirty){showError(Error('변경을 저장한 뒤에 완료로 표시할 수 있어요.'));return;}
+    if(editorDirty&&(!$<HTMLFormElement>('#editor-form').reportValidity()||!await saveEditor()))return;
     const seq=editorSequence;
     await dispatch({type:'set_completed',id:t.id,expected_revision:t.revision,completed:!t.completed},t.epoch,undefined,()=>{
       if(editor?.id!==t.id)return;const saved=snapshot!.tasks.find(x=>x.id===t.id)!;
@@ -538,7 +538,7 @@ function renderEditor(){
       else{editor.revision=saved.revision;editor.completed=saved.completed;$('#editor-complete').textContent=saved.completed?'미완료로 되돌리기':'완료로 표시';persistDraft();}
     });
   };
-  $('#delete-task').onclick=async()=>{if(await ask('이 항목을 삭제할까요? 이 작업은 되돌릴 수 없어요.'))await dispatch({type:'delete',id:t.id,expected_revision:t.revision},t.epoch,undefined,()=>closeEditor(true));};
+  $('#delete-task').onclick=()=>{void deleteTask(t);};
   document.querySelector('#rebase')?.addEventListener('click',async()=>{if(!await ask('다른 곳에서 저장된 내용 위에 지금 입력을 저장할까요?'))return;const current=snapshot!.tasks.find(x=>x.id===t.id);if(!current){showError(Error('삭제된 항목이에요. 내용을 복사해 새 항목으로 저장해 주세요.'));return;}editor!.revision=current.revision;editor!.epoch=snapshot!.epoch;await saveEditor();});
 }
 function bindChecklist(changed:()=>void){document.querySelectorAll<HTMLInputElement>('[data-check-line]').forEach(el=>el.onchange=()=>{const lines=$<HTMLTextAreaElement>('#edit-body').value.split('\n'),i=Number(el.dataset.checkLine);lines[i]=lines[i].replace(/\[[ xX]\]/,el.checked?'[x]':'[ ]');$<HTMLTextAreaElement>('#edit-body').value=lines.join('\n');changed();const checks=Array.from(document.querySelectorAll<HTMLInputElement>('[data-check-line]'));const summary=document.querySelector('#checklist summary');if(summary)summary.textContent=`체크리스트 ${checks.filter(c=>c.checked).length}/${checks.length}`;});}
