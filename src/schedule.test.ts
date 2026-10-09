@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {formatDuration,rangeTitle} from './format.ts';
-import {agenda} from './today.ts';
+import {agenda,calendarRefreshAllowed} from './today.ts';
 import {placementIssue,selectionRange,splitDuration} from './placement.ts';
 import type {Task,WorkingDay} from './types.ts';
 
@@ -46,4 +46,11 @@ test('placement explains each refusal and permits touching boundaries and self m
 test('split boundaries snap and preserve two nonempty blocks at both edges',()=>{
   assert.deepEqual([-50,14,22,23,75,100].map(position=>splitDuration(90,position)),[15,15,15,30,75,75]);
   assert.deepEqual([0,15,30].map(position=>splitDuration(30,position)),[15,15,15]);
+});
+
+test('clock refresh covers calendar views and waits until editing and gestures end',()=>{
+  const idle={view:'today',ready:true,visible:true,dirty:false,input:false,modal:false,gesture:false};
+  assert.deepEqual(['today','plan','inbox','settings'].map(view=>calendarRefreshAllowed({...idle,view})),[true,true,false,false]);
+  for(const blocked of [{ready:false},{visible:false},{dirty:true},{input:true},{modal:true},{gesture:true}])assert.equal(calendarRefreshAllowed({...idle,...blocked}),false);
+  assert.equal(calendarRefreshAllowed(idle),true);
 });

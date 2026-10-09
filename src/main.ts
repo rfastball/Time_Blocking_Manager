@@ -6,7 +6,7 @@ import {CaptureDraft,captureEnterAction,isCompositionKey} from './capture';
 import {effectiveDay,shortcutFromKey} from './settings';
 import {availabilityHTML,dayAvailabilityHTML,bindAvailability,weeklySummary,calendarAvailabilityHTML,focusAvailabilityBand,changeAvailabilityBand} from './availability';
 import {formatDuration,rangeTitle} from './format';
-import {agenda} from './today';
+import {agenda,calendarRefreshAllowed} from './today';
 import {placementIssue as checkPlacement,splitDuration} from './placement';
 import {bindCalendarGestures} from './calendar-gestures';
 import type {RawSchedule} from './availability';
@@ -128,6 +128,12 @@ async function reload(){
   catch(e){ready=false;loadError=(e as AppError).message||String(e);render();}
 }
 function dayRule(date:string){return effectiveDay(settingsDraft??snapshot!.settings,date);}
+function refreshCalendar(reloadData=false){
+  if(captureWindow)return;
+  if(reloadData&&native)refreshNeeded=true;
+  if(!calendarRefreshAllowed({view,ready,visible:document.visibilityState==='visible',dirty:editorDirty||!!Object.keys(rawSchedules).length||!!settingsDraft||calendarComposing,input:!!document.activeElement?.matches('input,textarea,[contenteditable]'),modal:!!document.querySelector('dialog[open]'),gesture:!!dragId||resizing}))return;
+  if(refreshNeeded&&!queue.busy){refreshNeeded=false;void reload();}else renderContent();
+}
 function tasksOn(date:string){return snapshot!.tasks.filter(t=>t.starts_at?.startsWith(date)).sort((a,b)=>a.starts_at!.localeCompare(b.starts_at!));}
 function overdue(){return snapshot!.tasks.filter(t=>!t.completed&&t.starts_at&&t.starts_at.slice(0,10)<today());}
 function available(date:string){const d=dayRule(date);return d.enabled?d.end-d.start-d.breaks.reduce((sum,b)=>sum+b.end-b.start,0):0;}
@@ -232,7 +238,7 @@ function splitSeam(t:Task){
 }
 function weekHTML(dates:string[]){
   const rules=dates.map(dayRule),start=Math.max(0,Math.floor((Math.min(540,...rules.map(d=>d.start))-60)/60)*60),end=Math.min(1440,Math.ceil((Math.max(1080,...rules.map(d=>d.end))+60)/60)*60),scale=.85;
-  return `<div class="week-view"><div class="week-head"><span></span>${dates.map(date=>`<button data-date="${date}" class="day-cell week-date" aria-pressed="${date===selected}"><small>${dateOf(date).toLocaleDateString('ko-KR',{weekday:'short'})}</small><strong>${dateOf(date).getDate()}</strong></button>`).join('')}</div><div class="week-scroll"><div class="week-time-grid" style="height:${(end-start)*scale}px"><div class="week-hours">${Array.from({length:(end-start)/60},(_,i)=>`<span style="top:${i*60*scale}px">${time(start+i*60)}</span>`).join('')}</div>${dates.map(date=>{const rule=dayRule(date);return `<div class="week-column" data-calendar-surface data-date="${date}" data-start="${start}" data-end="${end}" data-px-per-min="${scale}">${Array.from({length:(end-start)/30},(_,i)=>{const m=start+i*30,blocked=checkPlacement('',date,m,30,rule,[])!==null;return `<button class="week-slot ${blocked?'blocked':''}" style="top:${i*30*scale}px;height:${30*scale}px" ${blocked?`data-adjust-date="${date}"`:`data-add-date="${date}" data-add-minute="${m}"`} aria-label="${dateLabel(date)} ${time(m)} ${blocked?'금지시간 조정':'할 일 추가'}"></button>`;}).join('')}${calendarAvailabilityHTML(rule,date,start,end,scale)}${tasksOn(date).map(t=>`<div class="week-task ${t.completed?'completed':''}" data-drag="${t.id}" style="top:${(taskMinute(t)-start)*scale}px;height:${t.duration*scale}px" title="${esc(t.title)}"><button class="block-title" data-task="${t.id}"><span>${esc(t.title)}</span>${t.duration>=60?`<small>${time(taskMinute(t))}</small>`:''}</button>${splitSeam(t)}<span class="resize-handle" role="separator" tabindex="0" aria-orientation="horizontal" aria-valuenow="${t.duration}" aria-valuemin="15" aria-valuemax="1440" aria-label="${esc(t.title)} 소요시간 조절" data-resize="${t.id}"></span></div>`).join('')}</div>`;}).join('')}</div></div></div>`;
+  return `<div class="week-view"><div class="week-head"><span></span>${dates.map(date=>`<button data-date="${date}" class="day-cell week-date ${date===today()?'is-today':''}" aria-pressed="${date===selected}"><small>${dateOf(date).toLocaleDateString('ko-KR',{weekday:'short'})}</small><strong class="day-number">${dateOf(date).getDate()}${date===today()?' · 오늘':''}</strong></button>`).join('')}</div><div class="week-scroll"><div class="week-time-grid" style="height:${(end-start)*scale}px"><div class="week-hours">${Array.from({length:(end-start)/60},(_,i)=>`<span style="top:${i*60*scale}px">${time(start+i*60)}</span>`).join('')}</div>${dates.map(date=>{const rule=dayRule(date);return `<div class="week-column" data-calendar-surface data-date="${date}" data-start="${start}" data-end="${end}" data-px-per-min="${scale}">${Array.from({length:(end-start)/30},(_,i)=>{const m=start+i*30,blocked=checkPlacement('',date,m,30,rule,[])!==null;return `<button class="week-slot ${blocked?'blocked':''}" style="top:${i*30*scale}px;height:${30*scale}px" ${blocked?`data-adjust-date="${date}"`:`data-add-date="${date}" data-add-minute="${m}"`} aria-label="${dateLabel(date)} ${time(m)} ${blocked?'금지시간 조정':'할 일 추가'}"></button>`;}).join('')}${calendarAvailabilityHTML(rule,date,start,end,scale)}${tasksOn(date).map(t=>`<div class="week-task ${t.completed?'completed':''}" data-drag="${t.id}" style="top:${(taskMinute(t)-start)*scale}px;height:${t.duration*scale}px" title="${esc(t.title)}"><button class="block-title" data-task="${t.id}"><span>${esc(t.title)}</span>${t.duration>=60?`<small>${time(taskMinute(t))}</small>`:''}</button>${splitSeam(t)}<span class="resize-handle" role="separator" tabindex="0" aria-orientation="horizontal" aria-valuenow="${t.duration}" aria-valuemin="15" aria-valuemax="1440" aria-label="${esc(t.title)} 소요시간 조절" data-resize="${t.id}"></span></div>`).join('')}</div>`;}).join('')}</div></div></div>`;
 }
 function timelineHTML(date:string){
   const rule=dayRule(date),start=Math.max(0,Math.min(540,rule.start)-60),end=Math.min(1440,Math.max(1080,rule.end)+60),scale=view==='today'?1.2:.8;
@@ -572,7 +578,7 @@ async function start(){
       ready=true;const info=await invoke<{db_path:string;warning:string|null;last_backup:string|null}>('diagnostics');dbPath=info.db_path;warning=info.warning||'';lastBackup=info.last_backup||'';
       autoStart=await invoke<boolean>('autostart',{enabled:null});shortcut=await invoke<string>('capture_shortcut',{value:null});
       await listen('data-changed',()=>{if(queue.busy)refreshNeeded=true;else void reload();});
-      await listen('window-shown',()=>{syncTheme();void reload();$('#capture')?.focus();});
+      await listen('window-shown',()=>{syncTheme();if(captureWindow){void reload();$('#capture')?.focus();}else refreshCalendar(true);});
       if(captureWindow)await listen('capture-hide-request',hideCapture);
       await listen('quit-blocked',()=>{errorMessage='저장하지 않은 입력이 있어 종료하지 않았어요. 본 창과 캡처 창의 변경을 저장하거나 버려 주세요.';updateStatus();});
       await listen('backup-warning',async()=>{const info=await invoke<{warning:string|null;last_backup:string|null}>('diagnostics');warning=info.warning||'';lastBackup=info.last_backup||'';if(!Object.keys(rawSchedules).length&&!settingsDraft)renderContent();});
@@ -590,7 +596,9 @@ async function start(){
   render();
   document.addEventListener('keydown',e=>{if(e.key==='Escape'&&captureWindow){e.preventDefault();e.stopImmediatePropagation();hideCapture();}},{capture:true});
   window.addEventListener('beforeunload',e=>{if(unsaved()){e.preventDefault();}});
-  const tick=()=>{setTimeout(()=>{if(view==='today'&&!editorDirty&&!Object.keys(rawSchedules).length&&!settingsDraft&&!dragId&&!resizing&&ready&&document.visibilityState==='visible'&&!document.querySelector('dialog[open]')&&!document.activeElement?.matches('input,textarea,[contenteditable]'))renderContent();tick();},60_000-Date.now()%60_000);};tick();
+  window.addEventListener('focus',()=>refreshCalendar(true));
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')refreshCalendar(true);});
+  const tick=()=>{setTimeout(()=>{refreshCalendar();tick();},60_000-Date.now()%60_000);};tick();
   void document.fonts.ready.then(()=>fitTimeline());
   const content=document.querySelector('#content');if(content)new ResizeObserver(()=>fitTimeline()).observe(content);
   if(captureWindow)$('#capture').focus();

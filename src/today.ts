@@ -1,4 +1,7 @@
 import type {Task,WorkingDay} from './types.ts';
+export function calendarRefreshAllowed(state:{view:string;ready:boolean;visible:boolean;dirty:boolean;input:boolean;modal:boolean;gesture:boolean}){
+  return (state.view==='today'||state.view==='plan')&&state.ready&&state.visible&&!state.dirty&&!state.input&&!state.modal&&!state.gesture;
+}
 export type AgendaItem={kind:'task';start:number;end:number;task:Task;state:'done'|'current'|'overdue'|'upcoming'}|{kind:'unavailable'|'gap';start:number;end:number;label:string};
 export function agenda(date:string,tasks:Task[],rule:WorkingDay,nowMinute:number|null):AgendaItem[]{
   const items:AgendaItem[]=tasks.filter(t=>t.starts_at?.startsWith(date)).map(task=>{
