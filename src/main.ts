@@ -171,7 +171,7 @@ function available(date:string){const d=dayRule(date);return d.enabled?d.end-d.s
 function canPlace(id:string,date:string,start:number,duration:number){
   return placementIssue(id,date,start,duration)===null;
 }
-function captureForm(){return `<form id="capture-form" class="capture-form"><label class="sr-only" for="capture">빠른 캡처</label><textarea id="capture" autocomplete="off" placeholder="할 일" maxlength="650" rows="2" ${!ready||!storedDraft.loaded?'disabled':''}>${esc(captureDraft.text)}</textarea><button class="icon-button" aria-label="미계획에 저장" type="submit">${icon('check')}</button><button class="icon-button" aria-label="빠른 캡처 닫기" type="button" id="close-capture">${icon('close')}</button></form>`;}
+function captureForm(){return `<form id="capture-form" class="capture-form"><span class="capture-mark" aria-hidden="true">${icon('plus')}</span><label class="sr-only" for="capture">빠른 캡처</label><textarea id="capture" autocomplete="off" placeholder="어떤 일을 해야 하나요?" maxlength="650" rows="2" ${!ready||!storedDraft.loaded?'disabled':''}>${esc(captureDraft.text)}</textarea><button class="icon-button capture-save" aria-label="미계획에 저장" title="미계획에 저장" type="submit">${icon('check')}</button><button class="icon-button" aria-label="빠른 캡처 닫기" title="빠른 캡처 닫기" type="button" id="close-capture">${icon('close')}</button></form>`;}
 function hideCapture(){persistDraft();if(native)void invoke('hide_capture').catch(showError);else document.querySelector<HTMLElement>('.capture-window')!.hidden=true;}
 
 function render(){

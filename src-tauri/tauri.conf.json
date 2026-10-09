@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {"label":"main","title":"BLOKKY","create":false,"dragDropEnabled":false,"width":1440,"height":900,"minWidth":960,"minHeight":640},
-      {"label":"capture","title":"BLOKKY · 빠른 캡처","create":false,"url":"index.html?capture","width":520,"height":132,"decorations":false,"center":true,"resizable":false,"visible":false,"alwaysOnTop":true}
+      {"label":"capture","title":"BLOKKY · 빠른 캡처","create":false,"url":"index.html?capture","width":620,"height":176,"decorations":false,"transparent":true,"shadow":false,"center":true,"resizable":false,"visible":false,"alwaysOnTop":true}
     ],
     "security": { "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src ipc: http://ipc.localhost; object-src 'none'; base-uri 'self'; frame-src 'none'" }
   },
