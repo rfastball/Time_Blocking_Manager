@@ -9,6 +9,8 @@ import {formatDuration,rangeTitle} from './format';
 import {agenda,calendarRefreshAllowed} from './today';
 import {placementIssue as checkPlacement,splitDuration} from './placement';
 import {bindCalendarGestures} from './calendar-gestures';
+import {createTimeAxis,timeAxisForDays,readTimeAxis,timeAxisAttributes,timeAxisLabelVisible,paintCalendarAxis} from './time-axis';
+import type {TimeAxis} from './time-axis';
 import type {RawSchedule} from './availability';
 import type {AvailabilityTarget,AvailabilityEdge} from './availability-band';
 import type {Task,Snapshot,Action,Command,AppError,WorkingDay,Settings,ManagedBackup,BackupInspection} from './types';
@@ -40,6 +42,7 @@ const plusDays=(date:string,n:number)=>{const d=dateOf(date);d.setDate(d.getDate
 const icon=(name:string)=>`<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${({today:'<rect x="4" y="4" width="16" height="17" rx="2"/><path d="M4 9h16M8 2v4M16 2v4M8 13h3M8 17h7"/>',plan:'<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M9 9v12M15 9v12M3 15h18"/>',inbox:'<path d="M3 13l3-8h12l3 8v7H3zM3 13h5l2 3h4l2-3h5"/>',settings:'<path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',left:'<path d="M15 5l-7 7 7 7"/>',right:'<path d="M9 5l7 7-7 7"/>',plus:'<path d="M12 5v14M5 12h14"/>',close:'<path d="M6 6l12 12M18 6L6 18"/>',check:'<path d="M5 12l4 4L19 6"/>'} as Record<string,string>)[name]}</svg>`;
 
 let snapshot:Snapshot|null=null,view:'today'|'plan'|'inbox'|'settings'='today',selected=today(),period='week',inboxOpen=true;
+let planAnchor=selected,backupExpanded=false;
 const captureDraft=new CaptureDraft();
 const storedDraft=new StoredDraft();storedDraft.loaded=!native;
 let calendarComposer:{date:string;start:number;duration:number}|null=null,calendarComposing=false,calendarRefreshPending=false;
@@ -182,15 +185,16 @@ function render(){
   $('#app').insertAdjacentHTML('beforeend','<div id="announcer" class="sr-only" role="status" aria-live="polite"></div>');
   if(captureWindow)bindCapture();
   if(!captureWindow){
-    document.querySelectorAll<HTMLButtonElement>('[data-view]').forEach(b=>b.onclick=()=>{const v=b.dataset.view!;view=v as typeof view;if(v==='today')selected=today();render();});
+    document.querySelectorAll<HTMLButtonElement>('[data-view]').forEach(b=>b.onclick=()=>{const v=b.dataset.view!;view=v as typeof view;if(v==='today')selected=today();if(v==='plan')planAnchor=selected;render();});
     $('#brand-home').onclick=()=>{selected=today();view='today';render();};
-    $('#prev').onclick=()=>navigate(-1);$('#next').onclick=()=>navigate(1);$('#go-today').onclick=()=>{selected=today();renderContent();};
+    $('#prev').onclick=()=>navigate(-1);$('#next').onclick=()=>navigate(1);$('#go-today').onclick=()=>{selected=today();planAnchor=selected;renderContent();};
   }
   renderContent();updateStatus();
 }
 function navigate(direction:number){
-  if(view==='plan'&&period==='month'){const d=dateOf(selected);d.setDate(1);d.setMonth(d.getMonth()+direction);selected=dateKey(d);}
-  else selected=plusDays(selected,direction*(view==='plan'?(period==='week'?7:14):1));renderContent();
+  if(view==='plan'&&period==='month'){const d=dateOf(planAnchor);d.setDate(1);d.setMonth(d.getMonth()+direction);selected=dateKey(d);}
+  else selected=plusDays(view==='plan'?planAnchor:selected,direction*(view==='plan'?(period==='week'?7:14):1));
+  if(view==='plan')planAnchor=selected;renderContent();
 }
 function bindCapture(){
   const input=$<HTMLTextAreaElement>('#capture');
@@ -220,8 +224,8 @@ function renderContent(){
   const caret=active?.id==='calendar-title'?{start:(active as HTMLInputElement).selectionStart,end:(active as HTMLInputElement).selectionEnd}:null;
   const focusKey=active&&content.contains(active)?['id','data-date','data-period','data-complete','data-resize','data-task','data-backup-action','data-backup-id'].find(key=>active.hasAttribute(key)):undefined;
   const focusSelector=focusKey?`[${focusKey}="${CSS.escape(active!.getAttribute(focusKey)!)}"]`:null;
-  const scrollPositions=['.timeline-scroll','.inbox-panel','.week-view'].map(selector=>({selector,top:content.querySelector(selector)?.scrollTop??0}));
-  $('#heading').textContent=view==='settings'?'설정':view==='inbox'?'미계획':view==='plan'?rangeTitle(period,selected):dateLabel(selected);
+  const scrollPositions=['.timeline-scroll','.inbox-panel','.week-view'].map(selector=>({selector,top:content.querySelector(selector)?.scrollTop??null}));
+  $('#heading').textContent=view==='settings'?'설정':view==='inbox'?'미계획':view==='plan'?rangeTitle(period,planAnchor):dateLabel(selected);
   $('#notice').innerHTML=!native?'<div class="notice">미리보기 · 예시 데이터</div>':warning?`<div class="notice warning">${esc(warning)}</div>`:'';
   if(!ready||!snapshot){
     content.dataset.view='recovery';
@@ -238,7 +242,7 @@ function renderContent(){
   bindContent();fitTimeline();
   if(calendarComposer)openComposer(calendarComposer.date,calendarComposer.start,calendarComposer.duration,true);
   updateStatus();
-  for(const {selector,top} of scrollPositions){const pane=content.querySelector(selector);if(pane)pane.scrollTop=top;}
+  for(const {selector,top} of scrollPositions){const pane=content.querySelector(selector);if(!pane)continue;if(top!==null)pane.scrollTop=top;else if(view==='plan'){const surface=pane.querySelector<HTMLElement>('[data-calendar-surface]');if(surface){const axis=readTimeAxis(surface);pane.scrollTop=Math.max(0,axis.position(axis.start)-12);}}}
   if(focusSelector)content.querySelector<HTMLElement>(focusSelector)?.focus({preventScroll:true});
   if(caret){const input=content.querySelector<HTMLInputElement>('#calendar-title');if(input&&caret.start!==null&&caret.end!==null)input.setSelectionRange(caret.start,caret.end);}
 }
@@ -257,45 +261,45 @@ function inboxHTML(){
   return `<section class="inbox-page"><form id="inbox-form" class="inbox-entry"><label class="sr-only" for="inbox-capture">할 일 담기</label>${icon('plus')}<input id="inbox-capture" autocomplete="off" maxlength="650" placeholder="어떤 일을 해야 하나요?" value="${esc(captureDraft.text)}"><button type="submit">담기</button></form>${tasks.length?`<div class="inbox-list-heading"><h3>배치를 기다리는 일 <span>${tasks.length}</span></h3><span>${formatDuration(total)} 분량</span><button id="go-plan">계획에 배치하기 ${icon('right')}</button></div>`:''}<div class="inbox-list">${tasks.map(t=>`<div class="inbox-item"><button class="inbox-item-main" data-task="${esc(t.id)}"><span class="task-block-mark" aria-hidden="true"></span><span><strong>${esc(t.title)}</strong><small>${t.body?esc(t.body.split('\n')[0]):''}</small></span></button><button class="size-button" data-edit-time="${esc(t.id)}" aria-label="${esc(t.title)} 블록 크기 변경">${formatDuration(t.duration)}</button><button class="text-button" data-plan-task="${esc(t.id)}">배치</button></div>`).join('')||'<div class="empty"><p>미계획이 비어 있어요.</p></div>'}</div></section>`;
 }
 function planHTML(){
-  const first=dateOf(selected);if(period==='month')first.setDate(1);first.setDate(first.getDate()-(first.getDay()+6)%7);
-  const monthEnd=new Date(dateOf(selected).getFullYear(),dateOf(selected).getMonth()+1,0),monthStart=dateOf(selected);monthStart.setDate(1);
+  const first=dateOf(planAnchor);if(period==='month')first.setDate(1);first.setDate(first.getDate()-(first.getDay()+6)%7);
+  const monthEnd=new Date(dateOf(planAnchor).getFullYear(),dateOf(planAnchor).getMonth()+1,0),monthStart=dateOf(planAnchor);monthStart.setDate(1);
   const count=period==='week'?7:period==='two'?14:Math.ceil(((monthStart.getDay()+6)%7+monthEnd.getDate())/7)*7,inbox=inboxTasks(),old=overdue();
   const dates=Array.from({length:count},(_,i)=>plusDays(dateKey(first),i));
   const calendar=period==='week'?weekHTML(dates):`<div class="weekdays">${['월','화','수','목','금','토','일'].map(d=>`<span>${d}</span>`).join('')}</div><div class="calendar-grid ${period}">${dates.map(key=>{
     const d=dateOf(key),tasks=tasksOn(key),capacity=available(key),off=!dayRule(key).enabled,exception=snapshot!.settings.exceptions?.find(e=>e.date===key),used=tasks.reduce((n,t)=>n+t.duration,0);
-    return `<button data-date="${key}" aria-pressed="${key===selected}" aria-label="${dateLabel(key)}, 작업 ${tasks.length}건" class="day-cell ${key===today()?'is-today':''} ${off?'off-day':''} ${d.getMonth()!==dateOf(selected).getMonth()?'outside-month':''}"><span class="day-number">${d.getDate()===1?d.getMonth()+1+'/':''}${d.getDate()}${key===today()?'<small>오늘</small>':''}</span>${exception?`<small class="day-exception">${exception.kind==='leave'?'휴가':exception.kind==='early'?'조퇴':'시간 변경'}</small>`:''}${period==='two'?`<span class="day-tasks">${tasks.slice(0,4).map(t=>`<span role="button" tabindex="0" data-task="${t.id}" class="mini-task ${t.completed?'done':''}"><small>${time(taskMinute(t))}</small>${esc(t.title)}</span>`).join('')}${tasks.length>4?`<small>+${tasks.length-4}건</small>`:''}</span>`:tasks.length?`<span class="day-summary">${tasks.length}건 · ${formatDuration(used)}</span>`:''}${off?`<small>${exception?.kind==='leave'?'':'휴무'}</small>`:period==='month'?`<span class="occupancy" style="--segments:1" aria-label="배치 ${formatDuration(used)}"><i style="width:${capacity?Math.min(100,used/capacity*100):0}%"></i></span>`:''}</button>`;
+    return `<button data-date="${key}" aria-pressed="${key===selected}" aria-label="${dateLabel(key)}, 작업 ${tasks.length}건" class="day-cell ${key===today()?'is-today':''} ${off?'off-day':''} ${d.getMonth()!==dateOf(planAnchor).getMonth()?'outside-month':''}"><span class="day-number">${d.getDate()===1?d.getMonth()+1+'/':''}${d.getDate()}${key===today()?'<small>오늘</small>':''}</span>${exception?`<small class="day-exception">${exception.kind==='leave'?'휴가':exception.kind==='early'?'조퇴':'시간 변경'}</small>`:''}${period==='two'?`<span class="day-tasks">${tasks.slice(0,4).map(t=>`<span role="button" tabindex="0" data-task="${t.id}" class="mini-task ${t.completed?'done':''}"><small>${time(taskMinute(t))}</small>${esc(t.title)}</span>`).join('')}${tasks.length>4?`<small>+${tasks.length-4}건</small>`:''}</span>`:tasks.length?`<span class="day-summary">${tasks.length}건 · ${formatDuration(used)}</span>`:''}${off?`<small>${exception?.kind==='leave'?'':'휴무'}</small>`:period==='month'?`<span class="occupancy" style="--segments:1" aria-label="배치 ${formatDuration(used)}"><i style="width:${capacity?Math.min(100,used/capacity*100):0}%"></i></span>`:''}</button>`;
   }).join('')}</div>`;
   return `<div class="plan-toolbar"><div class="segmented" aria-label="계획 기간">${[['week','주'],['two','2주'],['month','월']].map(([key,label])=>`<button data-period="${key}" aria-pressed="${period===key}">${label}</button>`).join('')}</div><span class="week-summary">${weeklySummary(snapshot!.settings,selected)}</span><button id="toggle-inbox" aria-expanded="${inboxOpen}" aria-controls="inbox-drawer">${icon('inbox')} 미계획 ${inbox.length?`<span>${inbox.length}</span>`:''}</button></div><div class="planning-desk ${inboxOpen?'with-inbox':''}"><div class="plan-layout ${period==='week'?'week-layout':''}"><section class="panel month-panel" aria-label="${period==='week'?'주간 시간표':period==='two'?'2주 작업 목록':'월간 작업량'}">${calendar}</section>${period==='week'?'':`<section class="panel day-panel"><div class="section-header"><h2>${dateLabel(selected)}</h2></div>${dayAvailabilityHTML(settingsDraft??snapshot!.settings,selected)}${timelineHTML(selected)}</section>`}</div><aside class="inbox-panel" id="inbox-drawer" data-inbox-drop ${inboxOpen?'':'hidden'}><div class="section-header"><h2>미계획 ${inbox.length?`<span>${inbox.length}</span>`:''}</h2><button class="icon-button" id="close-inbox" aria-label="미계획 패널 닫기">${icon('close')}</button></div><form id="inbox-form" class="tray-entry"><label class="sr-only" for="inbox-capture">미계획에 추가</label><input id="inbox-capture" autocomplete="off" maxlength="650" placeholder="새 할 일" value="${esc(captureDraft.text)}"><button type="submit" class="icon-button" aria-label="미계획에 추가">${icon('plus')}</button></form><div class="inbox-chips">${inbox.map(t=>inboxChip(t)).join('')||'<p class="empty-small">미계획 없음</p>'}</div>${old.length?`<h3 class="carryover-title">지난 미완료 <span>${old.length}</span></h3><div class="inbox-chips">${old.map(t=>inboxChip(t,true)).join('')}</div>`:''}</aside></div>`;
 
 }
-function splitSeam(t:Task){
+function splitSeam(t:Task,axis:TimeAxis){
   if(t.completed||t.duration<30)return '';
   const first=splitDuration(t.duration,t.duration/2);
-  return `<div class="split-seam" data-split="${esc(t.id)}" data-split-duration="${first}" role="separator" tabindex="0" aria-orientation="horizontal" aria-label="${esc(t.title)} 나누기 경계" aria-valuemin="15" aria-valuemax="${t.duration-15}" aria-valuenow="${first}" aria-valuetext="앞 ${formatDuration(first)}, 뒤 ${formatDuration(t.duration-first)}" style="top:${first/t.duration*100}%"><span>${formatDuration(first)} + ${formatDuration(t.duration-first)}</span></div>`;
+  return `<div class="split-seam" data-split="${esc(t.id)}" data-split-duration="${first}" role="separator" tabindex="0" aria-orientation="horizontal" aria-label="${esc(t.title)} 나누기 경계" aria-valuemin="15" aria-valuemax="${t.duration-15}" aria-valuenow="${first}" aria-valuetext="앞 ${formatDuration(first)}, 뒤 ${formatDuration(t.duration-first)}" style="top:${axis.position(taskMinute(t)+first)-axis.position(taskMinute(t))}px"><span>${formatDuration(first)} + ${formatDuration(t.duration-first)}</span></div>`;
 }
 function weekHTML(dates:string[]){
-  const rules=dates.map(dayRule),start=Math.max(0,Math.floor((Math.min(540,...rules.map(d=>d.start))-60)/60)*60),end=Math.min(1440,Math.ceil((Math.max(1080,...rules.map(d=>d.end))+60)/60)*60),scale=.85;
-  return `<div class="week-view"><div class="week-head"><span></span>${dates.map(date=>`<button data-date="${date}" class="day-cell week-date ${date===today()?'is-today':''}" aria-pressed="${date===selected}"><small>${dateOf(date).toLocaleDateString('ko-KR',{weekday:'short'})}</small><strong class="day-number">${dateOf(date).getDate()}${date===today()?' · 오늘':''}</strong></button>`).join('')}</div><div class="week-scroll"><div class="week-time-grid" style="height:${(end-start)*scale}px"><div class="week-hours">${Array.from({length:(end-start)/60},(_,i)=>`<span style="top:${i*60*scale}px">${time(start+i*60)}</span>`).join('')}</div>${dates.map(date=>{const rule=dayRule(date);return `<div class="week-column" data-calendar-surface data-date="${date}" data-start="${start}" data-end="${end}" data-px-per-min="${scale}">${Array.from({length:(end-start)/30},(_,i)=>{const m=start+i*30,blocked=checkPlacement('',date,m,30,rule,[])!==null;return `<button class="week-slot ${blocked?'blocked':''}" style="top:${i*30*scale}px;height:${30*scale}px" ${blocked?`data-adjust-date="${date}"`:`data-add-date="${date}" data-add-minute="${m}"`} aria-label="${dateLabel(date)} ${time(m)} ${blocked?'금지시간 조정':'할 일 추가'}"></button>`;}).join('')}${calendarAvailabilityHTML(rule,date,start,end,scale)}${tasksOn(date).map(t=>`<div class="week-task ${t.completed?'completed':''}" data-drag="${t.id}" style="top:${(taskMinute(t)-start)*scale}px;height:${t.duration*scale}px" title="${esc(t.title)}"><button class="block-title" data-task="${t.id}"><span>${esc(t.title)}</span>${t.duration>=60?`<small>${time(taskMinute(t))}</small>`:''}</button>${splitSeam(t)}<span class="resize-handle" role="separator" tabindex="0" aria-orientation="horizontal" aria-valuenow="${t.duration}" aria-valuemin="15" aria-valuemax="1440" aria-label="${esc(t.title)} 소요시간 조절" data-resize="${t.id}"></span></div>`).join('')}</div>`;}).join('')}</div></div></div>`;
+  const axis=timeAxisForDays(dates.map(dayRule),1.1);
+  return `<div class="week-view"><div class="week-head"><span></span>${dates.map(date=>`<button data-date="${date}" class="day-cell week-date ${date===today()?'is-today':''}" aria-pressed="${date===selected}"><small>${dateOf(date).toLocaleDateString('ko-KR',{weekday:'short'})}</small><strong class="day-number">${dateOf(date).getDate()}${date===today()?' · 오늘':''}</strong></button>`).join('')}</div><div class="week-scroll"><div class="week-time-grid" style="height:${axis.height}px"><div class="week-hours">${Array.from({length:25},(_,i)=>`<span data-minute="${i*60}" data-hour-label ${timeAxisLabelVisible(axis,i*60)?'':'hidden'} style="top:${axis.position(i*60)}px">${time(i*60)}</span>`).join('')}</div>${dates.map(date=>{const rule=dayRule(date);return `<div class="week-column" data-calendar-surface data-date="${date}" ${timeAxisAttributes(axis)}>${Array.from({length:48},(_,i)=>{const m=i*30,blocked=checkPlacement('',date,m,30,rule,[])!==null;return `<button class="week-slot ${blocked?'blocked':''}" data-minute="${m}" data-duration="30" style="top:${axis.position(m)}px;height:${axis.position(m+30)-axis.position(m)}px" ${blocked?`data-adjust-date="${date}"`:`data-add-date="${date}" data-add-minute="${m}"`} aria-label="${dateLabel(date)} ${time(m)} ${blocked?'금지시간 조정':'할 일 추가'}"></button>`;}).join('')}${calendarAvailabilityHTML(rule,date,axis)}${tasksOn(date).map(t=>`<div class="week-task ${t.completed?'completed':''}" data-drag="${t.id}" data-minute="${taskMinute(t)}" data-duration="${t.duration}" style="top:${axis.position(taskMinute(t))}px;height:${axis.position(taskMinute(t)+t.duration)-axis.position(taskMinute(t))}px" title="${esc(t.title)}"><button class="block-title" data-task="${t.id}"><span>${esc(t.title)}</span>${t.duration>=60?`<small>${time(taskMinute(t))}</small>`:''}</button>${splitSeam(t,axis)}<span class="resize-handle" role="separator" tabindex="0" aria-orientation="horizontal" aria-valuenow="${t.duration}" aria-valuemin="15" aria-valuemax="1440" aria-label="${esc(t.title)} 소요시간 조절" data-resize="${t.id}"></span></div>`).join('')}</div>`;}).join('')}</div></div></div>`;
 }
 function timelineHTML(date:string){
-  const rule=dayRule(date),start=Math.max(0,Math.min(540,rule.start)-60),end=Math.min(1440,Math.max(1080,rule.end)+60),scale=view==='today'?1.2:.8;
-  const position=(s:number,e:number)=>`data-minute="${s}" data-duration="${e-s}" style="top:${(s-start)*scale}px;height:${(e-s)*scale}px"`;
+  const rule=dayRule(date),axis=timeAxisForDays([rule],1.2),start=0,end=1440;
+  const position=(s:number,e:number)=>`data-minute="${s}" data-duration="${e-s}" style="top:${axis.position(s)}px;height:${axis.position(e)-axis.position(s)}px"`;
   const shade=(s:number,e:number,label:string)=>e>s?`<div class="unavailable" ${position(s,e)}>${esc(label)}</div>`:'';
   const now=nowMinute(),items=agenda(date,snapshot!.tasks,rule,date===today()?now:null);
   const status=date===today()?(now<rule.start?`근무 시작 전 · ${time(rule.start)} 시작`:now>=rule.end?'근무 시간 종료':''):'';
-  return `${status?`<p class="work-boundary">${status}</p>`:''}<div class="timeline-scroll"><div class="timeline" data-calendar-surface data-start="${start}" data-end="${end}" data-px-per-min="${scale}" data-date="${date}" style="height:${(end-start)*scale}px">${Array.from({length:Math.floor((end-start)/60)+1},(_,i)=>{const m=start+i*60;return `<div class="hour-line" data-minute="${m}" style="top:${(m-start)*scale}px"><span>${String(Math.floor(m/60)).padStart(2,'0')}</span></div>`;}).join('')}${Array.from({length:Math.floor((end-start)/60)},(_,i)=>`<div class="half-hour-line" data-minute="${start+i*60+30}" style="top:${(i*60+30)*scale}px" aria-hidden="true"></div>`).join('')}${!rule.enabled?shade(start,end,'작업 불가'):shade(start,rule.start,'')+shade(rule.end,end,'')}${calendarAvailabilityHTML(rule,date,start,end,scale)}${items.map(item=>{
+  return `${status?`<p class="work-boundary">${status}</p>`:''}<div class="timeline-scroll"><div class="timeline" data-calendar-surface ${timeAxisAttributes(axis)} data-date="${date}" style="height:${axis.height}px">${Array.from({length:Math.floor((end-start)/60)+1},(_,i)=>{const m=start+i*60;return `<div class="hour-line" data-hour-label ${timeAxisLabelVisible(axis,m)?'':'hidden'} data-minute="${m}" style="top:${axis.position(m)}px"><span>${String(Math.floor(m/60)).padStart(2,'0')}</span></div>`;}).join('')}${Array.from({length:Math.floor((end-start)/60)},(_,i)=>`<div class="half-hour-line" data-minute="${start+i*60+30}" style="top:${axis.position(start+i*60+30)}px" aria-hidden="true"></div>`).join('')}${!rule.enabled?shade(start,end,'작업 불가'):shade(start,rule.start,'')+shade(rule.end,end,'')}${calendarAvailabilityHTML(rule,date,axis)}${items.map(item=>{
     if(item.kind==='unavailable')return '';
     if(item.kind==='gap')return view==='today'?`<div class="time-gap" ${position(item.start,item.end)}>${formatDuration(item.end-item.start)}</div>`:'';
     if(item.kind!=='task')return '';
     const t=item.task,state=item.state,label=state==='current'?'진행 중':state==='overdue'?'지남':t.completed?'완료':'';
-    return `<div class="time-block ${t.duration===15?'compact':''} ${state} ${t.completed?'completed':''} ${placedId===t.id?'placed':''}" ${position(item.start,item.end)} data-drag="${esc(t.id)}"><button class="block-title" data-task="${esc(t.id)}" aria-label="${esc(t.title)}, ${time(item.start)}–${time(item.end)}, ${formatDuration(t.duration)}${label?', '+label:''}" title="${esc(t.title)} · ${time(item.start)}–${time(item.end)}"><span>${label?label+' · ':''}${esc(t.title)}</span>${t.duration>=45?`<small>${time(item.start)}–${time(item.end)}</small>`:''}</button>${splitSeam(t)}<div role="separator" aria-label="${esc(t.title)} 소요시간 조절" aria-orientation="horizontal" aria-valuemin="15" aria-valuemax="1440" aria-valuenow="${t.duration}" aria-valuetext="${formatDuration(t.duration)}" tabindex="0" class="resize-handle" data-resize="${esc(t.id)}"></div></div>`;
-  }).join('')}${date===today()&&now>=rule.start&&now<rule.end?`<div class="now-line" data-minute="${now}" style="top:${(now-start)*scale}px"><span>${time(now)}</span></div>`:''}</div></div>`;
+    return `<div class="time-block ${t.duration===15?'compact':''} ${state} ${t.completed?'completed':''} ${placedId===t.id?'placed':''}" ${position(item.start,item.end)} data-drag="${esc(t.id)}"><button class="block-title" data-task="${esc(t.id)}" aria-label="${esc(t.title)}, ${time(item.start)}–${time(item.end)}, ${formatDuration(t.duration)}${label?', '+label:''}" title="${esc(t.title)} · ${time(item.start)}–${time(item.end)}"><span>${label?label+' · ':''}${esc(t.title)}</span>${t.duration>=45?`<small>${time(item.start)}–${time(item.end)}</small>`:''}</button>${splitSeam(t,axis)}<div role="separator" aria-label="${esc(t.title)} 소요시간 조절" aria-orientation="horizontal" aria-valuemin="15" aria-valuemax="1440" aria-valuenow="${t.duration}" aria-valuetext="${formatDuration(t.duration)}" tabindex="0" class="resize-handle" data-resize="${esc(t.id)}"></div></div>`;
+  }).join('')}${date===today()&&now>=rule.start&&now<rule.end?`<div class="now-line" data-minute="${now}" style="top:${axis.position(now)}px"><span>${time(now)}</span></div>`:''}</div></div>`;
 }
 function fitTimeline(){
   const tl=document.querySelector<HTMLElement>('.timeline');if(!tl||view!=='plan')return;
-  const pane=tl.parentElement!,range=Number(tl.dataset.end)-Number(tl.dataset.start),scale=Math.max(.8,Math.min(1.2,(pane.clientHeight-30)/range));
-  tl.dataset.pxPerMin=String(scale);tl.style.height=range*scale+'px';
-  tl.querySelectorAll<HTMLElement>('[data-minute]').forEach(el=>{el.style.top=(Number(el.dataset.minute)-Number(tl.dataset.start))*scale+'px';if(el.dataset.duration)el.style.height=Number(el.dataset.duration)*scale+'px';});
+  const axis=readTimeAxis(tl),unit=createTimeAxis(axis.start,axis.end,1);
+  const scale=Math.max(1,Math.min(1.2,(tl.parentElement!.clientHeight-30)/unit.height));
+  paintCalendarAxis(tl,createTimeAxis(axis.start,axis.end,scale));
 }
 
 function bindContent(){
@@ -303,14 +307,14 @@ function bindContent(){
   document.querySelectorAll<HTMLButtonElement>('[data-task]').forEach(b=>b.onclick=e=>{e.stopPropagation();openEditor(b.dataset.task!);});
   document.querySelectorAll<HTMLElement>('[data-complete]').forEach(b=>{const complete=()=>{const t=snapshot!.tasks.find(t=>t.id===b.dataset.complete)!;if(b instanceof HTMLInputElement)b.checked=t.completed;void dispatch({type:'set_completed',id:t.id,expected_revision:t.revision,completed:!t.completed});};if(b instanceof HTMLInputElement)b.onchange=complete;else b.onclick=complete;});
   document.querySelectorAll<HTMLButtonElement>('.day-cell[data-date]').forEach(b=>b.onclick=()=>{selected=b.dataset.date!;if(b.classList.contains('week-date')){view='today';render();}else renderContent();});
-  document.querySelectorAll<HTMLButtonElement>('[data-period]').forEach(b=>b.onclick=()=>{period=b.dataset.period!;renderContent();});
+  document.querySelectorAll<HTMLButtonElement>('[data-period]').forEach(b=>b.onclick=()=>{period=b.dataset.period!;planAnchor=selected;renderContent();});
   document.querySelectorAll<HTMLElement>('.mini-task[data-task]').forEach(el=>el.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();e.stopPropagation();openEditor(el.dataset.task!);}});
   for(const id of ['toggle-inbox','close-inbox'])document.querySelector('#'+id)?.addEventListener('click',()=>{inboxOpen=!inboxOpen;renderContent();});
-  for(const id of ['go-plan','review'])document.querySelector('#'+id)?.addEventListener('click',()=>{view='plan';inboxOpen=true;render();});
+  for(const id of ['go-plan','review'])document.querySelector('#'+id)?.addEventListener('click',()=>{view='plan';planAnchor=selected;inboxOpen=true;render();});
   document.querySelectorAll<HTMLElement>('[data-day-step]').forEach(b=>b.onclick=()=>{selected=plusDays(selected,Number(b.dataset.dayStep));renderContent();});
   const inboxInput=document.querySelector<HTMLInputElement>('#inbox-capture');
   if(inboxInput){inboxInput.oninput=()=>{captureDraft.edit(inboxInput.value);draftChanged();};inboxInput.onkeydown=e=>{if(e.key==='Enter'&&isCompositionKey(e))e.preventDefault();};$('#inbox-form').onsubmit=e=>{e.preventDefault();void submitCapture();};}
-  document.querySelectorAll<HTMLElement>('[data-plan-task]').forEach(b=>b.onclick=()=>{view='plan';inboxOpen=true;render();const block=document.querySelector<HTMLElement>(`[data-drag="${CSS.escape(b.dataset.planTask!)}"]`);block?.focus();});
+  document.querySelectorAll<HTMLElement>('[data-plan-task]').forEach(b=>b.onclick=()=>{view='plan';planAnchor=selected;inboxOpen=true;render();const block=document.querySelector<HTMLElement>(`[data-drag="${CSS.escape(b.dataset.planTask!)}"]`);block?.focus();});
   document.querySelectorAll<HTMLElement>('[data-add-date]').forEach(b=>b.onclick=e=>{if(e.detail===0)openComposer(b.dataset.addDate!,Number(b.dataset.addMinute));});
   bindCalendarGestures($('#content'),{
     task:id=>snapshot!.tasks.find(t=>t.id===id),
@@ -362,8 +366,9 @@ function openComposer(date:string,start=540,duration=30,restoring=false){
   const surface=Array.from(document.querySelectorAll<HTMLElement>('[data-calendar-surface]')).find(el=>el.dataset.date===date);if(!surface)return;
   calendarComposer={date,start,duration};
   const form=document.createElement('form');form.id='calendar-composer';form.className='calendar-composer';
-  form.style.top=(start-Number(surface.dataset.start))*Number(surface.dataset.pxPerMin)+'px';
-  form.style.setProperty('--selection-height',duration*Number(surface.dataset.pxPerMin)+'px');
+  const axis=readTimeAxis(surface);
+  form.style.top=axis.position(start)+'px';
+  form.style.setProperty('--selection-height',(axis.position(start+duration)-axis.position(start))+'px');
   form.innerHTML=`<div class="composer-time">${time(start)}–${time(start+duration)}<button type="button" class="icon-button" aria-label="입력 닫기">${icon('close')}</button></div><label class="sr-only" for="calendar-title">새 블록 제목</label><input id="calendar-title" placeholder="할 일" value="${esc(captureDraft.text)}" maxlength="650" autocomplete="off" required><button type="submit" class="primary">배치</button><p class="error" role="alert">${issue?esc(issue.label)+'. 다른 시간을 선택하세요.':''}</p>`;
   surface.append(form);const input=form.querySelector<HTMLInputElement>('input')!;
   input.oninput=()=>{captureDraft.edit(input.value);draftChanged();};
@@ -497,10 +502,10 @@ async function ask(text:string){return native?confirm(text,{title:'BLOKKY',kind:
 const backupKind=(kind:ManagedBackup['kind'])=>({hour:'시간별',day:'일별',manual:'직접',safety:'복원 전'}[kind]);
 const backupDate=(value:string|null)=>value?new Date(value).toLocaleString('ko-KR',{year:'numeric',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}):'시각 정보 없음';
 const backupError=(e:unknown)=>typeof e==='object'&&e&&'message'in e?String(e.message):String(e);
-function backupManagerHTML(){return `<section id="backup-manager" class="backup-manager" aria-labelledby="backup-heading">${backupManagerBody()}</section>`;}
+function backupManagerHTML(){return `<details id="backup-disclosure" class="backup-disclosure" ${backupExpanded||!ready?'open':''}><summary id="backup-heading">백업·복원</summary><section id="backup-manager" class="backup-manager" aria-labelledby="backup-heading">${backupManagerBody()}</section></details>`;}
 function backupManagerBody(){
   const selectedBackup=backups.items.find(b=>b.id===backups.selected),info=backups.inspection;
-  return `<div class="backup-heading"><h3 id="backup-heading" tabindex="-1">백업·복원</h3><button type="button" data-backup-action="create" ${!native||!ready||backups.busy||queue.busy||queue.failed?'disabled':''}>${backups.busy==='create'?'백업 중…':'지금 백업'}</button></div>${native?`<p class="backup-retention">자동 백업 · ${lastBackup?esc(backupDate(lastBackup)):'아직 없음'}</p>`:'<p class="backup-retention">데스크톱 앱에서 백업을 관리합니다.</p>'}
+  return `<div class="backup-heading"><span class="sr-only">백업 관리</span><button type="button" data-backup-action="create" ${!native||!ready||backups.busy||queue.busy||queue.failed?'disabled':''}>${backups.busy==='create'?'백업 중…':'지금 백업'}</button></div>${native?`<p class="backup-retention">자동 백업 · ${lastBackup?esc(backupDate(lastBackup)):'아직 없음'}</p>`:'<p class="backup-retention">데스크톱 앱에서 백업을 관리합니다.</p>'}
   ${backups.status?`<p class="backup-result ${backups.statusError?'error':''}" role="${backups.statusError?'alert':'status'}">${esc(backups.status)}</p>`:''}
   ${native?`${backups.loading?'<p class="backup-loading" role="status">백업 불러오는 중…</p>':''}${backups.error?`<div class="backup-list-error"><p class="error" role="alert">${esc(backups.error)}</p><button type="button" data-backup-action="retry-list" ${backups.loading?'disabled':''}>다시 불러오기</button></div>`:''}
   ${backups.items.length?`<ul class="backup-list" aria-label="보관된 백업" aria-busy="${backups.loading}">${backups.items.map(b=>`<li class="${b.error?'backup-damaged':''}"><button type="button" data-backup-id="${esc(b.id)}" aria-pressed="${b.id===backups.selected}" ${b.error||backups.busy||queue.failed?'disabled':''} ${b.error?`aria-describedby="backup-damage-${esc(b.id)}"`:''}><span class="backup-kind">${backupKind(b.kind)}</span><time ${b.created_at?`datetime="${esc(b.created_at)}"`:''}>${esc(backupDate(b.created_at))}</time><span class="backup-count">${b.tasks===null?'손상됨':`작업 ${b.tasks}건`}</span></button>${b.error?`<p id="backup-damage-${esc(b.id)}" class="backup-damage">복원할 수 없음 · ${esc(b.error)}</p>`:''}</li>`).join('')}</ul>`:backups.loaded&&!backups.error&&!backups.loading?'<p class="backup-empty">보관된 백업이 없습니다.</p>':''}
@@ -516,7 +521,7 @@ function paintBackupManager(){
   root.innerHTML=backupManagerBody();
   bindBackupScroll(root);
   if(action||id)Array.from(root.querySelectorAll<HTMLButtonElement>('button')).find(b=>action?b.dataset.backupAction===action:b.dataset.backupId===id)?.focus({preventScroll:true});
-  else if(headingFocused)root.querySelector<HTMLElement>('#backup-heading')?.focus({preventScroll:true});
+  else if(headingFocused)document.querySelector<HTMLElement>('#backup-heading')?.focus({preventScroll:true});
 }
 function bindBackupScroll(root:HTMLElement){const list=root.querySelector<HTMLElement>('.backup-list');if(list){list.scrollTop=backupListScroll;list.onscroll=()=>{backupListScroll=list.scrollTop;};}}
 function updateBackupControls(){
@@ -545,6 +550,7 @@ async function inspectBackup(id:string){
   finally{if(sequence===backupInspectionSequence&&backups.selected===id){backups.inspecting=false;paintBackupManager();}}
 }
 function bindBackupManager(){
+  const disclosure=$<HTMLDetailsElement>('#backup-disclosure');disclosure.ontoggle=()=>{backupExpanded=disclosure.open;};
   bindBackupScroll($('#backup-manager'));
   $('#backup-manager').onclick=e=>{
     const button=(e.target as HTMLElement).closest<HTMLButtonElement>('button');if(!button||button.disabled||!native)return;
@@ -582,7 +588,7 @@ async function restoreBackup(){
 
 function settingsHTML(){return `<div class="settings-layout"><section class="panel" id="availability-settings">${availabilityHTML(settingsDraft??snapshot!.settings)}</section><section class="panel operations">${themePickerHTML(resolveTheme(document.documentElement.dataset.theme))}<hr><h2>빠른 캡처</h2><form id="shortcut-form"><label for="shortcut">단축키</label><div class="shortcut-control"><input id="shortcut" value="${esc(shortcut)}" readonly aria-label="빠른 캡처 단축키"><button type="submit">변경</button></div><p id="shortcut-result" role="status"></p></form><hr><h2>실행과 기록 보관</h2><label class="check-line"><input id="autostart" type="checkbox" ${autoStart?'checked':''} ${native?'':'disabled'}>Windows 로그인 시 자동실행</label><hr>${backupManagerHTML()}<details class="diagnostics"><summary>진단 정보</summary><label>저장소 위치<input readonly value="${esc(dbPath||'데스크톱 앱에서 확인')}" aria-label="저장소 위치"></label><p>시간별 24개 · 일별 30개 보관</p></details></section></div>`;}
 function bindSchedule(root:HTMLElement,date:string|null){
-  root.addEventListener('click',e=>{if((e.target as HTMLElement).closest('#select-exception-date')){view='plan';render();}});
+  root.addEventListener('click',e=>{if((e.target as HTMLElement).closest('#select-exception-date')){view='plan';planAnchor=selected;render();}});
   bindAvailability(root,settingsDraft??snapshot!.settings,snapshot!.tasks,date,{
     raw:rawSchedules[date??'weekly'],
     stash:raw=>{rawSchedules={...rawSchedules,[date??'weekly']:raw};draftChanged();},

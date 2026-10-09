@@ -107,3 +107,14 @@ Node는 기본 격리로 파일별 테스트 프로세스를 사용하므로 작
 Cycle 3 Test delta 결과: 새 순수 표시 owner src/schedule.test.ts 4사례 추가, 기존 owner 수정/삭제0. 총5→9. 같은 환경 baseline92.1662ms, 수정 후106.1092ms(단일 실행차+13.943ms, 성능 추정으로 사용하지 않음). Node 파일 worker+1, heavy-resource 자동 테스트 launch+0, coverage floor 변경0. UI 잠금/반응형/드래그는 기존 문서가 요청한 수동 브라우저 묶음으로 검증했다.
 
 유연근무 결과: Node 10/10 114.14ms, Rust 8/8 3.36초. Node 순증 1(단축키의 code 없는 키 입력·한글 키보드), Rust +2, 기존 파서 2개는 날짜 해석·주간 용량 2개로 교체. worker/브라우저/네트워크 자동 테스트 실행 증가 0, coverage 기준 변경 0. 단일 baseline 대비 시간 차이는 성능 개선으로 해석하지 않는다. 네이티브에서 Ctrl+Alt+K 기록·등록·캡처 열기와 날짜별 점심 해제 후 재시작 보존을 확인했다.
+
+
+## 시간축·조작 개선 Test delta
+
+- Unique risk: 압축 시간축의 좌표/시간 역변환이 어긋나 블록 이동·크기 조절 시 다른 시각에 배치되거나 자정 경계가 사라짐.
+- Existing owner and layer: `src/schedule.test.ts`의 순수 시간표/배치 표시 owner. 같은 Node worker에 시간축과 확장 경계 사례 2개 추가.
+- Added / extended / removed: 2 / 0 / 0. 기존 증거 중 중복·폐기 대상 없음.
+- Collected-case delta: 전체 18→20, schedule owner 7→9.
+- Runtime delta: 전체 단독 실행 123.5188→119.9894ms. 단일 실행 차이 −3.5294ms이며 성능 개선 추정이 아니다. 새 두 사례 본체 0.9958ms / 0.1247ms.
+- Heavy-resource launch delta: 자동 suite의 worker·브라우저·DB·네트워크 증가 0. UI 연결은 수동 브라우저 묶음 검증이 소유한다.
+- Coverage-floor impact: 변경 없음. 새 의존성·테스트 파일·CI lane 없음.

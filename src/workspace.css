@@ -176,7 +176,9 @@
   .capture-window { background: var(--color-surface); backdrop-filter: none; }
 }
 .backup-heading { display: flex; align-items: center; justify-content: space-between; gap: var(--space-related); }
-.backup-heading h3 { margin: 0; }
+.week-view,.timeline-scroll,.availability-scroll,#content:has([data-calendar-surface]),.planning-desk:has([data-calendar-surface]) { overflow-anchor: none; }
+.backup-disclosure>summary { padding-block: var(--space-related); cursor: pointer; font-weight: var(--font-weight-heading); }
+.backup-disclosure[open]>summary { margin-bottom: var(--space-related); }
 .backup-heading button { flex: none; }
 .backup-retention { font-size: var(--font-size-label); }
 .backup-result,.backup-loading,.backup-empty,.backup-list-error p { font-size: var(--font-size-label); overflow-wrap: anywhere; }

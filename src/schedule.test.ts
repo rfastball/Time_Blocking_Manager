@@ -3,10 +3,34 @@ import assert from 'node:assert/strict';
 import {formatDuration,rangeTitle} from './format.ts';
 import {agenda,calendarRefreshAllowed} from './today.ts';
 import {placementIssue,selectionRange,splitDuration} from './placement.ts';
+import {createTimeAxis,timeAxisForDays,expandTimeAxis,timeAxisLabelVisible} from './time-axis.ts';
 import type {Task,WorkingDay} from './types.ts';
 
 const date='2026-10-08',rule:WorkingDay={enabled:true,start:540,end:1080,breaks:[{start:720,end:780,label:'점심'}]};
 const task:Task={id:'a',title:'초안',body:'',starts_at:date+'T13:00',duration:90,completed:false,revision:1};
+
+test('focused time axes preserve all-day boundaries and invert compressed coordinates',()=>{
+  for(const axis of [timeAxisForDays([rule],1.2),createTimeAxis(0,1440,.8),createTimeAxis(1380,1440,1)]){
+    assert.equal(axis.position(0),0);assert.equal(axis.position(1440),axis.height);
+    assert.equal(axis.minute(-100),0);assert.equal(axis.minute(axis.height+100),1440);
+    for(const minute of [0,15,180,510,540,720,1080,1110,1380,1425,1440])assert.ok(Math.abs(axis.minute(axis.position(minute))-minute)<1e-8,`${minute} must map back to itself`);
+  }
+  const axis=timeAxisForDays([rule],1.2);
+  assert.equal(axis.start,510);assert.equal(axis.end,1110);
+  assert.ok(axis.position(60)-axis.position(0)<axis.position(600)-axis.position(540));
+  assert.equal(timeAxisLabelVisible(axis,60),false);assert.equal(timeAxisLabelVisible(axis,600),true);
+  assert.deepEqual([timeAxisForDays([{...rule,enabled:false}]).start,timeAxisForDays([]).end],[510,1110]);
+});
+
+test('drag expansion opens the pointed outer hours without shrinking the working range',()=>{
+  const axis=timeAxisForDays([rule]),morning=expandTimeAxis(axis,420),evening=expandTimeAxis(morning,1230);
+  assert.equal(expandTimeAxis(axis,720),axis);
+  assert.deepEqual([morning.start,morning.end],[360,1110]);assert.deepEqual([evening.start,evening.end],[360,1320]);
+  assert.equal(morning.position(435)-morning.position(420),15);
+  assert.equal(evening.position(1245)-evening.position(1230),15);
+  const full=expandTimeAxis(expandTimeAxis(axis,0),1440);
+  assert.deepEqual([full.start,full.end,full.height],[0,1440,1440]);
+});
 
 test('calendar selection includes the pointed quarter hour in either direction',()=>{
   assert.deepEqual(selectionRange(540,540),{start:540,duration:15});
