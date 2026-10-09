@@ -181,3 +181,10 @@
 - 백업의 접기/펼치기 및 브라우저 미리보기에서 지금 백업 비활성 확인. 네이티브 개발 실행의 백업 분기는 릴리스와 같은 IPC 경로이며 실제 복원은 이번 UI 검증에서 실행하지 않았다.
 
 화면 근거는 gitignored `.impeccable/review/interaction-*.jpg`다. 실제 Windows 포인터/터치·화면 읽기 프로그램·네이티브 복원 재실행은 이번 범위에서 검증하지 않았다. 사용자 저장소 데이터는 사용하지 않았다.
+
+
+## 2026-10-09 run.ps1 실패 창 유지
+
+실행 중인 `src-tauri/target/debug/blokky.exe` 때문에 `run.ps1 dev`에서 Cargo가 실행 파일 삭제에 실패하는 os error5를 재현했다. 실행 프로세스의 정확한 경로를 확인했으며 강제 종료하지 않았다. 스크립트는 동일 개발 실행 파일의 프로세스를 사전 감지해 트레이 종료 방법을 표시한다. 그 외 실패도 종료 코드와 오류를 표시하고, 대화형 콘솔에서 Enter까지 유지한다. `-NoPause` 또는 입력 리디렉션은 대기를 생략한다. Windows PowerShell5의 한글 해석을 위해 UTF-8 BOM을 사용한다.
+
+Windows PowerShell의 `dev -NoPause`가 설명과 exit1을 반환하는지 확인했다. 실제 PTY에서 기본 `dev`가 오류 뒤 Read-Host 입력 대기로 남고 Enter 후 exit1로 종료하는 것도 확인했다. `test -NoPause`는 Node20/20 (97.9939ms), Rust storage13/13 (3.59초)을 실행하고 exit0으로 반환했다. 자동 테스트 추가·수정0, 기본 suite 비용 증가0. 실행 중인 앱을 종료한 뒤 dev 정상 재시작 및 package 경로는 이번에 실행하지 않았다.
