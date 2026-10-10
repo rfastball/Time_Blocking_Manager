@@ -35,11 +35,12 @@ export function InboxTray({scale,overdue=[],onOpen,selected,heading='미계획',
 }
 
 function TrayBlock({task,scale,hollow,selected,onOpen,past}:{task:Task;scale:number;hollow:boolean;selected:boolean;onOpen:()=>void;past?:boolean}){
-  const {attributes,listeners,setNodeRef}=useDraggable({id:`tray:${task.id}`,data:{taskId:task.id}});
+  // No dnd-kit attributes: the block is presentation; its button carries the name and the drag stays a pointer gesture.
+  const {listeners,setNodeRef}=useDraggable({id:`tray:${task.id}`,data:{taskId:task.id}});
   // Title over meta needs about 52px; anything shorter is one row with the meta beside the title.
   const h=Math.max(24,task.duration*scale-2),compact=h<52;
   return <motion.div ref={setNodeRef} data-block="true" layout className={'tblk'+(hollow?' hollow':'')+(selected?' sel':'')+(compact?' compact':'')} style={{height:h}}
-    initial={{opacity:0,scale:.96}} animate={{opacity:1,scale:1}} exit={{opacity:0,transition:{duration:0}}} transition={settle} {...attributes} {...listeners} tabIndex={-1} role="presentation">
+    initial={{opacity:0,scale:.96}} animate={{opacity:1,scale:1}} exit={{opacity:0,transition:{duration:0}}} transition={settle} {...listeners} tabIndex={-1} role="presentation">
     <div className="tile"><Dots/><button type="button" className="main" onClick={onOpen} aria-label={`${task.title}, ${formatDuration(task.duration)}, ${past?dateLabel(task.plan_date!):'미계획'}`}>
       <span className="ttl">{task.title}</span><span className="meta" style={compact?{display:'flex'}:undefined}>{past?dateLabel(task.plan_date!)+' · ':''}{formatDuration(task.duration)}</span></button></div>
   </motion.div>;
