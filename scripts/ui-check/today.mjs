@@ -26,6 +26,9 @@ export default [
     assert.deepEqual((await page.blocks(space)).slice(0,3),['설계 문서 초안 작성, 예상 10:20–11:05','회의록 정리, 예상 11:05–11:35','분리망 배포 의존성 검토, 예상 13:00–14:00']);
     assert.match(await page.text('.today-day .bin'),/완료 1/);
     assert.match(await page.text('.today-bar .anchor'),/10:20 기준/);
+    const gap=await page.js(`(()=>{const c=document.querySelector('${space} .ceiling').getBoundingClientRect(),b=document.querySelector('${space} .blk.flow').getBoundingClientRect();return Math.round(b.top-c.bottom);})()`);
+    assert.ok(gap>=0&&gap<=2,`the first flow block hangs right under the ceiling (${gap}px)`);
+    await page.shot('today-ceiling');
   }},
   {name:'a 미계획 block held over the body opens a gap and drops into that order',run:async page=>{
     const tray=await find(page,'회의록 템플릿'),c=await find(page,'회의록 정리');

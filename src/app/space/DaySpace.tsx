@@ -10,7 +10,7 @@ import {setUi,useApp} from '../store/state.ts';
 import {completeTasks,dayRule,issueAt,reorder,resize,setGesture,taskMinute,uncomplete} from '../store/tasks.ts';
 import {blockButton} from '../editor/actions.ts';
 import {openAvailability} from '../store/schedule.ts';
-import {settle,reduced} from '../ui/motion.ts';
+import {bump,rise,settle,sink,reduced} from '../ui/motion.ts';
 import {Icon,Lock} from '../ui/icons.tsx';
 import {COLUMN_GEOMETRY,DAY_GEOMETRY,isGestureActive,useDrag,useRegion,type Geometry} from './drag.tsx';
 import './space.css';
@@ -87,6 +87,9 @@ export function DaySpace({date,axis,variant,bin,selected,multi=[],onOpen,onMulti
       <Ground axis={axis} rule={rule} geometry={geometry} date={date}/>
       <motion.div className="shutter" aria-hidden="true" style={{left:geometry.railLeft+1,width:geometry.railWidth-2,top:axis.position(rule.start),visibility:anchor>rule.start?'visible':'hidden'}}
         animate={{height:Math.max(0,axis.position(anchor)-axis.position(rule.start))}} transition={{type:'spring',visualDuration:.55,bounce:0}}/>
+      {/* The ceiling flow work is drawn up against: the shutter's edge carried across the body. */}
+      {plan.items.some(i=>!i.fixed)&&<motion.div className="ceiling" aria-hidden="true" style={{left:geometry.railLeft+geometry.railWidth}}
+        initial={false} animate={{top:axis.position(anchor)}} transition={{type:'spring',visualDuration:.55,bounce:0}}/>}
       {date===today&&<AnchorFlash top={axis.position(anchor)} left={geometry.railLeft} anchor={anchor}/>}
       <AnimatePresence initial={false} custom={doneIds}>
         {plan.items.map(item=><Block key={item.task.id} item={item} axis={axis} geometry={geometry} variant={variant} next={item.task.id===nextId}
@@ -162,15 +165,24 @@ function Block({item,axis,geometry:g,variant,next,hollow,selected,multi,squash,l
     e.preventDefault();onNudge(e.key==='ArrowUp'?-1:1,e.altKey,e.currentTarget);
   };
   const keys=t.completed?'Shift+F10':(orderable?'Alt+ArrowUp Alt+ArrowDown ':'')+'ArrowUp ArrowDown Shift+F10';
+  // Which way the block last moved. Kept until `top` changes again, so unrelated renders do not forget it.
+  const move=useRef<{to:number;dir:'up'|'down'|null;knock:boolean}>({to:top,dir:null,knock:false});
+  if(move.current.to!==top)move.current={to:top,dir:top<move.current.to?'up':'down',knock:top<move.current.to};
+  const drawn=!item.fixed&&!reduced(),[tileRef,animateTile]=useAnimate();
+  // A flow block drawn up knocks against the ceiling or the block above once it gets there.
+  function arrived(){
+    if(!drawn||!move.current.knock||squash||landed||hollow||!tileRef.current)return;
+    move.current.knock=false;void animateTile(tileRef.current,bump,{duration:.22,ease:'easeOut'});
+  }
   return <motion.div ref={setNodeRef} data-block="true" className={cls} style={{left:item.fixed?g.fixedLeft:g.flowLeft,right:g.right}}
-    initial={{top,height:h,opacity:0}} animate={{top,height:h,opacity:1}}
+    initial={{top,height:h,opacity:0}} animate={{top,height:h,opacity:1}} onAnimationComplete={arrived}
     variants={{leave:(done:Set<string>)=>done?.has(t.id)
       ?{y:-(top+h+40),scaleX:.5,scaleY:1.4,opacity:0,transition:{duration:reduced()?0:.3,ease:[.6,0,.9,.35]}}
       :{opacity:0,transition:{duration:.12}}}}
-    exit="leave" transition={settle} {...listeners} tabIndex={-1} role="presentation" onContextMenu={e=>{e.preventDefault();if(!isGestureActive())onMenu(e);}}>
+    exit="leave" transition={drawn&&move.current.dir?{...settle,top:move.current.dir==='up'?rise:sink}:settle} {...listeners} tabIndex={-1} role="presentation" onContextMenu={e=>{e.preventDefault();if(!isGestureActive())onMenu(e);}}>
     {/* A flow block's tooth faces the rail: pushed into it, the block latches to a time. */}
     {orderable&&<span className="tooth" aria-hidden="true"/>}
-    <motion.div className="tile" animate={squash?{scaleX:1.05,scaleY:.86}:landed?{scaleX:[1.03,1.025,.99,1],scaleY:[1.03,.93,1.025,1]}:{scaleX:1,scaleY:1}}
+    <motion.div ref={tileRef} className="tile" animate={squash?{scaleX:1.05,scaleY:.86}:landed?{scaleX:[1.03,1.025,.99,1],scaleY:[1.03,.93,1.025,1]}:{scaleX:1,scaleY:1}}
       transition={squash?{duration:.1}:landed?{duration:.45}:{duration:.15}} style={{transformOrigin:'50% 100%'}}>
       {item.fixed&&<Latch clack={!!landed?.clack}/>}
       <button type="button" className="chk" aria-label={t.title+(t.completed?' 완료 취소':' 완료')} aria-pressed={t.completed} onPointerDown={e=>e.stopPropagation()} onTouchStart={e=>e.stopPropagation()} onClick={onCheck}><Icon name="check" size={12} stroke={3}/></button>
