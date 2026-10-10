@@ -41,8 +41,9 @@
 .shutter{position:absolute;z-index:1;pointer-events:none;background:repeating-linear-gradient(180deg,var(--sp-groove) 0 1px,var(--sp-rail) 1px 5px)}
 .shutter::after{content:"";position:absolute;left:0;right:0;bottom:-2px;height:3px;border-radius:2px;background:var(--color-structure)}
 .hl{position:absolute;right:0;height:1px;background:var(--color-divider);opacity:.6;pointer-events:none}
-.off{position:absolute;right:0;border:0;padding:0;background:var(--color-unavailable-soft);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--color-text-muted);font-size:12px}
-.off:hover{background:color-mix(in srgb,var(--color-unavailable) 70%,var(--color-surface))}
+/* Scoped to the space: `.off` also marks days off on week columns and calendar cells. */
+.space>.off{position:absolute;right:0;border:0;padding:0;background:var(--color-unavailable-soft);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--color-text-muted);font-size:12px}
+.space>.off:hover{background:color-mix(in srgb,var(--color-unavailable) 70%,var(--color-surface))}
 .brk{position:absolute;right:0;z-index:1;border:0;border-top:1px solid var(--color-border);border-bottom:1px solid var(--color-border);background:repeating-linear-gradient(135deg,var(--color-unavailable) 0 6px,var(--color-unavailable-soft) 6px 12px);display:flex;align-items:center;padding:0 0 0 14px;font-size:12px;font-weight:600;color:var(--color-text-muted);cursor:pointer;text-align:left}
 .column .brk{padding-left:6px;font-size:11px}
 .floor{position:absolute;right:0;height:2px;margin-top:-1px;background:var(--color-border);z-index:1;pointer-events:none}
