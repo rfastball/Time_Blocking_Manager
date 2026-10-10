@@ -24,7 +24,7 @@
 .inbox-panel .inbox-chip>svg { width: 10px; height: 17px; color: var(--color-text-muted); }
 .inbox-panel .inbox-chip>small { grid-column: 2; }
 .tray-help { margin-top: auto; padding-top: var(--space-frame); font-size: var(--font-size-micro); line-height: var(--line-height-prose); color: var(--color-text-muted); }
-.carryover-title { font-size: var(--font-size-label); margin: var(--space-frame) 0 var(--space-control); color: var(--color-overdue); }
+.carryover-title { font-size: var(--font-size-label); margin: var(--space-frame) 0 var(--space-control); color: var(--color-text-muted); }
 .calendar-help { flex: none; display: flex; justify-content: space-between; gap: var(--space-section); font-size: var(--font-size-micro); color: var(--color-text-muted); }
 .week-head,.week-time-grid { grid-template-columns: 46px repeat(7,minmax(0,1fr)); }
 .week-head { padding-bottom: var(--space-section); }
@@ -246,3 +246,39 @@
 .split-choice output { display: block; font-variant-numeric: tabular-nums; color: var(--color-action); }
 .split-choice input { display: block; width: 100%; margin-block: var(--space-section); accent-color: var(--color-action); }
 .split-choice button { width: 100%; }
+
+/* Flow allocation: flow blocks sit beside the fix rail; fixed blocks hang on it. */
+[data-calendar-surface] { --fix-rail-width: 12px; }
+.fix-rail { position: absolute; top: 0; bottom: 0; left: 0; width: var(--fix-rail-width); border-right: var(--border-width) dashed var(--color-divider); pointer-events: none; z-index: 1; }
+[data-calendar-surface]:hover>.fix-rail { background: color-mix(in srgb,var(--color-action) 6%,transparent); }
+.time-block.flow,.week-task.flow { left: calc(var(--fix-rail-width) + 3px); }
+.time-block.fixed,.week-task.fixed { left: 0; border-left: 3px solid var(--color-action); }
+.time-block.fixed.completed,.week-task.fixed.completed { border-left-color: var(--color-border); }
+.block-title svg,.row-time svg,.composer-fixed svg,.edit-fixed svg { width: 12px; height: 12px; flex: none; vertical-align: -1px; margin-right: 3px; }
+.time-block .block-title:has(svg) span,.week-task .block-title:has(svg) span { display: inline; }
+.week-task.next { border: var(--border-selected-width) solid var(--color-selection-border); }
+.gesture-preview.fixed { left: 0; border-left-width: 4px; }
+.gesture-preview.insertion { height: 0; min-height: 0; padding: 0; border: 0; border-top: 3px solid var(--color-action); border-radius: 0; background: none; left: var(--fix-rail-width); overflow: visible; }
+.gesture-preview.insertion::before { content: ""; position: absolute; left: -4px; top: -6.5px; width: 10px; height: 10px; border-radius: 50%; background: var(--color-action); }
+.row-time.flow-time { color: var(--color-text-muted); }
+.row-time.fixed-time { font-weight: var(--font-weight-heading); white-space: nowrap; }
+.row-time.unplaced-reason { color: var(--color-text-muted); font-size: var(--font-size-label); white-space: nowrap; }
+.anchor-state { margin-left: auto; color: var(--color-text-muted); font-size: var(--font-size-label); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.batch-actions { display: flex; gap: var(--space-related); margin-left: auto; }
+.done-tray { margin: 0 0 var(--space-control); border-bottom: var(--border-width) solid var(--color-divider); padding-bottom: var(--space-related); }
+.done-tray>summary { cursor: pointer; font-size: var(--font-size-label); color: var(--color-text-muted); padding-block: var(--space-small); }
+.done-chips,.unplaced-chips { display: flex; flex-wrap: wrap; gap: var(--space-small); margin-top: var(--space-small); }
+.done-chip { display: inline-flex; align-items: center; border: var(--border-width) solid var(--color-border); border-radius: var(--radius-control); background: var(--color-block-completed); }
+.done-chip .done-title { border: 0; background: transparent; color: var(--color-text-muted); text-decoration: line-through; font-size: var(--font-size-label); padding: var(--space-small) var(--space-related); min-height: 0; }
+.done-chip .done-title small,.unplaced-chip small { margin-left: var(--space-small); font-variant-numeric: tabular-nums; }
+.done-chip .icon-button { width: 28px; height: 28px; min-height: 28px; padding: 5px; border: 0; background: transparent; }
+.unplaced-tray { margin-top: var(--space-control); padding-top: var(--space-related); border-top: var(--border-width) dashed var(--color-border); }
+.unplaced-tray h3 { margin: 0; font-size: var(--font-size-label); }
+.unplaced-tray h3 span { color: var(--color-text-muted); font-weight: normal; }
+.unplaced-chip { display: inline-flex; align-items: baseline; gap: var(--space-small); border: var(--border-width) dashed var(--color-block-border); background: var(--color-block); border-radius: var(--radius-block); padding: var(--space-small) var(--space-related); font-size: var(--font-size-label); cursor: grab; touch-action: none; min-height: 0; }
+.unplaced-chip small { color: var(--color-text-muted); }
+.week-date .unplaced-count { color: var(--color-text-muted); font-variant-numeric: tabular-nums; }
+.calendar-composer .composer-fixed { display: flex; align-items: center; gap: var(--space-small); font-size: var(--font-size-label); margin-bottom: var(--space-small); }
+.calendar-composer .composer-fixed input { width: auto; margin: 0; padding: 0; }
+.edit-fixed { display: flex; align-items: center; gap: var(--space-small); }
+#edit-time:disabled { opacity: .5; }

@@ -1,14 +1,14 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {formatDuration,rangeTitle} from './format.ts';
-import {agenda,calendarRefreshAllowed} from './today.ts';
+import {agenda,dayPlan,calendarRefreshAllowed} from './today.ts';
 import {placementIssue,selectionRange,splitDuration} from './placement.ts';
 import {createTimeAxis,timeAxisForDays,expandTimeAxis,timeAxisLabelVisible} from './time-axis.ts';
 import type {Task,WorkingDay} from './types.ts';
 import {suppressGestureClick} from './calendar-gestures.ts';
 
 const date='2026-10-08',rule:WorkingDay={enabled:true,start:540,end:1080,breaks:[{start:720,end:780,label:'점심'}]};
-const task:Task={id:'a',title:'초안',body:'',starts_at:date+'T13:00',duration:90,completed:false,revision:1};
+const task:Task={id:'a',title:'초안',body:'',starts_at:date+'T13:00',duration:90,completed:false,revision:1,plan_date:date,flow_order:null};
 
 test('a completed drag suppresses its delayed click and keeps the next pointer or keyboard action',async()=>{
   const original=Object.getOwnPropertyDescriptor(globalThis,'document'),document=new EventTarget();
@@ -70,18 +70,21 @@ test('durations and visible ranges retain minutes and month/year boundaries',()=
   assert.equal(rangeTitle('week','2027-01-01'),'2026년 12월 28일 – 2027년 1월 3일');
   assert.equal(rangeTitle('four','2026-12-28'),'2026년 12월 28일 – 2027년 1월 24일');
 });
-test('agenda enters current at start and overdue at end without completing tasks',()=>{
-  const states=[779,780,869,870,null].map(now=>agenda(date,[task],rule,now).find(i=>i.kind==='task')).map(i=>i?.kind==='task'?i.state:null);
-  assert.deepEqual(states,['upcoming','current','current','overdue','upcoming']);
-  assert.equal(task.completed,false);
-  const done=agenda(date,[{...task,completed:true}],rule,800).find(i=>i.kind==='task');
-  assert.equal(done?.kind==='task'&&done.state,'done');
+test('a day plan keeps fixed reservations, lays out flow and moves completed flow out of time',()=>{
+  const flow=(id:string,order:number,completed=false):Task=>({...task,id,starts_at:null,duration:60,flow_order:order,completed});
+  const plan=dayPlan(date,[task,{...task,id:'done-fixed',starts_at:date+'T16:00',completed:true},flow('f2',2),flow('f1',1),flow('gone',0,true),{...flow('other',1),plan_date:'2026-10-09'}],rule,[{date,anchor:600}]);
+  assert.deepEqual(plan.items.map(i=>[i.task.id,i.start,i.fixed]),[['f1',600,false],['f2',660,false],['a',780,true],['done-fixed',960,true]]);
+  assert.deepEqual(plan.completed.map(t=>t.id),['gone']);
+  assert.equal(plan.anchor,600);
 });
-test('agenda fills only available gaps, in order, and excludes other dates',()=>{
-  assert.deepEqual(agenda(date,[task,{...task,id:'other',starts_at:'2026-10-09T09:00'}],rule,null).map(i=>[i.kind,i.start,i.end]),[
-    ['gap',540,720],['unavailable',720,780],['task',780,870],['gap',870,1080]
+test('agenda marks the first remaining flow block next, never late, and skips gaps behind the anchor',()=>{
+  const flow:Task={...task,id:'f',starts_at:null,flow_order:1};
+  const plan=dayPlan(date,[task,flow],rule,[{date,anchor:600}]);
+  const items=agenda(plan.items,rule,plan.anchor);
+  assert.deepEqual(items.map(i=>[i.kind,i.start,i.end,i.kind==='task'?i.state:'']),[
+    ['task',600,690,'next'],['gap',690,720,''],['unavailable',720,780,''],['task',780,870,'upcoming'],['gap',870,1080,'']
   ]);
-  assert.deepEqual(agenda(date,[],{...rule,enabled:false},null),[]);
+  assert.deepEqual(agenda([],{...rule,enabled:false}),[]);
 });
 test('placement explains each refusal and permits touching boundaries and self moves',()=>{
   const cases:[number,number,WorkingDay,string][]=[

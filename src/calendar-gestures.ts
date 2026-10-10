@@ -8,9 +8,13 @@ import type {TimeAxis} from './time-axis';
 
 type CalendarActions={
   task:(id:string)=>Task|undefined;
+  position:(task:Task)=>{start:number;end:number}|undefined;
   issue:(id:string,date:string,start:number,duration:number)=>string|undefined;
-  move:(task:Task,date:string,start:number,duration:number)=>void;
-  create:(date:string,start:number,duration:number)=>void;
+  insertion:(date:string,minute:number,moving?:string)=>{before:string|null;line:number;label:string};
+  fix:(task:Task,date:string,start:number,duration:number)=>void;
+  assign:(task:Task,date:string,before:string|null)=>void;
+  resize:(task:Task,duration:number)=>void;
+  create:(date:string,start:number,duration:number,fixed:boolean)=>void;
   unschedule:(task:Task)=>void;
   context:(task:Task|undefined,date:string,start:number,x:number,y:number)=>void;
   active:(value:boolean)=>void;
@@ -32,6 +36,11 @@ export function suppressGestureClick(pointerId:number){
 const clock=(m:number)=>`${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`;
 const rawMinuteAt=(surface:HTMLElement,y:number)=>readTimeAxis(surface).minute(y-surface.getBoundingClientRect().top);
 const minuteAt=(surface:HTMLElement,y:number)=>Math.max(0,Math.min(1425,Math.floor((rawMinuteAt(surface,y)+.000001)/15)*15));
+// The fix rail is the only drop zone that turns a block into a fixed-time reservation.
+const onFixRail=(surface:HTMLElement,x:number)=>{
+  const rail=surface.querySelector<HTMLElement>('[data-fix-rail]')?.getBoundingClientRect();
+  return !!rail&&x>=rail.left-4&&x<=rail.right+2;
+};
 const calendarScroller=(surface:HTMLElement)=>{
   for(let parent=surface.parentElement;parent;parent=parent.parentElement){
     if(/^(auto|scroll)$/.test(getComputedStyle(parent).overflowY))return parent;
@@ -55,9 +64,11 @@ export function bindCalendarGestures(root:HTMLElement,actions:CalendarActions){
   root.querySelectorAll<HTMLElement>('[data-drag]').forEach(el=>{el.draggable=false;el.ondragstart=e=>e.preventDefault();});
   root.querySelectorAll<HTMLElement>('[data-resize]').forEach(el=>el.onkeydown=e=>{
     if(e.key!=='ArrowDown'&&e.key!=='ArrowUp')return;
-    e.preventDefault();e.stopPropagation();const task=actions.task(el.dataset.resize!);if(!task?.starts_at)return;
-    const start=Number(task.starts_at.slice(11,13))*60+Number(task.starts_at.slice(14,16)),duration=task.duration+(e.key==='ArrowDown'?15:-15),date=task.starts_at.slice(0,10),issue=actions.issue(task.id,date,start,duration);
-    if(issue)actions.error(issue);else actions.move(task,date,start,duration);
+    e.preventDefault();e.stopPropagation();const task=actions.task(el.dataset.resize!);if(!task?.plan_date)return;
+    const duration=task.duration+(e.key==='ArrowDown'?15:-15);
+    if(duration<15)return;
+    const issue=task.starts_at?actions.issue(task.id,task.plan_date,actions.position(task)!.start,duration):undefined;
+    if(issue)actions.error(issue);else actions.resize(task,duration);
   });
   root.onpointerdown=e=>{
     if(e.button!==0||!e.isPrimary)return;
@@ -103,15 +114,23 @@ export function bindCalendarGestures(root:HTMLElement,actions:CalendarActions){
     const task=actions.task(resize?.dataset.resize||source?.dataset.drag||'');
     if(!task&&target.closest('[data-task]'))return;
     const startY=e.clientY,startX=e.clientX,origin=surface?minuteAt(surface,startY):0,pointerOrigin=surface?rawMinuteAt(surface,startY):0;
-    const taskStart=task?.starts_at?Number(task.starts_at.slice(11,13))*60+Number(task.starts_at.slice(14,16)):0;
-    const offset=task&&surface?origin-taskStart:0;
-    let moved=false,destination:HTMLElement|null=surface,dropInbox=false,date=surface?.dataset.date||'',start=origin,duration=30,issue:string|undefined;
+    const placed=task&&surface?actions.position(task):undefined,taskStart=placed?.start??0;
+    // Grabbing a block keeps the grab point, snapped so fixed starts stay on the quarter hour.
+    const offset=placed?Math.round((origin-taskStart)/15)*15:0,createFixed=!task&&!!surface&&onFixRail(surface,startX);
+    type Drop={kind:'fix';date:string;start:number;duration:number}|{kind:'assign';date:string;before:string|null;line:number}|{kind:'resize';duration:number}|{kind:'create';date:string;start:number;duration:number;fixed:boolean}|{kind:'inbox'}|null;
+    let moved=false,destination:HTMLElement|null=surface,drop:Drop=null,issue:string|undefined,label='';
     const preview=document.createElement('div');preview.className='gesture-preview';preview.setAttribute('aria-hidden','true');
     const feedback=document.createElement('div');feedback.className='gesture-feedback';feedback.setAttribute('role','status');
     const paint=()=>{
       preview.remove();
-      if(destination){const axis=readTimeAxis(destination);destination.append(preview);preview.style.top=axis.position(start)+'px';preview.style.height=(axis.position(start+duration)-axis.position(start))+'px';preview.classList.toggle('invalid',!!issue);preview.textContent=clock(start)+' · '+formatDuration(duration);}
-      feedback.textContent=dropInbox?'미계획으로 옮기기':issue||`${date}  ${clock(start)}–${clock(start+duration)} · ${formatDuration(duration)}`;
+      if(destination&&drop&&drop.kind!=='inbox'){
+        const axis=readTimeAxis(destination);destination.append(preview);
+        const fixed=drop.kind==='fix'||drop.kind==='create'&&drop.fixed;
+        preview.classList.toggle('insertion',drop.kind==='assign');preview.classList.toggle('fixed',fixed);preview.classList.toggle('invalid',!!issue);
+        if(drop.kind==='assign'){preview.style.top=axis.position(drop.line)+'px';preview.style.height='';preview.textContent='';}
+        else{const start=drop.kind==='resize'?taskStart:drop.start,duration=drop.duration;preview.style.top=axis.position(start)+'px';preview.style.height=(axis.position(start+duration)-axis.position(start))+'px';preview.textContent=(fixed?'고정 '+clock(start):drop.kind==='resize'?'':'순서 끝')+' · '+formatDuration(duration);}
+      }
+      feedback.textContent=issue||label;
       feedback.classList.toggle('invalid',!!issue);if(!feedback.isConnected)document.body.append(feedback);
     };
     const move=(event:PointerEvent)=>{
@@ -119,21 +138,31 @@ export function bindCalendarGestures(root:HTMLElement,actions:CalendarActions){
       if(!moved&&Math.hypot(event.clientX-startX,event.clientY-startY)<5)return;
       moved=true;actions.active(true);event.preventDefault();source?.classList.add('dragging');
       const hit=document.elementFromPoint(event.clientX,event.clientY) as HTMLElement|null;
-      dropInbox=!!task&&!resize&&!!hit?.closest('[data-inbox-drop]');
+      const inbox=!!task&&!resize&&!!hit?.closest('[data-inbox-drop]');
       destination=resize||!task?surface:hit?.closest<HTMLElement>('[data-calendar-surface]')||null;
-      const day=hit?.closest<HTMLElement>('.day-cell[data-date]');
-      if(destination){
-        date=destination.dataset.date!;const pointerMinute=expandAt(destination,event.clientY);
-        if(resize){start=taskStart;duration=Math.max(15,task!.duration+Math.round((pointerMinute-pointerOrigin)/15)*15);}
-        else if(task){start=Math.min(1425,Math.floor((pointerMinute+.000001)/15)*15)-offset;duration=task.duration;}
-        else {const range=selectionRange(origin,Math.min(1425,Math.floor((pointerMinute+.000001)/15)*15));start=range.start;duration=range.duration;}
-        issue=actions.issue(task?.id||'',date,start,duration);
+      const day=hit?.closest<HTMLElement>('.day-cell[data-date]');issue=undefined;
+      if(inbox){drop={kind:'inbox'};label='미계획으로 옮기기';destination=null;}
+      else if(destination){
+        const date=destination.dataset.date!,pointerMinute=expandAt(destination,event.clientY),snapped=Math.min(1425,Math.floor((pointerMinute+.000001)/15)*15);
+        if(resize){
+          const duration=Math.max(15,task!.duration+Math.round((pointerMinute-pointerOrigin)/15)*15);
+          drop={kind:'resize',duration};label=formatDuration(duration);
+          if(task!.starts_at)issue=actions.issue(task!.id,date,taskStart,duration);
+        }else if(task&&(task.starts_at||onFixRail(destination,event.clientX))){
+          const start=snapped-offset;drop={kind:'fix',date,start,duration:task.duration};
+          label=`${date}  고정 ${clock(start)}–${clock(start+task.duration)}`;issue=actions.issue(task.id,date,start,task.duration);
+        }else if(task){
+          const target=actions.insertion(date,pointerMinute,task.id);drop={kind:'assign',date,before:target.before,line:target.line};label=target.label;
+        }else{
+          // Only a deliberate time range (or the rail) reserves a time; a jittered click stays a date assignment.
+          const range=selectionRange(origin,snapped),fixed=createFixed||range.duration>15;
+          drop=fixed?{kind:'create',date,start:range.start,duration:range.duration,fixed}:{kind:'create',date,start:origin,duration:30,fixed};
+          label=fixed?`고정 ${clock(range.start)}–${clock(range.start+range.duration)}`:'순서 끝';
+          if(fixed)issue=actions.issue('',date,range.start,range.duration);
+        }
         const scroll=calendarScroller(destination);if(scroll){const r=scroll.getBoundingClientRect();if(event.clientY>r.bottom-30)scroll.scrollTop+=16;else if(event.clientY<r.top+30)scroll.scrollTop-=16;}
-      }else if(day&&task){
-        date=day.dataset.date!;duration=task.duration;start=0;
-        while(start<1440&&actions.issue(task.id,date,start,duration))start+=15;
-        issue=start>=1440?'이 날짜에 블록이 들어갈 빈 시간이 없어요.':undefined;
-      }else issue=dropInbox?undefined:'배치할 시간 위로 옮겨 주세요.';
+      }else if(day&&task){drop={kind:'assign',date:day.dataset.date!,before:null,line:0};label=`${day.dataset.date}  순서 끝`;}
+      else{drop=null;issue='배치할 날짜나 시간 위로 옮겨 주세요.';}
       paint();
     };
     const cleanup=()=>{
@@ -142,13 +171,22 @@ export function bindCalendarGestures(root:HTMLElement,actions:CalendarActions){
     };
     const finish=(event:PointerEvent)=>{
       if(event.pointerId!==e.pointerId)return;cleanup();
-      if(moved||(!task&&surface)){
-        suppressGestureClick(e.pointerId);
-        if(dropInbox&&task){actions.unschedule(task);return;}
-        if(issue){actions.error(issue);return;}
-        if(task){if(date)actions.move(task,date,start,duration);}
-        else if(surface){const problem=actions.issue('',date,start,duration);if(problem)actions.error(problem);else actions.create(date,start,duration);}
+      if(!moved&&!(!task&&surface))return;
+      suppressGestureClick(e.pointerId);
+      if(!moved){
+        // A plain click assigns to the date; a click on the rail reserves that time.
+        const date=surface!.dataset.date!;
+        if(createFixed){const problem=actions.issue('',date,origin,30);if(problem)actions.error(problem);else actions.create(date,origin,30,true);}
+        else actions.create(date,origin,30,false);
+        return;
       }
+      if(issue){actions.error(issue);return;}
+      if(!drop)return;
+      if(drop.kind==='inbox')actions.unschedule(task!);
+      else if(drop.kind==='resize')actions.resize(task!,drop.duration);
+      else if(drop.kind==='fix')actions.fix(task!,drop.date,drop.start,drop.duration);
+      else if(drop.kind==='assign')actions.assign(task!,drop.date,drop.before);
+      else actions.create(drop.date,drop.start,drop.duration,drop.fixed);
     };
     const cancel=()=>cleanup();const escape=(event:KeyboardEvent)=>{if(event.key==='Escape'){event.preventDefault();cancel();}};
     document.addEventListener('pointermove',move,{passive:false});document.addEventListener('pointerup',finish);document.addEventListener('pointercancel',cancel);document.addEventListener('keydown',escape);window.addEventListener('blur',cancel);

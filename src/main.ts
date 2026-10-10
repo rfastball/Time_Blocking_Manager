@@ -6,13 +6,14 @@ import {CaptureDraft,StoredDraft,captureEnterAction,isCompositionKey} from './ca
 import {effectiveDay,shortcutFromKey} from './settings';
 import {availabilityHTML,dayAvailabilityHTML,bindAvailability,weeklySummary,calendarAvailabilityHTML,focusAvailabilityBand,changeAvailabilityBand} from './availability';
 import {formatDuration,rangeTitle} from './format';
-import {agenda,calendarRefreshAllowed} from './today';
+import {agenda,dayPlan,calendarRefreshAllowed} from './today';
+import {byFlowOrder,insertionBefore,moveInOrder,unplacedLabel} from './flow';
 import {placementIssue as checkPlacement,splitDuration} from './placement';
 import {bindCalendarGestures} from './calendar-gestures';
 import {createTimeAxis,timeAxisForDays,readTimeAxis,timeAxisAttributes,timeAxisLabelVisible,paintCalendarAxis} from './time-axis';
 import type {RawSchedule} from './availability';
 import type {AvailabilityTarget,AvailabilityEdge} from './availability-band';
-import type {Task,Snapshot,Action,Command,AppError,WorkingDay,Settings,Routine,ManagedBackup,BackupInspection} from './types';
+import type {Task,Snapshot,Action,Command,AppError,WorkingDay,Settings,Routine,ManagedBackup,BackupInspection,TaskRevision} from './types';
 import {resolveTheme,readTheme,saveTheme,themePickerHTML,themeStorageKey} from './theme';
 import './fonts.css';
 import './tokens.css';
@@ -38,13 +39,17 @@ const minutes=(s:string)=>Number(s.slice(0,2))*60+Number(s.slice(3,5));
 const taskMinute=(t:Task)=>minutes(t.starts_at!.slice(11));
 const dateLabel=(s:string)=>dateOf(s).toLocaleDateString('ko-KR',{month:'long',day:'numeric',weekday:'long'});
 const plusDays=(date:string,n:number)=>{const d=dateOf(date);d.setDate(d.getDate()+n);return dateKey(d);};
-const icon=(name:string)=>`<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${({today:'<rect x="4" y="4" width="16" height="17" rx="2"/><path d="M4 9h16M8 2v4M16 2v4M8 13h3M8 17h7"/>',plan:'<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M9 9v12M15 9v12M3 15h18"/>',inbox:'<path d="M3 13l3-8h12l3 8v7H3zM3 13h5l2 3h4l2-3h5"/>',settings:'<path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',left:'<path d="M15 5l-7 7 7 7"/>',right:'<path d="M9 5l7 7-7 7"/>',delete:'<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v5M14 11v5"/>',plus:'<path d="M12 5v14M5 12h14"/>',close:'<path d="M6 6l12 12M18 6L6 18"/>',check:'<path d="M5 12l4 4L19 6"/>'} as Record<string,string>)[name]}</svg>`;
+const icon=(name:string)=>`<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${({today:'<rect x="4" y="4" width="16" height="17" rx="2"/><path d="M4 9h16M8 2v4M16 2v4M8 13h3M8 17h7"/>',plan:'<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M9 9v12M15 9v12M3 15h18"/>',inbox:'<path d="M3 13l3-8h12l3 8v7H3zM3 13h5l2 3h4l2-3h5"/>',settings:'<path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',left:'<path d="M15 5l-7 7 7 7"/>',right:'<path d="M9 5l7 7-7 7"/>',delete:'<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v5M14 11v5"/>',plus:'<path d="M12 5v14M5 12h14"/>',close:'<path d="M6 6l12 12M18 6L6 18"/>',check:'<path d="M5 12l4 4L19 6"/>',lock:'<rect x="6" y="11" width="12" height="9" rx="2"/><path d="M9 11V8a3 3 0 0 1 6 0v3"/>',undo:'<path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/>'} as Record<string,string>)[name]}</svg>`;
 
 let snapshot:Snapshot|null=null,view:'today'|'plan'|'inbox'|'settings'='today',selected=today(),period='week',inboxOpen=true;
 let planAnchor=selected,backupExpanded=false,inboxCompletedOpen=false;
 const captureDraft=new CaptureDraft();
 const storedDraft=new StoredDraft();storedDraft.loaded=!native;
-let calendarComposer:{date:string;start:number;duration:number}|null=null,calendarComposing=false,calendarRefreshPending=false;
+let calendarComposer:{date:string;start:number;duration:number;fixed?:boolean}|null=null,calendarComposing=false,calendarRefreshPending=false;
+let batchMode=false,doneTrayOpen=false,reflowGuardUntil=0;
+const batchSelected=new Set<string>();
+let listHold:{date:string;ids:string[]}|null=null,listHoldTimer:ReturnType<typeof setTimeout>|undefined;
+let animateFrom:Map<string,DOMRect>|null=null;
 let editor:(Task&{epoch:string})|null=null,editorDirty=false,editorSequence=0;
 let draftTimer:ReturnType<typeof setTimeout>|undefined,settingsDraft:Settings|null=null;
 let rawSchedules:Record<string,RawSchedule>={};
@@ -63,7 +68,7 @@ let backupListSequence=0,backupInspectionSequence=0,backupListScroll=0;
 let pendingEditorId:string|null=null,resizing=false,placedId='';
 let statusTimer:ReturnType<typeof setTimeout>|undefined,lastAnnouncement='';
 const nowMinute=()=>{const mock=!native&&(import.meta as ImportMeta&{env:{DEV:boolean}}).env.DEV?new URLSearchParams(location.search).get('now'):null;const now=new Date();return mock&&/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(mock)?minutes(mock):now.getHours()*60+now.getMinutes();};
-const inboxTasks=()=>snapshot?.tasks.filter(t=>!t.starts_at&&!t.completed)??[];
+const inboxTasks=()=>snapshot?.tasks.filter(t=>!t.plan_date&&!t.completed)??[];
 const placementIssue=(id:string,date:string,start:number,duration:number)=>checkPlacement(id,date,start,duration,dayRule(date),snapshot!.tasks);
 const queue=new SaveQueue(()=>{
   updateStatus();
@@ -114,8 +119,8 @@ async function saveBeforeQuit(requestId:string){
     if(quitRequest!==requestId)return;
     if(captureDraft.text.trim()){
       if(calendarComposer){
-        const {date,start,duration}=calendarComposer;
-        captureDraft.command??={request_id:crypto.randomUUID(),epoch:snapshot!.epoch,action:{type:'create_scheduled',id:crypto.randomUUID(),title:captureDraft.text.trim(),starts_at:date+'T'+time(start),duration}};
+        const {date,start,duration}=calendarComposer,fixed=calendarComposer.fixed??true;
+        captureDraft.command??={request_id:crypto.randomUUID(),epoch:snapshot!.epoch,action:composerAction(date,start,duration,fixed,captureDraft.text.trim())};
         const command=captureDraft.command;
         await persistDraft();await queue.whenIdle();
         await dispatch(command.action,command.epoch,command.request_id,()=>{if(captureDraft.acknowledge(command))calendarComposer=null;});
@@ -172,16 +177,22 @@ async function dispatch(action:Action, epoch=snapshot!.epoch, requestId:string=c
   }).catch(showError);
 }
 function previewMutation(command:Command):Snapshot {
-  const s=structuredClone(snapshot!),a=command.action;
-  if(a.type==='create'||a.type==='create_scheduled'){
-    const start=a.type==='create_scheduled'?a.starts_at:null,duration=a.type==='create_scheduled'?a.duration:30;
-    if(start&&!canPlace(a.id,start.slice(0,10),minutes(start.slice(11)),duration))throw Error('다른 작업 또는 금지시간과 겹칩니다.');
-    s.tasks.push({id:a.id,title:a.title,body:'',starts_at:start,duration,completed:false,revision:1});
+  const s=structuredClone(snapshot!),a=command.action;s.layouts??=[];
+  const nextOrder=(date:string)=>Math.max(0,...s.tasks.filter(t=>t.plan_date===date&&!t.starts_at).map(t=>t.flow_order??0))+1;
+  const toFlow=(t:Task,date:string)=>{t.starts_at=null;t.plan_date=date;t.flow_order=nextOrder(date);};
+  const raise=(date:string,at:string)=>{if(at.slice(0,10)!==date)throw Error('완료 확인 날짜가 계획 날짜와 다릅니다.');const minute=minutes(at.slice(11)),row=s.layouts.find(l=>l.date===date);if(row)row.anchor=Math.max(row.anchor,minute);else s.layouts.push({date,anchor:minute});};
+  const fixedIssue=(id:string,startsAt:string,duration:number)=>checkPlacement(id,startsAt.slice(0,10),minutes(startsAt.slice(11)),duration,effectiveDay(s.settings,startsAt.slice(0,10)),s.tasks);
+  if(a.type==='create'||a.type==='create_scheduled'||a.type==='create_flow'){
+    const start=a.type==='create_scheduled'?a.starts_at:null,duration=a.type==='create'?30:a.duration;
+    if(start&&fixedIssue(a.id,start,duration))throw Error('다른 작업 또는 금지시간과 겹칩니다.');
+    const task:Task={id:a.id,title:a.title,body:'',starts_at:start,duration,completed:false,revision:1,plan_date:start?.slice(0,10)??null,flow_order:null};
+    if(a.type==='create_flow')toFlow(task,a.date);
+    s.tasks.push(task);
   }
   else if(a.type==='set_settings'||a.type==='set_schedule'){
     s.settings={...s.settings,...a,revision:s.settings.revision+1};
     for(const t of s.tasks){if(t.starts_at&&checkPlacement(t.id,t.starts_at.slice(0,10),taskMinute(t),t.duration,effectiveDay(s.settings,t.starts_at.slice(0,10)),[])){
-      if(a.type==='set_schedule'&&a.move_conflicts){t.starts_at=null;t.revision++;}else throw Error('배치된 작업과 겹칩니다.');
+      if(a.type==='set_schedule'&&a.move_conflicts){toFlow(t,t.plan_date!);t.revision++;}else throw Error('배치된 작업과 겹칩니다.');
     }}
   }
   else if(a.type==='set_routines'){
@@ -192,20 +203,43 @@ function previewMutation(command:Command):Snapshot {
     for(let date=a.from;date<=a.to;date=plusDays(date,1))for(const routine of s.settings.routines??[]){
       const key=routine.id+':'+date;
       if(previewOccurrences.has(key)||!routine.weekdays.includes((dateOf(date).getDay()+6)%7))continue;
-      const id=crypto.randomUUID(),starts_at=checkPlacement(id,date,routine.start,routine.duration,effectiveDay(s.settings,date),s.tasks)?null:date+'T'+time(routine.start);
-      s.tasks.push({id,title:routine.title,body:routine.body,starts_at,duration:routine.duration,completed:false,revision:1});previewOccurrences.add(key);
+      const id=crypto.randomUUID(),task:Task={id,title:routine.title,body:routine.body,starts_at:date+'T'+time(routine.start),duration:routine.duration,completed:false,revision:1,plan_date:date,flow_order:null};
+      if(checkPlacement(id,date,routine.start,routine.duration,effectiveDay(s.settings,date),s.tasks))toFlow(task,date);
+      s.tasks.push(task);previewOccurrences.add(key);
     }
   }
   else if(a.type==='clear_day'){
-    const tasks=s.tasks.filter(t=>t.starts_at?.slice(0,10)===a.date);
+    const tasks=s.tasks.filter(t=>t.plan_date===a.date);
     if(tasks.length!==a.expected_tasks.length||tasks.some(t=>!a.expected_tasks.some(expected=>expected.id===t.id&&expected.revision===t.revision)))throw Error('일정이 변경됐습니다. 다시 확인하세요.');
-    for(const task of tasks){task.starts_at=null;task.revision++;}
+    for(const task of tasks){task.starts_at=null;task.plan_date=null;task.flow_order=null;task.revision++;}
+    s.layouts=s.layouts.filter(l=>l.date!==a.date);
+  }
+  else if(a.type==='complete_flow'){
+    const tasks=a.items.map(item=>s.tasks.find(t=>t.id===item.id&&t.revision===item.revision&&t.plan_date===a.date&&!t.starts_at&&!t.completed));
+    if(!tasks.length||tasks.some(t=>!t))throw Error('다른 곳에서 항목이 변경됐습니다. 다시 확인하세요.');
+    for(const t of tasks){t!.completed=true;t!.revision++;}
+    if(a.at)raise(a.date,a.at);
+  }
+  else if(a.type==='reflow')raise(a.date,a.at);
+  else if(a.type==='reorder_flow'){
+    const current=s.tasks.filter(t=>t.plan_date===a.date&&!t.starts_at&&!t.completed);
+    if(current.length!==a.expected.length||a.expected.some(e=>!current.some(t=>t.id===e.id&&t.revision===e.revision)))throw Error('다른 창에서 하루 순서가 변경됐습니다. 다시 확인하세요.');
+    a.expected.forEach((e,i)=>{s.tasks.find(t=>t.id===e.id)!.flow_order=i+1;});
   }
   else {const t=s.tasks.find(t=>t.id===a.id)!;
     if(a.type==='delete')s.tasks=s.tasks.filter(t=>t.id!==a.id);
     else if(a.type==='set_completed'){t.completed=a.completed;t.revision++;}
-    else if(a.type==='split'){if(t.completed||a.first_duration<15||a.first_duration%15||a.first_duration>t.duration-15)throw Error('각 블록은 15분 이상이어야 해요.');s.tasks.push({...t,id:a.new_id,starts_at:null,duration:t.duration-a.first_duration,revision:1});t.duration=a.first_duration;t.revision++;}
-    else {if(a.starts_at&&!canPlace(a.id,a.starts_at.slice(0,10),minutes(a.starts_at.slice(11)),a.duration))throw Error('다른 항목 또는 작업 불가 시간과 겹칩니다.');Object.assign(t,a,{revision:t.revision+1});}
+    else if(a.type==='split'){if(t.completed||a.first_duration<15||a.first_duration%15||a.first_duration>t.duration-15)throw Error('각 블록은 15분 이상이어야 해요.');s.tasks.push({...t,id:a.new_id,starts_at:null,plan_date:null,flow_order:null,duration:t.duration-a.first_duration,revision:1});t.duration=a.first_duration;t.revision++;}
+    else {
+      if(a.starts_at&&fixedIssue(a.id,a.starts_at,a.duration))throw Error('다른 항목 또는 작업 불가 시간과 겹칩니다.');
+      const wasFlowOn=!t.starts_at?t.plan_date:null;
+      Object.assign(t,{title:a.title,body:a.body,duration:a.duration,starts_at:a.starts_at,revision:t.revision+1});
+      const date=a.starts_at?.slice(0,10)??a.plan_date;
+      if(a.starts_at){t.plan_date=date;t.flow_order=null;}
+      else if(!date){t.plan_date=null;t.flow_order=null;}
+      else if(a.before){const target=s.tasks.find(x=>x.id===a.before&&x.plan_date===date&&!x.starts_at&&!x.completed&&x.id!==t.id);if(!target)throw Error('끼워 넣을 위치를 다시 확인하세요.');const order=target.flow_order!;for(const x of s.tasks)if(x.id!==t.id&&x.plan_date===date&&!x.starts_at&&(x.flow_order??0)>=order)x.flow_order=(x.flow_order??0)+1;t.plan_date=date;t.flow_order=order;}
+      else if(wasFlowOn!==date)toFlow(t,date);
+    }
   } return s;
 }
 async function reload(){
@@ -246,12 +280,14 @@ function refreshCalendar(reloadData=false){
   if(!calendarRefreshAllowed({view,ready:ready&&storedDraft.loaded,visible:document.visibilityState==='visible',dirty:!!routineDraft||editorDirty||!!Object.keys(rawSchedules).length||!!settingsDraft||calendarComposing,input:!!document.activeElement?.matches('input,textarea,[contenteditable]'),modal:!!document.querySelector('dialog[open]'),gesture:!!dragId||resizing}))return;
   if(refreshNeeded&&!queue.busy){refreshNeeded=false;void reload();}else renderContent();
 }
-function tasksOn(date:string){return snapshot!.tasks.filter(t=>t.starts_at?.startsWith(date)).sort((a,b)=>a.starts_at!.localeCompare(b.starts_at!));}
-function overdue(){return snapshot!.tasks.filter(t=>!t.completed&&t.starts_at&&t.starts_at.slice(0,10)<today());}
+function datedOn(date:string){return snapshot!.tasks.filter(t=>t.plan_date===date);}
+function planOf(date:string){return dayPlan(date,snapshot!.tasks,dayRule(date),snapshot!.layouts??[]);}
+// Display order of a date: positioned blocks by time, then blocks that did not fit.
+function tasksOn(date:string){const plan=planOf(date);return [...plan.items.map(i=>i.task),...plan.unplaced.map(u=>u.task),...plan.completed];}
+function positionOf(task:Task){if(!task.plan_date)return undefined;const item=planOf(task.plan_date).items.find(i=>i.task.id===task.id);return item&&{start:item.start,end:item.end};}
+function flowOrderOn(date:string){return snapshot!.tasks.filter(t=>t.plan_date===date&&!t.starts_at&&!t.completed).sort(byFlowOrder);}
+function overdue(){return snapshot!.tasks.filter(t=>!t.completed&&t.plan_date&&t.plan_date<today());}
 function available(date:string){const d=dayRule(date);return d.enabled?d.end-d.start-d.breaks.reduce((sum,b)=>sum+b.end-b.start,0):0;}
-function canPlace(id:string,date:string,start:number,duration:number){
-  return placementIssue(id,date,start,duration)===null;
-}
 const brandMark=(cls='brand-mark')=>`<svg class="${cls}" aria-hidden="true" viewBox="0 0 64 64"><rect x="14" y="14" width="12" height="36" rx="3"/><rect x="32" y="14" width="18" height="14" rx="3"/><rect x="32" y="34" width="12" height="16" rx="3"/></svg>`;
 function captureHTML(){return `<main class="capture-window"><form id="capture-form" class="capture-form">${brandMark('brand-mark capture-mark')}<label class="sr-only" for="capture">빠른 캡처</label><textarea id="capture" autocomplete="off" placeholder="어떤 일을 해야 하나요?" maxlength="650" rows="2" ${!ready||!storedDraft.loaded?'disabled':''}>${esc(captureDraft.text)}</textarea></form><div class="capture-bar"><div id="status"></div><button type="button" id="close-capture" class="capture-close">닫기</button><button type="submit" form="capture-form" class="capture-save">저장</button></div></main>`;}
 function syncCaptureSave(){const input=document.querySelector<HTMLTextAreaElement>('#capture'),save=document.querySelector<HTMLButtonElement>('.capture-save');if(input&&save)save.disabled=input.disabled||!input.value.trim();}
@@ -302,7 +338,7 @@ function renderContent(){
   if(captureWindow){updateStatus();return;}
   const content=$('#content'),active=document.activeElement as HTMLElement|null;
   const caret=active?.id==='calendar-title'?{start:(active as HTMLInputElement).selectionStart,end:(active as HTMLInputElement).selectionEnd}:null;
-  const focusKey=active&&content.contains(active)?['id','data-date','data-period','data-complete','data-resize','data-task','data-backup-action','data-backup-id'].find(key=>active.hasAttribute(key)):undefined;
+  const focusKey=active&&content.contains(active)?['id','data-date','data-period','data-complete','data-batch','data-uncomplete','data-resize','data-task','data-backup-action','data-backup-id'].find(key=>active.hasAttribute(key)):undefined;
   const focusSelector=focusKey?`[${focusKey}="${CSS.escape(active!.getAttribute(focusKey)!)}"]`:null;
   const scrollPositions=['.timeline-scroll','.inbox-panel','.week-view'].map(selector=>({selector,top:content.querySelector(selector)?.scrollTop??null}));
   $('#heading').textContent=view==='settings'?'설정':view==='inbox'?'미계획':view==='plan'?rangeTitle(period,planAnchor):dateLabel(selected);
@@ -319,7 +355,7 @@ function renderContent(){
   document.querySelectorAll<HTMLElement>('.rail [data-view]').forEach(b=>{const active=b.dataset.view===view;b.classList.toggle('active',active);if(active)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');if(b.dataset.view==='inbox'){b.setAttribute('aria-label','미계획 '+inboxTasks().length+'건');b.querySelector('span')!.textContent='미계획'+(inboxTasks().length?' '+inboxTasks().length:'');}});
   $<HTMLButtonElement>('#go-today').disabled=selected===today();
   const unit=view==='today'?'날':period==='month'?'달':period==='two'?'2주':'주';$('#prev').setAttribute('aria-label','이전 '+unit);$('#next').setAttribute('aria-label','다음 '+unit);
-  bindContent();fitTimeline();
+  bindContent();fitTimeline();settleBlocks();
   void ensureVisibleRoutines();
   if(calendarComposer)openComposer(calendarComposer.date,calendarComposer.start,calendarComposer.duration,true);
   updateStatus();
@@ -327,19 +363,44 @@ function renderContent(){
   if(focusSelector)content.querySelector<HTMLElement>(focusSelector)?.focus({preventScroll:true});
   if(caret){const input=content.querySelector<HTMLInputElement>('#calendar-title');if(input&&caret.start!==null&&caret.end!==null)input.setSelectionRange(caret.start,caret.end);}
 }
-function taskRow(t:Task,old=false,state=''){
-  const current=state==='current',past=old||state==='overdue';
-  return `<div class="agenda-task ${current?'current':''}" ${current?'aria-current="true"':''}><div class="task-row ${t.completed?'completed':''}" data-drag="${esc(t.id)}"><label class="check-target"><input aria-label="${esc(t.title)} 완료" type="checkbox" data-complete="${esc(t.id)}" ${t.completed?'checked':''}></label><span class="row-time">${t.starts_at?time(taskMinute(t)):'미계획'}</span><button class="task-title" data-task="${esc(t.id)}">${esc(t.title)}${old?`<small>${dateLabel(t.starts_at!.slice(0,10))}${t.body.trim()?' · '+esc(t.body.split('\n').find(Boolean)):''}</small>`:''}</button>${past?'<span class="badge overdue-badge">지남</span>':''}<span class="duration">${formatDuration(t.duration)}</span></div>${current?`<div class="current-detail"><span class="badge">진행 중</span>${t.body?`<p class="memo-preview">${esc(t.body.split('\n').slice(0,3).join('\n'))}</p>`:''}<div class="detail-actions"><button class="primary" data-complete="${esc(t.id)}">완료로 표시</button><button data-task="${esc(t.id)}">상세 열기</button></div></div>`:''}</div>`;
+type RowItem={task:Task;start?:number;fixed?:boolean;state?:string;reason?:string};
+function rowTime(item:RowItem,old:boolean){
+  const t=item.task;
+  if(old)return `<span class="row-time">${t.starts_at?icon('lock'):''}${esc(dateOf(t.plan_date!).toLocaleDateString('ko-KR',{month:'numeric',day:'numeric'}))}</span>`;
+  if(item.reason)return `<span class="row-time unplaced-reason">${esc(item.reason)}</span>`;
+  if(item.start===undefined)return `<span class="row-time">${t.completed?'완료':'미계획'}</span>`;
+  return item.fixed?`<span class="row-time fixed-time" title="시각 고정">${icon('lock')}${time(item.start)}</span>`:`<span class="row-time flow-time">${time(item.start)}</span>`;
+}
+function taskRow(item:RowItem,old=false){
+  const t=item.task,next=item.state==='next',batchable=batchMode&&!t.completed&&!old;
+  const check=batchable?`<label class="check-target"><input aria-label="${esc(t.title)} 선택" type="checkbox" data-batch="${esc(t.id)}" ${batchSelected.has(t.id)?'checked':''}></label>`:`<label class="check-target"><input aria-label="${esc(t.title)} 완료" type="checkbox" data-complete="${esc(t.id)}" ${t.completed?'checked':''}></label>`;
+  return `<div class="agenda-task ${next?'next':''}" data-row="${esc(t.id)}"><div class="task-row ${t.completed?'completed':''}" data-drag="${esc(t.id)}">${check}${rowTime(item,old)}<button class="task-title" data-task="${esc(t.id)}" ${!t.starts_at&&t.plan_date&&!t.completed?`data-reorder="${esc(t.id)}"`:''}>${esc(t.title)}${old&&t.body.trim()?`<small>${esc(t.body.split('\n').find(Boolean))}</small>`:''}</button>${next?'<span class="badge">다음</span>':''}<span class="duration">${formatDuration(t.duration)}</span></div>${next&&!batchMode?`<div class="current-detail">${t.body?`<p class="memo-preview">${esc(t.body.split('\n').slice(0,3).join('\n'))}</p>`:''}<div class="detail-actions"><button class="primary" data-complete="${esc(t.id)}">완료로 표시</button><button data-task="${esc(t.id)}">상세 열기</button></div></div>`:''}</div>`;
+}
+function todayRows(){
+  const plan=planOf(selected),rule=dayRule(selected),items=agenda(plan.items,rule,plan.anchor),reasons=new Map(plan.unplaced.map(u=>[u.task.id,unplacedLabel[u.reason]]));
+  if(listHold?.date===selected){
+    // While the user completes items one after another, rows keep their places.
+    const byId=new Map<string,RowItem>([...plan.items.map(i=>[i.task.id,i] as const),...plan.unplaced.map(u=>[u.task.id,{task:u.task,reason:unplacedLabel[u.reason]}] as const),...plan.completed.map(t=>[t.id,{task:t}] as const)]);
+    const ids=[...listHold.ids,...Array.from(byId.keys()).filter(id=>!listHold!.ids.includes(id))];
+    return ids.map(id=>byId.get(id)).filter((i):i is RowItem=>!!i).map(i=>taskRow(i)).join('');
+  }
+  return items.map(item=>item.kind==='task'?taskRow(item):`<div class="agenda-interval ${item.kind}"><span class="row-time">${time(item.start)}</span><span>${item.kind==='unavailable'?esc(item.label)+' · 작업 불가 ':''}${formatDuration(item.end-item.start)}</span></div>`).join('')+plan.unplaced.map(u=>taskRow({task:u.task,reason:reasons.get(u.task.id)})).join('');
 }
 function todayHTML(){
-  const tasks=tasksOn(selected),old=overdue(),items=agenda(selected,snapshot!.tasks,dayRule(selected),selected===today()?nowMinute():null);
-  const done=tasks.filter(t=>t.completed).length,remaining=tasks.filter(t=>!t.completed).reduce((sum,t)=>sum+t.duration,0);
-  return `${tasks.length?`<div class="today-summary">배치 ${tasks.length}건${done?` · 완료 ${done}`:''}${remaining?` · 남은 배치 ${formatDuration(remaining)}`:''}</div>`:''}<div class="today-layout"><section class="panel task-list"><div class="section-header"><h2>${selected===today()?'오늘 순서':dateLabel(selected)+' 순서'}</h2></div>${!tasks.length?'<p class="empty-small">아직 배치한 일이 없어요. <button id="go-plan">계획 열기</button></p>':''}${items.map(item=>item.kind==='task'?taskRow(item.task,false,item.state):`<div class="agenda-interval ${item.kind}"><span class="row-time">${time(item.start)}</span><span>${item.kind==='unavailable'?esc(item.label)+' · 작업 불가 ':''}${formatDuration(item.end-item.start)}</span></div>`).join('')}${old.length?`<section class="overdue"><div class="section-header"><h3>지난 미완료 ${old.length}</h3><button id="review">계획에서 옮기기</button></div>${old.map(t=>taskRow(t,true)).join('')}</section>`:''}</section><section class="panel timeline-panel"><div class="section-header"><h2>시간표</h2>${calendarScheduleButton()}${clearDayButton()}</div>${dayAvailabilityHTML(snapshot!.settings,selected)}${timelineHTML(selected)}</section></div>`;
+  const tasks=datedOn(selected),old=overdue();
+  const done=tasks.filter(t=>t.completed).length,remaining=tasks.filter(t=>!t.completed).reduce((sum,t)=>sum+t.duration,0),open=tasks.some(t=>!t.completed);
+  const batch=batchMode?`<span class="batch-actions"><button id="batch-complete" class="primary" ${batchSelected.size?'':'disabled'}>선택한 ${batchSelected.size}개 완료</button><button id="batch-cancel">취소</button></span>`:open?'<button id="batch-start" class="text-button">여러 개 완료</button>':'';
+  return `${tasks.length?`<div class="today-summary">계획 ${tasks.length}건${done?` · 완료 ${done}`:''}${remaining?` · 남은 배분 ${formatDuration(remaining)}`:''}</div>`:''}<div class="today-layout"><section class="panel task-list"><div class="section-header"><h2>${selected===today()?'오늘 순서':dateLabel(selected)+' 순서'}</h2>${batch}</div>${!tasks.length?'<p class="empty-small">아직 계획한 일이 없어요. <button id="go-plan">계획 열기</button></p>':''}${todayRows()}${old.length?`<section class="carryover"><div class="section-header"><h3>지난 미완료 ${old.length}</h3><button id="review">계획에서 옮기기</button></div>${old.map(t=>taskRow({task:t},true)).join('')}</section>`:''}</section><section class="panel timeline-panel"><div class="section-header"><h2>시간표</h2>${reflowControl(selected)}${calendarScheduleButton()}${clearDayButton()}</div>${dayAvailabilityHTML(snapshot!.settings,selected)}${timelineHTML(selected)}</section></div>`;
 }
-function inboxChip(t:Task,old=false){return `<button class="inbox-chip ${old?'past':''} ${dragId===t.id?'dragging':''}" data-drag="${esc(t.id)}" data-task="${esc(t.id)}" aria-label="${esc(t.title)}, ${formatDuration(t.duration)}, 상세 열기"><svg aria-hidden="true" viewBox="0 0 12 20" fill="currentColor"><path d="M3 4h2v2H3zm4 0h2v2H7zM3 9h2v2H3zm4 0h2v2H7zM3 14h2v2H3zm4 0h2v2H7z"/></svg><span>${esc(t.title)}</span><small>${old?dateLabel(t.starts_at!.slice(0,10)):formatDuration(t.duration)}</small></button>`;}
+function reflowControl(date:string){
+  if(date!==today())return '';
+  const plan=planOf(date);if(!plan.items.some(i=>!i.fixed)&&!plan.unplaced.length)return '';
+  return `${plan.anchor!==null?`<span class="anchor-state">${time(plan.anchor)} 기준</span>`:''}<button id="reflow">지금 기준으로 다시 배치</button>`;
+}
+function inboxChip(t:Task,old=false){return `<button class="inbox-chip ${old?'past':''} ${dragId===t.id?'dragging':''}" data-drag="${esc(t.id)}" data-task="${esc(t.id)}" aria-label="${esc(t.title)}, ${formatDuration(t.duration)}, 상세 열기"><svg aria-hidden="true" viewBox="0 0 12 20" fill="currentColor"><path d="M3 4h2v2H3zm4 0h2v2H7zM3 9h2v2H3zm4 0h2v2H7zM3 14h2v2H3zm4 0h2v2H7z"/></svg><span>${esc(t.title)}</span><small>${old?dateLabel(t.plan_date!):formatDuration(t.duration)}</small></button>`;}
 function inboxHTML(){
   const tasks=inboxTasks(),total=tasks.reduce((sum,t)=>sum+t.duration,0);
-  const completed=snapshot!.tasks.filter(t=>!t.starts_at&&t.completed);
+  const completed=snapshot!.tasks.filter(t=>!t.plan_date&&t.completed);
   const row=(t:Task)=>`<div class="inbox-item ${t.completed?'completed':''}"><label class="check-target"><input type="checkbox" data-complete="${esc(t.id)}" aria-label="${esc(t.title)} 완료" ${t.completed?'checked':''}></label><button class="inbox-item-main" data-task="${esc(t.id)}" aria-label="${esc(t.title)} 편집"><span><strong>${esc(t.title)}</strong><small>${t.body?esc(t.body.split('\n')[0]):''}</small></span></button><button class="size-button" data-edit-time="${esc(t.id)}" aria-label="${esc(t.title)} 블록 크기 변경">${formatDuration(t.duration)}</button><button class="icon-button danger" data-delete="${esc(t.id)}" aria-label="${esc(t.title)} 삭제" title="삭제">${icon('delete')}</button></div>`;
   return `<section class="inbox-page"><form id="inbox-form" class="inbox-entry"><label class="sr-only" for="inbox-capture">할 일 담기</label>${icon('plus')}<input id="inbox-capture" autocomplete="off" maxlength="650" placeholder="어떤 일을 해야 하나요?" value="${esc(captureDraft.text)}"></form>${tasks.length?`<div class="inbox-list-heading"><h3>배치를 기다리는 일 <span>${tasks.length}</span></h3><span>${formatDuration(total)} 분량</span><button id="go-plan">계획에 배치하기 ${icon('right')}</button></div>`:''}<div class="inbox-list">${tasks.map(row).join('')||'<div class="empty"><p>미계획이 비어 있어요.</p></div>'}</div>${completed.length?`<details class="inbox-completed" ${inboxCompletedOpen?'open':''}><summary>완료 ${completed.length}</summary><div class="inbox-list">${completed.map(row).join('')}</div></details>`:''}</section>`;
 }
@@ -349,29 +410,39 @@ function planHTML(){
   const count=period==='week'?7:period==='two'?14:Math.ceil(((monthStart.getDay()+6)%7+monthEnd.getDate())/7)*7,inbox=inboxTasks(),old=overdue();
   const dates=Array.from({length:count},(_,i)=>plusDays(dateKey(first),i));
   const calendar=period==='week'?weekHTML(dates):`<div class="weekdays">${['월','화','수','목','금','토','일'].map(d=>`<span>${d}</span>`).join('')}</div><div class="calendar-grid ${period}">${dates.map(key=>{
-    const d=dateOf(key),tasks=tasksOn(key),capacity=available(key),off=!dayRule(key).enabled,exception=snapshot!.settings.exceptions?.find(e=>e.date===key),used=tasks.reduce((n,t)=>n+t.duration,0);
-    return `<button data-date="${key}" aria-pressed="${key===selected}" aria-label="${dateLabel(key)}, 작업 ${tasks.length}건" class="day-cell ${key===today()?'is-today':''} ${off?'off-day':''} ${d.getMonth()!==dateOf(planAnchor).getMonth()?'outside-month':''}"><span class="day-number">${d.getDate()===1?d.getMonth()+1+'/':''}${d.getDate()}${key===today()?'<small>오늘</small>':''}</span>${exception?`<small class="day-exception">${exception.kind==='leave'?'휴가':exception.kind==='early'?'조퇴':'시간 변경'}</small>`:''}${period==='two'?`<span class="day-tasks">${tasks.slice(0,4).map(t=>`<span role="button" tabindex="0" data-task="${t.id}" class="mini-task ${t.completed?'done':''}"><small>${time(taskMinute(t))}</small>${esc(t.title)}</span>`).join('')}${tasks.length>4?`<small>+${tasks.length-4}건</small>`:''}</span>`:tasks.length?`<span class="day-summary">${tasks.length}건 · ${formatDuration(used)}</span>`:''}${off?`<small>${exception?.kind==='leave'?'':'휴무'}</small>`:period==='month'?`<span class="occupancy" style="--segments:1" aria-label="배치 ${formatDuration(used)}"><i style="width:${capacity?Math.min(100,used/capacity*100):0}%"></i></span>`:''}</button>`;
+    const d=dateOf(key),tasks=tasksOn(key).filter(t=>!t.completed||t.starts_at),capacity=available(key),off=!dayRule(key).enabled,exception=snapshot!.settings.exceptions?.find(e=>e.date===key),used=tasks.filter(t=>!t.completed).reduce((n,t)=>n+t.duration,0);
+    return `<button data-date="${key}" aria-pressed="${key===selected}" aria-label="${dateLabel(key)}, 작업 ${tasks.length}건" class="day-cell ${key===today()?'is-today':''} ${off?'off-day':''} ${d.getMonth()!==dateOf(planAnchor).getMonth()?'outside-month':''}"><span class="day-number">${d.getDate()===1?d.getMonth()+1+'/':''}${d.getDate()}${key===today()?'<small>오늘</small>':''}</span>${exception?`<small class="day-exception">${exception.kind==='leave'?'휴가':exception.kind==='early'?'조퇴':'시간 변경'}</small>`:''}${period==='two'?`<span class="day-tasks">${tasks.slice(0,4).map(t=>`<span role="button" tabindex="0" data-task="${t.id}" class="mini-task ${t.completed?'done':''}">${t.starts_at?`<small>${time(taskMinute(t))}</small>`:''}${esc(t.title)}</span>`).join('')}${tasks.length>4?`<small>+${tasks.length-4}건</small>`:''}</span>`:tasks.length?`<span class="day-summary">${tasks.length}건 · ${formatDuration(used)}</span>`:''}${off?`<small>${exception?.kind==='leave'?'':'휴무'}</small>`:period==='month'?`<span class="occupancy" style="--segments:1" aria-label="배치 ${formatDuration(used)}"><i style="width:${capacity?Math.min(100,used/capacity*100):0}%"></i></span>`:''}</button>`;
   }).join('')}</div>`;
   return `<div class="plan-toolbar"><div class="segmented" aria-label="계획 기간">${[['week','주'],['two','2주'],['month','월']].map(([key,label])=>`<button data-period="${key}" aria-pressed="${period===key}">${label}</button>`).join('')}</div><span class="week-summary">${weeklySummary(snapshot!.settings,selected)}</span><button id="go-routines">정기 업무</button>${calendarScheduleButton()}${clearDayButton()}<button id="toggle-inbox" aria-expanded="${inboxOpen}" aria-controls="inbox-drawer">${icon('inbox')} 미계획 ${inbox.length?`<span>${inbox.length}</span>`:''}</button></div><div class="planning-desk ${inboxOpen?'with-inbox':''}"><div class="plan-layout ${period==='week'?'week-layout':''}"><section class="panel month-panel" aria-label="${period==='week'?'주간 시간표':period==='two'?'2주 작업 목록':'월간 작업량'}">${calendar}</section>${period==='week'?'':`<section class="panel day-panel"><div class="section-header"><h2>${dateLabel(selected)}</h2></div>${dayAvailabilityHTML(settingsDraft??snapshot!.settings,selected)}${timelineHTML(selected)}</section>`}</div><aside class="inbox-panel" id="inbox-drawer" data-inbox-drop ${inboxOpen?'':'hidden'}><div class="section-header"><h2>미계획 ${inbox.length?`<span>${inbox.length}</span>`:''}</h2><button class="icon-button" id="close-inbox" aria-label="미계획 패널 닫기">${icon('close')}</button></div><form id="inbox-form" class="tray-entry"><label class="sr-only" for="inbox-capture">미계획에 추가</label><input id="inbox-capture" autocomplete="off" maxlength="650" placeholder="새 할 일" value="${esc(captureDraft.text)}"></form><div class="inbox-chips">${inbox.map(t=>inboxChip(t)).join('')||'<p class="empty-small">미계획 없음</p>'}</div>${old.length?`<h3 class="carryover-title">지난 미완료 <span>${old.length}</span></h3><div class="inbox-chips">${old.map(t=>inboxChip(t,true)).join('')}</div>`:''}</aside></div>`;
 
 }
+function blockLabel(t:Task,start:number,end:number,fixed:boolean,state:string){
+  return `${esc(t.title)}, ${fixed?'시각 고정 ':''}${time(start)}–${time(end)}, ${formatDuration(t.duration)}${state==='next'?', 다음':''}${t.completed?', 완료':''}`;
+}
 function weekHTML(dates:string[]){
   const axis=timeAxisForDays(dates.map(dayRule),1.1);
-  return `<div class="week-view"><div class="week-head"><span></span>${dates.map(date=>`<button data-date="${date}" class="day-cell week-date ${date===today()?'is-today':''}" aria-pressed="${date===selected}"><small>${dateOf(date).toLocaleDateString('ko-KR',{weekday:'short'})}</small><strong class="day-number">${dateOf(date).getDate()}${date===today()?' · 오늘':''}</strong></button>`).join('')}</div><div class="week-scroll"><div class="week-time-grid" style="height:${axis.height}px"><div class="week-hours">${Array.from({length:25},(_,i)=>`<span data-minute="${i*60}" data-hour-label ${timeAxisLabelVisible(axis,i*60)?'':'hidden'} style="top:${axis.position(i*60)}px">${time(i*60)}</span>`).join('')}</div>${dates.map(date=>{const rule=dayRule(date);return `<div class="week-column" data-calendar-surface data-date="${date}" ${timeAxisAttributes(axis)}>${Array.from({length:48},(_,i)=>{const m=i*30,blocked=checkPlacement('',date,m,30,rule,[])!==null;return `<button class="week-slot ${blocked?'blocked':''}" data-minute="${m}" data-duration="30" style="top:${axis.position(m)}px;height:${axis.position(m+30)-axis.position(m)}px" ${blocked?`data-adjust-date="${date}"`:`data-add-date="${date}" data-add-minute="${m}"`} aria-label="${dateLabel(date)} ${time(m)} ${blocked?'금지시간 조정':'할 일 추가'}"></button>`;}).join('')}${calendarAvailabilityHTML(rule,date,axis)}${tasksOn(date).map(t=>`<div class="week-task ${t.completed?'completed':''}" data-drag="${t.id}" data-minute="${taskMinute(t)}" data-duration="${t.duration}" style="top:${axis.position(taskMinute(t))}px;height:${axis.position(taskMinute(t)+t.duration)-axis.position(taskMinute(t))}px" title="${esc(t.title)}"><button class="block-title" data-task="${t.id}"><span>${esc(t.title)}</span>${t.duration>=60?`<small>${time(taskMinute(t))}</small>`:''}</button><span class="resize-handle" role="separator" tabindex="0" aria-orientation="horizontal" aria-valuenow="${t.duration}" aria-valuemin="15" aria-valuemax="1440" aria-label="${esc(t.title)} 소요시간 조절" data-resize="${t.id}"></span></div>`).join('')}</div>`;}).join('')}</div></div></div>`;
+  return `<div class="week-view"><div class="week-head"><span></span>${dates.map(date=>{const unplaced=planOf(date).unplaced.length;return `<button data-date="${date}" class="day-cell week-date ${date===today()?'is-today':''}" aria-pressed="${date===selected}" aria-label="${dateLabel(date)}${unplaced?`, 배치되지 않음 ${unplaced}건`:''}"><small>${dateOf(date).toLocaleDateString('ko-KR',{weekday:'short'})}</small><strong class="day-number">${dateOf(date).getDate()}${date===today()?' · 오늘':''}</strong>${unplaced?`<small class="unplaced-count">+${unplaced}</small>`:''}</button>`;}).join('')}</div><div class="week-scroll"><div class="week-time-grid" style="height:${axis.height}px"><div class="week-hours">${Array.from({length:25},(_,i)=>`<span data-minute="${i*60}" data-hour-label ${timeAxisLabelVisible(axis,i*60)?'':'hidden'} style="top:${axis.position(i*60)}px">${time(i*60)}</span>`).join('')}</div>${dates.map(date=>{const rule=dayRule(date),plan=planOf(date),items=agenda(plan.items,rule,plan.anchor);return `<div class="week-column" data-calendar-surface data-date="${date}" ${timeAxisAttributes(axis)}><div class="fix-rail" data-fix-rail aria-hidden="true"></div>${Array.from({length:48},(_,i)=>{const m=i*30,blocked=checkPlacement('',date,m,30,rule,[])!==null;return `<button class="week-slot ${blocked?'blocked':''}" data-minute="${m}" data-duration="30" style="top:${axis.position(m)}px;height:${axis.position(m+30)-axis.position(m)}px" ${blocked?`data-adjust-date="${date}"`:`data-add-date="${date}" data-add-minute="${m}"`} aria-label="${dateLabel(date)} ${time(m)} ${blocked?'금지시간 조정':'할 일 추가'}"></button>`;}).join('')}${calendarAvailabilityHTML(rule,date,axis)}${items.map(item=>{if(item.kind!=='task')return '';const t=item.task;return `<div class="week-task ${item.fixed?'fixed':'flow'} ${item.state} ${t.completed?'completed':''}" data-drag="${t.id}" data-minute="${item.start}" data-duration="${item.end-item.start}" style="top:${axis.position(item.start)}px;height:${axis.position(item.end)-axis.position(item.start)}px" title="${esc(t.title)}"><button class="block-title" data-task="${t.id}" ${item.fixed||t.completed?'':`data-reorder="${t.id}"`} aria-label="${blockLabel(t,item.start,item.end,item.fixed,item.state)}">${item.fixed?icon('lock'):''}<span>${esc(t.title)}</span>${t.duration>=60?`<small>${time(item.start)}</small>`:''}</button><span class="resize-handle" role="separator" tabindex="0" aria-orientation="horizontal" aria-valuenow="${t.duration}" aria-valuemin="15" aria-valuemax="1440" aria-label="${esc(t.title)} 소요시간 조절" data-resize="${t.id}"></span></div>`;}).join('')}</div>`;}).join('')}</div></div></div>`;
+}
+function doneTrayHTML(date:string){
+  const done=planOf(date).completed;if(!done.length)return '';
+  return `<details class="done-tray" ${doneTrayOpen?'open':''}><summary>완료 ${done.length}</summary><div class="done-chips">${done.map(t=>`<span class="done-chip" data-done-chip="${esc(t.id)}"><button class="done-title" data-task="${esc(t.id)}">${esc(t.title)}<small>${formatDuration(t.duration)}</small></button><button class="icon-button" data-uncomplete="${esc(t.id)}" aria-label="${esc(t.title)} 완료 취소" title="완료 취소">${icon('undo')}</button></span>`).join('')}</div></details>`;
+}
+function unplacedTrayHTML(date:string){
+  const unplaced=planOf(date).unplaced;if(!unplaced.length)return '';
+  return `<section class="unplaced-tray" aria-labelledby="unplaced-${date}"><h3 id="unplaced-${date}">배치되지 않음 <span>${unplaced.length}</span></h3><div class="unplaced-chips">${unplaced.map(u=>`<button class="unplaced-chip" data-drag="${esc(u.task.id)}" data-task="${esc(u.task.id)}" aria-label="${esc(u.task.title)}, ${formatDuration(u.task.duration)}, ${unplacedLabel[u.reason]}"><span>${esc(u.task.title)}</span><small>${formatDuration(u.task.duration)} · ${unplacedLabel[u.reason]}</small></button>`).join('')}</div></section>`;
 }
 function timelineHTML(date:string){
   const rule=dayRule(date),axis=timeAxisForDays([rule],1.2),start=0,end=1440;
   const position=(s:number,e:number)=>`data-minute="${s}" data-duration="${e-s}" style="top:${axis.position(s)}px;height:${axis.position(e)-axis.position(s)}px"`;
   const shade=(s:number,e:number,label:string)=>e>s?`<div class="unavailable" ${position(s,e)}>${esc(label)}</div>`:'';
-  const now=nowMinute(),items=agenda(date,snapshot!.tasks,rule,date===today()?now:null);
+  const now=nowMinute(),plan=planOf(date),items=agenda(plan.items,rule,plan.anchor);
   const status=date===today()?(now<rule.start?`근무 시작 전 · ${time(rule.start)} 시작`:now>=rule.end?'근무 시간 종료':''):'';
-  return `${status?`<p class="work-boundary">${status}</p>`:''}<div class="timeline-scroll"><div class="timeline" data-calendar-surface ${timeAxisAttributes(axis)} data-date="${date}" style="height:${axis.height}px">${Array.from({length:Math.floor((end-start)/60)+1},(_,i)=>{const m=start+i*60;return `<div class="hour-line" data-hour-label ${timeAxisLabelVisible(axis,m)?'':'hidden'} data-minute="${m}" style="top:${axis.position(m)}px"><span>${String(Math.floor(m/60)).padStart(2,'0')}</span></div>`;}).join('')}${Array.from({length:Math.floor((end-start)/60)},(_,i)=>`<div class="half-hour-line" data-minute="${start+i*60+30}" style="top:${axis.position(start+i*60+30)}px" aria-hidden="true"></div>`).join('')}${!rule.enabled?shade(start,end,'작업 불가'):shade(start,rule.start,'')+shade(rule.end,end,'')}${calendarAvailabilityHTML(rule,date,axis)}${items.map(item=>{
+  return `${status?`<p class="work-boundary">${status}</p>`:''}${doneTrayHTML(date)}<div class="timeline-scroll"><div class="timeline" data-calendar-surface ${timeAxisAttributes(axis)} data-date="${date}" style="height:${axis.height}px"><div class="fix-rail" data-fix-rail aria-hidden="true"></div>${Array.from({length:Math.floor((end-start)/60)+1},(_,i)=>{const m=start+i*60;return `<div class="hour-line" data-hour-label ${timeAxisLabelVisible(axis,m)?'':'hidden'} data-minute="${m}" style="top:${axis.position(m)}px"><span>${String(Math.floor(m/60)).padStart(2,'0')}</span></div>`;}).join('')}${Array.from({length:Math.floor((end-start)/60)},(_,i)=>`<div class="half-hour-line" data-minute="${start+i*60+30}" style="top:${axis.position(start+i*60+30)}px" aria-hidden="true"></div>`).join('')}${!rule.enabled?shade(start,end,'작업 불가'):shade(start,rule.start,'')+shade(rule.end,end,'')}${calendarAvailabilityHTML(rule,date,axis)}${items.map(item=>{
     if(item.kind==='unavailable')return '';
-    if(item.kind==='gap')return view==='today'?`<div class="time-gap" ${position(item.start,item.end)}>${formatDuration(item.end-item.start)}</div>`:'';
-    if(item.kind!=='task')return '';
-    const t=item.task,state=item.state,label=state==='current'?'진행 중':state==='overdue'?'지남':t.completed?'완료':'';
-    return `<div class="time-block ${t.duration===15?'compact':''} ${state} ${t.completed?'completed':''} ${placedId===t.id?'placed':''}" ${position(item.start,item.end)} data-drag="${esc(t.id)}"><button class="block-title" data-task="${esc(t.id)}" aria-label="${esc(t.title)}, ${time(item.start)}–${time(item.end)}, ${formatDuration(t.duration)}${label?', '+label:''}" title="${esc(t.title)} · ${time(item.start)}–${time(item.end)}"><span>${label?label+' · ':''}${esc(t.title)}</span>${t.duration>=45?`<small>${time(item.start)}–${time(item.end)}</small>`:''}</button><div role="separator" aria-label="${esc(t.title)} 소요시간 조절" aria-orientation="horizontal" aria-valuemin="15" aria-valuemax="1440" aria-valuenow="${t.duration}" aria-valuetext="${formatDuration(t.duration)}" tabindex="0" class="resize-handle" data-resize="${esc(t.id)}"></div></div>`;
-  }).join('')}${date===today()&&now>=rule.start&&now<rule.end?`<div class="now-line" data-minute="${now}" style="top:${axis.position(now)}px"><span>${time(now)}</span></div>`:''}</div></div>`;
+    if(item.kind!=='task')return view==='today'?`<div class="time-gap" ${position(item.start,item.end)}>${formatDuration(item.end-item.start)}</div>`:'';
+    const t=item.task,state=item.state,label=state==='next'?'다음':'';
+    return `<div class="time-block ${item.fixed?'fixed':'flow'} ${t.duration===15?'compact':''} ${state} ${t.completed?'completed':''} ${placedId===t.id?'placed':''}" ${position(item.start,item.end)} data-drag="${esc(t.id)}"><button class="block-title" data-task="${esc(t.id)}" ${item.fixed||t.completed?'':`data-reorder="${esc(t.id)}"`} aria-label="${blockLabel(t,item.start,item.end,item.fixed,state)}" title="${esc(t.title)} · ${time(item.start)}–${time(item.end)}">${item.fixed?icon('lock'):''}<span>${label?label+' · ':''}${esc(t.title)}</span>${t.duration>=45?`<small>${time(item.start)}–${time(item.end)}</small>`:''}</button><div role="separator" aria-label="${esc(t.title)} 소요시간 조절" aria-orientation="horizontal" aria-valuemin="15" aria-valuemax="1440" aria-valuenow="${t.duration}" aria-valuetext="${formatDuration(t.duration)}" tabindex="0" class="resize-handle" data-resize="${esc(t.id)}"></div></div>`;
+  }).join('')}${date===today()&&now>=rule.start&&now<rule.end?`<div class="now-line" data-minute="${now}" style="top:${axis.position(now)}px"><span>${time(now)}</span></div>`:''}</div></div>${unplacedTrayHTML(date)}`;
 }
 function fitTimeline(){
   const tl=document.querySelector<HTMLElement>('.timeline');if(!tl||view!=='plan')return;
@@ -387,8 +458,25 @@ function bindContent(){
   const completed=document.querySelector<HTMLDetailsElement>('.inbox-completed');if(completed)completed.ontoggle=()=>{if(completed.isConnected)inboxCompletedOpen=completed.open;};
   document.querySelectorAll<HTMLButtonElement>('[data-delete]').forEach(b=>b.onclick=()=>{const task=snapshot!.tasks.find(t=>t.id===b.dataset.delete);if(task)void deleteTask(task);});
   document.querySelectorAll<HTMLButtonElement>('[data-edit-time]').forEach(b=>b.onclick=()=>{openEditor(b.dataset.editTime!);$<HTMLDetailsElement>('.editor-schedule').open=true;$('#edit-duration').focus();});
-  document.querySelectorAll<HTMLButtonElement>('[data-task]').forEach(b=>b.onclick=e=>{e.stopPropagation();openEditor(b.dataset.task!);});
-  document.querySelectorAll<HTMLElement>('[data-complete]').forEach(b=>{const complete=()=>{const t=snapshot!.tasks.find(t=>t.id===b.dataset.complete)!;if(b instanceof HTMLInputElement)b.checked=t.completed;void dispatch({type:'set_completed',id:t.id,expected_revision:t.revision,completed:!t.completed});};if(b instanceof HTMLInputElement)b.onchange=complete;else b.onclick=complete;});
+  document.querySelectorAll<HTMLButtonElement>('[data-task]').forEach(b=>b.onclick=e=>{
+    e.stopPropagation();
+    // Blocks that just moved ignore the click aimed at their old position.
+    if(b.closest('.time-block,.week-task')&&Date.now()<reflowGuardUntil)return;
+    openEditor(b.dataset.task!);
+  });
+  document.querySelectorAll<HTMLElement>('[data-complete]').forEach(b=>{const complete=()=>{const t=snapshot!.tasks.find(t=>t.id===b.dataset.complete)!;if(b instanceof HTMLInputElement)b.checked=t.completed;void toggleComplete(t,!!b.closest('.task-list'));};if(b instanceof HTMLInputElement)b.onchange=complete;else b.onclick=complete;});
+  document.querySelectorAll<HTMLButtonElement>('[data-uncomplete]').forEach(b=>b.onclick=()=>{const t=snapshot!.tasks.find(t=>t.id===b.dataset.uncomplete);if(t)void toggleComplete(t);});
+  const doneTray=document.querySelector<HTMLDetailsElement>('.done-tray');if(doneTray)doneTray.ontoggle=()=>{if(doneTray.isConnected)doneTrayOpen=doneTray.open;};
+  document.querySelector('#reflow')?.addEventListener('click',()=>void reflowToday());
+  document.querySelector('#batch-start')?.addEventListener('click',()=>{batchMode=true;batchSelected.clear();renderContent();document.querySelector<HTMLElement>('[data-batch]')?.focus();});
+  document.querySelector('#batch-cancel')?.addEventListener('click',()=>{batchMode=false;batchSelected.clear();renderContent();});
+  document.querySelector('#batch-complete')?.addEventListener('click',()=>{const tasks=snapshot!.tasks.filter(t=>batchSelected.has(t.id)&&!t.completed);batchMode=false;batchSelected.clear();void completeTasks(tasks);});
+  document.querySelectorAll<HTMLInputElement>('[data-batch]').forEach(input=>input.onchange=()=>{if(input.checked)batchSelected.add(input.dataset.batch!);else batchSelected.delete(input.dataset.batch!);const button=document.querySelector<HTMLButtonElement>('#batch-complete');if(button){button.disabled=!batchSelected.size;button.textContent=`선택한 ${batchSelected.size}개 완료`;}});
+  const list=document.querySelector<HTMLElement>('.task-list');if(list)list.onpointerleave=()=>{if(listHold)releaseListHold();};
+  document.querySelectorAll<HTMLElement>('[data-reorder]').forEach(el=>el.addEventListener('keydown',e=>{
+    if(!e.altKey||(e.key!=='ArrowUp'&&e.key!=='ArrowDown'))return;
+    e.preventDefault();e.stopPropagation();const t=snapshot!.tasks.find(t=>t.id===el.dataset.reorder);if(t)void reorderTask(t,e.key==='ArrowUp'?-1:1);
+  }));
   document.querySelectorAll<HTMLButtonElement>('.day-cell[data-date]').forEach(b=>b.onclick=()=>{selected=b.dataset.date!;if(b.classList.contains('week-date')){view='today';render();}else renderContent();});
   document.querySelectorAll<HTMLButtonElement>('[data-period]').forEach(b=>b.onclick=()=>{period=b.dataset.period!;planAnchor=selected;renderContent();});
   document.querySelectorAll<HTMLElement>('.mini-task[data-task]').forEach(el=>el.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();e.stopPropagation();openEditor(el.dataset.task!);}});
@@ -400,9 +488,13 @@ function bindContent(){
   document.querySelectorAll<HTMLElement>('[data-add-date]').forEach(b=>b.onclick=e=>{if(e.detail===0)openComposer(b.dataset.addDate!,Number(b.dataset.addMinute));});
   bindCalendarGestures($('#content'),{
     task:id=>snapshot!.tasks.find(t=>t.id===id),
+    position:positionOf,
     issue:(id,date,start,duration)=>placementIssue(id,date,start,duration)?.label,
-    move:(task,date,start,duration)=>{selected=date;void moveTask(task,start,duration);},
-    create:(date,start,duration)=>openComposer(date,start,duration),
+    insertion:insertionAt,
+    fix:(task,date,start,duration)=>{selected=date;void fixTask(task,date,start,duration);},
+    assign:(task,date,before)=>{selected=date;void assignTask(task,date,before);},
+    resize:(task,duration)=>void resizeTask(task,duration),
+    create:(date,start,duration,fixed)=>openComposer(date,start,duration,false,fixed),
     unschedule:task=>void returnToInbox(task),
     context:(task,date,start,x,y)=>openContextMenu(task,date,start,x,y),
     active:value=>{resizing=value;},
@@ -419,11 +511,11 @@ function bindContent(){
 }
 
 function calendarScheduleButton(){return settingsDraft?'<button id="review-calendar-schedule">시간 변경 검토</button>':'';}
-function clearDayButton(){return `<button id="clear-day" class="text-button" aria-label="${esc(dateLabel(selected))} 일정 비우기" ${tasksOn(selected).length?'':'disabled'}>하루 비우기</button>`;}
+function clearDayButton(){return `<button id="clear-day" class="text-button" aria-label="${esc(dateLabel(selected))} 일정 비우기" ${datedOn(selected).length?'':'disabled'}>하루 비우기</button>`;}
 async function clearDay(){
   if(queue.busy||queue.failed)return;
   if(captureDraft.text||editorDirty||settingsDraft||routineDraft||Object.keys(rawSchedules).length){showError(Error('작성 중인 내용을 저장하거나 되돌린 뒤 하루 일정을 비워 주세요.'));return;}
-  const date=selected,epoch=snapshot!.epoch,expected_tasks=tasksOn(date).map(({id,revision})=>({id,revision}));
+  const date=selected,epoch=snapshot!.epoch,expected_tasks=datedOn(date).map(({id,revision})=>({id,revision}));
   if(!expected_tasks.length||!await ask(`${dateLabel(date)}의 블록 ${expected_tasks.length}개를 미계획으로 돌릴까요? 제목·메모·완료 상태는 유지됩니다.`))return;
   await dispatch({type:'clear_day',date,expected_tasks},epoch,undefined,()=>{message='하루 일정을 비웠습니다. 작업은 미계획에 보관했습니다.';});
 }
@@ -440,12 +532,95 @@ async function ensureVisibleRoutines(){
   const key=[snapshot.epoch,snapshot.settings.revision,from,to].join(':');if(routineRanges.has(key))return;
   routineRangePending=true;
   const existingIds=new Set(snapshot.tasks.map(t=>t.id));
-  try{await dispatch({type:'ensure_routines',from,to},snapshot.epoch,undefined,()=>{routineRanges.add(key);const unplanned=snapshot!.tasks.filter(t=>!existingIds.has(t.id)&&!t.starts_at);if(unplanned.length)message=`시간이 겹치거나 근무 외인 정기 업무 ${unplanned.length}건을 미계획에 보관했습니다.`;});}
+  try{await dispatch({type:'ensure_routines',from,to},snapshot.epoch,undefined,()=>{routineRanges.add(key);const unfixed=snapshot!.tasks.filter(t=>!existingIds.has(t.id)&&!t.starts_at);if(unfixed.length)message=`시각이 겹치거나 근무 외인 정기 업무 ${unfixed.length}건은 시각 고정 없이 그날 순서에 넣었습니다.`;});}
   finally{routineRangePending=false;void ensureVisibleRoutines();}
 }
-async function moveTask(t:Task,start:number,duration:number){
-  const date=selected,issue=placementIssue(t.id,date,start,duration);if(issue){showError(Error(issue.label));return;}
-  await dispatch({type:'update',id:t.id,expected_revision:t.revision,title:t.title,body:t.body,starts_at:date+'T'+time(start),duration},snapshot!.epoch,undefined,()=>{placedId=t.id;message=`‘${t.title}’ ${time(start)}–${time(start+duration)}에 배치했어요`;setTimeout(()=>{placedId='';document.querySelectorAll('.placed').forEach(el=>el.classList.remove('placed'));},600);});
+const placement=(t:Task,plan_date:string|null,starts_at:string|null,duration=t.duration,before:string|null=null):Action=>({type:'update',id:t.id,expected_revision:t.revision,title:t.title,body:t.body,starts_at,duration,plan_date,before});
+function markPlaced(id:string){placedId=id;setTimeout(()=>{placedId='';document.querySelectorAll('.placed').forEach(el=>el.classList.remove('placed'));},600);}
+async function fixTask(t:Task,date:string,start:number,duration:number){
+  const issue=placementIssue(t.id,date,start,duration);if(issue){showError(Error(issue.label));return;}
+  captureBlocks();
+  await dispatch(placement(t,date,date+'T'+time(start),duration),snapshot!.epoch,undefined,()=>{markPlaced(t.id);message=`‘${t.title}’ ${time(start)}–${time(start+duration)}에 고정했어요`;});
+}
+// Moving within the same day's flow is a pure order change; anything else assigns the date.
+async function assignTask(t:Task,date:string,before:string|null){
+  if(before===t.id)return;
+  captureBlocks();
+  if(t.plan_date===date&&!t.starts_at&&!t.completed){
+    const ids=flowOrderOn(date).map(x=>x.id).filter(id=>id!==t.id),index=before?ids.indexOf(before):ids.length;
+    ids.splice(index<0?ids.length:index,0,t.id);
+    await saveOrder(date,ids,()=>{message=`‘${t.title}’ 순서를 옮겼어요`;});return;
+  }
+  await dispatch(placement(t,date,null,t.duration,before),snapshot!.epoch,undefined,()=>{markPlaced(t.id);message=`‘${t.title}’ ${dateLabel(date)} 계획에 넣었어요`;});
+}
+async function saveOrder(date:string,ids:string[],done:()=>void){
+  const order=flowOrderOn(date);if(ids.every((id,i)=>order[i]?.id===id))return;
+  await dispatch({type:'reorder_flow',date,expected:ids.map(id=>({id,revision:order.find(o=>o.id===id)!.revision}))},snapshot!.epoch,undefined,done);
+}
+async function reorderTask(t:Task,delta:number){
+  const ids=moveInOrder(flowOrderOn(t.plan_date!).map(x=>x.id),t.id,delta);if(!ids)return;
+  captureBlocks();await saveOrder(t.plan_date!,ids,()=>{message=`‘${t.title}’ 순서를 옮겼어요`;});
+}
+async function resizeTask(t:Task,duration:number){
+  if(!t.plan_date||duration<15)return;
+  captureBlocks();await dispatch(placement(t,t.plan_date,t.starts_at,duration));
+}
+async function unfixTask(t:Task){
+  if(!t.starts_at)return;
+  // Released at the same place in the order: before the first flow block that starts after it.
+  const start=taskMinute(t),before=planOf(t.plan_date!).items.find(i=>!i.fixed&&!i.task.completed&&i.start>=start)?.task.id??null;
+  captureBlocks();await dispatch(placement(t,t.plan_date,null,t.duration,before),snapshot!.epoch,undefined,()=>{message=`‘${t.title}’ 시각 고정을 해제했어요`;});
+}
+function insertionAt(date:string,minute:number,moving?:string){
+  const plan=planOf(date),flow=plan.items.filter(i=>!i.fixed&&i.task.id!==moving),before=insertionBefore(flow,minute,moving);
+  const target=flow.find(i=>i.task.id===before),rule=dayRule(date);
+  return {before,line:target?.start??flow.at(-1)?.end??Math.max(rule.start,plan.anchor??rule.start),label:target?`‘${target.task.title}’ 앞`:'순서 끝'};
+}
+const stamp=()=>today()+'T'+time(nowMinute());
+async function toggleComplete(t:Task,fromList=false){
+  if(t.completed){captureBlocks();await dispatch({type:'set_completed',id:t.id,expected_revision:t.revision,completed:false},snapshot!.epoch,undefined,()=>{message=`‘${t.title}’ 완료를 취소했어요`;});return;}
+  if(fromList)holdList();
+  await completeTasks([t]);
+}
+// Completed flow work leaves the time space; today's remaining flow is laid out again from now.
+async function completeTasks(tasks:Task[]){
+  const flow=tasks.filter(t=>!t.completed&&t.plan_date&&!t.starts_at),other=tasks.filter(t=>!t.completed&&!flow.includes(t));
+  const dates=[...new Set(flow.map(t=>t.plan_date!))];
+  captureBlocks();
+  for(const date of dates){
+    const items=flow.filter(t=>t.plan_date===date).map(({id,revision})=>({id,revision}));
+    await dispatch({type:'complete_flow',date,items,at:date===today()?stamp():null},snapshot!.epoch,undefined,()=>{reflowGuardUntil=Date.now()+500;message=items.length>1?`${items.length}개를 완료했어요`:'완료했어요';});
+  }
+  for(const t of other)await dispatch({type:'set_completed',id:t.id,expected_revision:t.revision,completed:true});
+  animateFrom=null;
+}
+async function reflowToday(){
+  captureBlocks();
+  await dispatch({type:'reflow',date:today(),at:stamp()},snapshot!.epoch,undefined,()=>{reflowGuardUntil=Date.now()+500;message='지금 기준으로 다시 배치했어요';});
+  animateFrom=null;
+}
+function holdList(){
+  if(view!=='today')return;
+  listHold??={date:selected,ids:Array.from(document.querySelectorAll<HTMLElement>('.task-list > .agenda-task[data-row]')).map(el=>el.dataset.row!)};
+  clearTimeout(listHoldTimer);listHoldTimer=setTimeout(releaseListHold,4000);
+}
+function releaseListHold(){
+  clearTimeout(listHoldTimer);if(!listHold)return;listHold=null;
+  if(!document.querySelector('.task-list')?.contains(document.activeElement))renderContent();
+  else listHoldTimer=setTimeout(releaseListHold,4000);
+}
+function captureBlocks(){
+  animateFrom=new Map(Array.from(document.querySelectorAll<HTMLElement>('.time-block[data-drag],.week-task[data-drag]')).map(el=>[el.dataset.drag!+'@'+(el.closest<HTMLElement>('[data-calendar-surface]')?.dataset.date??''),el.getBoundingClientRect()]));
+}
+// Short settle motion after the stored result arrives; nothing moves before the save succeeds.
+function settleBlocks(){
+  const from=animateFrom;animateFrom=null;
+  if(!from||matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+  document.querySelectorAll<HTMLElement>('.time-block[data-drag],.week-task[data-drag]').forEach(el=>{
+    const old=from.get(el.dataset.drag!+'@'+(el.closest<HTMLElement>('[data-calendar-surface]')?.dataset.date??''));if(!old)return;
+    const dy=old.top-el.getBoundingClientRect().top;if(Math.abs(dy)>1)el.animate([{transform:`translateY(${dy}px)`},{transform:'none'}],{duration:220,easing:'cubic-bezier(.2,.7,.2,1)'});
+  });
+  document.querySelectorAll<HTMLElement>('.done-tray[open] .done-chip').forEach(el=>{if(!from.has(el.dataset.doneChip+'@'+selected))return;el.animate([{opacity:0,transform:'translateY(6px)'},{opacity:1,transform:'none'}],{duration:180,easing:'ease-out'});});
 }
 
 function openCalendarAvailability(date:string,target:AvailabilityTarget,x=innerWidth/2,y=150){
@@ -473,36 +648,44 @@ function changeCalendarAvailability(date:string,target:AvailabilityTarget,edge:A
     }
   }catch(e){showError(e);}
 }
-function openComposer(date:string,start=540,duration=30,restoring=false){
+// A new block is a date assignment unless the user keeps the time fixed.
+function composerAction(date:string,start:number,duration:number,fixed:boolean,title:string):Action{
+  return fixed?{type:'create_scheduled',id:crypto.randomUUID(),title,starts_at:date+'T'+time(start),duration}:{type:'create_flow',id:crypto.randomUUID(),title,date,duration};
+}
+function sameComposerAction(action:Action,date:string,start:number,duration:number,fixed:boolean){
+  return fixed?action.type==='create_scheduled'&&action.starts_at===date+'T'+time(start)&&action.duration===duration:action.type==='create_flow'&&action.date===date&&action.duration===duration;
+}
+function openComposer(date:string,start=540,duration=30,restoring=false,fixed=calendarComposer?.fixed??true){
   if(!ready)return;
   if(editorDirty){if(!restoring)openEditor(editor!.id);return;}
-  const issue=placementIssue('',date,start,duration);if(issue&&!restoring){showError(Error(issue.label));return;}
+  const issue=fixed?placementIssue('',date,start,duration):null;if(issue&&!restoring){showError(Error(issue.label));return;}
   document.querySelector('#calendar-composer')?.remove();
   const surface=Array.from(document.querySelectorAll<HTMLElement>('[data-calendar-surface]')).find(el=>el.dataset.date===date);if(!surface)return;
-  calendarComposer={date,start,duration};
+  calendarComposer={date,start,duration,fixed};
   const form=document.createElement('form');form.id='calendar-composer';form.className='calendar-composer';
   const axis=readTimeAxis(surface);
   form.style.top=axis.position(start)+'px';
   form.style.setProperty('--selection-height',(axis.position(start+duration)-axis.position(start))+'px');
-  form.innerHTML=`<div class="composer-time">${time(start)}–${time(start+duration)}<button type="button" class="icon-button" aria-label="입력 닫기">${icon('close')}</button></div><label class="sr-only" for="calendar-title">새 블록 제목</label><input id="calendar-title" placeholder="할 일" value="${esc(captureDraft.text)}" maxlength="650" autocomplete="off" required><button type="submit" class="primary">배치</button><p class="error" role="alert">${issue?esc(issue.label)+'. 다른 시간을 선택하세요.':''}</p>`;
-  surface.append(form);const input=form.querySelector<HTMLInputElement>('input')!;
+  const timeLabel=()=>calendarComposer?.fixed?`${time(start)}–${time(start+duration)}`:`순서 끝 · ${formatDuration(duration)}`;
+  form.innerHTML=`<div class="composer-time"><span id="composer-time-label">${timeLabel()}</span><button type="button" class="icon-button" aria-label="입력 닫기">${icon('close')}</button></div><label class="sr-only" for="calendar-title">새 블록 제목</label><input id="calendar-title" placeholder="할 일" value="${esc(captureDraft.text)}" maxlength="650" autocomplete="off" required><label class="check-line composer-fixed"><input type="checkbox" id="composer-fixed" ${fixed?'checked':''}>${icon('lock')}${time(start)} 고정</label><button type="submit" class="primary">배치</button><p class="error" role="alert">${issue?esc(issue.label)+'. 다른 시간을 선택하세요.':''}</p>`;
+  surface.append(form);const input=form.querySelector<HTMLInputElement>('#calendar-title')!,fixedInput=form.querySelector<HTMLInputElement>('#composer-fixed')!;
   input.oninput=()=>{captureDraft.edit(input.value);draftChanged();};
+  fixedInput.onchange=()=>{calendarComposer={date,start,duration,fixed:fixedInput.checked};form.querySelector('#composer-time-label')!.textContent=timeLabel();const problem=fixedInput.checked?placementIssue('',date,start,duration):null;form.querySelector<HTMLElement>('.error')!.textContent=problem?problem.label+'. 다른 시간을 선택하세요.':'';draftChanged();};
   input.addEventListener('compositionstart',()=>{calendarComposing=true;});input.addEventListener('compositionend',()=>{calendarComposing=false;if(calendarRefreshPending)queueMicrotask(renderContent);});
   input.onkeydown=e=>{if(e.key==='Enter'&&isCompositionKey(e))e.preventDefault();};
   form.querySelector<HTMLButtonElement>('[type=button]')!.onclick=()=>{calendarComposer=null;calendarComposing=false;persistDraft();form.remove();};
   form.onkeydown=e=>{if(e.key==='Escape'){e.preventDefault();calendarComposer=null;calendarComposing=false;persistDraft();form.remove();}};
   form.onsubmit=async e=>{
     e.preventDefault();if(queue.busy||queue.failed||!input.value.trim())return;
-    const conflict=placementIssue('',date,start,duration);if(conflict){form.querySelector<HTMLElement>('.error')!.textContent=conflict.label+'. 다른 시간을 선택하세요.';return;}
-    if(captureDraft.command?.action.type!=='create_scheduled'||captureDraft.command.action.starts_at!==date+'T'+time(start)||captureDraft.command.action.duration!==duration)captureDraft.command=null;
-    captureDraft.command??={request_id:crypto.randomUUID(),epoch:snapshot!.epoch,action:{type:'create_scheduled',id:crypto.randomUUID(),title:input.value.trim(),starts_at:date+'T'+time(start),duration}};
-    const command=captureDraft.command;persistDraft();form.inert=true;
+    const fixedNow=fixedInput.checked,conflict=fixedNow?placementIssue('',date,start,duration):null;if(conflict){form.querySelector<HTMLElement>('.error')!.textContent=conflict.label+'. 다른 시간을 선택하세요.';return;}
+    if(!captureDraft.command||!sameComposerAction(captureDraft.command.action,date,start,duration,fixedNow))captureDraft.command=null;
+    captureDraft.command??={request_id:crypto.randomUUID(),epoch:snapshot!.epoch,action:composerAction(date,start,duration,fixedNow,input.value.trim())};
+    const command=captureDraft.command;persistDraft();form.inert=true;captureBlocks();
     await dispatch(command.action,command.epoch,command.request_id,()=>{if(captureDraft.acknowledge(command)){calendarComposer=null;form.remove();}persistDraft();});
     form.inert=false;if(form.isConnected)form.querySelector<HTMLElement>('.error')!.textContent=errorMessage;
   };
   if(!restoring)input.focus();
 }
-
 function durationPicker(prefix:string,duration:number){
   return `<div class="block-size"><div class="block-size-heading"><span>블록 크기</span><span id="${prefix}-size-label">${formatDuration(duration)}</span></div><div class="block-ruler" aria-label="15분 단위 소요시간">${Array.from({length:8},(_,i)=>`<button type="button" data-duration="${(i+1)*15}" aria-label="${formatDuration((i+1)*15)}" aria-pressed="${(i+1)*15===duration}" class="${i<duration/15?'filled':''}"></button>`).join('')}</div><div class="duration-options" aria-label="블록 소요시간">${[15,30,60,90,120].map(n=>`<button type="button" data-duration="${n}" aria-pressed="${n===duration}">${formatDuration(n)}</button>`).join('')}<label class="custom-duration"><input aria-label="블록 소요시간 직접 입력" id="${prefix}-duration" type="number" min="15" max="1440" step="15" value="${duration}" required><span>분</span></label></div></div>`;
 }
@@ -512,8 +695,8 @@ function bindDurationPicker(prefix:string){
   region.querySelectorAll<HTMLButtonElement>('[data-duration]').forEach(b=>b.onclick=()=>{input.value=b.dataset.duration!;input.dispatchEvent(new Event('input',{bubbles:true}));});input.addEventListener('input',sync);
 }
 async function returnToInbox(task:Task){
-  if(!task.starts_at)return;
-  await dispatch({type:'update',id:task.id,expected_revision:task.revision,title:task.title,body:task.body,starts_at:null,duration:task.duration});
+  if(!task.plan_date)return;
+  captureBlocks();await dispatch(placement(task,null,null));
 }
 async function deleteTask(task:Task){
   if(!await ask(`‘${task.title}’ 항목을 삭제할까요? 이 작업은 되돌릴 수 없어요.`))return;
@@ -540,9 +723,15 @@ function openContextMenu(task:Task|undefined,date:string,start:number,x:number,y
   const menu=document.createElement('div');menu.id='calendar-menu';menu.className='calendar-menu';menu.setAttribute('role','menu');menu.setAttribute('aria-label',task?'블록 작업':'시간 작업');menu.setAttribute('popover','auto');
   const items: {label:string;run:()=>void}[]=task?[
     {label:'메모 열기',run:()=>openEditor(task.id)},
-    {label:task.completed?'미완료로 되돌리기':'완료로 표시',run:()=>{void dispatch({type:'set_completed',id:task.id,expected_revision:task.revision,completed:!task.completed});}},
+    {label:task.completed?'미완료로 되돌리기':'완료로 표시',run:()=>{void toggleComplete(task);}},
+    ...(task.plan_date&&!task.starts_at&&!task.completed?[
+      {label:'앞으로',run:()=>{void reorderTask(task,-1);}},
+      {label:'뒤로',run:()=>{void reorderTask(task,1);}},
+      {label:'시각 고정…',run:()=>openEditor(task.id,'fix')}
+    ]:[]),
+    ...(task.starts_at?[{label:'고정 해제',run:()=>{void unfixTask(task);}}]:[]),
     ...(!task.completed&&task.duration>=30?[{label:'나누기 위치 정하기',run:()=>{void splitTask(task);}}]:[]),
-    ...(task.starts_at?[{label:'미계획으로 옮기기',run:()=>{void returnToInbox(task);}}]:[]),
+    ...(task.plan_date?[{label:'미계획으로 옮기기',run:()=>{void returnToInbox(task);}}]:[]),
     {label:'삭제',run:()=>{void deleteTask(task);}}
   ]:[{label:`${time(start)}에 블록 만들기`,run:()=>openComposer(date,start)},{label:'이 날짜의 근무시간 조정',run:()=>openCalendarAvailability(date,'work',x,y)}];
   menu.innerHTML=`<div class="context-heading">${task?esc(task.title):esc(dateLabel(date))}</div>`+items.map((item,i)=>`<button role="menuitem" data-menu-action="${i}">${esc(item.label)}</button>`).join('');document.body.append(menu);menu.showPopover();
@@ -550,10 +739,17 @@ function openContextMenu(task:Task|undefined,date:string,start:number,x:number,y
   const buttons=Array.from(menu.querySelectorAll<HTMLButtonElement>('button'));buttons.forEach((b,i)=>b.onclick=()=>{menu.hidePopover();menu.remove();items[i].run();});buttons[0]?.focus();
   menu.onkeydown=e=>{if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();const index=buttons.indexOf(document.activeElement as HTMLButtonElement);buttons[(index+(e.key==='ArrowDown'?1:buttons.length-1))%buttons.length].focus();}if(e.key==='Escape'){menu.hidePopover();menu.remove();}};
 }
-function openEditor(id:string){
+function openEditor(id:string,focus?:'fix'){
   pendingEditorId=editorDirty&&editor?.id!==id?id:null;
   if(!editorDirty){const saved=snapshot!.tasks.find(t=>t.id===id);if(!saved)return;editor={...saved,epoch:snapshot!.epoch};editorSequence=0;}
   renderEditor();const dialog=$<HTMLDialogElement>('#editor-dialog');if(!dialog.open)dialog.showModal();$('#edit-title').focus();updateStatus();
+  if(focus==='fix'&&editor?.id===id&&!pendingEditorId){
+    // Start from the block's current place, on the quarter hour, so fixing never asks for a fresh decision.
+    const position=positionOf(editor),fixedInput=$<HTMLInputElement>('#edit-fixed'),timeInput=$<HTMLInputElement>('#edit-time');
+    $<HTMLDetailsElement>('.editor-schedule').open=true;fixedInput.checked=true;timeInput.disabled=false;
+    if(!timeInput.value)timeInput.value=time(Math.round((position?.start??dayRule(editor.plan_date!).start)/15)*15);
+    timeInput.dispatchEvent(new Event('input',{bubbles:true}));timeInput.focus();
+  }
 }
 function closeEditor(discard=false){
   if(discard){editorDirty=false;editor=null;}persistDraft();pendingEditorId=null;$<HTMLDialogElement>('#editor-dialog').close();updateStatus();
@@ -568,15 +764,14 @@ function checklistHTML(body:string){
 }
 function editorSummary(){
   if(!editor)return;const t=editor,count=t.body.match(/^\s*(?:-\s*)?\[[ xX]\]/gm)||[],done=t.body.match(/^\s*(?:-\s*)?\[[xX]\]/gm)||[];
-  const ended=!!t.starts_at&&(t.starts_at.slice(0,10)<today()||t.starts_at.slice(0,10)===today()&&taskMinute(t)+t.duration<=nowMinute());
-  $('#editor-badges').innerHTML=`<span class="badge ${ended&&!t.completed?'overdue-badge':''}">${t.completed?'완료':!t.starts_at?'미계획':ended?'지남':'예정'}</span>${count.length?`<span>체크 ${done.length}/${count.length}</span>`:''}`;
-  $('#editor-end').textContent=t.starts_at?`종료 ${time(taskMinute(t)+t.duration)}`:'미계획';
-  $('#editor-schedule-summary').textContent=`시간 · ${formatDuration(t.duration)}${t.starts_at?' · '+t.starts_at.slice(0,10)+' '+t.starts_at.slice(11):' · 미계획'}`;
+  $('#editor-badges').innerHTML=`<span class="badge">${t.completed?'완료':!t.plan_date?'미계획':t.starts_at?'시각 고정':'계획'}</span>${count.length?`<span>체크 ${done.length}/${count.length}</span>`:''}`;
+  $('#editor-end').textContent=t.starts_at?`종료 ${time(taskMinute(t)+t.duration)}`:t.plan_date?dateLabel(t.plan_date):'미계획';
+  $('#editor-schedule-summary').textContent=`시간 · ${formatDuration(t.duration)}${t.starts_at?' · '+t.starts_at.slice(0,10)+' '+t.starts_at.slice(11)+' 고정':t.plan_date?' · '+t.plan_date:' · 미계획'}`;
 }
 function renderEditor(){
   if(!editor)return;const t=editor,d=$<HTMLDialogElement>('#editor-dialog'),pending=snapshot!.tasks.find(x=>x.id===pendingEditorId);
-  d.setAttribute('aria-labelledby','editor-heading');d.removeAttribute('aria-label');d.innerHTML=`<div class="detail-header"><h2 id="editor-heading" class="sr-only">항목 상세</h2><label class="sr-only" for="edit-title">제목</label><input id="edit-title" form="editor-form" value="${esc(t.title)}" maxlength="650" required><button class="icon-button" id="close-editor" aria-label="상세 닫기">${icon('close')}</button></div><form id="editor-form"><div class="editor-fields">${pending?`<div class="conflict">먼저 ‘${esc(t.title)}’의 변경을 정리해 주세요.<button type="button" id="switch-editor">버리고 ‘${esc(pending.title)}’ 열기</button></div>`:''}<div id="editor-badges"></div><label class="sr-only" for="edit-body">메모</label><textarea id="edit-body" rows="8" placeholder="메모">${esc(t.body)}</textarea><div id="checklist">${checklistHTML(t.body)}</div><details class="editor-schedule"><summary id="editor-schedule-summary">시간 · ${formatDuration(t.duration)}${t.starts_at?' · '+t.starts_at.slice(0,10)+' '+t.starts_at.slice(11):' · 미계획'}</summary>${durationPicker('edit',t.duration)}<div class="schedule-box"><div class="schedule-line"><div><label for="edit-date">예정 날짜</label><input id="edit-date" type="date" value="${t.starts_at?.slice(0,10)||''}"></div><div><label for="edit-time">시작 시각</label><input id="edit-time" type="time" step="900" value="${t.starts_at?.slice(11)||''}"></div></div><p id="editor-end" class="hint"></p></div></details><button type="button" id="discard-draft" class="text-button" ${editorDirty?'':'hidden'}>초안 버리기</button>${snapshot?.tasks.find(x=>x.id===t.id)?.revision!==t.revision||snapshot.epoch!==t.epoch?'<div class="conflict"><p>다른 곳에서 이 항목이 바뀌었어요. 입력한 내용은 그대로 있어요.</p><button type="button" id="rebase">내 입력으로 저장</button></div>':''}<div id="editor-recovery"></div></div><div class="editor-save"><div id="close-confirm" hidden><p>저장하지 않은 변경이 있어요.</p><div class="detail-actions"><button type="button" id="save-close" class="primary">저장하고 닫기</button><button type="button" id="keep-close">초안으로 남기고 닫기</button><button type="button" id="discard-close">변경 버리기</button></div></div><div class="detail-actions editor-primary"><button type="submit" class="primary">저장</button><button type="button" id="editor-complete">${t.completed?'미완료로 되돌리기':'완료로 표시'}</button><div class="more-actions"><button type="button" id="editor-more" aria-haspopup="menu" aria-expanded="false" aria-controls="editor-menu">⋯ 더보기</button><div id="editor-menu" role="menu" hidden>${!t.completed&&t.duration>=30?'<button role="menuitem" type="button" id="split-task">블록 나누기</button>':''}<button role="menuitem" type="button" id="unschedule">미계획으로 돌리기</button><button role="menuitem" type="button" id="delete-task" class="danger">삭제</button></div></div></div><p id="editor-status"></p></div></form>`;
-  const changed=()=>{const date=$<HTMLInputElement>('#edit-date').value,start=$<HTMLInputElement>('#edit-time').value;editor!.title=$<HTMLInputElement>('#edit-title').value;editor!.starts_at=date&&start?date+'T'+start:null;editor!.duration=Number($<HTMLInputElement>('#edit-duration').value);editor!.body=$<HTMLTextAreaElement>('#edit-body').value;editorDirty=true;editorSequence++;$('#discard-draft').hidden=false;$('#editor-status').textContent='';editorSummary();draftChanged();};
+  d.setAttribute('aria-labelledby','editor-heading');d.removeAttribute('aria-label');d.innerHTML=`<div class="detail-header"><h2 id="editor-heading" class="sr-only">항목 상세</h2><label class="sr-only" for="edit-title">제목</label><input id="edit-title" form="editor-form" value="${esc(t.title)}" maxlength="650" required><button class="icon-button" id="close-editor" aria-label="상세 닫기">${icon('close')}</button></div><form id="editor-form"><div class="editor-fields">${pending?`<div class="conflict">먼저 ‘${esc(t.title)}’의 변경을 정리해 주세요.<button type="button" id="switch-editor">버리고 ‘${esc(pending.title)}’ 열기</button></div>`:''}<div id="editor-badges"></div><label class="sr-only" for="edit-body">메모</label><textarea id="edit-body" rows="8" placeholder="메모">${esc(t.body)}</textarea><div id="checklist">${checklistHTML(t.body)}</div><details class="editor-schedule"><summary id="editor-schedule-summary"></summary>${durationPicker('edit',t.duration)}<div class="schedule-box"><div class="schedule-line"><div><label for="edit-date">계획 날짜</label><input id="edit-date" type="date" value="${t.plan_date||''}"></div><div><label class="check-line edit-fixed"><input type="checkbox" id="edit-fixed" ${t.starts_at?'checked':''}>${icon('lock')}시각 고정</label><label for="edit-time" class="sr-only">고정 시각</label><input id="edit-time" type="time" step="900" value="${t.starts_at?.slice(11)||''}" ${t.starts_at?'':'disabled'}></div></div><p id="editor-end" class="hint"></p></div></details><button type="button" id="discard-draft" class="text-button" ${editorDirty?'':'hidden'}>초안 버리기</button>${snapshot?.tasks.find(x=>x.id===t.id)?.revision!==t.revision||snapshot.epoch!==t.epoch?'<div class="conflict"><p>다른 곳에서 이 항목이 바뀌었어요. 입력한 내용은 그대로 있어요.</p><button type="button" id="rebase">내 입력으로 저장</button></div>':''}<div id="editor-recovery"></div></div><div class="editor-save"><div id="close-confirm" hidden><p>저장하지 않은 변경이 있어요.</p><div class="detail-actions"><button type="button" id="save-close" class="primary">저장하고 닫기</button><button type="button" id="keep-close">초안으로 남기고 닫기</button><button type="button" id="discard-close">변경 버리기</button></div></div><div class="detail-actions editor-primary"><button type="submit" class="primary">저장</button><button type="button" id="editor-complete">${t.completed?'미완료로 되돌리기':'완료로 표시'}</button><div class="more-actions"><button type="button" id="editor-more" aria-haspopup="menu" aria-expanded="false" aria-controls="editor-menu">⋯ 더보기</button><div id="editor-menu" role="menu" hidden>${!t.completed&&t.duration>=30?'<button role="menuitem" type="button" id="split-task">블록 나누기</button>':''}<button role="menuitem" type="button" id="unschedule">미계획으로 돌리기</button><button role="menuitem" type="button" id="delete-task" class="danger">삭제</button></div></div></div><p id="editor-status"></p></div></form>`;
+  const changed=()=>{const date=$<HTMLInputElement>('#edit-date').value,fixed=$<HTMLInputElement>('#edit-fixed').checked,start=$<HTMLInputElement>('#edit-time').value;$<HTMLInputElement>('#edit-time').disabled=!fixed;editor!.title=$<HTMLInputElement>('#edit-title').value;editor!.plan_date=date||null;editor!.starts_at=fixed&&date&&start?date+'T'+start:null;editor!.duration=Number($<HTMLInputElement>('#edit-duration').value);editor!.body=$<HTMLTextAreaElement>('#edit-body').value;editorDirty=true;editorSequence++;$('#discard-draft').hidden=false;$('#editor-status').textContent='';editorSummary();draftChanged();};
   bindDurationPicker('edit');
   d.querySelectorAll('input:not([data-check-line]),textarea').forEach(el=>el.addEventListener('input',changed));
   $('#edit-body').addEventListener('change',()=>{$('#checklist').innerHTML=checklistHTML(editor!.body);bindChecklist(changed);});bindChecklist(changed);editorSummary();updateStatus();
@@ -590,15 +785,16 @@ function renderEditor(){
   $('#editor-more').onclick=()=>{const menu=$('#editor-menu');menu.hidden=!menu.hidden;$('#editor-more').setAttribute('aria-expanded',String(!menu.hidden));if(!menu.hidden)menu.querySelector<HTMLElement>('button')?.focus();};
   $('#editor-menu').onkeydown=e=>{const buttons=Array.from($('#editor-menu').querySelectorAll<HTMLButtonElement>('button'));if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();buttons[(buttons.indexOf(document.activeElement as HTMLButtonElement)+(e.key==='ArrowDown'?1:buttons.length-1))%buttons.length].focus();}if(e.key==='Escape'){e.preventDefault();e.stopPropagation();$('#editor-menu').hidden=true;$('#editor-more').setAttribute('aria-expanded','false');$('#editor-more').focus();}};
   document.querySelector('#split-task')?.addEventListener('click',()=>{if(editorDirty){showError(Error('변경을 저장한 뒤 블록을 나눠 주세요.'));return;}void splitTask(t);});
-  $('#unschedule').onclick=()=>{$<HTMLInputElement>('#edit-date').value='';$<HTMLInputElement>('#edit-time').value='';changed();$('#editor-menu').hidden=true;$('#editor-more').setAttribute('aria-expanded','false');};
+  $('#unschedule').onclick=()=>{$<HTMLInputElement>('#edit-date').value='';$<HTMLInputElement>('#edit-fixed').checked=false;$<HTMLInputElement>('#edit-time').value='';changed();$('#editor-menu').hidden=true;$('#editor-more').setAttribute('aria-expanded','false');};
   $('#editor-complete').onclick=async()=>{
     if(editorDirty&&(!$<HTMLFormElement>('#editor-form').reportValidity()||!await saveEditor()))return;
     const seq=editorSequence;
-    await dispatch({type:'set_completed',id:t.id,expected_revision:t.revision,completed:!t.completed},t.epoch,undefined,()=>{
-      if(editor?.id!==t.id)return;const saved=snapshot!.tasks.find(x=>x.id===t.id)!;
-      if(seq===editorSequence){editor={...saved,epoch:snapshot!.epoch};renderEditor();}
-      else{editor.revision=saved.revision;editor.completed=saved.completed;$('#editor-complete').textContent=saved.completed?'미완료로 되돌리기':'완료로 표시';persistDraft();}
-    });
+    const current=snapshot!.tasks.find(x=>x.id===t.id);if(!current)return;
+    await toggleComplete(current);
+    const saved=snapshot!.tasks.find(x=>x.id===t.id);
+    if(editor?.id!==t.id||!saved||saved.completed===current.completed)return;
+    if(seq===editorSequence){editor={...saved,epoch:snapshot!.epoch};renderEditor();}
+    else{editor.revision=saved.revision;editor.completed=saved.completed;$('#editor-complete').textContent=saved.completed?'미완료로 되돌리기':'완료로 표시';persistDraft();}
   };
   $('#delete-task').onclick=()=>{void deleteTask(t);};
   document.querySelector('#rebase')?.addEventListener('click',async()=>{if(!await ask('다른 곳에서 저장된 내용 위에 지금 입력을 저장할까요?'))return;const current=snapshot!.tasks.find(x=>x.id===t.id);if(!current){showError(Error('삭제된 항목이에요. 내용을 복사해 새 항목으로 저장해 주세요.'));return;}editor!.revision=current.revision;editor!.epoch=snapshot!.epoch;await saveEditor();});
@@ -607,10 +803,11 @@ function bindChecklist(changed:()=>void){document.querySelectorAll<HTMLInputElem
 async function saveEditor(){
   if(!editor)return false;
   if(queue.failed){updateStatus();document.querySelector<HTMLElement>('#editor-release')?.focus();return false;}
-  const date=$<HTMLInputElement>('#edit-date'),start=$<HTMLInputElement>('#edit-time');if(!!date.value!==!!start.value){showError(Error('날짜와 시작 시각을 함께 입력해 주세요. 미계획으로 돌리려면 둘 다 비워 주세요.'));(!date.value?date:start).focus();return false;}
+  const date=$<HTMLInputElement>('#edit-date'),start=$<HTMLInputElement>('#edit-time');if($<HTMLInputElement>('#edit-fixed').checked&&(!date.value||!start.value)){showError(Error('시각을 고정하려면 날짜와 시작 시각을 함께 입력해 주세요.'));(!date.value?date:start).focus();return false;}
   const button=$<HTMLButtonElement>('#editor-form button[type=submit]');if(button.disabled)return false;button.disabled=true;const t=structuredClone(editor),seq=editorSequence;let saved=false;
   persistDraft();
-  await dispatch({type:'update',id:t.id,expected_revision:t.revision,title:t.title,body:t.body,starts_at:t.starts_at,duration:t.duration},t.epoch,undefined,()=>{
+  // Drafts saved before flow plans existed carry only starts_at.
+  await dispatch({type:'update',id:t.id,expected_revision:t.revision,title:t.title,body:t.body,starts_at:t.starts_at,duration:t.duration,plan_date:t.plan_date??t.starts_at?.slice(0,10)??null},t.epoch,undefined,()=>{
     saved=true;if(editor?.id===t.id){editor.revision=snapshot!.tasks.find(x=>x.id===t.id)!.revision;if(seq===editorSequence)editorDirty=false;persistDraft();$('#editor-status').textContent=editorDirty?'새 변경이 남아 있어요. 다시 저장해 주세요.':native?'로컬 저장 완료':'미리보기에 반영했어요';$('#discard-draft').hidden=!editorDirty;$('#close-confirm').hidden=true;}
   });
   button.disabled=false;return saved&&!editorDirty;
@@ -618,7 +815,7 @@ async function saveEditor(){
 
 async function ask(text:string){return native?confirm(text,{title:'BLOKKY',kind:'warning'}):window.confirm(text);}
 
-const backupKind=(kind:ManagedBackup['kind'])=>({hour:'시간별',day:'일별',manual:'직접',safety:'복원 전'}[kind]);
+const backupKind=(kind:ManagedBackup['kind'])=>({hour:'시간별',day:'일별',manual:'직접',safety:'복원 전',migration:'업데이트 전'}[kind]);
 const backupDate=(value:string|null)=>value?new Date(value).toLocaleString('ko-KR',{year:'numeric',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}):'시각 정보 없음';
 const backupError=(e:unknown)=>typeof e==='object'&&e&&'message'in e?String(e.message):String(e);
 function backupManagerHTML(){return `<details id="backup-disclosure" class="backup-disclosure" ${backupExpanded||!ready?'open':''}><summary id="backup-heading">백업·복원</summary><section id="backup-manager" class="backup-manager" aria-labelledby="backup-heading">${backupManagerBody()}</section></details>`;}
@@ -796,13 +993,17 @@ async function start(){
     await listen<string>('quit-cancelled',event=>{quitRequest=null;if(!quitSaving)lockQuitInputs(false);errorMessage=event.payload;updateStatus();});
     await listen('backup-warning',async()=>{const info=await invoke<{warning:string|null;last_backup:string|null}>('diagnostics');warning=info.warning||'';lastBackup=info.last_backup||'';if(!Object.keys(rawSchedules).length&&!settingsDraft)renderContent();});
   }else{
-    const days=Array.from({length:7},(_,i)=>({enabled:i<5,start:540,end:1080,breaks:[{start:720,end:780,label:'점심'}]}));
-    snapshot={epoch:'preview',settings:{revision:1,days},tasks:[
-      {id:'sample-1',title:'설계 문서 자료 조사',body:'[x] 요구사항 확인\n[ ] 초안에 반영',starts_at:today()+'T09:30',duration:90,completed:true,revision:1},
-      {id:'sample-2',title:'설계 문서 초안 작성',body:'진행 상황과 필요한 맥락을 이곳에 남깁니다.\n[ ] 계획 화면 정리\n[ ] 검토 의견 반영',starts_at:today()+'T13:00',duration:90,completed:false,revision:1},
-      {id:'sample-3',title:'분리망 배포 의존성 검토',body:'',starts_at:today()+'T15:00',duration:60,completed:false,revision:1},
-      {id:'sample-4',title:'회의록 템플릿 업데이트',body:'',starts_at:null,duration:30,completed:false,revision:1},
-      {id:'sample-5',title:'SQLite 백업 방식 조사',body:'',starts_at:null,duration:30,completed:false,revision:1}
+    // Redesign §10 example: a fixed workshop and four flow blocks, usable on any weekday.
+    const days=Array.from({length:7},()=>({enabled:true,start:540,end:1080,breaks:[{start:720,end:780,label:'점심'}]})),day=today();
+    const flow=(id:string,title:string,duration:number,order:number,body=''):Task=>({id,title,body,starts_at:null,duration,completed:false,revision:1,plan_date:day,flow_order:order});
+    snapshot={epoch:'preview',layouts:[],settings:{revision:1,days},tasks:[
+      flow('sample-a','설계 문서 자료 조사',60,1,'[x] 요구사항 확인\n[ ] 초안에 반영'),
+      flow('sample-b','설계 문서 초안 작성',45,2,'진행 상황과 필요한 맥락을 이곳에 남깁니다.\n[ ] 계획 화면 정리\n[ ] 검토 의견 반영'),
+      flow('sample-c','회의록 정리',30,3),
+      flow('sample-d','분리망 배포 의존성 검토',60,4),
+      {id:'sample-w',title:'설계 워크숍',body:'',starts_at:day+'T14:00',duration:60,completed:false,revision:1,plan_date:day,flow_order:null},
+      {id:'sample-4',title:'회의록 템플릿 업데이트',body:'',starts_at:null,duration:30,completed:false,revision:1,plan_date:null,flow_order:null},
+      {id:'sample-5',title:'SQLite 백업 방식 조사',body:'',starts_at:null,duration:30,completed:false,revision:1,plan_date:null,flow_order:null}
     ]};ready=true;
   }
   render();

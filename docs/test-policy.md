@@ -167,3 +167,13 @@ Test delta 결과: added/extended/removed **1/0/0**, 기본 Node 수집 **21→2
 - Evidence to retire: 없음. ‘충돌 시 미계획 이동’ 단언은 같은 사례 안에서 ‘같은 날짜 유동’ 단언으로 교체했다(D8·D9).
 
 Test delta 결과: added/extended/removed **2/5/0**, 수집 **16→18**. `cargo test --manifest-path src-tauri/Cargo.toml --no-default-features --locked` **18/18**, 본체 **5.18초**. baseline 16/16 4.24초(단일 실행, 별도 시점)와의 차이는 성능 추정이 아니다. 구버전 사례는 v1·v2·v3 각각 열 삭제로 실제 이전 표 형태를 재구성해 이관·`before-migration` 백업·복원을 검증한다. desktop `cargo check` 성공. heavy-resource launch·dependency·CI lane·coverage-floor 영향 0.
+
+
+## 유동 배분 프런트 Test delta brief (2026-10-10)
+
+- Unique risk: 재설계안 §10의 조기·늦은·일괄 완료 결과가 달라짐, 시간 경과만으로 블록이 움직이거나 ‘진행 중·지남’이 다시 생김, 공간 부족 블록이 앞질러 놓이거나 사라짐, 고정 예약이 완료 후 공간을 비움.
+- Existing owner / Selected layer: 기존 `src/schedule.test.ts`의 시간표 표시 owner와 새 순수 `src/flow.ts` owner(`src/flow.test.ts`). 배치 계산은 DOM·DB 없이 순수 함수로 검증하고, 드래그·완료 영역·키보드 경로는 미리보기 수동 묶음이 소유한다.
+- Expected cost delta: Node 파일 worker +1(flow), 동기 사례 4개 추가, 시간 기반 agenda 사례 2개를 day plan·next 상태 사례 2개로 교체. 브라우저·DB·네트워크 자동 실행 증가 0.
+- Evidence to retire: ‘agenda enters current at start and overdue at end’와 ‘agenda fills only available gaps’ 사례. 현재 시각이 상태를 만드는 규칙 자체가 제거되었고, 빈 시간 계산은 새 사례가 기준 시각 이후로 대체 검증한다.
+
+Test delta 결과: added/extended/removed **4/0/0 + 교체 2**, 기본 Node 수집 **22→26**, `npm test` **26/26 · 108.3751ms**(단일 실행, 성능 추정 아님). heavy-resource launch delta 0, coverage-floor 영향 0. 미리보기(`npm run dev`, `?now=` 주입)에서 합성 Pointer/Keyboard 이벤트로 09:40·10:20·11:30 완료, 완료 취소, Alt+↑ 순서, 수동 재배치, 본문 삽입·고정 레일·범위 드래그·빈칸 클릭·고정 블록 이동·크기 조절 키보드·우클릭 고정 해제·편집창 시각 고정·미계획 드로어·2주 날짜 칸 드롭을 확인했고 콘솔 오류는 없었다. 브라우저 창이 숨김 상태여서 시각적 스크린샷 검사는 하지 못했다.
