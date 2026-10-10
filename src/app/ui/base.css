@@ -1,6 +1,8 @@
 /* App-wide base on the role tokens. Components keep their own files. */
 *{box-sizing:border-box}
 html,body{height:100%}
+/* The page keeps its width when a scrollbar comes and goes (a status line can push it past the window for a moment). */
+html{scrollbar-gutter:stable}
 body{margin:0;background:var(--color-canvas);color:var(--color-text);font-family:var(--font-body);font-size:var(--font-size-body);line-height:var(--line-height-body)}
 button,input,select,textarea{font:inherit;color:inherit}
 :focus-visible{outline:2px solid var(--color-focus);outline-offset:2px}

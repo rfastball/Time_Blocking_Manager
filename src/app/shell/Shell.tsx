@@ -1,3 +1,4 @@
+import {useEffect,useState} from 'react';
 import {rangeTitle} from '../../format.ts';
 import {dateKey,dateLabel,dateOf,plusDays} from '../../dates.ts';
 import {setNav,useApp,type View} from '../store/state.ts';
@@ -76,11 +77,18 @@ function DraftState(){
   return <section className="load-state"><h2>{draftLoadFailed?'초안을 불러오지 못했습니다':'초안 불러오는 중'}</h2><p role={draftLoadFailed?'alert':undefined}>저장된 작업은 그대로입니다.</p></section>;
 }
 
+// True once `on` has held for `ms`. A save that answers at once never flashes a status line.
+function useLasting(on:boolean,ms:number){
+  const [lasting,setLasting]=useState(false);
+  useEffect(()=>{if(!on){setLasting(false);return;}const t=setTimeout(()=>setLasting(true),ms);return()=>clearTimeout(t);},[on,ms]);
+  return on&&lasting;
+}
+
 // Shows only what needs attention: loading, saving, a failure with its recovery, or an unfinished edit.
 function StatusBar(){
-  const s=useApp(),dialogOpen=s.ui.editorMode==='dialog';
+  const s=useApp(),dialogOpen=s.ui.editorMode==='dialog',saving=useLasting(s.busy,400);
   const issue=s.error||(s.draftLoadFailed?'보관 중인 초안을 불러오지 못했습니다. 저장된 작업은 그대로입니다.':'')||(s.info.failed?'일부 운영 설정을 불러오지 못했습니다. 다시 불러와 주세요.':'')||(s.failed?'저장하지 못했어요. 입력한 내용은 그대로 있어요.':'');
-  const state=!s.ready?'기록 불러오는 중 · 편집 잠시 중지':!s.draftLoaded?'초안 불러오는 중 · 편집 잠시 중지':s.busy?'저장 중…':s.quitSaving?'종료 전 저장 중…':'';
+  const state=!s.ready?'기록 불러오는 중 · 편집 잠시 중지':!s.draftLoaded?'초안 불러오는 중 · 편집 잠시 중지':saving?'저장 중…':s.quitSaving?'종료 전 저장 중…':'';
   const resume=s.drafts.editorDirty&&s.drafts.editor&&!s.ui.editorMode;
   if(!issue&&!state&&!resume)return null;
   return <footer className="status">
