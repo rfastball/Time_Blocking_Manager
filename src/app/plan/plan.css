@@ -21,6 +21,8 @@
 
 /* 주 */
 .card.wk{--wk-bin:44px;padding:0;overflow:hidden}
+/* Until something is completed this week, the bins stay a slim well. */
+.card.wk:not(:has(.bin .chip)){--wk-bin:8px}
 .wk-scroll{overflow:auto;max-height:calc(100vh - 160px);overscroll-behavior:contain}
 .wk-grid{display:grid;grid-template-columns:46px repeat(7,minmax(118px,1fr))}
 .wk-corner{position:sticky;top:0;left:0;z-index:32;background:var(--color-panel);border-bottom:1px solid var(--color-divider)}
@@ -78,7 +80,7 @@
 .cal-date .pill{white-space:nowrap}
 .cal-date strong{font-size:14px;font-weight:600;font-variant-numeric:tabular-nums}
 .cal-tasks{display:flex;flex-direction:column;gap:4px;min-width:0}
-.mini{display:block;position:relative;min-width:0;touch-action:none;cursor:grab;border-radius:var(--radius-block)}
+.mini{display:block;position:relative;min-width:0;touch-action:manipulation;-webkit-touch-callout:none;cursor:grab;border-radius:var(--radius-block)}
 .mini button{display:block;width:100%;min-height:22px;text-align:left;border:1px solid var(--sp-flow-edge);background:var(--sp-flow);color:var(--sp-flow-ink);border-radius:var(--radius-block);font-size:12px;line-height:15px;font-weight:600;padding:3px 5px;cursor:inherit;transition:translate .14s ease,box-shadow .14s ease}
 .mini:hover button{translate:0 -1px;box-shadow:0 3px 8px #1622441a}
 .mini.fixed button{background:var(--sp-fixed);border-color:var(--sp-fixed-edge);color:var(--color-text)}
