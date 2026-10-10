@@ -50,6 +50,8 @@ export function useDaysAxis(dates:string[],scale:number){
 class MousePenSensor extends PointerSensor{
   static activators=[{eventName:'onPointerDown' as const,handler:(...a:Parameters<typeof PointerSensor.activators[0]['handler']>)=>(a[0].nativeEvent as PointerEvent).pointerType!=='touch'&&PointerSensor.activators[0].handler(...a)}];
 }
+// Work is never put on a day that has passed, even its own: it would turn straight into 지난 미완료.
+const pastReason=(date:string|null)=>date&&date<getState().today?'지난 날짜에는 놓을 수 없어요':null;
 const point=(e:Event)=>{const p='touches' in e?(e as TouchEvent).touches[0]??(e as TouchEvent).changedTouches[0]:e as PointerEvent;return {x:p.clientX,y:p.clientY};};
 
 export function DragProvider({children}:{children:ReactNode}){
@@ -71,7 +73,8 @@ export function DragProvider({children}:{children:ReactNode}){
   }}),[]);
   const register=useCallback((r:Region)=>{regions.current.set(r.key,r);return ()=>{regions.current.delete(r.key);};},[]);
   const base=snapshot?.tasks??[];
-  const tasks=useMemo(()=>applyIntent(base,held&&!held.dropping?held.intent:pending??held?.intent??null),[base,held,pending]);
+  // A rejected place is never previewed: the days stay as they are while the copy shows why.
+  const tasks=useMemo(()=>{const i=held&&!held.dropping?held.intent:pending??held?.intent??null;return applyIntent(base,i?.ok?i:null);},[base,held,pending]);
 
   function zoneAt(task:Task,px:number,py:number,top:number):{intent:Intent;region?:Region}{
     const intent=noIntent(task.id);
@@ -82,17 +85,18 @@ export function DragProvider({children}:{children:ReactNode}){
       const {axis,geometry:g,date}=region,topIn=top-r.top,rule=dayRule(date);
       if(px-r.left<g.bodyLeft){
         const minute=Math.round(axis.minute(Math.max(0,topIn))/15)*15;
-        const issue=placementIssue(task.id,date,minute,task.duration,rule,base);
-        return {intent:{...intent,zone:'rail',date,start:minute,ok:!issue,reason:issue?.label??null},region};
+        const reason=pastReason(date)??placementIssue(task.id,date,minute,task.duration,rule,base)?.label??null;
+        return {intent:{...intent,zone:'rail',date,start:minute,ok:!reason,reason},region};
       }
       const rest=dayPlan(date,base.filter(t=>t.id!==task.id),rule,snapshot!.layouts??[]);
-      const centre=axis.minute(topIn+task.duration*axis.scale/2),flows=rest.items.filter(i=>!i.fixed);
-      return {intent:{...intent,zone:'body',date,before:insertionBefore(flows,centre)},region};
+      const centre=axis.minute(topIn+task.duration*axis.scale/2),flows=rest.items.filter(i=>!i.fixed),reason=pastReason(date);
+      return {intent:{...intent,zone:'body',date,before:insertionBefore(flows,centre),ok:!reason,reason},region};
     }
     for(const kind of ['date','tray'] as const)for(const region of all.filter(r=>r.kind===kind)){
       if(!inside(region.el))continue;
       if(kind==='tray')return task.plan_date?{intent:{...intent,zone:'tray'}}:{intent};
-      return {intent:{...intent,zone:'date',date:region.date},region};
+      const reason=pastReason(region.date);
+      return {intent:{...intent,zone:'date',date:region.date,ok:!reason,reason},region};
     }
     return {intent};
   }
@@ -126,7 +130,7 @@ export function DragProvider({children}:{children:ReactNode}){
     if(!h)return;
     // The copy keeps rendering while it settles onto the block, now aligned with it.
     setHeld({...h,dropping:true});setTimeout(()=>setHeld(x=>x?.dropping?null:x),reduced()?0:320);
-    if(h.intent.zone==='none'||(h.intent.zone==='rail'&&!h.intent.ok))return;
+    if(h.intent.zone==='none'||!h.intent.ok)return;
     // The dropped block stays where it was put until the store answers; a failure lets it spring back.
     setPending(h.intent);
     await drop(h.intent);
@@ -147,19 +151,19 @@ export function DragProvider({children}:{children:ReactNode}){
 }
 
 function HeldBlock({held,lean}:{held:Held;lean:MotionValue<number>}){
-  const {task,intent,width,height}=held,rail=intent.zone==='rail',fixedLook=rail||(!!task.starts_at&&intent.zone==='none');
+  const {task,intent,width,height}=held,rail=intent.zone==='rail',fixedLook=rail||(!!task.starts_at&&intent.zone==='none'),bad=!intent.ok;
   // When the block widens over a day, the point that was grabbed stays under the pointer.
   const shift=rail||held.dropping?0:-held.grabX*(width/held.startRect.width-1);
-  return <motion.div className={'blk held '+(fixedLook?'fixed':'flow')+(rail&&!intent.ok?' bad':'')} style={{rotate:lean,transformOrigin:'50% 30%'}}
+  return <motion.div className={'blk held '+(fixedLook?'fixed':'flow')+(bad?' bad':'')} style={{rotate:lean,transformOrigin:'50% 30%'}}
     initial={{scale:1,width:held.startRect.width,height:held.startRect.height,marginLeft:0}}
-    animate={{scale:held.dropping?1:rail?1.01:LIFT_SCALE,width,height,marginLeft:shift,x:rail&&!intent.ok?[0,-4,3,-2,0]:0}}
+    animate={{scale:held.dropping?1:rail?1.01:LIFT_SCALE,width,height,marginLeft:shift,x:bad?[0,-4,3,-2,0]:0}}
     transition={{scale:{type:'spring',visualDuration:.16,bounce:.4},width:{duration:.18},height:{duration:.18},marginLeft:{duration:.18},x:{duration:.32}}}>
     <div className="tile">
       {fixedLook&&<span className="latch"><Lock open/></span>}
       <span className="chk"/>
       <span className="main"><span className="ttl">{task.title}</span><span className="meta">{rail?`${time(intent.start!)}–${time(intent.start!+task.duration)}`:formatDuration(task.duration)}</span></span>
-      {rail&&!intent.ok&&<span className="held-why">{intent.reason}</span>}
     </div>
+    {bad&&!held.dropping&&<span className="held-why">{intent.reason}</span>}
   </motion.div>;
 }
 export const isGestureActive=()=>getState().gesture;
