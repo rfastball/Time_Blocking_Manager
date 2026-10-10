@@ -1,8 +1,8 @@
 export const themes = [
   {id:'default', name:'기본'},
-  {id:'g1', name:'G1 · 종이 플래너'},
-  {id:'g3', name:'G3 · 톤 레이어'},
-  {id:'g4', name:'G4 · 사무 장부'},
+  {id:'g1', name:'종이 플래너'},
+  {id:'g3', name:'톤 레이어'},
+  {id:'g4', name:'사무 장부'},
 ] as const;
 export type Theme = typeof themes[number]['id'];
 export const themeStorageKey = 'blokky.appearance.theme';

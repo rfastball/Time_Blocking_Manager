@@ -143,7 +143,7 @@ export default [
   }},
   {name:'the theme applies at once, follows arrow keys and survives a reload',run:async page=>{
     await open(page);
-    await page.click('.st-theme','G4');await page.sleep(200);
+    await page.click('.st-theme','사무 장부');await page.sleep(200);
     assert.equal(await page.js('document.documentElement.dataset.theme'),'g4');
     await page.goto('/?now=10:20');await guard(page);
     assert.equal(await page.js('document.documentElement.dataset.theme'),'g4');

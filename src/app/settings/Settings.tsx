@@ -39,7 +39,7 @@ function ThemePicker(){
         <span className="st-preview-rail"/>
         <span className="st-preview-page"><strong>오늘</strong><i className="p-flow"/><i className="p-next"/><i className="p-fixed"/><i className="p-now"/></span>
       </span>
-      <span className="st-theme-name">{t.name}</span>
+      <span className="sr-only">{t.name}</span>
     </label>)}</div>
     {error&&<p className="error" role="alert">{error}</p>}
   </fieldset>;
@@ -73,7 +73,7 @@ function Device(){
   return <div className="st-device">
     <h2>실행과 기록 보관</h2>
     <label className="st-check"><input id="autostart" type="checkbox" checked={info.autoStart} disabled={!native||locked} onChange={e=>void change(setAutostart(e.target.checked))}/>Windows 로그인 시 자동실행</label>
-    <label className="st-check"><input id="exit-on-close" type="checkbox" checked={info.exitOnClose} disabled={!native||locked} onChange={e=>void change(setExitOnClose(e.target.checked))}/>창을 닫으면 앱 종료</label>
+    <label className="st-check"><input id="exit-on-close" type="checkbox" checked={!info.exitOnClose} disabled={!native||locked} onChange={e=>void change(setExitOnClose(!e.target.checked))}/>창을 닫으면 트레이로 최소화</label>
   </div>;
 }
 

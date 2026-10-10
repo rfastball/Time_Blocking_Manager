@@ -260,11 +260,10 @@ fn main() {
                 tauri::WebviewWindowBuilder::from_config(app,&config)?.build()?;
             }
             if app.global_shortcut().register(shortcut.as_str()).is_err() {
-                *app.state::<State>().warning.lock().unwrap()=Some(format!("빠른 캡처 단축키 {shortcut}를 등록하지 못했습니다. 설정에서 변경하거나 트레이 메뉴를 이용하세요."));
+                *app.state::<State>().warning.lock().unwrap()=Some(format!("빠른 캡처 단축키 {shortcut}를 등록하지 못했습니다. 설정에서 다른 단축키로 바꿔 주세요."));
             }
             let menu=tauri::menu::Menu::with_items(app,&[
                 &tauri::menu::MenuItem::with_id(app,"open","BLOKKY 열기",true,None::<&str>)?,
-                &tauri::menu::MenuItem::with_id(app,"capture","빠른 캡처",true,None::<&str>)?,
                 &tauri::menu::MenuItem::with_id(app,"quit","종료",true,None::<&str>)?,
             ])?;
             let pixels:Vec<u8>=(0..32*32).flat_map(|i| {
@@ -272,7 +271,7 @@ fn main() {
                 if ((7..13).contains(&x)&&(7..25).contains(&y))||((16..25).contains(&x)&&(7..14).contains(&y))||((16..22).contains(&x)&&(17..25).contains(&y)) {[255,255,255,255]}else{[43,85,214,255]}
             }).collect();
             tauri::tray::TrayIconBuilder::new().icon(tauri::image::Image::new_owned(pixels,32,32)).tooltip("BLOKKY")
-                .menu(&menu).on_menu_event(|app,event| match event.id.as_ref(){"open"=>show(app,"main"),"capture"=>show(app,"capture"),"quit"=>quit(app),_=>{}}).build(app)?;
+                .menu(&menu).on_menu_event(|app,event| match event.id.as_ref(){"open"=>show(app,"main"),"quit"=>quit(app),_=>{}}).build(app)?;
             if std::env::args().any(|a|a=="--autostart") { if let Some(w)=app.get_webview_window("main"){w.hide()?;} }
             let handle=app.handle().clone();
             std::thread::spawn(move || {let mut checked_hour=String::new();loop {
