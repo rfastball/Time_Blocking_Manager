@@ -24,6 +24,9 @@
 .chip-undo:hover{background:var(--color-control-hover)}
 .slit{height:6px;margin:0 8px;border-radius:0 0 4px 4px;background:var(--sp-clasp);transform-origin:50% 0}
 .column .slit{height:4px;margin:0 3px}
+/* An empty week bin keeps its height, so the seven columns stay on one axis, but shows only a slim well and a light slit. */
+.column .bin.empty{background:linear-gradient(to top,var(--sp-well) 8px,transparent 8px)}
+.column .bin.empty+.slit{background:var(--sp-groove)}
 
 .space-wrap{position:relative;margin-top:4px}
 /* A finger scrolls over the space; drawing a new block on the background is a mouse or pen gesture. */

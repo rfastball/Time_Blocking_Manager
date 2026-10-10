@@ -132,7 +132,7 @@ function Bin({tasks,onOpen}:{tasks:Task[];onOpen:(t:Task)=>void}){
   const [scope,animate]=useAnimate(),count=useRef(tasks.length);
   useEffect(()=>{if(tasks.length>count.current&&scope.current&&!reduced())void animate(scope.current,{scaleY:[1,2,1]},{duration:.36,ease:[.3,1.6,.5,1]});count.current=tasks.length;},[tasks.length]);
   return <>
-    <div className="bin" aria-label="완료">
+    <div className={'bin'+(tasks.length?'':' empty')} aria-label="완료">
       {tasks.length>0&&<span className="bin-label">완료 <b>{tasks.length}</b></span>}
       <AnimatePresence initial={false}>
         {tasks.map(t=><motion.span key={t.id} className="chip" layout initial={{opacity:0,y:18,scaleX:.8,scaleY:1.15}} animate={{opacity:1,y:0,scaleX:1,scaleY:1}} exit={{opacity:0,y:14}} transition={{type:'spring',visualDuration:.4,bounce:.35}}>
