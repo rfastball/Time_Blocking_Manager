@@ -153,7 +153,8 @@ function Block({item,axis,geometry:g,variant,next,hollow,selected,multi,squash,l
   const t=item.task,{listeners,setNodeRef}=useDraggable({id:`${variant}:${t.id}`,data:{taskId:t.id},disabled:item.fixed&&t.completed});
   const top=axis.position(item.start)+1,h=Math.max(10,axis.position(item.end)-axis.position(item.start)-2);
   const range=`${time(item.start)}–${time(item.end)}`;
-  const cls=['blk',item.fixed?'fixed':'flow',item.over?'over':'',next?'next':'',t.completed?'done':'',hollow?'hollow':'',selected?'sel':'',multi?'multi':'',h<34?'compact':'',h<20?'tiny':''].join(' ');
+  // Title over meta takes about 56px in a day and 47px in a week column; anything shorter is one row with the meta beside the title.
+  const cls=['blk',item.fixed?'fixed':'flow',item.over?'over':'',next?'next':'',t.completed?'done':'',hollow?'hollow':'',selected?'sel':'',multi?'multi':'',h<(variant==='day'?56:47)?'compact':'',h<20?'tiny':''].join(' ');
   const orderable=!item.fixed&&!t.completed;
   const key=(e:KeyboardEvent<HTMLButtonElement>)=>{
     if((e.shiftKey&&e.key==='F10')||e.key==='ContextMenu'){e.preventDefault();const r=e.currentTarget.getBoundingClientRect();onMenu({clientX:r.left+12,clientY:r.top+12});return;}

@@ -67,9 +67,15 @@
 .next.sel>.tile{outline-color:var(--color-text)}
 .multi>.tile{outline:2px dashed var(--color-text);outline-offset:2px}
 .compact>.tile{padding-top:1px;padding-bottom:1px;align-items:center}
-.compact .meta{display:none}
+.compact .main{flex-direction:row;align-items:center;gap:8px;padding:0;line-height:1.25}
+.compact .ttl-row{flex:0 1 auto}
+.compact .meta{flex:0 0 auto}
 .compact .chk{width:18px;height:18px}
 .tiny .chk{display:none}
+.tiny>.tile{padding-top:0;padding-bottom:0}
+.tiny .main{line-height:1}
+.tiny .ttl{font-size:11.5px}
+.tiny .meta{font-size:10.5px}
 .blk.hollow,.tblk.hollow{border-radius:var(--radius-block);background:var(--sp-well);outline:1.5px dashed var(--sp-fixed-edge);outline-offset:-1.5px}
 .hollow>.tile{visibility:hidden}
 .latch{position:absolute;left:-1px;top:-1px;bottom:-1px;width:28px;border-radius:var(--radius-block) 0 0 var(--radius-block);background:var(--sp-clasp);display:flex;justify-content:center;padding-top:6px;color:var(--color-surface)}
