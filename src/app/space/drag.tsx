@@ -1,5 +1,5 @@
 import {createContext,useCallback,useContext,useMemo,useRef,useState,type ReactNode} from 'react';
-import {DndContext,DragOverlay,PointerSensor,useSensor,useSensors,defaultDropAnimationSideEffects,type DragEndEvent,type DragMoveEvent,type DragStartEvent,type DropAnimation,type Modifier} from '@dnd-kit/core';
+import {DndContext,DragOverlay,PointerSensor,useSensor,useSensors,defaultDropAnimationSideEffects,type DragEndEvent,type DragMoveEvent,type DragStartEvent,type DropAnimation,type Modifier,type Active} from '@dnd-kit/core';
 import {motion,useMotionValue,useSpring,type MotionValue} from 'motion/react';
 import {applyIntent,noIntent,type Intent} from '../../intent.ts';
 import {dayPlan,overrunEnd} from '../../today.ts';
@@ -56,6 +56,13 @@ export function DragProvider({children}:{children:ReactNode}){
   const start=useRef<Held['startRect']|null>(null);
   const tilt=useMotionValue(0),lean=useSpring(tilt,{stiffness:140,damping:22});
   const sensors=useSensors(useSensor(PointerSensor,{activationConstraint:{distance:5}}));
+  const heldRef=useRef(held);heldRef.current=held;
+  // dnd-kit's own English hints and ids are replaced: blocks are lifted by pointer only, and results are announced by the app.
+  const accessibility=useMemo(()=>({screenReaderInstructions:{draggable:''},announcements:{
+    onDragStart:({active}:{active:Active})=>{const id=String(active.data.current?.taskId??active.id),t=getState().snapshot?.tasks.find(x=>x.id===id);return t?`‘${t.title}’을 들었어요`:undefined;},
+    onDragOver:()=>undefined,onDragMove:()=>undefined,onDragCancel:()=>'',
+    onDragEnd:()=>{const i=heldRef.current?.intent;return i&&!i.ok&&i.reason?i.reason:'';}
+  }}),[]);
   const register=useCallback((r:Region)=>{regions.current.set(r.key,r);return ()=>{regions.current.delete(r.key);};},[]);
   const base=snapshot?.tasks??[];
   const tasks=useMemo(()=>applyIntent(base,held&&!held.dropping?held.intent:pending??held?.intent??null),[base,held,pending]);
@@ -126,7 +133,7 @@ export function DragProvider({children}:{children:ReactNode}){
     sideEffects:defaultDropAnimationSideEffects({styles:{active:{opacity:'0'}}})
   };
   return <DragCtx.Provider value={{held,pending,tasks,register}}>
-    <DndContext sensors={sensors} onDragStart={onDragStart} onDragMove={onDragMove} onDragEnd={onDragEnd} onDragCancel={()=>{setHeld(null);snap.current=null;setGesture(false);}} autoScroll={false}>
+    <DndContext sensors={sensors} accessibility={accessibility} onDragStart={onDragStart} onDragMove={onDragMove} onDragEnd={onDragEnd} onDragCancel={()=>{setHeld(null);snap.current=null;setGesture(false);}} autoScroll={false}>
       {children}
       <DragOverlay modifiers={[snapModifier]} dropAnimation={dropAnimation}>{held&&<HeldBlock held={held} lean={lean}/>}</DragOverlay>
     </DndContext>

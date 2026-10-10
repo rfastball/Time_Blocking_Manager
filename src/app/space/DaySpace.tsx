@@ -142,7 +142,7 @@ type BlockProps={item:DayItem;axis:TimeAxis;geometry:Geometry;variant:'day'|'col
 // Blocks are placed with `top`, never a transform: dnd-kit measures boxes without transforms.
 // Only completion pulls a block up into the intake; any other departure just fades.
 function Block({item,axis,geometry:g,variant,next,hollow,selected,multi,squash,landed,onCheck,onOpen,onMenu,onGrip}:BlockProps){
-  const t=item.task,{attributes,listeners,setNodeRef}=useDraggable({id:`${variant}:${t.id}`,data:{taskId:t.id},disabled:item.fixed&&t.completed});
+  const t=item.task,{listeners,setNodeRef}=useDraggable({id:`${variant}:${t.id}`,data:{taskId:t.id},disabled:item.fixed&&t.completed});
   const top=axis.position(item.start)+1,h=Math.max(10,axis.position(item.end)-axis.position(item.start)-2);
   const range=`${time(item.start)}–${time(item.end)}`;
   const cls=['blk',item.fixed?'fixed':'flow',item.over?'over':'',next?'next':'',t.completed?'done':'',hollow?'hollow':'',selected?'sel':'',multi?'multi':'',h<34?'compact':'',h<20?'tiny':''].join(' ');
@@ -154,7 +154,7 @@ function Block({item,axis,geometry:g,variant,next,hollow,selected,multi,squash,l
     variants={{leave:(done:Set<string>)=>done?.has(t.id)
       ?{y:-(top+h+40),scaleX:.5,scaleY:1.4,opacity:0,transition:{duration:reduced()?0:.3,ease:[.6,0,.9,.35]}}
       :{opacity:0,transition:{duration:.12}}}}
-    exit="leave" transition={settle} {...attributes} {...listeners} tabIndex={-1} role="presentation" onContextMenu={e=>{e.preventDefault();onMenu(e);}}>
+    exit="leave" transition={settle} {...listeners} tabIndex={-1} role="presentation" onContextMenu={e=>{e.preventDefault();onMenu(e);}}>
     <motion.div className="tile" animate={squash?{scaleX:1.05,scaleY:.86}:landed?{scaleX:[1.03,1.025,.99,1],scaleY:[1.03,.93,1.025,1]}:{scaleX:1,scaleY:1}}
       transition={squash?{duration:.1}:landed?{duration:.45}:{duration:.15}} style={{transformOrigin:'50% 100%'}}>
       {item.fixed&&<Latch clack={!!landed?.clack}/>}
