@@ -28,6 +28,13 @@ export function switchToPending(){
   const id=getState().drafts.pendingEditorId;if(!id)return;
   setDrafts({editor:null,editorDirty:false,pendingEditorId:null});void persistDraft();openEditor(id,getState().ui.editorMode??'dialog');
 }
+// With nothing typed, the open draft follows the stored task (drag, resize, menu actions beside the panel) instead of reporting a conflict.
+export function syncEditor(){
+  const s=getState(),e=s.drafts.editor;if(!e||s.drafts.editorDirty||!s.snapshot)return;
+  const saved=s.snapshot.tasks.find(t=>t.id===e.id);
+  if(!saved){closeEditor(true);return;}
+  if(saved.revision!==e.revision||s.snapshot.epoch!==e.epoch)setDrafts({editor:{...saved,epoch:s.snapshot.epoch}});
+}
 export const editorConflict=()=>{const s=getState(),e=s.drafts.editor;if(!e||!s.snapshot)return false;const saved=s.snapshot.tasks.find(t=>t.id===e.id);return !saved||saved.revision!==e.revision||s.snapshot.epoch!==e.epoch;};
 
 // Resolves true when the draft was stored and no newer typing remains.
