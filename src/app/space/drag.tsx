@@ -18,6 +18,7 @@ import {Lock} from '../ui/icons.tsx';
 // A held block bites into the rail once its left edge is pushed `bite` px left of where flow blocks stand, and lets go
 // once pulled `pull` px right of where fixed blocks stand: a little easier than biting, and still clear of the bite point
 // (fixedLeft+pull > flowLeft-bite), so it never chatters at the edge. Until then the copy gives up to `give` px toward the hand.
+// Both distances grow while the hand is moving up or down (see `steadiness`), so reordering never latches by drift.
 export type Geometry={ruler:number;railLeft:number;railWidth:number;bodyLeft:number;flowLeft:number;fixedLeft:number;right:number;bite:number;pull:number;give:number};
 export const DAY_GEOMETRY:Geometry={ruler:50,railLeft:52,railWidth:30,bodyLeft:86,flowLeft:92,fixedLeft:56,right:10,bite:24,pull:20,give:6};
 export const COLUMN_GEOMETRY:Geometry={ruler:0,railLeft:0,railWidth:13,bodyLeft:14,flowLeft:17,fixedLeft:1,right:4,bite:12,pull:10,give:3};
@@ -66,6 +67,8 @@ export function DragProvider({children}:{children:ReactNode}){
   const [pending,setPending]=useState<Intent|null>(null);
   const regions=useRef(new Map<string,Region>());
   const motionRef=useRef<{x:number;t:number;tilt:number;idle?:ReturnType<typeof setTimeout>}>({x:0,t:0,tilt:0});
+  // Recent motion per axis, px per frame, fading over about 120ms. Its vertical share is the budget up/down travel has taken.
+  const travel=useRef({x:0,y:0,px:0,py:0,t:0});
   const snap=useRef<{left:number;top:number}|null>(null);
   const start=useRef<Held['startRect']|null>(null);
   const tilt=useMotionValue(0),lean=useSpring(tilt,{stiffness:140,damping:22});
@@ -85,7 +88,8 @@ export function DragProvider({children}:{children:ReactNode}){
 
   // `grab` is where along its width the block was taken; `prev` is the last intent, for the latch's hysteresis.
   // `near` is how far the block has been pushed toward biting (or, latched, pulled toward letting go), 0–1.
-  function zoneAt(task:Task,px:number,py:number,top:number,grab:number,prev:Intent):{intent:Intent;region?:Region;slot?:Slot;near?:number}{
+  // `stretch` scales both distances: 1 when the hand is still or moving sideways, up to STRETCH while it travels up or down.
+  function zoneAt(task:Task,px:number,py:number,top:number,grab:number,prev:Intent,stretch=1):{intent:Intent;region?:Region;slot?:Slot;near?:number}{
     const intent=noIntent(task.id);
     const inside=(el:HTMLElement)=>{const r=el.getBoundingClientRect();return px>=r.left&&px<=r.right&&py>=r.top&&py<=r.bottom?r:null;};
     const all=[...regions.current.values()];
@@ -95,15 +99,16 @@ export function DragProvider({children}:{children:ReactNode}){
       // A fixed block starts latched on its own day; anything latched keeps the wider fixed shape while it is measured.
       const was=prev.zone==='rail'?prev.date===date:prev.zone==='none'&&task.starts_at?.slice(0,10)===date;
       const edge=px-r.left-grab*(r.width-(was?g.fixedLeft:g.flowLeft)-g.right);
-      if(px-r.left<g.bodyLeft||(was?edge<g.fixedLeft+g.pull:edge<=g.flowLeft-g.bite)){
+      const bite=g.bite*stretch,pull=g.pull*stretch;
+      if(px-r.left<g.bodyLeft||(was?edge<g.fixedLeft+pull:edge<=g.flowLeft-bite)){
         const minute=Math.round(axis.minute(Math.max(0,topIn))/15)*15;
         const reason=placementIssue(task.id,date,minute,task.duration,rule,base)?.label??null;
-        return {intent:{...intent,zone:'rail',date,start:minute,ok:!reason,reason},region,near:was?Math.max(0,Math.min(1,(edge-g.fixedLeft)/g.pull)):0};
+        return {intent:{...intent,zone:'rail',date,start:minute,ok:!reason,reason},region,near:was?Math.max(0,Math.min(1,(edge-g.fixedLeft)/pull)):0};
       }
       const rest=dayPlan(date,base.filter(t=>t.id!==task.id),rule,layouts);
       const centre=axis.minute(topIn+task.duration*axis.scale/2),flows=rest.items.filter(i=>!i.fixed);
       const body:Intent={...intent,zone:'body',date,before:insertionBefore(flows,centre),ok:true,reason:null};
-      const near=Math.max(0,Math.min(1,(g.flowLeft-edge)/g.bite));
+      const near=Math.max(0,Math.min(1,(g.flowLeft-edge)/bite));
       const item=dayPlan(date,applyIntent(base,body),rule,layouts).items.find(i=>i.task.id===task.id);
       return {intent:body,region,near,slot:item&&{start:item.start,end:item.end,over:item.over}};
     }
@@ -122,6 +127,7 @@ export function DragProvider({children}:{children:ReactNode}){
     const px=point(e.activatorEvent!).x;
     start.current={left:r.left,top:r.top,width:r.width,height:r.height};
     motionRef.current={x:px,t:performance.now(),tilt:0};snap.current=null;tilt.set(0);
+    travel.current={x:0,y:0,px,py:point(e.activatorEvent!).y,t:performance.now()};
     setGesture(true);setUi({contextMenu:null});
     pull.set(0);
     setHeld({task,intent:noIntent(task.id),slot:null,rising:false,runner:null,startRect:start.current,grabX:px-r.left,width:r.width,height:r.height});
@@ -129,7 +135,7 @@ export function DragProvider({children}:{children:ReactNode}){
   function onDragMove(e:DragMoveEvent){
     const h=held,s=start.current;if(!h||!s||h.dropping)return;
     const a=point(e.activatorEvent!),px=a.x+e.delta.x,py=a.y+e.delta.y;
-    const {intent,region,slot=null,near=0}=zoneAt(h.task,px,py,s.top+e.delta.y,h.grabX/s.width,h.intent);
+    const {intent,region,slot=null,near=0}=zoneAt(h.task,px,py,s.top+e.delta.y,h.grabX/s.width,h.intent,steadiness(travel.current,px,py));
     pull.set(intent.zone==='body'?near:0);
     const rect=region?.el.getBoundingClientRect(),g=region?.geometry,axis=region?.axis;
     // Both places show where the block will be: the rail on its 15-minute tick, the body on the slot its order gives it.
@@ -161,8 +167,10 @@ export function DragProvider({children}:{children:ReactNode}){
     setPending(null);
   }
   const snapModifier:Modifier=({transform})=>{const s=snap.current,o=start.current;return s&&o?{...transform,x:s.left-o.left,y:s.top-o.top}:transform;};
+  // A block let go on the rail seats at once; elsewhere it settles in with a small overshoot.
+  const seated=held?.intent.zone==='rail';
   const dropAnimation:DropAnimation={
-    duration:reduced()?0:300,easing:'cubic-bezier(.3,1.35,.5,1)',
+    duration:reduced()?0:seated?140:300,easing:seated?'cubic-bezier(.2,.9,.3,1)':'cubic-bezier(.3,1.35,.5,1)',
     keyframes:({transform})=>[{transform:`translate3d(${transform.initial.x}px,${transform.initial.y}px,0)`},{transform:`translate3d(${transform.final.x}px,${transform.final.y}px,0)`}],
     sideEffects:defaultDropAnimationSideEffects({styles:{active:{opacity:'0'}}})
   };
@@ -174,10 +182,19 @@ export function DragProvider({children}:{children:ReactNode}){
   </DragCtx.Provider>;
 }
 
+// How much harder biting and letting go are right now. Like a scroll view's directional lock, but soft: the vertical share of
+// recent motion (y/(x+y+REST)) takes up to STRETCH× the distance; a pause lets it fade, so a deliberate sideways push still bites.
+const STRETCH=3,REST=.6,FADE_MS=120;
+function steadiness(m:{x:number;y:number;px:number;py:number;t:number},px:number,py:number){
+  const t=performance.now(),dt=Math.max(1,t-m.t),k=1-Math.exp(-dt/FADE_MS),frame=16/dt;
+  m.x+=k*(Math.abs(px-m.px)*frame-m.x);m.y+=k*(Math.abs(py-m.py)*frame-m.y);m.px=px;m.py=py;m.t=t;
+  return 1+(STRETCH-1)*m.y/(m.x+m.y+REST);
+}
+
 // The copy sits where the block will be, on a rail tick or on its slot in the order.
 // Up to a slot it is drawn in, gathering speed until it meets what is above; down it is pushed, easing to a stop.
 const RISE_MS=220;
-const glide=(h:Held)=>h.intent.zone==='rail'?'transform .16s cubic-bezier(.3,1.3,.5,1)'
+const glide=(h:Held)=>h.intent.zone==='rail'?'transform .1s cubic-bezier(.2,.9,.3,1)'
   :h.rising?`transform ${RISE_MS}ms cubic-bezier(.55,.05,.85,.6)`:'transform .22s cubic-bezier(.3,0,.3,1)';
 const settled=(h:Held)=>h.intent.zone==='rail'||(h.intent.zone==='body'&&!!h.slot);
 function HeldBlock({held,lean,reach}:{held:Held;lean:MotionValue<number>;reach:MotionValue<number>}){
@@ -193,13 +210,11 @@ function HeldBlock({held,lean,reach}:{held:Held;lean:MotionValue<number>;reach:M
   return <motion.div className={'blk held '+(column?'column ':'')+(fixedLook?'fixed':'flow')+(bad?' bad':'')+(!rail&&slot?.over&&intent.zone==='body'?' over':'')} style={{rotate:lean,transformOrigin:'50% 30%'}}
     initial={{scale:1,width:held.startRect.width,height:held.startRect.height,marginLeft:0}}
     animate={{scale:held.dropping?1:placed?1.01:LIFT_SCALE,width,height,marginLeft:shift,x:bad?[0,-4,3,-2,0]:0}}
-    transition={{scale:{type:'spring',visualDuration:.16,bounce:.4},width:{duration:.18},height:{duration:.18},marginLeft:{duration:.18},x:{duration:.32}}}>
+    transition={{scale:rail?{duration:.09}:{type:'spring',visualDuration:.16,bounce:.4},width:{duration:.18},height:{duration:.18},marginLeft:{duration:.18},x:{duration:.32}}}>
     {!fixedLook&&intent.zone==='body'&&held.runner&&<motion.span className="runner" aria-hidden="true" style={{width:runnerWidth}}><i className="stem"/><motion.i className="shoe" style={{scale:swell}}/></motion.span>}
     <div ref={tileRef} className="tile" style={{transformOrigin:'50% 100%'}}>
-      {/* Latching, the clasp springs out of the runner and bites the rail. */}
-      {fixedLook&&<motion.span className="latch" style={{transformOrigin:'0 50%'}} initial={rail?{scaleX:.15,opacity:.5}:false} animate={{scaleX:1,opacity:1}} transition={{type:'spring',visualDuration:.3,bounce:.55}}>
-        <Lock open/>{rail&&<motion.i className="ring" initial={{opacity:.9,scale:.4}} animate={{opacity:0,scale:1.6}} transition={{duration:.45}}/>}
-      </motion.span>}
+      {/* Latching, the clasp shoots out of the runner and seats on the rail: fast, no overshoot. */}
+      {fixedLook&&<motion.span className="latch" style={{transformOrigin:'0 50%'}} initial={rail?{scaleX:.15}:false} animate={{scaleX:1}} transition={{duration:.09,ease:[.2,.9,.3,1]}}><Lock open/></motion.span>}
       <span className="chk"/>
       <span className="main"><span className="ttl">{task.title}</span><span className="meta">{at?`${time(at.start)}–${time(at.end)}`:formatDuration(task.duration)}</span></span>
     </div>

@@ -182,8 +182,8 @@ function Block({item,axis,geometry:g,variant,next,hollow,selected,multi,squash,l
     exit="leave" transition={drawn&&move.current.dir?{...settle,top:move.current.dir==='up'?rise:sink}:settle} {...listeners} tabIndex={-1} role="presentation" onContextMenu={e=>{e.preventDefault();if(!isGestureActive())onMenu(e);}}>
     {/* A flow block rides the rail on a runner in its groove: free to slide, and pushed further it latches to a time. */}
     {orderable&&<span className="runner" aria-hidden="true" style={{width:runnerReach(g)}}><i className="stem"/><i className="shoe"/></span>}
-    <motion.div ref={tileRef} className="tile" animate={squash?{scaleX:1.05,scaleY:.86}:landed?{scaleX:[1.03,1.025,.99,1],scaleY:[1.03,.93,1.025,1]}:{scaleX:1,scaleY:1}}
-      transition={squash?{duration:.1}:landed?{duration:.45}:{duration:.15}} style={{transformOrigin:'50% 100%'}}>
+    <motion.div ref={tileRef} className="tile" animate={squash?{scaleX:1.05,scaleY:.86}:landed&&!landed.clack?{scaleX:[1.03,1.025,.99,1],scaleY:[1.03,.93,1.025,1]}:{scaleX:1,scaleY:1}}
+      transition={squash?{duration:.1}:landed&&!landed.clack?{duration:.45}:{duration:.15}} style={{transformOrigin:'50% 100%'}}>
       {item.fixed&&<Latch clack={!!landed?.clack}/>}
       <button type="button" className="chk" aria-label={t.title+(t.completed?' 완료 취소':' 완료')} aria-pressed={t.completed} onPointerDown={e=>e.stopPropagation()} onTouchStart={e=>e.stopPropagation()} onClick={onCheck}><Icon name="check" size={12} stroke={3}/></button>
       <button type="button" className="main" aria-label={`${t.title}, ${item.fixed?'시각 고정':'예상'} ${range}, ${formatDuration(t.duration)}${item.over?', 근무 외':''}${next?', 다음':''}${t.completed?', 완료':''}`} onClick={onOpen} onKeyDown={key} aria-keyshortcuts={keys} data-task={t.id}>
@@ -197,7 +197,8 @@ function Block({item,axis,geometry:g,variant,next,hollow,selected,multi,squash,l
 }
 
 function Latch({clack}:{clack:boolean}){
-  return <motion.span className="latch" title="시각 고정" animate={clack?{x:[-5,1.5,0],scaleX:[1.2,.94,1]}:{x:0,scaleX:1}} transition={{duration:.36,ease:[.3,1.6,.5,1]}}>
-    <Lock/>{clack&&<motion.i className="ring" initial={{opacity:.9,scale:.4}} animate={{opacity:0,scale:1.6}} transition={{duration:.5}}/>}
+  // Seated on the rail: the clasp closes with one short press and a quick ring, never a bounce.
+  return <motion.span className="latch" title="시각 고정" animate={clack?{x:[-2,0],scaleX:[1.06,1]}:{x:0,scaleX:1}} transition={{duration:.12,ease:[.2,.9,.3,1]}}>
+    <Lock/>{clack&&<motion.i className="ring" initial={{opacity:.7,scale:.6}} animate={{opacity:0,scale:1.3}} transition={{duration:.3,ease:'easeOut'}}/>}
   </motion.span>;
 }
