@@ -28,14 +28,14 @@ export function Calendar({dates,period}:{dates:string[];period:Exclude<Period,'w
 function Cell({date,period,outside}:{date:string;period:Exclude<Period,'week'>;outside:boolean}){
   const {today,nav}=useApp(),{held,tasks}=useDrag();
   const ref=useRegion('date',date);
-  const a=allocation(date,tasks),tag=dayTag(date),d=dateOf(date),sel=date===nav.selected;
+  const a=allocation(date,tasks),tag=dayTag(date),d=dateOf(date),sel=date===nav.selected,past=date<today;
   const hot=!!held&&!held.dropping&&held.intent.zone==='date'&&held.intent.date===date;
   const select=()=>setNav({selected:date});
   return <div ref={ref} data-date={date} onClick={select}
-    className={'cal-cell'+(date===today?' today':'')+(sel?' sel':'')+(outside?' outside':'')+(tag==='휴무'||tag==='휴가'?' off':'')+(hot?' hot':'')}>
+    className={'cal-cell'+(date===today?' today':'')+(past?' past':'')+(sel?' sel':'')+(outside?' outside':'')+(tag==='휴무'||tag==='휴가'?' off':'')+(hot?' hot':'')}>
     <div className="cal-top">
       <button type="button" className="cal-date" aria-pressed={sel} onClick={e=>{e.stopPropagation();select();}}
-        aria-label={`${dateLabel(date)}${date===today?', 오늘':''}${tag?', '+tag:''}, 작업 ${a.count}건, ${allocationLabel(a)}`}>
+        aria-label={`${dateLabel(date)}${date===today?', 오늘':''}${past?', 지난 날짜':''}${tag?', '+tag:''}, 작업 ${a.count}건, ${allocationLabel(a)}`}>
         <strong>{d.getDate()===1?`${d.getMonth()+1}/`:''}{d.getDate()}</strong>{date===today&&<span className="pill">오늘</span>}
       </button>
       {tag&&<span className="tag-chip">{tag}</span>}
