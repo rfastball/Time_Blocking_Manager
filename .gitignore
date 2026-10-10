@@ -6,3 +6,4 @@ src-tauri/gen/schemas/
 .reference/
 .impeccable/review/
 *.log
+.claude/worktrees/
