@@ -103,7 +103,7 @@ fn routine_occurrences_survive_moves_deletion_settings_restart_and_restore() {
 #[test]
 fn legacy_databases_and_backups_migrate_without_losing_work() {
     let dir=tempdir().unwrap();
-    for (n,version) in [1,2,3].into_iter().enumerate() {
+    for (n,version) in [1,2,3,4].into_iter().enumerate() {
         let path=dir.path().join(format!("legacy-{version}.db"));let mut s=Store::open(&path).unwrap();let task=create(&mut s,"legacy");
         let c=command(&s,update(&task,"2026-10-05T10:00",30));let task=find(&s.apply(&c).unwrap(),"legacy");drop(s);
         assert_eq!((task.plan_date.as_deref(),task.flow_order),(Some("2026-10-05"),None));
@@ -113,19 +113,25 @@ fn legacy_databases_and_backups_migrate_without_losing_work() {
             conn.execute("UPDATE meta SET value=?1 WHERE key='settings'",[settings.to_string()]).unwrap();
             conn.execute_batch("DROP TABLE routine_occurrences;").unwrap();
         }
-        // Rebuild the exact older table shape: no flow columns and no layout anchors.
-        conn.execute_batch(&format!("ALTER TABLE tasks DROP COLUMN plan_date; ALTER TABLE tasks DROP COLUMN flow_order; DROP TABLE day_layouts; PRAGMA user_version={version};")).unwrap();drop(conn);
+        // Rebuild the exact older table shape: no trash column, and before v4 no flow columns or layout anchors.
+        if version<4 {conn.execute_batch("ALTER TABLE tasks DROP COLUMN plan_date; ALTER TABLE tasks DROP COLUMN flow_order; DROP TABLE day_layouts;").unwrap();}
+        conn.execute_batch(&format!("ALTER TABLE tasks DROP COLUMN deleted_at; PRAGMA user_version={version};")).unwrap();drop(conn);
         let inspection=Store::inspect_backup(&path).unwrap();assert_eq!((inspection.tasks,inspection.scheduled),(1,1));
         let mut target=Store::open(&dir.path().join(format!("restored-{version}.db"))).unwrap();let epoch=target.snapshot().unwrap().epoch;
         assert_eq!(target.restore(&path,&epoch,&dir.path().join(format!("safety-{version}.db"))).unwrap().tasks,vec![task.clone()]);
-        let mut s=Store::open(&path).unwrap();assert_eq!(s.snapshot().unwrap().tasks,vec![task]);assert!(s.snapshot().unwrap().settings.routines.is_empty());
+        let mut s=Store::open(&path).unwrap();assert_eq!(s.snapshot().unwrap().tasks,vec![task.clone()]);assert!(s.snapshot().unwrap().settings.routines.is_empty());
         let migrations:Vec<_>=Store::list_backups(dir.path()).unwrap().into_iter().filter(|b|b.kind=="migration").collect();
         assert_eq!(migrations.len(),n+1);assert!(migrations.iter().all(|b|b.error.is_none()&&b.tasks==Some(1)&&b.scheduled==Some(1)));
         let c=command(&s,Action::SetRoutines{expected_revision:s.snapshot().unwrap().settings.revision,routines:vec![routine("new",600)]});s.apply(&c).unwrap();
         // The migrated fixed task occupies 10:00, so the routine stays on its date as flow work.
         let generated=ensure(&mut s,"2026-10-05","2026-10-05");assert_eq!(generated.tasks.len(),2);
         assert!(generated.tasks.iter().any(|t|t.id!="legacy"&&t.plan_date.as_deref()==Some("2026-10-05")&&t.flow_order==Some(1)));
-        assert_eq!(rusqlite::Connection::open(&path).unwrap().query_row::<i64,_,_>("PRAGMA user_version",[],|r|r.get(0)).unwrap(),4);
+        assert_eq!(rusqlite::Connection::open(&path).unwrap().query_row::<i64,_,_>("PRAGMA user_version",[],|r|r.get(0)).unwrap(),5);
+        // The added trash column works on the migrated file: delete sets aside, restore returns it unchanged.
+        let c=command(&s,Action::Delete{id:"legacy".into(),expected_revision:task.revision});let trashed=s.apply(&c).unwrap();
+        assert!(trashed.tasks.iter().all(|t|t.id!="legacy"));assert_eq!(trashed.trash[0].task,task);
+        let c=command(&s,Action::RestoreTrashed{id:"legacy".into()});
+        assert_eq!(find(&s.apply(&c).unwrap(),"legacy"),Task{revision:task.revision+1,..task.clone()});
         drop(s);assert_eq!(Store::list_backups(dir.path()).unwrap().iter().filter(|b|b.kind=="migration").count(),n+1);
     }
 }
@@ -316,7 +322,7 @@ fn backup_inspection_reports_validated_contents_without_changing_files() {
     assert!(Store::inspect_backup(&source).unwrap().created_at.is_none());
     assert_eq!(std::fs::read(&source).unwrap(),legacy);
     let safety=dir.path().join("safety.db");let epoch=s.snapshot().unwrap().epoch;
-    for (sql,code) in [("UPDATE tasks SET id='' WHERE id='a'","validation"),("PRAGMA user_version=5","schema")] {
+    for (sql,code) in [("UPDATE tasks SET id='' WHERE id='a'","validation"),("PRAGMA user_version=6","schema")] {
         {rusqlite::Connection::open(&source).unwrap().execute_batch(sql).unwrap();}
         let original=std::fs::read(&source).unwrap();
         assert_eq!(Store::inspect_backup(&source).unwrap_err().code,code);
@@ -519,4 +525,64 @@ fn completing_flow_moves_the_anchor_forward_atomically_and_survives_restore() {
     assert_eq!(s.snapshot().unwrap().layouts,vec![DayLayout{date:day.into(),anchor:900},DayLayout{date:"2026-10-09".into(),anchor:660}]);
     let epoch=s.snapshot().unwrap().epoch;let restored=s.restore(&backup,&epoch,&dir.path().join("safety.db")).unwrap();
     assert_eq!(restored.layouts,vec![DayLayout{date:day.into(),anchor:620}]);assert_eq!(restored.tasks,undone.tasks);
+}
+
+#[test]
+fn trash_sets_work_aside_restores_it_in_place_and_purges_after_retention() {
+    let dir=tempdir().unwrap();let path=dir.path().join("app.db");let mut s=Store::open(&path).unwrap();let day="2026-10-05";
+    let (_,b,_)=(flow(&mut s,"a",day,60),flow(&mut s,"b",day,30),flow(&mut s,"c",day,30));
+    let delete=|s:&Store,t:&Task|command(s,Action::Delete{id:t.id.clone(),expected_revision:t.revision});
+    let restore=|s:&Store,id:&str|command(s,Action::RestoreTrashed{id:id.into()});
+    let purge=|s:&Store,ids:&[&str]|command(s,Action::PurgeTrashed{ids:ids.iter().map(|id|id.to_string()).collect()});
+    // Deleting sets the task aside whole; it leaves every schedule and its retry is a no-op.
+    let cmd=delete(&s,&b);let trashed=s.apply(&cmd).unwrap();
+    assert_eq!(ordered(&trashed,day),["a","c"]);assert!(trashed.tasks.iter().all(|t|t.id!="b"));
+    assert_eq!(trashed.trash.len(),1);assert_eq!(trashed.trash[0].task,b);
+    let at=chrono::DateTime::parse_from_rfc3339(&trashed.trash[0].deleted_at).unwrap();assert!((chrono::Utc::now()-at.with_timezone(&chrono::Utc)).num_seconds().abs()<60);
+    assert_eq!(s.apply(&cmd).unwrap().trash,trashed.trash);
+    for action in [Action::Delete{id:"b".into(),expected_revision:b.revision},Action::SetCompleted{id:"b".into(),expected_revision:b.revision,completed:true}] {
+        let cmd=command(&s,action);assert_eq!(s.apply(&cmd).unwrap_err().code,"conflict");
+    }
+    // Restoring puts it back at its old place in the day's order without duplicating order numbers.
+    let snap=s.snapshot().unwrap();
+    let cmd=command(&s,Action::ReorderFlow{date:day.into(),expected:vec![revision(&find(&snap,"c")),revision(&find(&snap,"a"))]});s.apply(&cmd).unwrap();
+    let cmd=restore(&s,"b");let back=s.apply(&cmd).unwrap();
+    assert_eq!(ordered(&back,day),["c","b","a"]);assert!(back.trash.is_empty());
+    assert_eq!(find(&back,"b"),Task{revision:b.revision+1,..b.clone()});
+    let mut orders:Vec<_>=back.tasks.iter().filter_map(|t|t.flow_order).collect();orders.sort();orders.dedup();assert_eq!(orders.len(),3);
+    assert_eq!(s.apply(&cmd).unwrap().tasks,back.tasks);
+    let again=restore(&s,"b");assert_eq!(s.apply(&again).unwrap_err().code,"conflict");
+    // A fixed task whose time was taken meanwhile comes back as flow work on its date (D8/D9); completion is kept.
+    let cmd=command(&s,Action::CreateScheduled{id:"fixed".into(),title:"고정".into(),starts_at:Some("2026-10-05T10:00".into()),duration:60});let fixed=find(&s.apply(&cmd).unwrap(),"fixed");
+    let cmd=command(&s,Action::SetCompleted{id:"fixed".into(),expected_revision:fixed.revision,completed:true});let fixed=find(&s.apply(&cmd).unwrap(),"fixed");
+    let cmd=delete(&s,&fixed);s.apply(&cmd).unwrap();
+    let cmd=command(&s,Action::CreateScheduled{id:"taker".into(),title:"새 예약".into(),starts_at:Some("2026-10-05T10:30".into()),duration:30});s.apply(&cmd).unwrap();
+    let cmd=restore(&s,"fixed");let snap=s.apply(&cmd).unwrap();let back=find(&snap,"fixed");
+    assert_eq!((back.starts_at.as_deref(),back.plan_date.as_deref(),back.flow_order,back.completed),(None,Some(day),Some(4),true));
+    // Without a conflict the exact time returns.
+    let cmd=command(&s,Action::CreateScheduled{id:"free".into(),title:"오후".into(),starts_at:Some("2026-10-05T15:00".into()),duration:30});let free=find(&s.apply(&cmd).unwrap(),"free");
+    let cmd=delete(&s,&free);s.apply(&cmd).unwrap();let cmd=restore(&s,"free");assert_eq!(find(&s.apply(&cmd).unwrap(),"free").starts_at,free.starts_at);
+    // Permanent removal names the items seen; anything else conflicts or is invalid.
+    let (x,y)=(create(&mut s,"x"),create(&mut s,"y"));
+    for t in [&x,&y] {let cmd=delete(&s,t);s.apply(&cmd).unwrap();}
+    let before=s.snapshot().unwrap();
+    for (ids,code) in [(vec![],"validation"),(vec!["x","x"],"validation"),(vec!["x","a"],"conflict"),(vec!["missing"],"conflict")] {
+        let cmd=purge(&s,&ids);assert_eq!(s.apply(&cmd).unwrap_err().code,code);assert_eq!(s.snapshot().unwrap().trash,before.trash);
+    }
+    let cmd=purge(&s,&["x"]);let snap=s.apply(&cmd).unwrap();
+    assert_eq!(snap.trash.iter().map(|t|t.task.id.as_str()).collect::<Vec<_>>(),["y"]);assert_eq!(snap.tasks,before.tasks);
+    // The trash survives restart, backup and restore; inspection counts live work only.
+    let backup=dir.path().join("backup.db");s.backup(&backup).unwrap();assert_eq!(Store::inspect_backup(&backup).unwrap().tasks,snap.tasks.len());
+    let cmd=purge(&s,&["y"]);assert!(s.apply(&cmd).unwrap().trash.is_empty());
+    drop(s);let mut s=Store::open(&path).unwrap();assert!(s.snapshot().unwrap().trash.is_empty());
+    let epoch=s.snapshot().unwrap().epoch;let restored=s.restore(&backup,&epoch,&dir.path().join("safety.db")).unwrap();
+    assert_eq!((restored.tasks,restored.trash.clone()),(snap.tasks.clone(),snap.trash.clone()));
+    // Retention: kept through day 29, removed after day 30, and live work is never touched.
+    let now=chrono::Utc::now();
+    assert_eq!(s.purge_trash(now+chrono::Duration::days(29)).unwrap(),0);assert_eq!(s.snapshot().unwrap().trash,snap.trash);
+    assert_eq!(s.purge_trash(now+chrono::Duration::days(31)).unwrap(),1);
+    let after=s.snapshot().unwrap();assert!(after.trash.is_empty());assert_eq!(after.tasks,snap.tasks);
+    // A stored deletion time in any other form is rejected rather than compared loosely.
+    {rusqlite::Connection::open(&backup).unwrap().execute("UPDATE tasks SET deleted_at='2026-10-05 10:00' WHERE id='y'",[]).unwrap();}
+    assert_eq!(Store::inspect_backup(&backup).unwrap_err().code,"schema");
 }

@@ -46,8 +46,12 @@ impl QuitCoordinator {
 }
 fn audit(s: &State, event: &str, code: &str) {
     if let Ok(mut f) = OpenOptions::new().create(true).append(true).open(s.root.join("blokky.log")) {
-        let _ = writeln!(f, "{} app={} schema=4 event={} code={}", chrono::Local::now().to_rfc3339(), env!("CARGO_PKG_VERSION"), event, code);
+        let _ = writeln!(f, "{} app={} schema=5 event={} code={}", chrono::Local::now().to_rfc3339(), env!("CARGO_PKG_VERSION"), event, code);
     }
+}
+// Expired trash goes when the store opens and on the hourly pass; a failed purge only waits for the next one.
+fn open_store(path: &Path) -> Result<Store> {
+    let store=Store::open(path)?;let _=store.purge_trash(chrono::Utc::now());Ok(store)
 }
 fn with_store<T>(s: &State, f: impl FnOnce(&mut Store) -> Result<T>) -> Result<T> {
     let mut guard = s.store.lock().map_err(|_| error("internal", "저장소 잠금을 얻지 못했습니다."))?;
@@ -56,7 +60,7 @@ fn with_store<T>(s: &State, f: impl FnOnce(&mut Store) -> Result<T>) -> Result<T
 #[tauri::command]
 fn load(s: tauri::State<State>) -> Result<Snapshot> {
     let mut guard=s.store.lock().map_err(|_|error("internal","저장소 잠금을 얻지 못했습니다."))?;
-    if guard.is_err(){*guard=Store::open(&s.root.join("blokky.sqlite"));}
+    if guard.is_err(){*guard=open_store(&s.root.join("blokky.sqlite"));}
     match guard.as_ref(){Ok(db)=>db.snapshot(),Err(e)=>Err(e.clone())}
 }
 #[tauri::command]
@@ -248,7 +252,7 @@ fn main() {
         .invoke_handler(tauri::generate_handler![load,load_draft,save_draft,mutate,create_backup,list_backups,inspect_backup,restore,recover_backup,set_dirty,hide_capture,show_capture,capture_shortcut,autostart,exit_on_close,diagnostics,finish_quit])
         .setup(|app| {
             let root=if cfg!(debug_assertions) {std::env::var_os("BLOKKY_TEST_DATA_DIR").map(PathBuf::from).unwrap_or(app.path().app_local_data_dir()?)} else {app.path().app_local_data_dir()?}; fs::create_dir_all(&root)?;
-            let store=Store::open(&root.join("blokky.sqlite"));
+            let store=open_store(&root.join("blokky.sqlite"));
             let shortcut=fs::read_to_string(root.join("capture-shortcut.txt")).unwrap_or_else(|_|"Ctrl+Shift+Space".into());
             let close=exit_on_close_setting(&root,None).unwrap_or(false);
             let state=State {store:Mutex::new(store),busy:Mutex::new(HashSet::new()),root,warning:Mutex::new(None),last_backup:Mutex::new(None),shortcut:Mutex::new(shortcut.clone()),exit_on_close:Mutex::new(close),quit:Mutex::new(QuitCoordinator::default())};
@@ -278,6 +282,9 @@ fn main() {
                 let s=handle.state::<State>();
                 let now=chrono::Local::now();let hour=now.format("%Y%m%d%H").to_string();
                 if checked_hour!=hour {
+                match with_store(&s,|db|db.purge_trash(now.with_timezone(&chrono::Utc))) {
+                    Ok(0)=>{},Ok(_)=>{audit(&s,"trash-purge","ok");let _=handle.emit("data-changed",());},Err(e)=>audit(&s,"trash-purge",&e.code),
+                }
                 let result=with_store(&s,|db|db.automatic_backup(&s.root.join("backups"),now));
                 match result {Err(e)=>{ audit(&s,"automatic-backup",&e.code);*s.warning.lock().unwrap()=Some(format!("자동 백업 실패: {}",e.message));},Ok(timestamp)=>{checked_hour=hour;*s.last_backup.lock().unwrap()=Some(timestamp);audit(&s,"automatic-backup","ok");let mut warning=s.warning.lock().unwrap();if warning.as_ref().is_some_and(|w|w.starts_with("자동 백업 실패")){*warning=None;}}}
                 let _=handle.emit("backup-warning",());

@@ -68,8 +68,12 @@ impl Default for Settings {
     }
 }
 
+// A deleted task kept whole so restoring it returns the same date, order, time and completion.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct Trashed { #[serde(flatten)] pub task: Task, pub deleted_at: String }
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Snapshot { pub epoch: String, pub tasks: Vec<Task>, pub settings: Settings, #[serde(default)] pub layouts: Vec<DayLayout> }
+pub struct Snapshot { pub epoch: String, pub tasks: Vec<Task>, pub settings: Settings, #[serde(default)] pub layouts: Vec<DayLayout>, #[serde(default)] pub trash: Vec<Trashed> }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Command {
@@ -89,7 +93,10 @@ pub enum Action {
         #[serde(default, skip_serializing_if="Option::is_none")] plan_date: Option<String>,
         #[serde(default, skip_serializing_if="Option::is_none")] before: Option<String> },
     SetCompleted { id: String, expected_revision: i64, completed: bool },
+    // Delete sets the task aside in the trash; only purge removes it for good.
     Delete { id: String, expected_revision: i64 },
+    RestoreTrashed { id: String },
+    PurgeTrashed { ids: Vec<String> },
     Split { id:String, expected_revision:i64, new_id:String, first_duration:i64 },
     SetSettings { expected_revision: i64, days: Vec<WorkingDay> },
     SetSchedule { expected_revision:i64,days:Vec<WorkingDay>,exceptions:Vec<DayException>,weekly_target:i64,work_days:i64,move_conflicts:bool },
