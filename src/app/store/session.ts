@@ -1,0 +1,143 @@
+import {invoke} from '@tauri-apps/api/core';
+import {confirm} from '@tauri-apps/plugin-dialog';
+import {SaveQueue} from '../../queue.ts';
+import {StoredDraft} from '../../capture.ts';
+import {previewMutation} from '../../preview.ts';
+import {today as todayKey} from '../../dates.ts';
+import type {Action,AppError,Command,Snapshot,Task} from '../../types.ts';
+import {clockMinute,emptyDrafts,getState,pinnedClock,setDrafts,setState} from './state.ts';
+
+// One lane for every durable write. A failed write stays at the head until retried or released.
+export const queue=new SaveQueue(()=>{
+  const s=getState();
+  setState({busy:queue.busy,failed:(queue.failed as AppError|null)??null});
+  if(s.native)void invoke('set_dirty',{dirty:unsaved()}).catch(()=>showError(Error('종료 보호 상태를 전달하지 못했습니다.')));
+  if(!queue.busy&&refreshNeeded){refreshNeeded=false;void reload();}
+  else if(!queue.busy)afterIdle.forEach(f=>f());
+});
+// Hooks run when the lane goes idle (visible routine generation registers here).
+export const afterIdle=new Set<()=>void>();
+export const storedDraft=new StoredDraft();storedDraft.loaded=!getState().native;
+const previewOccurrences=new Set<string>();
+let refreshNeeded=false,draftTimer:ReturnType<typeof setTimeout>|undefined;
+
+export function showError(e:unknown){setState({error:typeof e==='object'&&e&&'message' in e?String((e as {message:unknown}).message):String(e)});}
+export const announce=(message:string)=>setState({message});
+export async function ask(text:string){return getState().native?confirm(text,{title:'BLOKKY',kind:'warning'}):window.confirm(text);}
+
+type DispatchOptions={epoch?:string;requestId?:string;done?:()=>void};
+// Resolves true only after the store answered and the snapshot was replaced.
+export async function dispatch(action:Action,{epoch,requestId,done}:DispatchOptions={}):Promise<boolean>{
+  const s=getState();
+  if(!s.ready||!s.draftLoaded||!s.snapshot){showError(Error('기록과 초안을 불러온 뒤 입력해 주세요.'));return false;}
+  const command:Command={request_id:requestId??crypto.randomUUID(),epoch:epoch??s.snapshot.epoch,action};
+  return queue.add(async()=>{
+    const result=s.native?await invoke<Snapshot>('mutate',{command}):previewMutation(getState().snapshot!,command,previewOccurrences);
+    setState({snapshot:result,error:'',message:s.native?'변경을 저장했어요.':'미리보기에 반영했어요.'});
+    done?.();
+  }).then(()=>true,e=>{showError(e);return false;});
+}
+export const enqueue=(run:()=>Promise<void>)=>queue.add(run);
+
+// ── 초안 ──
+export function unsaved(){
+  const {ready,draftLoaded,drafts:d}=getState();
+  return !!(ready&&!draftLoaded||d.capture||d.editorDirty||Object.keys(d.rawSchedules).length||d.settingsDraft||d.routineDraft||queue.busy||draftTimer);
+}
+// The stored JSON keeps the shape written by the earlier app so existing drafts survive the update.
+function draftContent(){
+  const {drafts:d,snapshot}=getState();
+  return d.capture||d.editorDirty||Object.keys(d.rawSchedules).length||d.settingsDraft||d.routineDraft?JSON.stringify({
+    capture:d.capture,captureCommand:d.captureCommand,calendarComposer:d.capture?d.composer:null,editor:d.editorDirty?d.editor:null,
+    rawSchedules:d.rawSchedules,settingsBase:d.settingsBase,settingsDraft:d.settingsDraft,routineDraft:d.routineDraft,epoch:snapshot?.epoch
+  }):'';
+}
+export function persistDraft():Promise<void>|undefined{
+  if(!storedDraft.loaded)return;
+  const content=draftContent(),sequence=storedDraft.nextSequence(),native=getState().native;
+  return queue.add(async()=>{if(native)await invoke('save_draft',{sequence,content});}).catch(showError);
+}
+export function draftChanged(){
+  clearTimeout(draftTimer);setState({draftPending:true});
+  draftTimer=setTimeout(()=>{draftTimer=undefined;setState({draftPending:false});void persistDraft();},200);
+  if(getState().native)void invoke('set_dirty',{dirty:true});
+}
+export function flushDraftTimer(){clearTimeout(draftTimer);draftTimer=undefined;setState({draftPending:false});}
+
+export async function loadStoredDraft(allowBusy=false){
+  try{
+    const [sequence,content]=await invoke<[number,string]>('load_draft');
+    const d=getState().drafts;
+    if(d.capture||d.editorDirty||Object.keys(d.rawSchedules).length||d.settingsDraft||d.routineDraft||(!allowBusy&&queue.busy)||draftTimer)return;
+    const draft=storedDraft.read(sequence,content);
+    if(draft)setDrafts({capture:draft.capture||'',captureCommand:draft.captureCommand||null,composer:draft.calendarComposer||null,editor:draft.editor||null,editorDirty:!!draft.editor,
+      rawSchedules:draft.rawSchedules||{},settingsBase:draft.settingsBase||null,settingsDraft:draft.settingsDraft||null,routineDraft:draft.routineDraft||null});
+    setState({draftLoaded:true,draftLoadFailed:false,draftSequenceKnown:true,message:''});
+  }catch{setState({draftLoaded:storedDraft.loaded,draftLoadFailed:true,draftSequenceKnown:storedDraft.sequenceKnown});}
+  void invoke('set_dirty',{dirty:unsaved()});
+}
+export async function discardStoredDraft(){
+  if(queue.busy||!storedDraft.sequenceKnown||!await ask('읽을 수 없는 보관 초안을 버릴까요? 저장된 작업은 유지됩니다.'))return;
+  const sequence=storedDraft.discardSequence();
+  await queue.add(async()=>{await invoke('save_draft',{sequence,content:''});storedDraft.loaded=true;setState({draftLoaded:true,draftLoadFailed:false});}).catch(showError);
+}
+
+// ── 불러오기 ──
+export async function refreshAppInfo(){
+  const results=await Promise.allSettled([
+    invoke<{db_path:string;warning:string|null;last_backup:string|null}>('diagnostics'),
+    invoke<boolean>('autostart',{enabled:null}),invoke<string>('capture_shortcut',{value:null}),invoke<boolean>('exit_on_close',{enabled:null})
+  ]);
+  setState(s=>{
+    const info={...s.info,failed:results.some(r=>r.status==='rejected')};
+    if(results[0].status==='fulfilled'){info.dbPath=results[0].value.db_path;info.warning=results[0].value.warning||'';info.lastBackup=results[0].value.last_backup||'';}
+    if(results[1].status==='fulfilled')info.autoStart=results[1].value;
+    if(results[2].status==='fulfilled')info.shortcut=results[2].value;
+    if(results[3].status==='fulfilled')info.exitOnClose=results[3].value;
+    return {info};
+  });
+}
+export async function reload(){
+  const s=getState();
+  try{if(s.native)setState({snapshot:await invoke<Snapshot>('load'),ready:true,loadError:''});else setState({ready:true});}
+  catch(e){setState({ready:false,loadError:(e as AppError).message||String(e)});return;}
+  if(s.native){if(!storedDraft.loaded)await loadStoredDraft();await refreshAppInfo();}
+}
+export function requestRefresh(){if(queue.busy)refreshNeeded=true;else void reload();}
+export function replaceSnapshot(snapshot:Snapshot){setState({snapshot,ready:true,loadError:''});}
+
+// A conflict keeps the user's input and shows what is now saved.
+export async function retry(){
+  const failed=getState().failed;
+  if(failed?.code==='conflict'||failed?.code==='epoch'){
+    queue.discardFailed();await reload();
+    setState({error:'다른 곳에서 이 항목이 바뀌었어요. 입력한 내용은 그대로 있어요. 저장된 내용을 확인한 뒤 내 입력으로 저장할 수 있어요.'});return;
+  }
+  setState({error:''});queue.retry();
+}
+export function release(){queue.discardFailed();setState({error:'',message:'입력한 내용은 그대로 있어요. 확인한 뒤 다시 저장해 주세요.'});}
+
+export function tick(){
+  const s=getState(),now=clockMinute(),day=todayKey();
+  if(now!==s.now||day!==s.today)setState({now,today:day});
+}
+export const stamp=()=>{const s=getState();return s.today+'T'+String(Math.floor(s.now/60)).padStart(2,'0')+':'+String(s.now%60).padStart(2,'0');};
+export const clockIsPinned=pinnedClock;
+
+export function previewSnapshot():Snapshot{
+  // Redesign §10 example: a fixed workshop and four flow blocks, usable on any weekday.
+  const days=Array.from({length:7},()=>({enabled:true,start:540,end:1080,breaks:[{start:720,end:780,label:'점심'}]})),day=todayKey();
+  const flow=(id:string,title:string,duration:number,order:number,body=''):Task=>({id,title,body,starts_at:null,duration,completed:false,revision:1,plan_date:day,flow_order:order});
+  return {epoch:'preview',layouts:[],settings:{revision:1,days},tasks:[
+    flow('sample-a','설계 문서 자료 조사',60,1,'[x] 요구사항 확인\n[ ] 초안에 반영'),
+    flow('sample-b','설계 문서 초안 작성',45,2,'진행 상황과 필요한 맥락을 이곳에 남깁니다.\n[ ] 계획 화면 정리\n[ ] 검토 의견 반영'),
+    flow('sample-c','회의록 정리',30,3),
+    flow('sample-d','분리망 배포 의존성 검토',60,4),
+    {id:'sample-w',title:'설계 워크숍',body:'',starts_at:day+'T14:00',duration:60,completed:false,revision:1,plan_date:day,flow_order:null},
+    flow('sample-e','신규 입사자 교육 자료',90,5),
+    flow('sample-f','경쟁사 자료 조사',120,6),
+    {id:'sample-4',title:'회의록 템플릿 업데이트',body:'',starts_at:null,duration:30,completed:false,revision:1,plan_date:null,flow_order:null},
+    {id:'sample-5',title:'SQLite 백업 방식 조사',body:'',starts_at:null,duration:45,completed:false,revision:1,plan_date:null,flow_order:null}
+  ]};
+}
+export const resetDrafts=()=>setDrafts(emptyDrafts());

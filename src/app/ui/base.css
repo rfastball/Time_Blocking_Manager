@@ -1,0 +1,21 @@
+/* App-wide base on the role tokens. Components keep their own files. */
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--color-canvas);color:var(--color-text);font-family:var(--font-body);font-size:var(--font-size-body);line-height:var(--line-height-body)}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--color-focus);outline-offset:2px}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.card{background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-panel);padding:16px}
+.cnt{font-size:12px;font-weight:700;color:var(--color-text-muted);background:color-mix(in srgb,var(--color-text-muted) 10%,var(--color-surface));border-radius:999px;padding:1px 8px;font-variant-numeric:tabular-nums}
+.btn,.ibtn{min-height:var(--control-height);border:1px solid var(--color-control-border);background:var(--color-control);border-radius:var(--radius-control);padding:6px 12px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap;transition:transform .08s,background .1s}
+.ibtn{width:var(--control-height);padding:0}
+.btn:hover,.ibtn:hover{background:var(--color-control-hover)}
+.btn:active,.ibtn:active{transform:scale(.96)}
+.btn:disabled,.ibtn:disabled{opacity:var(--opacity-disabled);cursor:default;transform:none}
+.btn.primary{background:var(--color-action);border-color:var(--color-action);color:var(--color-on-action)}
+.btn.primary:hover{background:var(--color-action-hover)}
+.btn.text{border-color:transparent;background:transparent;color:var(--color-link)}
+.btn.danger{color:var(--color-error)}
+.error{color:var(--color-error)}
+input[type=text],input:not([type]),input[type=number],input[type=date],input[type=time],select,textarea{border:1px solid var(--color-control-border);border-radius:var(--radius-control);background:var(--color-input);padding:var(--input-padding)}
+@media (prefers-reduced-motion:reduce){.btn,.ibtn{transition:none}}
