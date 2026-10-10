@@ -1,5 +1,4 @@
 import {useDraggable} from '@dnd-kit/core';
-import {timeAxisForDays} from '../../time-axis.ts';
 import {formatDuration} from '../../format.ts';
 import {dateLabel,dateOf,time} from '../../dates.ts';
 import type {Task} from '../../types.ts';
@@ -7,9 +6,9 @@ import {setNav,useApp,type Period} from '../store/state.ts';
 import {dayRule,taskMinute} from '../store/tasks.ts';
 import {openEditor} from '../store/editor.ts';
 import {DaySpace} from '../space/DaySpace.tsx';
-import {useDrag,useRegion} from '../space/drag.tsx';
+import {useDaysAxis,useDrag,useRegion} from '../space/drag.tsx';
 import {useNewBlock} from './Composer.tsx';
-import {allocation,allocationLabel,dayTag,Meter} from './day.tsx';
+import {allocation,allocationLabel,allocationShort,dayTag,Meter} from './day.tsx';
 
 const DAY_SCALE=1.05;
 const weekdays=['월','화','수','목','금','토','일'];
@@ -66,13 +65,13 @@ function Mini({task}:{task:Task}){
 
 function DatePanel({date}:{date:string}){
   const {tasks}=useDrag();
-  const axis=timeAxisForDays([dayRule(date)],DAY_SCALE),nb=useNewBlock(date,axis,'day');
+  const axis=useDaysAxis([date],DAY_SCALE),nb=useNewBlock(date,axis,'day');
   const a=allocation(date,tasks),tag=dayTag(date);
   return <section className="card plan-day" aria-label={`${dateLabel(date)} 블록 공간`}>
     <header className="plan-day-head">
       <h2>{dateLabel(date)}</h2>{tag&&<span className="tag-chip">{tag}</span>}
-      <span className="plan-day-alloc" aria-label={allocationLabel(a)}><Meter a={a}/><span aria-hidden="true">{allocationLabel(a)}</span></span>
+      <span className="plan-day-alloc" aria-label={allocationLabel(a)}><Meter a={a}/><span aria-hidden="true">{allocationShort(a)}</span></span>
     </header>
-    <DaySpace date={date} axis={axis} variant="day" bin shelf onOpen={t=>openEditor(t.id,'dialog')} {...nb}/>
+    <DaySpace date={date} axis={axis} variant="day" bin onOpen={t=>openEditor(t.id,'dialog')} {...nb}/>
   </section>;
 }

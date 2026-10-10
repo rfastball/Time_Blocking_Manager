@@ -2,7 +2,6 @@ import {useEffect,useRef,useState,type KeyboardEvent,type MouseEvent as ReactMou
 import {useDraggable} from '@dnd-kit/core';
 import {AnimatePresence,motion,useAnimate} from 'motion/react';
 import {dayPlan,nextFlowId,type DayItem} from '../../today.ts';
-import {unplacedLabel} from '../../flow.ts';
 import {formatDuration} from '../../format.ts';
 import {time} from '../../dates.ts';
 import type {TimeAxis} from '../../time-axis.ts';
@@ -17,8 +16,8 @@ import './space.css';
 
 type Props={
   date:string;axis:TimeAxis;variant:'day'|'column';
-  // The intake above the space and the shelf below it.
-  bin?:boolean;shelf?:boolean;
+  // The intake above the space.
+  bin?:boolean;
   selected?:string|null;multi?:string[];
   onOpen:(t:Task)=>void;onMulti?:(t:Task)=>void;
   // Areas may layer their own overlays (new-block composer) over the space.
@@ -27,14 +26,14 @@ type Props={
 };
 
 // One day as a space: rail and fixed latches on the left, flow blocks in order, completed work leaves through the top.
-export function DaySpace({date,axis,variant,bin,shelf,selected,multi=[],onOpen,onMulti,children,overlay,onBackgroundPointerDown}:Props){
+export function DaySpace({date,axis,variant,bin,selected,multi=[],onOpen,onMulti,children,overlay,onBackgroundPointerDown}:Props){
   const {snapshot,today,now,ui}=useApp();
   const {held,tasks}=useDrag();
   const geometry=variant==='day'?DAY_GEOMETRY:COLUMN_GEOMETRY;
   const rule=dayRule(date);
   const [squash,setSquash]=useState<string[]>([]);
   const [sizing,setSizing]=useState<{id:string;dur:number}|null>(null);
-  const spaceRef=useRegion('space',date,{axis,geometry}),shelfRef=useRegion('shelf',date);
+  const spaceRef=useRegion('space',date,{axis,geometry});
   const shown=sizing?tasks.map(t=>t.id===sizing.id?{...t,duration:sizing.dur}:t):tasks;
   const plan=dayPlan(date,shown,rule,snapshot?.layouts??[]);
   const nextId=date===today?nextFlowId(plan.items,squash):null;
@@ -95,11 +94,6 @@ export function DaySpace({date,axis,variant,bin,shelf,selected,multi=[],onOpen,o
     </div>
     {overlay}
     </div>
-    {shelf&&<div ref={shelfRef} className={'shelf'+(holding?.intent.zone==='below'&&holding.intent.date===date?' hot':'')} style={{paddingLeft:geometry.flowLeft}}>
-      {plan.unplaced.length>0&&<h2 style={{marginLeft:-geometry.flowLeft+14}}>배치되지 않음 <span className="cnt">{plan.unplaced.length}</span></h2>}
-      {plan.unplaced.map(u=><Unplaced key={u.task.id} task={u.task} scale={axis.scale} reason={unplacedLabel[u.reason]} hollow={holding?.task.id===u.task.id}
-        onOpen={()=>onOpen(byId(u.task.id))} onCheck={()=>void check(byId(u.task.id))}/>)}
-    </div>}
   </div>;
 }
 
@@ -151,7 +145,7 @@ function Block({item,axis,geometry:g,variant,next,hollow,selected,multi,squash,l
   const t=item.task,{attributes,listeners,setNodeRef}=useDraggable({id:`${variant}:${t.id}`,data:{taskId:t.id},disabled:item.fixed&&t.completed});
   const top=axis.position(item.start)+1,h=Math.max(10,axis.position(item.end)-axis.position(item.start)-2);
   const range=`${time(item.start)}–${time(item.end)}`;
-  const cls=['blk',item.fixed?'fixed':'flow',next?'next':'',t.completed?'done':'',hollow?'hollow':'',selected?'sel':'',multi?'multi':'',h<34?'compact':'',h<20?'tiny':''].join(' ');
+  const cls=['blk',item.fixed?'fixed':'flow',item.over?'over':'',next?'next':'',t.completed?'done':'',hollow?'hollow':'',selected?'sel':'',multi?'multi':'',h<34?'compact':'',h<20?'tiny':''].join(' ');
   const key=(e:KeyboardEvent)=>{
     if((e.shiftKey&&e.key==='F10')||e.key==='ContextMenu'){e.preventDefault();const r=(e.currentTarget as HTMLElement).getBoundingClientRect();onMenu({clientX:r.left+12,clientY:r.top+12});}
   };
@@ -165,7 +159,7 @@ function Block({item,axis,geometry:g,variant,next,hollow,selected,multi,squash,l
       transition={squash?{duration:.1}:landed?{duration:.45}:{duration:.15}} style={{transformOrigin:'50% 100%'}}>
       {item.fixed&&<Latch clack={!!landed?.clack}/>}
       <button type="button" className="chk" aria-label={t.title+(t.completed?' 완료 취소':' 완료')} aria-pressed={t.completed} onPointerDown={e=>e.stopPropagation()} onClick={onCheck}><Icon name="check" size={12} stroke={3}/></button>
-      <button type="button" className="main" aria-label={`${t.title}, ${item.fixed?'시각 고정':'예상'} ${range}, ${formatDuration(t.duration)}${next?', 다음':''}${t.completed?', 완료':''}`} onClick={onOpen} onKeyDown={key} data-task={t.id}>
+      <button type="button" className="main" aria-label={`${t.title}, ${item.fixed?'시각 고정':'예상'} ${range}, ${formatDuration(t.duration)}${item.over?', 근무 외':''}${next?', 다음':''}${t.completed?', 완료':''}`} onClick={onOpen} onKeyDown={key} data-task={t.id}>
         <span className="ttl-row">{next&&<span className="tag">다음</span>}<span className="ttl">{t.title}</span></span>
         <span className="meta"><span className="tm">{item.fixed?range:'예상 '+range}</span><span>{formatDuration(t.duration)}</span></span>
       </button>
@@ -179,14 +173,4 @@ function Latch({clack}:{clack:boolean}){
   return <motion.span className="latch" title="시각 고정" animate={clack?{x:[-5,1.5,0],scaleX:[1.2,.94,1]}:{x:0,scaleX:1}} transition={{duration:.36,ease:[.3,1.6,.5,1]}}>
     <Lock/>{clack&&<motion.i className="ring" initial={{opacity:.9,scale:.4}} animate={{opacity:0,scale:1.6}} transition={{duration:.5}}/>}
   </motion.span>;
-}
-
-function Unplaced({task,scale,reason,hollow,onOpen,onCheck}:{task:Task;scale:number;reason:string;hollow:boolean;onOpen:()=>void;onCheck:()=>void}){
-  const {attributes,listeners,setNodeRef}=useDraggable({id:`shelf:${task.id}`,data:{taskId:task.id}});
-  return <motion.div ref={setNodeRef} data-block="true" layout className={'ublk'+(hollow?' hollow':'')} style={{height:Math.max(30,task.duration*scale-2)}} transition={settle} {...attributes} {...listeners} tabIndex={-1} role="presentation">
-    <div className="tile">
-      <button type="button" className="chk" aria-label={task.title+' 완료'} onPointerDown={e=>e.stopPropagation()} onClick={onCheck}><Icon name="check" size={12} stroke={3}/></button>
-      <button type="button" className="main" onClick={onOpen} aria-label={`${task.title}, ${formatDuration(task.duration)}, 배치되지 않음, ${reason}`}><span className="ttl">{task.title}</span><span className="meta"><span>{formatDuration(task.duration)}</span><span className="why">{reason}</span></span></button>
-    </div>
-  </motion.div>;
 }

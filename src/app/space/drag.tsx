@@ -1,11 +1,11 @@
 import {createContext,useCallback,useContext,useMemo,useRef,useState,type ReactNode} from 'react';
 import {DndContext,DragOverlay,PointerSensor,useSensor,useSensors,defaultDropAnimationSideEffects,type DragEndEvent,type DragMoveEvent,type DragStartEvent,type DropAnimation,type Modifier} from '@dnd-kit/core';
 import {motion,useMotionValue,useSpring,type MotionValue} from 'motion/react';
-import {applyIntent,noIntent,type Intent,type Zone} from '../../intent.ts';
-import {dayPlan} from '../../today.ts';
+import {applyIntent,noIntent,type Intent} from '../../intent.ts';
+import {dayPlan,overrunEnd} from '../../today.ts';
 import {insertionBefore} from '../../flow.ts';
 import {placementIssue} from '../../placement.ts';
-import type {TimeAxis} from '../../time-axis.ts';
+import {createTimeAxis,timeAxisForDays,type TimeAxis} from '../../time-axis.ts';
 import type {Task} from '../../types.ts';
 import {formatDuration} from '../../format.ts';
 import {time} from '../../dates.ts';
@@ -20,7 +20,7 @@ export const DAY_GEOMETRY:Geometry={ruler:50,railLeft:52,railWidth:30,bodyLeft:8
 export const COLUMN_GEOMETRY:Geometry={ruler:0,railLeft:0,railWidth:13,bodyLeft:14,flowLeft:17,fixedLeft:1,right:4};
 
 // Places where a held block can land. Day spaces know their time axis; the others take a date or send work back to 미계획.
-type Region={key:string;kind:'space'|'shelf'|'date'|'tray';date:string|null;el:HTMLElement;axis?:TimeAxis;geometry?:Geometry};
+type Region={key:string;kind:'space'|'date'|'tray';date:string|null;el:HTMLElement;axis?:TimeAxis;geometry?:Geometry};
 export type Held={task:Task;intent:Intent;startRect:{left:number;top:number;width:number;height:number};grabX:number;width:number;height:number;dropping?:boolean};
 type Ctx={held:Held|null;pending:Intent|null;tasks:Task[];register:(r:Region)=>()=>void};
 const DragCtx=createContext<Ctx>({held:null,pending:null,tasks:[],register:()=>()=>{}});
@@ -34,6 +34,16 @@ export function useRegion(kind:Region['kind'],date:string|null,extra:{axis?:Time
     off.current?.();off.current=null;
     if(el)off.current=register({key,kind,date,el,get axis(){return extraRef.current.axis;},get geometry(){return extraRef.current.geometry;}} as Region);
   },[register,kind,date,key]);
+}
+
+// The days' shared time axis, stretched to show flow work that runs past working time.
+// While a block is held it only grows, so the space under the pointer never moves.
+export function useDaysAxis(dates:string[],scale:number){
+  const {snapshot}=useApp(),{tasks}=useDrag();
+  const axis=timeAxisForDays(dates.map(dayRule),scale);
+  const ends=[snapshot?.tasks??[],tasks].flatMap(list=>dates.map(d=>overrunEnd(dayPlan(d,list,dayRule(d),snapshot?.layouts??[]))??0));
+  const end=Math.max(...ends);
+  return end>axis.end-30?createTimeAxis(axis.start,Math.max(Math.min(1440,end+30),end),scale):axis;
 }
 
 export function DragProvider({children}:{children:ReactNode}){
@@ -64,13 +74,12 @@ export function DragProvider({children}:{children:ReactNode}){
       }
       const rest=dayPlan(date,base.filter(t=>t.id!==task.id),rule,snapshot!.layouts??[]);
       const centre=axis.minute(topIn+task.duration*axis.scale/2),flows=rest.items.filter(i=>!i.fixed);
-      const before=insertionBefore(flows,centre)??rest.unplaced[0]?.task.id??null;
-      return {intent:{...intent,zone:'body',date,before},region};
+      return {intent:{...intent,zone:'body',date,before:insertionBefore(flows,centre)},region};
     }
-    for(const kind of ['shelf','date','tray'] as const)for(const region of all.filter(r=>r.kind===kind)){
+    for(const kind of ['date','tray'] as const)for(const region of all.filter(r=>r.kind===kind)){
       if(!inside(region.el))continue;
       if(kind==='tray')return task.plan_date?{intent:{...intent,zone:'tray'}}:{intent};
-      return {intent:{...intent,zone:(kind==='shelf'?'below':'date') as Zone,date:region.date},region};
+      return {intent:{...intent,zone:'date',date:region.date},region};
     }
     return {intent};
   }

@@ -26,13 +26,16 @@ export type Allocation={done:number;flow:number;fixed:number;used:number;avail:n
 export function allocation(date:string,tasks:Task[]):Allocation{
   const plan=dayPlan(date,tasks,dayRule(date),getState().snapshot!.layouts??[]);
   const sum=(list:Task[])=>list.reduce((n,t)=>n+t.duration,0);
-  const fixedTasks=plan.items.filter(i=>i.fixed).map(i=>i.task),flowTasks=[...plan.items.filter(i=>!i.fixed).map(i=>i.task),...plan.unplaced.map(u=>u.task)];
+  const fixedTasks=plan.items.filter(i=>i.fixed).map(i=>i.task),flowTasks=plan.items.filter(i=>!i.fixed).map(i=>i.task);
   const done=sum(plan.completed),flow=sum(flowTasks),fixed=sum(fixedTasks),used=done+flow+fixed,avail=available(date);
-  // Placed in time order, then what did not fit. Completed flow work has left the space.
-  const ordered=[...plan.items.map(i=>i.task),...plan.unplaced.map(u=>u.task)];
+  // In time order. Completed flow work has left the space.
+  const ordered=plan.items.map(i=>i.task);
   return {done,flow,fixed,used,avail,over:Math.max(0,used-avail),count:ordered.length,tasks:ordered};
 }
-export const allocationLabel=(a:Allocation)=>`배분 ${formatDuration(a.used)} / 가용 ${formatDuration(a.avail)}`;
+export const allocationLabel=(a:{used:number;avail:number})=>`배분 ${formatDuration(a.used)} / 가용 ${formatDuration(a.avail)}`;
+// The same pair as numbers only, in hours: "7.75 / 8h".
+const hours=(minutes:number)=>String(Math.round(minutes/60*100)/100);
+export const allocationShort=(a:{used:number;avail:number})=>`${hours(a.used)} / ${hours(a.avail)}h`;
 
 // Done, flow and fixed share the bar; what goes past the available time is hatched, not alarmed.
 export function Meter({a,className=''}:{a:Allocation;className?:string}){

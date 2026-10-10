@@ -25,7 +25,7 @@ export default [
     assert.equal(new Set(boxes).size,1,'every column starts at the same top with the same height');
     const {today}=await days(page),first=await block(page,today,'설계 문서 자료 조사');
     assert.ok(Math.abs(first.y-1-await hourY(page,9))<=2,'the shared ruler lines up with the blocks');
-    assert.match(await page.text('.wk-head.today'),/오늘.*배분 .+ \/ 가용 /);
+    assert.match(await page.text('.wk-head.today'),/오늘.*[\d.]+ \/ [\d.]+h/);
     assert.match(await page.text('.plan-bar .week-summary'),/선택한 주 근무 .+ \/ .+ · \d \/ \d일/);
     assert.equal(await page.js(`document.querySelector('.drawer-toggle').getAttribute('aria-expanded')`),'true');
     await page.shot('plan-week');
@@ -155,12 +155,12 @@ export default [
     assert.equal(await page.js(`!!document.querySelector('.composer')`),false);
     assert.match(await page.text('.status'),/점심/);
   }},
-  {name:'today: clicking empty time opens the composer and an unfitting block waits on the shelf',run:async page=>{
+  {name:'today: clicking empty time opens the composer and an unfitting block runs past the end of work',run:async page=>{
     const box=await page.rect('.today-day .space'),last=await page.rect('.today-day .blk','신규 입사자 교육');
     await press(page,box.x+box.w-60,last.y+last.h+20);
     assert.match(await page.text('.composer .cm-head'),/순서 끝 · 30분/);
     await page.shot('today-composer');
     await page.type('오늘 추가');await page.key('Enter',{text:'\r'});await page.sleep(700);
-    assert.match(await page.text('.today-day .shelf'),/오늘 추가/);
+    assert.ok((await page.blocks('.today-day .space')).includes('오늘 추가, 예상 20:00–20:30'));
   }},
 ];

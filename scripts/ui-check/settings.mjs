@@ -12,6 +12,12 @@ const todayIndex=()=>(new Date().getDay()+6)%7;
 // A real click on an element brought into view first.
 const tap=async(page,expr)=>{const r=await at(page,expr);if(!r)throw Error('missing '+expr);await page.mouse('mouseMoved',r.cx,r.cy,0);await page.mouse('mousePressed',r.cx,r.cy);await page.mouse('mouseReleased',r.cx,r.cy,0);await page.sleep(400);};
 
+// Work past the end of the day covers the middle of the evening band; press its uncovered left edge.
+async function offHours(page,from){
+  const sel=`.today-day .off[aria-label^="${from}"]`;await page.js(`document.querySelector('${sel}').scrollIntoView({block:'center'})`);await page.sleep(100);
+  const r=await page.rect(sel),x=r.x+4,y=r.y+10;await page.mouse('mouseMoved',x,y,0);await page.mouse('mousePressed',x,y);await page.mouse('mouseReleased',x,y,0);await page.sleep(150);
+}
+
 export default [
   {name:'the weekly rhythm draws seven columns of parallel bands',run:async page=>{
     await open(page);
@@ -90,13 +96,13 @@ export default [
   }},
   {name:'the date popover opens from off-hours, applies an early leave and restores the rhythm',run:async page=>{
     await guard(page);
-    await page.click('.today-day .off[aria-label^="18:00"]');await page.sleep(300);
+    await offHours(page,'18:00');await page.sleep(300);
     assert.ok(await page.js(`!!document.querySelector('.ap[role=dialog]')`));
     assert.equal(await page.js(`document.activeElement.dataset.time`),'start','focus on the work start');
     await page.key('Escape');await page.sleep(200);
     assert.equal(await page.js(`!!document.querySelector('.ap')`),false);
     assert.match(await page.js(`document.activeElement.getAttribute('aria-label')`),/18:00 이후/,'focus returns to the band');
-    await page.click('.today-day .off[aria-label^="18:00"]');await page.sleep(300);
+    await offHours(page,'18:00');await page.sleep(300);
     await page.js(`(()=>{const s=document.querySelector('.ap select');s.value='early';s.dispatchEvent(new Event('change',{bubbles:true}));})()`);await page.sleep(150);
     await page.js(`(()=>{const i=document.querySelector('.ap [data-time=end]');i.focus();i.value='16:00';i.blur();})()`);await page.sleep(200);
     assert.match(await page.text('.ap .rh-detail-head output'),/09:00–16:00/);
@@ -104,7 +110,7 @@ export default [
     await page.click('.ap .btn.primary');await page.sleep(500);
     assert.equal(await page.js(`!!document.querySelector('.ap')`),false);
     assert.ok(await page.rect('.today-day .off[aria-label^="16:00"]'),'today ends at 16:00');
-    await page.click('.today-day .off[aria-label^="16:00"]');await page.sleep(300);
+    await offHours(page,'16:00');await page.sleep(300);
     assert.equal(await page.js(`document.querySelector('.ap select').value`),'early');
     await page.click('.ap .btn','반복 일정으로 복원');await page.sleep(500);
     assert.equal(await page.js(`!!document.querySelector('.ap')`),false);

@@ -31,7 +31,7 @@
 .wk-day small{font-size:12px;color:var(--color-text-muted)}
 .wk-day strong{font-size:17px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.1}
 .wk-day .pill,.cal-date .pill{align-self:center;font-size:11px;padding:1px 7px}
-.wk-alloc{font-size:11px;line-height:1.3;word-break:keep-all;color:var(--color-text-muted);font-variant-numeric:tabular-nums;min-height:2.6em}
+.wk-alloc{font-size:11px;line-height:1.3;color:var(--color-text-muted);font-variant-numeric:tabular-nums}
 .wk-head.today strong,.cal-cell.today .cal-date strong{color:var(--color-calendar-today)}
 .wk-head.sel{background:var(--color-selection);box-shadow:inset 0 -2px 0 var(--color-selection-border)}
 .wk-head.off .wk-day strong{color:var(--color-text-muted)}
@@ -48,8 +48,6 @@
 .wk .chip-title{height:22px;font-size:11.5px;gap:4px;padding:0 2px}
 .wk .chip-title small{display:none}
 .wk .chip-undo{width:20px;height:20px}
-.wk .shelf{padding:8px 4px 10px;gap:5px}
-.wk .shelf h2{font-size:11px}
 .wk-col.off .bin,.wk-col.off .slit{opacity:.5}
 /* Seven armed rails at once: keep the cue, quiet the weight. The time tag rides above the snapped block. */
 .wk .space.armed .rail::before{width:4px;left:calc(50% - 2px)}

@@ -2,12 +2,24 @@ import assert from 'node:assert/strict';
 
 // Preview data: §10 example (A 60, B 45, C 30, D 60 flow; workshop 14:00 fixed; E 90, F 120) at 10:20.
 const space='.today-day .space';
-const find=(page,text)=>page.rect('.today-day .blk, .tray .tblk, .today-day .ublk',text);
+const find=(page,text)=>page.rect('.today-day .blk, .tray .tblk',text);
 export default [
   {name:'initial layout follows the stored order without times on flow blocks',run:async page=>{
-    assert.deepEqual(await page.blocks(space),['설계 문서 자료 조사, 예상 09:00–10:00','설계 문서 초안 작성, 예상 10:00–10:45','회의록 정리, 예상 10:45–11:15','분리망 배포 의존성 검토, 예상 13:00–14:00','설계 워크숍, 시각 고정 14:00–15:00','신규 입사자 교육 자료, 예상 15:00–16:30']);
-    assert.match(await page.text('.today-day .shelf'),/경쟁사 자료 조사/);
+    assert.deepEqual(await page.blocks(space),['설계 문서 자료 조사, 예상 09:00–10:00','설계 문서 초안 작성, 예상 10:00–10:45','회의록 정리, 예상 10:45–11:15','분리망 배포 의존성 검토, 예상 13:00–14:00','설계 워크숍, 시각 고정 14:00–15:00','신규 입사자 교육 자료, 예상 15:00–16:30','경쟁사 자료 조사, 예상 18:00–20:00']);
+    assert.match(await page.text('.today-day .blk.over'),/경쟁사 자료 조사/,'work that no longer fits runs past the end of work instead of leaving the timetable');
     await page.shot('today-initial');
+  }},
+  {name:'a block past the end of work drags back into the order while the space holds still',viewport:{width:1440,height:900},run:async page=>{
+    await page.js(`document.querySelector('.today-day .blk.over').scrollIntoView({block:'end'})`);await page.sleep(300);
+    const o=await find(page,'경쟁사 자료 조사'),c=await find(page,'신규 입사자 교육');
+    const tops=[],top=()=>page.js(`document.querySelector('${space}').getBoundingClientRect().top`);
+    await page.mouse('mouseMoved',o.x+60,o.y+10,0);await page.mouse('mousePressed',o.x+60,o.y+10);
+    for(let i=1;i<=20;i++){await page.mouse('mouseMoved',o.x+60,o.y+10+(c.y-20-o.y)*i/20);await page.sleep(20);tops.push(await top());}
+    for(let i=0;i<8;i++){await page.mouse('mouseMoved',o.x+60,c.y-20+(i%2));await page.sleep(30);tops.push(await top());}
+    await page.mouse('mouseReleased',o.x+60,c.y-20,0);await page.sleep(700);
+    assert.equal(new Set(tops.map(Math.round)).size,1,'the space never shifts under a held block');
+    const order=(await page.blocks(space)).map(b=>b.split(',')[0]);
+    assert.equal(order.indexOf('경쟁사 자료 조사'),order.indexOf('신규 입사자 교육 자료')-1);
   }},
   {name:'completing at 10:20 pulls the block into the intake and lays the rest out from now',run:async page=>{
     await page.click('.today-day .blk.next .chk');await page.sleep(900);

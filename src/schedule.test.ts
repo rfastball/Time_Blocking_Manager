@@ -24,6 +24,9 @@ test('focused time axes preserve all-day boundaries and invert compressed coordi
   assert.ok(axis.position(60)-axis.position(0)<axis.position(600)-axis.position(540));
   assert.equal(timeAxisLabelVisible(axis,60),false);assert.equal(timeAxisLabelVisible(axis,600),true);
   assert.deepEqual([timeAxisForDays([{...rule,enabled:false}]).start,timeAxisForDays([]).end],[510,1110]);
+  const overrun=createTimeAxis(510,1700,1);
+  assert.equal(overrun.position(1700),overrun.height,'work running past midnight ends the axis');
+  assert.equal(overrun.position(1600)-overrun.position(1500),100);assert.equal(overrun.minute(overrun.height+10),1700);
 });
 
 test('drag expansion opens the pointed outer hours without shrinking the working range',()=>{
