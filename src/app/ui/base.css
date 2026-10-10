@@ -4,7 +4,7 @@ html,body{height:100%}
 body{margin:0;background:var(--color-canvas);color:var(--color-text);font-family:var(--font-body);font-size:var(--font-size-body);line-height:var(--line-height-body)}
 button,input,select,textarea{font:inherit;color:inherit}
 :focus-visible{outline:2px solid var(--color-focus);outline-offset:2px}
-.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.sr-only{position:absolute;top:0;left:0;width:1px;height:1px;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .card{background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-panel);padding:16px}
 .cnt{font-size:12px;font-weight:700;color:var(--color-text-muted);background:color-mix(in srgb,var(--color-text-muted) 10%,var(--color-surface));border-radius:999px;padding:1px 8px;font-variant-numeric:tabular-nums}
 .btn,.ibtn{min-height:var(--control-height);border:1px solid var(--color-control-border);background:var(--color-control);border-radius:var(--radius-control);padding:6px 12px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap;transition:transform .08s,background .1s}
