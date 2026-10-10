@@ -8,7 +8,7 @@ import {time} from '../../dates.ts';
 import type {TimeAxis} from '../../time-axis.ts';
 import type {Task} from '../../types.ts';
 import {useApp,type Composer} from '../store/state.ts';
-import {closeComposer,dayRule,editCapture,issueAt,openComposer,setComposerFixed,setGesture,submitComposer} from '../store/tasks.ts';
+import {closeComposer,dayRule,editCapture,issueAt,openComposer,PAST_COMPOSER,setComposerFixed,setGesture,submitComposer} from '../store/tasks.ts';
 import {Icon,Lock} from '../ui/icons.tsx';
 import {COLUMN_GEOMETRY,DAY_GEOMETRY,useDrag} from '../space/drag.tsx';
 import './composer.css';
@@ -45,8 +45,7 @@ export function useNewBlock(date:string,axis:TimeAxis,variant:'day'|'column',ali
     };
     const up=(ev:PointerEvent)=>{
       if(ev.pointerId!==id)return;cleanup();focusNext=true;
-      if(last)openComposer(date,last.start,last.duration,true);
-      else openComposer(date,origin,30,onRail);
+      if(!(last?openComposer(date,last.start,last.duration,true):openComposer(date,origin,30,onRail)))focusNext=false;
     };
     const cancel=()=>cleanup(),escape=(ev:KeyboardEvent)=>{if(ev.key==='Escape'){ev.preventDefault();cancel();}};
     document.addEventListener('pointermove',move,{passive:false});document.addEventListener('pointerup',up);document.addEventListener('pointercancel',cancel);document.addEventListener('keydown',escape);window.addEventListener('blur',cancel);
@@ -82,9 +81,9 @@ function Ghost({c,axis,left,right}:{c:Composer;axis:TimeAxis;left:number;right:n
 }
 
 function ComposerForm({c,axis,style}:{c:Composer;axis:TimeAxis;style:CSSProperties}){
-  const {drafts,busy,failed}=useApp();
+  const {drafts,busy,failed,today}=useApp();
   const input=useRef<HTMLInputElement>(null);
-  const fixed=!!c.fixed,issue=fixed?issueAt('',c.date,c.start,c.duration):null,slot=useFlowSlot(c);
+  const fixed=!!c.fixed,issue=fixed?issueAt('',c.date,c.start,c.duration):null,slot=useFlowSlot(c),past=c.date<today;
   useEffect(()=>{if(focusNext){focusNext=false;input.current?.focus({preventScroll:true});}},[c.date,c.start,c.duration]);
   // Sits under the chosen range; near the floor it opens above it instead.
   const below=axis.position(c.start+(fixed?c.duration:0))+6,top=below+150>axis.height?Math.max(0,axis.position(c.start)-150):below;
@@ -98,8 +97,8 @@ function ComposerForm({c,axis,style}:{c:Composer;axis:TimeAxis;style:CSSProperti
       onChange={e=>editCapture(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&isCompositionKey(e.nativeEvent))e.preventDefault();}}/>
     <div className="cm-row">
       <label className="cm-fix"><input type="checkbox" checked={fixed} onChange={e=>setComposerFixed(e.target.checked)}/><Lock/>{time(c.start)} 고정</label>
-      <button type="submit" className="btn primary" disabled={!drafts.capture.trim()||busy||!!failed||!!issue}>배치</button>
+      <button type="submit" className="btn primary" disabled={!drafts.capture.trim()||busy||!!failed||!!issue||past}>배치</button>
     </div>
-    {issue&&<p className="error" role="alert">{issue.label}. 다른 시간을 선택하세요.</p>}
+    {past?<p className="error" role="alert">{PAST_COMPOSER}</p>:issue&&<p className="error" role="alert">{issue.label}. 다른 시간을 선택하세요.</p>}
   </form>;
 }
