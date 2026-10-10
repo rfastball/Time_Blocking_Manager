@@ -135,8 +135,20 @@ export async function submitComposer(){
   if(!command||!sameComposerAction(command.action,c.date,c.start,c.duration,fixed))command=null;
   command??={request_id:crypto.randomUUID(),epoch:snap().epoch,action:composerAction(c.date,c.start,c.duration,fixed,title)};
   setDrafts({captureCommand:command});void persistDraft();
-  const sent=command;
-  return dispatch(sent.action,{epoch:sent.epoch,requestId:sent.request_id,done:()=>{if(getState().drafts.captureCommand===sent)setDrafts({capture:'',captureCommand:null,composer:null});void persistDraft();}});
+  const sent=command,a=sent.action,id=a.type==='create_flow'||a.type==='create_scheduled'?a.id:null;
+  return dispatch(a,{epoch:sent.epoch,requestId:sent.request_id,done:()=>{if(getState().drafts.captureCommand===sent)setDrafts({capture:'',captureCommand:null,composer:null});void persistDraft();if(id)reveal(id,fixed);}});
+}
+// A new block can land far from where it was asked for (the end of a full day): bring it into view, then let it settle.
+function reveal(id:string,clack:boolean){
+  let frames=0;
+  const look=()=>{
+    const el=document.querySelector<HTMLElement>(`[data-task="${CSS.escape(id)}"]`);
+    if(!el){if(++frames<12)requestAnimationFrame(look);return;}
+    // The block, not its button: the tile clips and would scroll itself.
+    (el.closest<HTMLElement>('[data-block]')??el).scrollIntoView({block:'nearest',behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});
+    land(id,clack);
+  };
+  requestAnimationFrame(look);
 }
 
 // ── 정기 업무 생성 ──

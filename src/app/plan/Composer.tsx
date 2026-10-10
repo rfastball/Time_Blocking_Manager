@@ -64,16 +64,19 @@ export function useNewBlock(date:string,axis:TimeAxis,variant:'day'|'column',ali
   };
 }
 
+// The slot a flow composer would take: after the day's last flow block, laid out like the day itself.
+function useFlowSlot(c:Composer){
+  const {snapshot}=useApp(),{tasks}=useDrag();
+  if(c.fixed)return null;
+  const phantom:Task={id:'\u0000composer',title:'',body:'',starts_at:null,duration:c.duration,completed:false,revision:0,plan_date:c.date,flow_order:Number.MAX_SAFE_INTEGER};
+  return dayPlan(c.date,[...tasks,phantom],dayRule(c.date),snapshot?.layouts??[]).items.find(i=>i.task.id===phantom.id)??null;
+}
+
 // Where the new block would land: the reserved range, or the slot after the day's last flow block.
 function Ghost({c,axis,left,right}:{c:Composer;axis:TimeAxis;left:number;right:number}){
-  const {snapshot}=useApp(),{tasks}=useDrag();
-  let start=c.start,end=c.start+c.duration;
-  if(!c.fixed){
-    const phantom:Task={id:'\u0000composer',title:'',body:'',starts_at:null,duration:c.duration,completed:false,revision:0,plan_date:c.date,flow_order:Number.MAX_SAFE_INTEGER};
-    const slot=dayPlan(c.date,[...tasks,phantom],dayRule(c.date),snapshot?.layouts??[]).items.find(i=>i.task.id===phantom.id);
-    if(!slot)return null;
-    start=slot.start;end=slot.end;
-  }
+  const slot=useFlowSlot(c);
+  if(!c.fixed&&!slot)return null;
+  const start=slot?.start??c.start,end=slot?.end??c.start+c.duration;
   return <motion.div className={'ghost'+(c.fixed?' fixed':'')} aria-hidden="true" style={{left,right}}
     initial={false} animate={{top:axis.position(start)+1,height:Math.max(8,axis.position(end)-axis.position(start)-2)}} transition={{type:'spring',visualDuration:.25,bounce:.2}}/>;
 }
@@ -81,14 +84,14 @@ function Ghost({c,axis,left,right}:{c:Composer;axis:TimeAxis;left:number;right:n
 function ComposerForm({c,axis,style}:{c:Composer;axis:TimeAxis;style:CSSProperties}){
   const {drafts,busy,failed}=useApp();
   const input=useRef<HTMLInputElement>(null);
-  const fixed=!!c.fixed,issue=fixed?issueAt('',c.date,c.start,c.duration):null;
+  const fixed=!!c.fixed,issue=fixed?issueAt('',c.date,c.start,c.duration):null,slot=useFlowSlot(c);
   useEffect(()=>{if(focusNext){focusNext=false;input.current?.focus({preventScroll:true});}},[c.date,c.start,c.duration]);
   // Sits under the chosen range; near the floor it opens above it instead.
   const below=axis.position(c.start+(fixed?c.duration:0))+6,top=below+150>axis.height?Math.max(0,axis.position(c.start)-150):below;
   return <form className="composer" aria-label="새 블록" style={{top,...style}}
     onSubmit={e=>{e.preventDefault();void submitComposer();}}
     onKeyDown={e=>{if(e.key==='Escape'){e.preventDefault();e.stopPropagation();closeComposer();}}}>
-    <div className="cm-head"><span>{fixed?`${time(c.start)}–${time(c.start+c.duration)}`:`순서 끝 · ${formatDuration(c.duration)}`}</span>
+    <div className="cm-head"><span>{fixed?`${time(c.start)}–${time(c.start+c.duration)}`:slot?<>순서 끝 · {time(slot.start)}–{time(slot.end)}{slot.over&&<em className="cm-over"> · 근무 외</em>}</>:`순서 끝 · ${formatDuration(c.duration)}`}</span>
       <button type="button" className="cm-x" aria-label="입력 닫기" onClick={closeComposer}><Icon name="close" size={14}/></button></div>
     <label className="sr-only" htmlFor="composer-title">새 블록 제목</label>
     <input id="composer-title" ref={input} className="cm-title" value={drafts.capture} maxLength={650} autoComplete="off" placeholder="할 일"
