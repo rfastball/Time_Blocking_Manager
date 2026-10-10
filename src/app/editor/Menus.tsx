@@ -38,7 +38,7 @@ function ContextMenu({m}:{m:NonNullable<Ui['contextMenu']>}){
   const close=(refocus:boolean)=>{setUi({contextMenu:null});if(refocus)(t?blockButton(t.id,opener):opener instanceof HTMLElement?opener:null)?.focus({preventScroll:true});};
   useLayoutEffect(()=>{const r=ref.current!.getBoundingClientRect();setPos(clamp(m.x,m.y,r.width,r.height));ref.current!.querySelector<HTMLElement>('[role=menuitem]:not(:disabled)')?.focus({preventScroll:true});},[]);
   useDismiss(ref,()=>close(false));
-  const mode=s.nav.view==='today'?'panel':'dialog';
+  const mode=s.nav.view==='today'&&!matchMedia('(max-width:960px)').matches?'panel':'dialog';
   let items:Item[];
   if(t){
     const flow=!!t.plan_date&&!t.starts_at&&!t.completed,order=flow?flowOrderOn(t.plan_date!).map(x=>x.id):[],at=order.indexOf(t.id);

@@ -17,6 +17,8 @@ import {useNewBlock} from '../plan/Composer.tsx';
 import './today.css';
 
 const SCALE=1.2;
+// One column at this width puts the panel below the whole day, so the editor opens over it instead.
+const open=(t:Task)=>openEditor(t.id,matchMedia('(max-width:960px)').matches?'dialog':'panel');
 
 // The day as one block space. Selecting a block opens it beside the space; the list is the space itself.
 export function Today(){
@@ -50,11 +52,11 @@ export function Today(){
     </div>
     <div className="today-cols">
       <section className="card today-day" aria-label="블록 공간">
-        <DaySpace date={date} axis={axis} variant="day" bin selected={editing} multi={multi} onOpen={t=>openEditor(t.id,'panel')} onMulti={toggleMulti} {...newBlock}/>
+        <DaySpace date={date} axis={axis} variant="day" bin selected={editing} multi={multi} onOpen={open} onMulti={toggleMulti} {...newBlock}/>
       </section>
       <aside className="today-side">
         <EditorPanel nextId={nextFlowId(plan.items)}/>
-        <InboxTray scale={SCALE} overdue={overdueTasks()} selected={editing} onOpen={t=>openEditor(t.id,'panel')}/>
+        <InboxTray scale={SCALE} overdue={overdueTasks()} selected={editing} onOpen={open}/>
       </aside>
     </div>
   </div>;
