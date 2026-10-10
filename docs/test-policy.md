@@ -187,3 +187,13 @@ Test delta 결과: added/extended/removed **4/0/0 + 교체 2**, 기본 Node 수�
 - Evidence to retire: `suppressGestureClick` 사례(드래그 뒤 지연 클릭 억제 — dnd-kit 활성화 거리로 대체되어 함수와 함께 제거), `agenda` 사례(목록·빈 시간 표시 모델 제거; ‘다음’은 시계와 무관하다는 단언은 `nextFlowId` 사례로 이전).
 
 Test delta 결과: added/replaced/removed **17/1/1**(추가: intent 1, backup-format 4, detail 6, availability-edit 6 · 교체: agenda→nextFlowId · 제거: suppressGestureClick), 기본 Node 수집 **26→42**(도입 전 master 기준), `npm test` 42/42 · 125.4121ms(단일 실행, 성능 추정 아님). Rust 18/18 변경 없음. heavy-resource launch delta: 기본 suite 0, 명시적 ui-check 50/50. coverage-floor 영향 0.
+
+
+## 휴지통 Test delta brief (2026-10-11)
+
+- Unique risk: 삭제한 작업이 배치·겹침 검사에 남거나 되살아나지 않음, 복원이 날짜·순서·고정·완료를 잃거나 순서 번호를 중복시킴, 30일 정리가 일반 작업이나 기간 안 항목을 지움, 휴지통이 백업·복원에서 사라짐, v4 DB 이관이 기존 행을 휴지통으로 오인함, 삭제가 여전히 확인 창을 띄움.
+- Existing owner / Selected layer: 저장 경계는 기존 `src-tauri/tests/storage.rs` 실제 임시 SQLite owner(새 시나리오 1개, 구버전 이관 사례에 v4 추가와 삭제·복원 단언 확장, 미지원 버전 값을 5→6으로 갱신). 정리 시각은 `purge_trash(now)` 인자로 주입한다. 화면 연결과 확인 창 부재는 명시적 `scripts/ui-check` owner(inbox·editor). 미리보기 대역(`src/preview.ts`)은 ui-check가 실행한다.
+- Expected cost delta: storage 실행 파일 안 시나리오 +1, Node 기본 suite 변화 0, ui-check 시나리오 +2(교체 1). 새 파일·의존성·worker·CI lane 0.
+- Evidence to retire: ‘delete asks first and keeps the row when declined’ ui 사례(확인 창 자체가 제거됨) — 확인 창이 없음을 단언하는 휴지통 사례로 교체.
+
+Test delta 결과: storage added/extended/removed **1/2/0**, 수집 **18→19**, `cargo test --locked` storage **19/19 · 본체 4.25초**, desktop 단위 2/2. Node `npm test` **43/43**(변화 0), `npm run build` 성공. ui-check `--only inbox,editor` **18/18**(inbox 7→8: 교체 1·추가 1·빈 목록 사례 확장, editor 9→10). 단일 실행 시간은 성능 추정이 아니다. heavy-resource 자동 launch 0, coverage-floor 영향 0. 네이티브 앱에서의 확인 창 부재·시간별 정리 실행은 이 시험으로 합격 처리하지 않는다.

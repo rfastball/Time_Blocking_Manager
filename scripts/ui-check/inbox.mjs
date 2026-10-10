@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 
 // Preview data: two 미계획 items (회의록 템플릿 업데이트 30분, SQLite 백업 방식 조사 45분). The preview opens on 오늘.
-const rows='.inbox-page > .inbox-rows > .irow',done='.inbox-done .irow';
+const rows='.inbox-page > .inbox-rows > .irow',done='.inbox-done:not(.inbox-trash) .irow',trashed='.inbox-trash .irow';
+// Deleting must never open a dialog; any confirm() call is recorded and refused.
+const stubDialogs=page=>page.js('window.__asked=[];window.confirm=t=>{window.__asked.push(t);return false;}');
 const titles=(page,selector=rows)=>page.js(`[...document.querySelectorAll(${JSON.stringify(selector)})].map(r=>r.querySelector('strong').textContent)`);
 const open=async page=>{await page.click('.rail-nav .nav-button','미계획');await page.sleep(300);assert.ok(await page.js('!!document.querySelector(".inbox-page")'),'미계획 page');};
 const check=(page,title)=>page.click(`input[aria-label=${JSON.stringify(title+' 완료')}]`);
@@ -54,15 +56,46 @@ const scenarios=[
     await page.click(rows+' .irow-size','45분');
     assert.ok(await page.js(`!!document.querySelector('dialog[open]')`),'editor dialog from size');
   }},
-  {name:'delete asks first and keeps the row when declined',run:async page=>{
+  {name:'delete moves the row to the collapsed 휴지통 without a dialog; restore brings it back',run:async page=>{
     await open(page);
-    await page.js('window.__asked=[];window.confirm=t=>{window.__asked.push(t);return false;}');
-    await page.click('button[aria-label="SQLite 백업 방식 조사 삭제"]');await page.sleep(300);
-    assert.equal((await page.js('window.__asked')).length,1);
-    assert.deepEqual(await titles(page),['회의록 템플릿 업데이트','SQLite 백업 방식 조사']);
-    await page.js('window.confirm=()=>true');
+    await stubDialogs(page);
     await page.click('button[aria-label="SQLite 백업 방식 조사 삭제"]');await page.sleep(500);
+    assert.deepEqual(await page.js('window.__asked'),[],'no dialog');
     assert.deepEqual(await titles(page),['회의록 템플릿 업데이트']);
+    assert.equal(await page.text('[role=status]'),'‘SQLite 백업 방식 조사’을 휴지통으로 옮겼어요');
+    assert.match(await page.text('.inbox-trash > summary'),/휴지통 1/);
+    assert.equal(await page.js('document.querySelector(".inbox-trash").open'),false);
+    await page.click('.inbox-trash > summary');await page.sleep(400);
+    assert.deepEqual(await titles(page,trashed),['SQLite 백업 방식 조사']);
+    assert.match(await page.text(trashed+' small'),/\d+월 \d+일 삭제/);
+    await page.shot('inbox-trash-open');
+    await page.click('button[aria-label="SQLite 백업 방식 조사 복원"]');await page.sleep(500);
+    assert.deepEqual((await titles(page)).sort(),['SQLite 백업 방식 조사','회의록 템플릿 업데이트'].sort());
+    assert.equal(await page.js('!!document.querySelector(".inbox-trash")'),false,'no empty trash label');
+    assert.equal(await page.text('[role=status]'),'‘SQLite 백업 방식 조사’을 복원했어요');
+    assert.equal(await page.js('document.activeElement?.id'),'inbox-capture','focus stays on the page');
+  }},
+  {name:'영구 삭제 removes one item; 휴지통 비우기 asks in place and Esc keeps everything',run:async page=>{
+    await open(page);
+    await stubDialogs(page);
+    for(const t of ['회의록 템플릿 업데이트','SQLite 백업 방식 조사']){await page.click(`button[aria-label="${t} 삭제"]`);await page.sleep(400);}
+    await page.click('.inbox-trash > summary');await page.sleep(300);
+    await page.click('button[aria-label="회의록 템플릿 업데이트 영구 삭제"]');await page.sleep(500);
+    assert.deepEqual(await titles(page,trashed),['SQLite 백업 방식 조사']);
+    assert.match(await page.text('.inbox-trash > summary'),/휴지통 1/);
+    assert.equal(await page.js('document.activeElement?.getAttribute("aria-label")'),'SQLite 백업 방식 조사 영구 삭제','focus moves to the next row');
+    await page.click('.inbox-trash-foot button','휴지통 비우기');await page.sleep(250);
+    assert.match(await page.text('.inbox-trash-foot'),/휴지통의 1개를 영구 삭제할까요\?/);
+    assert.equal(await page.js('document.activeElement?.textContent'),'정말 비우기');
+    await page.shot('inbox-trash-confirm');
+    await page.key('Escape');await page.sleep(200);
+    assert.equal(await page.js('document.activeElement?.textContent'),'휴지통 비우기');
+    assert.deepEqual(await titles(page,trashed),['SQLite 백업 방식 조사']);
+    await page.click('.inbox-trash-foot button','휴지통 비우기');await page.sleep(200);
+    await page.click('.inbox-trash-foot button','정말 비우기');await page.sleep(500);
+    assert.equal(await page.js('!!document.querySelector(".inbox-trash")'),false);
+    assert.equal(await page.text('[role=status]'),'‘SQLite 백업 방식 조사’을 영구 삭제했어요');
+    assert.deepEqual(await page.js('window.__asked'),[],'no dialog');
   }},
   {name:'계획에 배치하기 opens 계획 with the 미계획 drawer',run:async page=>{
     await open(page);
@@ -72,9 +105,12 @@ const scenarios=[
   }},
   {name:'an empty 미계획 shows only the input',run:async page=>{
     await open(page);
-    await page.js('window.confirm=()=>true');
     for(const t of ['회의록 템플릿 업데이트','SQLite 백업 방식 조사']){await page.click(`button[aria-label="${t} 삭제"]`);await page.sleep(400);}
+    await page.click('.inbox-trash > summary');await page.sleep(300);
+    await page.click('.inbox-trash-foot button','휴지통 비우기');await page.sleep(200);
+    await page.click('.inbox-trash-foot button','정말 비우기');await page.sleep(500);
     assert.equal(await page.js('document.querySelectorAll(".inbox-page .irow").length'),0);
+    assert.equal(await page.js('!!document.querySelector(".inbox-trash")'),false);
     assert.equal(await page.js('!!document.querySelector(".inbox-head")'),false);
     assert.doesNotMatch(await page.text('.inbox-page'),/0/);
     await page.shot('inbox-empty');

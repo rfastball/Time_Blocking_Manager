@@ -128,7 +128,7 @@ export function previewSnapshot():Snapshot{
   // Redesign §10 example: a fixed workshop and four flow blocks, usable on any weekday.
   const days=Array.from({length:7},()=>({enabled:true,start:540,end:1080,breaks:[{start:720,end:780,label:'점심'}]})),day=todayKey();
   const flow=(id:string,title:string,duration:number,order:number,body=''):Task=>({id,title,body,starts_at:null,duration,completed:false,revision:1,plan_date:day,flow_order:order});
-  return {epoch:'preview',layouts:[],settings:{revision:1,days},tasks:[
+  return {epoch:'preview',layouts:[],trash:[],settings:{revision:1,days},tasks:[
     flow('sample-a','설계 문서 자료 조사',60,1,'[x] 요구사항 확인\n[ ] 초안에 반영'),
     flow('sample-b','설계 문서 초안 작성',45,2,'진행 상황과 필요한 맥락을 이곳에 남깁니다.\n[ ] 계획 화면 정리\n[ ] 검토 의견 반영'),
     flow('sample-c','회의록 정리',30,3),

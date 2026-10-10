@@ -5,7 +5,7 @@ import {byFlowOrder,moveInOrder} from '../../flow.ts';
 import {placementIssue,splitDuration} from '../../placement.ts';
 import {dateKey,dateLabel,dateOf,plusDays,time} from '../../dates.ts';
 import {intentAction,updateAction,type Intent} from '../../intent.ts';
-import type {Action,Task,WorkingDay} from '../../types.ts';
+import type {Action,Task,Trashed,WorkingDay} from '../../types.ts';
 import {getState,setDrafts,setState,setUi} from './state.ts';
 import {afterIdle,announce,ask,dispatch,draftChanged,persistDraft,queue,showError,stamp} from './session.ts';
 
@@ -77,9 +77,23 @@ export function drop(intent:Intent){
   if(!action)return Promise.resolve(false);
   return dispatch(action,{done:()=>land(intent.id,intent.zone==='rail')});
 }
-export async function deleteTask(t:Task){
-  if(!await ask(`‘${t.title}’ 항목을 삭제할까요? 이 작업은 되돌릴 수 없어요.`))return false;
-  return dispatch({type:'delete',id:t.id,expected_revision:t.revision},{done:()=>{const d=getState().drafts;if(d.editor?.id===t.id){setDrafts({editor:null,editorDirty:false});setUi({editorMode:null});void persistDraft();}}});
+// ── 휴지통 ──
+// Deleting needs no question: the task waits in the trash (store retention) until restored or removed.
+export function deleteTask(t:Task){
+  return dispatch({type:'delete',id:t.id,expected_revision:t.revision},{done:()=>{
+    const d=getState().drafts;if(d.editor?.id===t.id){setDrafts({editor:null,editorDirty:false});setUi({editorMode:null});void persistDraft();}
+    announce(`‘${t.title}’을 휴지통으로 옮겼어요`);
+  }});
+}
+export function restoreTrashed(t:Trashed){
+  return dispatch({type:'restore_trashed',id:t.id},{done:()=>{
+    const back=find(t.id);
+    announce(t.starts_at&&!back?.starts_at?`‘${t.title}’을 복원했어요. 그 시각이 차 있어 고정 없이 그날 순서에 넣었어요`:`‘${t.title}’을 복원했어요`);
+  }});
+}
+export function purgeTrashed(items:Trashed[]){
+  if(!items.length)return Promise.resolve(false);
+  return dispatch({type:'purge_trashed',ids:items.map(t=>t.id)},{done:()=>announce(items.length>1?'휴지통을 비웠어요':`‘${items[0].title}’을 영구 삭제했어요`)});
 }
 export function split(t:Task,first:number){
   const duration=splitDuration(t.duration,first);

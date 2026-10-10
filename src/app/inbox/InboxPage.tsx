@@ -1,21 +1,21 @@
-import {useId,useState} from 'react';
+import {useEffect,useId,useRef,useState} from 'react';
 import {AnimatePresence,motion} from 'motion/react';
 import {isCompositionKey} from '../../capture.ts';
 import {formatDuration} from '../../format.ts';
-import type {Task} from '../../types.ts';
+import type {Task,Trashed} from '../../types.ts';
 import {setNav,useApp} from '../store/state.ts';
-import {closeComposer,deleteTask,editCapture,submitCapture,toggleComplete} from '../store/tasks.ts';
+import {closeComposer,deleteTask,editCapture,purgeTrashed,restoreTrashed,submitCapture,toggleComplete} from '../store/tasks.ts';
 import {openEditor} from '../store/editor.ts';
 import {settle} from '../ui/motion.ts';
 import {Icon} from '../ui/icons.tsx';
 import './inbox.css';
 
-// The 완료 disclosure keeps the user's choice while they visit other views.
-let doneOpenMemory=false;
+// The 완료 and 휴지통 disclosures keep the user's choice while they visit other views.
+let doneOpenMemory=false,trashOpenMemory=false;
 
 export function InboxPage(){
   const {snapshot,drafts,ready,draftLoaded,quitSaving,nav}=useApp();
-  const [doneOpen,setDoneOpen]=useState(doneOpenMemory);
+  const [doneOpen,setDoneOpen]=useState(doneOpenMemory),[trashOpen,setTrashOpen]=useState(trashOpenMemory),trash=snapshot!.trash??[];
   const unplanned=snapshot!.tasks.filter(t=>!t.plan_date),open=unplanned.filter(t=>!t.completed),done=unplanned.filter(t=>t.completed);
   const total=open.reduce((n,t)=>n+t.duration,0);
   return <section className="inbox-page" aria-label="미계획 목록">
@@ -36,7 +36,42 @@ export function InboxPage(){
       <summary>완료 {done.length}</summary>
       <Rows tasks={done}/>
     </details>}
+    {trash.length>0&&<details className="inbox-done inbox-trash" open={trashOpen} onToggle={e=>{const o=e.currentTarget.open;trashOpenMemory=o;setTrashOpen(o);}}>
+      <summary>휴지통 {trash.length}</summary>
+      <ul className="inbox-rows">
+        <AnimatePresence initial={false} mode="popLayout">{trash.map(t=><TrashRow key={t.id} item={t} next={trash[trash.indexOf(t)+1]??trash[trash.indexOf(t)-1]}/>)}</AnimatePresence>
+      </ul>
+      <EmptyTrash items={trash}/>
+    </details>}
   </section>;
+}
+
+// After a row leaves, keep the keyboard in the list: the neighbour's same button, else the disclosure.
+function refocus(next:Trashed|undefined,action:'restore'|'purge'){
+  requestAnimationFrame(()=>(document.querySelector<HTMLElement>(next?`[data-trash="${CSS.escape(next.id)}"] .irow-${action}`:'.inbox-trash>summary')??document.getElementById('inbox-capture'))?.focus());
+}
+
+function TrashRow({item:t,next}:{item:Trashed;next:Trashed|undefined}){
+  const day=new Date(t.deleted_at).toLocaleDateString('ko-KR',{month:'long',day:'numeric'});
+  return <motion.li layout data-trash={t.id} className="irow trashed" initial={{opacity:0,y:-18}} animate={{opacity:1,y:0}} exit={{opacity:0,scale:.98,transition:{duration:.12}}} transition={settle}>
+    <div className="irow-main"><strong>{t.title}</strong><small><time dateTime={t.deleted_at}>{day}</time> 삭제</small></div>
+    <button type="button" className="ibtn irow-restore" aria-label={`${t.title} 복원`} title="복원" onClick={async()=>{if(await restoreTrashed(t))refocus(next,'restore');}}><Icon name="undo" size={17}/></button>
+    <button type="button" className="ibtn irow-purge" aria-label={`${t.title} 영구 삭제`} title="영구 삭제" onClick={async()=>{if(await purgeTrashed([t]))refocus(next,'purge');}}><Icon name="delete" size={17}/></button>
+  </motion.li>;
+}
+
+// Emptying is the one loss the trash cannot undo, so it asks in place like the editor's unsaved-change bar.
+function EmptyTrash({items}:{items:Trashed[]}){
+  const [confirming,setConfirming]=useState(false),sure=useRef<HTMLButtonElement>(null),start=useRef<HTMLButtonElement>(null);
+  useEffect(()=>{if(confirming)sure.current?.focus();},[confirming]);
+  const cancel=()=>{setConfirming(false);requestAnimationFrame(()=>start.current?.focus());};
+  if(!confirming)return <div className="inbox-trash-foot"><button ref={start} type="button" className="btn text danger" onClick={()=>setConfirming(true)}>휴지통 비우기</button></div>;
+  return <motion.div className="inbox-trash-foot" role="group" aria-label="휴지통 비우기 확인" initial={{opacity:0,y:4}} animate={{opacity:1,y:0}} transition={{duration:.14}}
+    onKeyDown={e=>{if(e.key==='Escape'){e.preventDefault();e.stopPropagation();cancel();}}}>
+    <p>휴지통의 {items.length}개를 영구 삭제할까요?</p>
+    <button ref={sure} type="button" className="btn danger" onClick={async()=>{if(await purgeTrashed(items))refocus(undefined,'purge');else setConfirming(false);}}>정말 비우기</button>
+    <button type="button" className="btn" onClick={cancel}>취소</button>
+  </motion.div>;
 }
 
 function Rows({tasks}:{tasks:Task[]}){

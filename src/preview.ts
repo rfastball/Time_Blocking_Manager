@@ -5,7 +5,7 @@ import {dateOf,minutes,plusDays,time} from './dates.ts';
 
 // Browser preview stand-in for the Rust store: the same transitions on a cloned snapshot.
 export function previewMutation(snapshot:Snapshot,command:Command,occurrences:Set<string>):Snapshot {
-  const s=structuredClone(snapshot),a=command.action;s.layouts??=[];
+  const s=structuredClone(snapshot),a=command.action;s.layouts??=[];s.trash??=[];
   const taskMinute=(t:Task)=>minutes(t.starts_at!.slice(11));
   const nextOrder=(date:string)=>Math.max(0,...s.tasks.filter(t=>t.plan_date===date&&!t.starts_at).map(t=>t.flow_order??0))+1;
   const toFlow=(t:Task,date:string)=>{t.starts_at=null;t.plan_date=date;t.flow_order=nextOrder(date);};
@@ -55,8 +55,20 @@ export function previewMutation(snapshot:Snapshot,command:Command,occurrences:Se
     if(current.length!==a.expected.length||a.expected.some(e=>!current.some(t=>t.id===e.id&&t.revision===e.revision)))throw Error('다른 창에서 하루 순서가 변경됐습니다. 다시 확인하세요.');
     a.expected.forEach((e,i)=>{s.tasks.find(t=>t.id===e.id)!.flow_order=i+1;});
   }
+  else if(a.type==='restore_trashed'){
+    const item=s.trash.find(t=>t.id===a.id);if(!item)throw Error('휴지통에서 이미 복원했거나 지운 항목입니다. 다시 확인하세요.');
+    const {deleted_at:_,...task}=item;task.revision++;s.trash=s.trash.filter(t=>t!==item);
+    // A taken time falls back to flow work on the same date (D8/D9); flow work returns to its old order.
+    if(task.starts_at&&fixedIssue(task.id,task.starts_at,task.duration))toFlow(task,task.plan_date!);
+    else if(!task.starts_at&&task.plan_date)for(const x of s.tasks)if(x.plan_date===task.plan_date&&!x.starts_at&&(x.flow_order??0)>=task.flow_order!)x.flow_order=(x.flow_order??0)+1;
+    s.tasks.push(task);
+  }
+  else if(a.type==='purge_trashed'){
+    if(!a.ids.length||a.ids.some(id=>!s.trash.some(t=>t.id===id)))throw Error('다른 창에서 휴지통이 바뀌었습니다. 다시 확인하세요.');
+    s.trash=s.trash.filter(t=>!a.ids.includes(t.id));
+  }
   else {const t=s.tasks.find(t=>t.id===a.id)!;
-    if(a.type==='delete')s.tasks=s.tasks.filter(t=>t.id!==a.id);
+    if(a.type==='delete'){if(!t)throw Error('항목이 이미 삭제됐습니다.');s.tasks=s.tasks.filter(x=>x!==t);s.trash.unshift({...t,deleted_at:new Date().toISOString().slice(0,19)+'Z'});}
     else if(a.type==='set_completed'){t.completed=a.completed;t.revision++;}
     else if(a.type==='split'){if(t.completed||a.first_duration<15||a.first_duration%15||a.first_duration>t.duration-15)throw Error('각 블록은 15분 이상이어야 해요.');s.tasks.push({...t,id:a.new_id,starts_at:null,plan_date:null,flow_order:null,duration:t.duration-a.first_duration,revision:1});t.duration=a.first_duration;t.revision++;}
     else {

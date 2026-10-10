@@ -106,6 +106,24 @@ const scenarios=[
     await page.mouse('mouseMoved',5,5,0);await page.mouse('mousePressed',5,5);await page.mouse('mouseReleased',5,5,0);await page.sleep(150);
     assert.equal(await page.rect('.ctx-menu'),null,'outside press closes');
   }},
+  {name:'삭제 in the block menu and the detail goes to 휴지통 without a dialog; restore returns the block to its place',run:async page=>{
+    await page.js('window.__asked=[];window.confirm=t=>{window.__asked.push(t);return false;}');
+    await rightClick(page,space+' .blk','회의록 정리');await page.sleep(200);
+    await page.click('.ctx-menu [role=menuitem]','삭제');await page.sleep(500);
+    assert.ok(!(await page.blocks(space)).some(b=>b.startsWith('회의록 정리')),'left the day');
+    assert.equal(await page.text('[role=status]'),'‘회의록 정리’을 휴지통으로 옮겼어요');
+    await openBlock(page,'분리망 배포');
+    await page.click(panel+' .ed-more > button');await page.click('.ed-menu [role=menuitem]','삭제');await page.sleep(500);
+    assert.equal(await page.rect(panel),null,'detail closed');
+    assert.ok(!(await page.blocks(space)).some(b=>b.startsWith('분리망 배포')));
+    assert.deepEqual(await page.js('window.__asked'),[],'no dialog');
+    await page.click('.rail-nav .nav-button','미계획');await page.sleep(300);
+    assert.match(await page.text('.inbox-trash > summary'),/휴지통 2/);
+    await page.click('.inbox-trash > summary');await page.sleep(300);
+    await page.click('button[aria-label="회의록 정리 복원"]');await page.sleep(400);
+    await page.click('.rail-nav .nav-button','오늘');await page.sleep(400);
+    assert.ok((await page.blocks(space)).includes('회의록 정리, 예상 10:45–11:15'),'back at its old place in the order');
+  }},
   {name:'Shift+F10 opens the menu by keyboard; arrows move and Esc returns focus to the block',run:async page=>{
     await focusBlock(page,'회의록 정리');
     await page.key('F10',{modifiers:SHIFT});await page.sleep(200);
