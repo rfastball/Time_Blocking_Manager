@@ -58,6 +58,33 @@ export default [
     assert.equal(hot,true);
     assert.deepEqual(await titles(page,sp(other)),['회의록 정리','설계 문서 초안 작성']);
   }},
+  // Kept on today's column: the neighbouring column is a past day on every weekday but Monday.
+  {name:'held over a body the copy settles on its slot and shows the time it will get',run:async page=>{
+    await toPlan(page);
+    const {today}=await days(page),y16=await hourY(page,16),c=await block(page,today,'회의록 정리');
+    assert.ok(await page.js(`!!document.querySelector('${sp(today)} .blk.flow .tooth')`),'flow blocks show a tooth toward the rail');
+    // The hollow springs into its slot; measure once it has come to rest.
+    const during=await page.drag({x:c.x+40,y:c.y+6},{x:c.x+40,y:y16+6},{hold:900,before:async()=>{await page.shot('plan-held-slot');return page.js(`(()=>{
+      const hollow=document.querySelector('${sp(today)} .blk.hollow'),held=document.querySelector('.held');
+      return {gap:Math.abs(held.getBoundingClientRect().top-hollow.getBoundingClientRect().top),fixed:held.classList.contains('fixed'),
+        range:hollow.querySelector('.main').getAttribute('aria-label').match(/\\d\\d:\\d\\d–\\d\\d:\\d\\d/)[0],held:held.textContent};})()`);}});
+    assert.ok(during.gap<=3,`the copy sits on the hollow, not under the pointer (${during.gap}px off)`);
+    assert.ok(during.held.includes(during.range),'the copy shows the time it will get');
+    assert.equal(during.fixed,false,'the body only orders');
+  }},
+  {name:'pushed into the rail a block latches to that time; a fixed block slides along and lets go when pulled away',run:async page=>{
+    await toPlan(page);
+    const {today}=await days(page),y16=await hourY(page,16),y17=await hourY(page,17),c=await block(page,today,'회의록 정리');
+    // The pointer stays over the body; only the block's left edge goes past the column's resting edge.
+    await page.drag({x:c.x+40,y:c.y+6},{x:c.x+31,y:y16+6},{before:()=>page.shot('plan-held-bite')});
+    assert.ok((await page.blocks(sp(today))).includes('회의록 정리, 시각 고정 16:00–16:30'),'latched at 16:00');
+    const f=await block(page,today,'회의록 정리');
+    await page.drag({x:f.x+40,y:f.y+6},{x:f.x+40,y:y17+6});
+    assert.ok((await page.blocks(sp(today))).includes('회의록 정리, 시각 고정 17:00–17:30'),'still latched, now at 17:00');
+    const g=await block(page,today,'회의록 정리');
+    await page.drag({x:g.x+40,y:g.y+6},{x:g.x+72,y:g.y+6});
+    assert.match((await page.blocks(sp(today))).find(b=>b.startsWith('회의록 정리')),/예상/,'pulled clear, it joins the order again');
+  }},
   {name:'the rail of a column fixes the time it is dropped at',run:async page=>{
     await toPlan(page);
     const {today,other}=await days(page),rail=await page.rect(`${sp(other)} .rail`),y16=await hourY(page,16);

@@ -1,6 +1,6 @@
 import {createContext,useCallback,useContext,useMemo,useRef,useState,type ReactNode} from 'react';
 import {DndContext,DragOverlay,PointerSensor,TouchSensor,useSensor,useSensors,defaultDropAnimationSideEffects,type DragEndEvent,type DragMoveEvent,type DragStartEvent,type DropAnimation,type Modifier,type Active} from '@dnd-kit/core';
-import {motion,useMotionValue,useSpring,type MotionValue} from 'motion/react';
+import {motion,useMotionValue,useSpring,useTransform,type MotionValue} from 'motion/react';
 import {applyIntent,noIntent,type Intent} from '../../intent.ts';
 import {dayPlan,overrunEnd} from '../../today.ts';
 import {insertionBefore} from '../../flow.ts';
@@ -15,13 +15,17 @@ import {LIFT_SCALE,MAX_TILT,reduced} from '../ui/motion.ts';
 import {Lock} from '../ui/icons.tsx';
 
 // Horizontal geometry of a day space. `bodyLeft` is where the rail ends and order space begins.
-export type Geometry={ruler:number;railLeft:number;railWidth:number;bodyLeft:number;flowLeft:number;fixedLeft:number;right:number};
-export const DAY_GEOMETRY:Geometry={ruler:50,railLeft:52,railWidth:30,bodyLeft:86,flowLeft:92,fixedLeft:56,right:10};
-export const COLUMN_GEOMETRY:Geometry={ruler:0,railLeft:0,railWidth:13,bodyLeft:14,flowLeft:17,fixedLeft:1,right:4};
+// A held block bites into the rail once its left edge is pushed `bite` px left of where flow blocks stand,
+// and lets go only after being pulled `hold` px back past that point, so it never chatters at the edge.
+export type Geometry={ruler:number;railLeft:number;railWidth:number;bodyLeft:number;flowLeft:number;fixedLeft:number;right:number;bite:number;hold:number};
+export const DAY_GEOMETRY:Geometry={ruler:50,railLeft:52,railWidth:30,bodyLeft:86,flowLeft:92,fixedLeft:56,right:10,bite:10,hold:14};
+export const COLUMN_GEOMETRY:Geometry={ruler:0,railLeft:0,railWidth:13,bodyLeft:14,flowLeft:17,fixedLeft:1,right:4,bite:6,hold:10};
 
 // Places where a held block can land. Day spaces know their time axis; the others take a date or send work back to 미계획.
 type Region={key:string;kind:'space'|'date'|'tray';date:string|null;el:HTMLElement;axis?:TimeAxis;geometry?:Geometry};
-export type Held={task:Task;intent:Intent;startRect:{left:number;top:number;width:number;height:number};grabX:number;width:number;height:number;dropping?:boolean};
+// Over a body the copy settles on its `slot`, where the order puts it.
+type Slot={start:number;end:number;over:boolean};
+export type Held={task:Task;intent:Intent;slot:Slot|null;startRect:{left:number;top:number;width:number;height:number};grabX:number;width:number;height:number;dropping?:boolean};
 type Ctx={held:Held|null;pending:Intent|null;tasks:Task[];register:(r:Region)=>()=>void};
 const DragCtx=createContext<Ctx>({held:null,pending:null,tasks:[],register:()=>()=>{}});
 export const useDrag=()=>useContext(DragCtx);
@@ -63,6 +67,7 @@ export function DragProvider({children}:{children:ReactNode}){
   const snap=useRef<{left:number;top:number}|null>(null);
   const start=useRef<Held['startRect']|null>(null);
   const tilt=useMotionValue(0),lean=useSpring(tilt,{stiffness:140,damping:22});
+  const pull=useMotionValue(0),reach=useSpring(pull,{stiffness:500,damping:30});
   const sensors=useSensors(useSensor(MousePenSensor,{activationConstraint:{distance:5}}),useSensor(TouchSensor,{activationConstraint:{delay:250,tolerance:6}}));
   const heldRef=useRef(held);heldRef.current=held;
   // dnd-kit's own English hints and ids are replaced: blocks are lifted by pointer only, and results are announced by the app.
@@ -76,21 +81,30 @@ export function DragProvider({children}:{children:ReactNode}){
   // A rejected place is never previewed: the days stay as they are while the copy shows why.
   const tasks=useMemo(()=>{const i=held&&!held.dropping?held.intent:pending??held?.intent??null;return applyIntent(base,i?.ok?i:null);},[base,held,pending]);
 
-  function zoneAt(task:Task,px:number,py:number,top:number):{intent:Intent;region?:Region}{
+  // `grab` is where along its width the block was taken; `prev` is the last intent, for the latch's hysteresis.
+  function zoneAt(task:Task,px:number,py:number,top:number,grab:number,prev:Intent):{intent:Intent;region?:Region;slot?:Slot;near?:number}{
     const intent=noIntent(task.id);
     const inside=(el:HTMLElement)=>{const r=el.getBoundingClientRect();return px>=r.left&&px<=r.right&&py>=r.top&&py<=r.bottom?r:null;};
     const all=[...regions.current.values()];
     for(const region of all.filter(r=>r.kind==='space')){
       const r=inside(region.el);if(!r||!region.axis||!region.geometry||!region.date)continue;
-      const {axis,geometry:g,date}=region,topIn=top-r.top,rule=dayRule(date);
-      if(px-r.left<g.bodyLeft){
+      const {axis,geometry:g,date}=region,topIn=top-r.top,rule=dayRule(date),layouts=snapshot!.layouts??[];
+      // A fixed block starts latched on its own day; anything latched keeps the wider fixed shape while it is measured.
+      const was=prev.zone==='rail'?prev.date===date:prev.zone==='none'&&task.starts_at?.slice(0,10)===date;
+      const edge=px-r.left-grab*(r.width-(was?g.fixedLeft:g.flowLeft)-g.right),bite=g.flowLeft-g.bite;
+      if(px-r.left<g.bodyLeft||edge<=bite+(was?g.hold:0)){
         const minute=Math.round(axis.minute(Math.max(0,topIn))/15)*15;
         const reason=pastReason(date)??placementIssue(task.id,date,minute,task.duration,rule,base)?.label??null;
         return {intent:{...intent,zone:'rail',date,start:minute,ok:!reason,reason},region};
       }
-      const rest=dayPlan(date,base.filter(t=>t.id!==task.id),rule,snapshot!.layouts??[]);
-      const centre=axis.minute(topIn+task.duration*axis.scale/2),flows=rest.items.filter(i=>!i.fixed),reason=pastReason(date);
-      return {intent:{...intent,zone:'body',date,before:insertionBefore(flows,centre),ok:!reason,reason},region};
+      const rest=dayPlan(date,base.filter(t=>t.id!==task.id),rule,layouts),past=pastReason(date);
+      const centre=axis.minute(topIn+task.duration*axis.scale/2),flows=rest.items.filter(i=>!i.fixed);
+      const body:Intent={...intent,zone:'body',date,before:insertionBefore(flows,centre),ok:!past,reason:past};
+      // How far the block has been pushed toward the rail, 0–1, for its tooth to reach out.
+      const near=Math.max(0,Math.min(1,(g.flowLeft-edge)/g.bite));
+      if(past)return {intent:body,region,near};
+      const item=dayPlan(date,applyIntent(base,body),rule,layouts).items.find(i=>i.task.id===task.id);
+      return {intent:body,region,near,slot:item&&{start:item.start,end:item.end,over:item.over}};
     }
     for(const kind of ['date','tray'] as const)for(const region of all.filter(r=>r.kind===kind)){
       if(!inside(region.el))continue;
@@ -109,21 +123,27 @@ export function DragProvider({children}:{children:ReactNode}){
     start.current={left:r.left,top:r.top,width:r.width,height:r.height};
     motionRef.current={x:px,t:performance.now(),tilt:0};snap.current=null;tilt.set(0);
     setGesture(true);setUi({contextMenu:null});
-    setHeld({task,intent:noIntent(task.id),startRect:start.current,grabX:px-r.left,width:r.width,height:r.height});
+    pull.set(0);
+    setHeld({task,intent:noIntent(task.id),slot:null,startRect:start.current,grabX:px-r.left,width:r.width,height:r.height});
   }
   function onDragMove(e:DragMoveEvent){
     const h=held,s=start.current;if(!h||!s||h.dropping)return;
     const a=point(e.activatorEvent!),px=a.x+e.delta.x,py=a.y+e.delta.y;
-    const {intent,region}=zoneAt(h.task,px,py,s.top+e.delta.y);
+    const {intent,region,slot=null,near=0}=zoneAt(h.task,px,py,s.top+e.delta.y,h.grabX/s.width,h.intent);
+    pull.set(intent.zone==='body'?near:0);
     const rect=region?.el.getBoundingClientRect(),g=region?.geometry,axis=region?.axis;
-    snap.current=intent.zone==='rail'&&rect&&g&&axis?{left:rect.left+g.fixedLeft,top:rect.top+axis.position(intent.start!)+1}:null;
+    // Both places show where the block will be: the rail on its 15-minute tick, the body on the slot its order gives it.
+    snap.current=!rect||!g||!axis?null
+      :intent.zone==='rail'?{left:rect.left+g.fixedLeft,top:rect.top+axis.position(intent.start!)+1}
+      :slot?{left:rect.left+g.flowLeft,top:rect.top+axis.position(slot.start)+1}:null;
     const m=motionRef.current,t=performance.now(),vx=(px-m.x)/Math.max(8,t-m.t)*16;m.x=px;m.t=t;
-    m.tilt=intent.zone==='rail'||reduced()?0:Math.max(-MAX_TILT,Math.min(MAX_TILT,m.tilt*.85+vx*.04));
+    m.tilt=snap.current||reduced()?0:Math.max(-MAX_TILT,Math.min(MAX_TILT,m.tilt*.85+vx*.04));
     tilt.set(m.tilt);clearTimeout(m.idle);m.idle=setTimeout(()=>{m.tilt=0;tilt.set(0);},140);
     const width=rect&&g?(intent.zone==='rail'?rect.width-g.fixedLeft-g.right:intent.zone==='body'?rect.width-g.flowLeft-g.right:s.width):s.width;
     const height=axis?h.task.duration*axis.scale-2:s.height;
     const i=h.intent;
-    if(i.zone!==intent.zone||i.date!==intent.date||i.before!==intent.before||i.start!==intent.start||i.ok!==intent.ok||width!==h.width||height!==h.height)setHeld({...h,intent,width,height});
+    if(i.zone!==intent.zone||i.date!==intent.date||i.before!==intent.before||i.start!==intent.start||i.ok!==intent.ok||width!==h.width||height!==h.height
+      ||h.slot?.start!==slot?.start||h.slot?.end!==slot?.end)setHeld({...h,intent,slot,width,height});
   }
   async function onDragEnd(_:DragEndEvent){
     const h=held;snap.current=null;tilt.set(0);setGesture(false);
@@ -145,23 +165,29 @@ export function DragProvider({children}:{children:ReactNode}){
   return <DragCtx.Provider value={{held,pending,tasks,register}}>
     <DndContext sensors={sensors} accessibility={accessibility} onDragStart={onDragStart} onDragMove={onDragMove} onDragEnd={onDragEnd} onDragCancel={()=>{setHeld(null);snap.current=null;setGesture(false);}} autoScroll={false}>
       {children}
-      <DragOverlay modifiers={[snapModifier]} dropAnimation={dropAnimation}>{held&&<HeldBlock held={held} lean={lean}/>}</DragOverlay>
+      <DragOverlay modifiers={[snapModifier]} dropAnimation={dropAnimation} transition={held&&!held.dropping&&settled(held)&&!reduced()?'transform .16s cubic-bezier(.3,1.3,.5,1)':undefined}>{held&&<HeldBlock held={held} lean={lean} reach={reduced()?pull:reach}/>}</DragOverlay>
     </DndContext>
   </DragCtx.Provider>;
 }
 
-function HeldBlock({held,lean}:{held:Held;lean:MotionValue<number>}){
-  const {task,intent,width,height}=held,rail=intent.zone==='rail',fixedLook=rail||(!!task.starts_at&&intent.zone==='none'),bad=!intent.ok;
+// The copy sits where the block will be, on a rail tick or on its slot in the order.
+const settled=(h:Held)=>h.intent.zone==='rail'||(h.intent.zone==='body'&&!!h.slot);
+function HeldBlock({held,lean,reach}:{held:Held;lean:MotionValue<number>;reach:MotionValue<number>}){
+  const {task,intent,slot,width,height}=held,rail=intent.zone==='rail',fixedLook=rail||(!!task.starts_at&&intent.zone==='none'),bad=!intent.ok;
+  const placed=settled(held),at=rail?{start:intent.start!,end:intent.start!+task.duration}:intent.zone==='body'?slot:null;
+  // Pushed toward the rail, the tooth reaches out for it before the block bites.
+  const tooth=useTransform(reach,[0,1],[4,14]);
   // When the block widens over a day, the point that was grabbed stays under the pointer.
-  const shift=rail||held.dropping?0:-held.grabX*(width/held.startRect.width-1);
-  return <motion.div className={'blk held '+(fixedLook?'fixed':'flow')+(bad?' bad':'')} style={{rotate:lean,transformOrigin:'50% 30%'}}
+  const shift=placed||held.dropping?0:-held.grabX*(width/held.startRect.width-1);
+  return <motion.div className={'blk held '+(fixedLook?'fixed':'flow')+(bad?' bad':'')+(!rail&&slot?.over&&intent.zone==='body'?' over':'')} style={{rotate:lean,transformOrigin:'50% 30%'}}
     initial={{scale:1,width:held.startRect.width,height:held.startRect.height,marginLeft:0}}
-    animate={{scale:held.dropping?1:rail?1.01:LIFT_SCALE,width,height,marginLeft:shift,x:bad?[0,-4,3,-2,0]:0}}
+    animate={{scale:held.dropping?1:placed?1.01:LIFT_SCALE,width,height,marginLeft:shift,x:bad?[0,-4,3,-2,0]:0}}
     transition={{scale:{type:'spring',visualDuration:.16,bounce:.4},width:{duration:.18},height:{duration:.18},marginLeft:{duration:.18},x:{duration:.32}}}>
+    {!fixedLook&&<motion.span className="tooth" aria-hidden="true" style={{width:tooth}}/>}
     <div className="tile">
-      {fixedLook&&<span className="latch"><Lock open/></span>}
+      {fixedLook&&<motion.span className="latch" initial={rail?{x:-5,scaleX:1.2}:false} animate={{x:0,scaleX:1}} transition={{duration:.3,ease:[.3,1.6,.5,1]}}><Lock open/></motion.span>}
       <span className="chk"/>
-      <span className="main"><span className="ttl">{task.title}</span><span className="meta">{rail?`${time(intent.start!)}–${time(intent.start!+task.duration)}`:formatDuration(task.duration)}</span></span>
+      <span className="main"><span className="ttl">{task.title}</span><span className="meta">{at?`${time(at.start)}–${time(at.end)}`:formatDuration(task.duration)}</span></span>
     </div>
     {bad&&!held.dropping&&<span className="held-why">{intent.reason}</span>}
   </motion.div>;
