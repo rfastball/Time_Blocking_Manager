@@ -15,11 +15,12 @@ import {LIFT_SCALE,MAX_TILT,bump,reduced} from '../ui/motion.ts';
 import {Lock} from '../ui/icons.tsx';
 
 // Horizontal geometry of a day space. `bodyLeft` is where the rail ends and order space begins.
-// A held block bites into the rail once its left edge is pushed `bite` px left of where flow blocks stand,
-// and lets go only after being pulled `hold` px back past that point, so it never chatters at the edge.
-export type Geometry={ruler:number;railLeft:number;railWidth:number;bodyLeft:number;flowLeft:number;fixedLeft:number;right:number;bite:number;hold:number};
-export const DAY_GEOMETRY:Geometry={ruler:50,railLeft:52,railWidth:30,bodyLeft:86,flowLeft:92,fixedLeft:56,right:10,bite:10,hold:14};
-export const COLUMN_GEOMETRY:Geometry={ruler:0,railLeft:0,railWidth:13,bodyLeft:14,flowLeft:17,fixedLeft:1,right:4,bite:6,hold:10};
+// A held block bites into the rail once its left edge is pushed `bite` px left of where flow blocks stand, and lets go
+// once pulled `pull` px right of where fixed blocks stand: a little easier than biting, and still clear of the bite point
+// (fixedLeft+pull > flowLeft-bite), so it never chatters at the edge. Until then the copy gives up to `give` px toward the hand.
+export type Geometry={ruler:number;railLeft:number;railWidth:number;bodyLeft:number;flowLeft:number;fixedLeft:number;right:number;bite:number;pull:number;give:number};
+export const DAY_GEOMETRY:Geometry={ruler:50,railLeft:52,railWidth:30,bodyLeft:86,flowLeft:92,fixedLeft:56,right:10,bite:24,pull:20,give:6};
+export const COLUMN_GEOMETRY:Geometry={ruler:0,railLeft:0,railWidth:13,bodyLeft:14,flowLeft:17,fixedLeft:1,right:4,bite:12,pull:10,give:3};
 
 // Places where a held block can land. Day spaces know their time axis; the others take a date or send work back to 미계획.
 type Region={key:string;kind:'space'|'date'|'tray';date:string|null;el:HTMLElement;axis?:TimeAxis;geometry?:Geometry};
@@ -82,6 +83,7 @@ export function DragProvider({children}:{children:ReactNode}){
   const tasks=useMemo(()=>{const i=held&&!held.dropping?held.intent:pending??held?.intent??null;return applyIntent(base,i?.ok?i:null);},[base,held,pending]);
 
   // `grab` is where along its width the block was taken; `prev` is the last intent, for the latch's hysteresis.
+  // `near` is how far the block has been pushed toward biting (or, latched, pulled toward letting go), 0–1.
   function zoneAt(task:Task,px:number,py:number,top:number,grab:number,prev:Intent):{intent:Intent;region?:Region;slot?:Slot;near?:number}{
     const intent=noIntent(task.id);
     const inside=(el:HTMLElement)=>{const r=el.getBoundingClientRect();return px>=r.left&&px<=r.right&&py>=r.top&&py<=r.bottom?r:null;};
@@ -91,16 +93,15 @@ export function DragProvider({children}:{children:ReactNode}){
       const {axis,geometry:g,date}=region,topIn=top-r.top,rule=dayRule(date),layouts=snapshot!.layouts??[];
       // A fixed block starts latched on its own day; anything latched keeps the wider fixed shape while it is measured.
       const was=prev.zone==='rail'?prev.date===date:prev.zone==='none'&&task.starts_at?.slice(0,10)===date;
-      const edge=px-r.left-grab*(r.width-(was?g.fixedLeft:g.flowLeft)-g.right),bite=g.flowLeft-g.bite;
-      if(px-r.left<g.bodyLeft||edge<=bite+(was?g.hold:0)){
+      const edge=px-r.left-grab*(r.width-(was?g.fixedLeft:g.flowLeft)-g.right);
+      if(px-r.left<g.bodyLeft||(was?edge<g.fixedLeft+g.pull:edge<=g.flowLeft-g.bite)){
         const minute=Math.round(axis.minute(Math.max(0,topIn))/15)*15;
         const reason=pastReason(date)??placementIssue(task.id,date,minute,task.duration,rule,base)?.label??null;
-        return {intent:{...intent,zone:'rail',date,start:minute,ok:!reason,reason},region};
+        return {intent:{...intent,zone:'rail',date,start:minute,ok:!reason,reason},region,near:was?Math.max(0,Math.min(1,(edge-g.fixedLeft)/g.pull)):0};
       }
       const rest=dayPlan(date,base.filter(t=>t.id!==task.id),rule,layouts),past=pastReason(date);
       const centre=axis.minute(topIn+task.duration*axis.scale/2),flows=rest.items.filter(i=>!i.fixed);
       const body:Intent={...intent,zone:'body',date,before:insertionBefore(flows,centre),ok:!past,reason:past};
-      // How far the block has been pushed toward the rail, 0–1, for its tooth to reach out.
       const near=Math.max(0,Math.min(1,(g.flowLeft-edge)/g.bite));
       if(past)return {intent:body,region,near};
       const item=dayPlan(date,applyIntent(base,body),rule,layouts).items.find(i=>i.task.id===task.id);
@@ -133,10 +134,11 @@ export function DragProvider({children}:{children:ReactNode}){
     pull.set(intent.zone==='body'?near:0);
     const rect=region?.el.getBoundingClientRect(),g=region?.geometry,axis=region?.axis;
     // Both places show where the block will be: the rail on its 15-minute tick, the body on the slot its order gives it.
-    const was=snap.current?.top??s.top+e.delta.y;
+    // Short of biting or letting go, the copy gives a little toward the hand, then jumps across at the threshold.
+    const was=snap.current?.top??s.top+e.delta.y,give=g?(intent.zone==='rail'?near:-near)*g.give:0;
     snap.current=!rect||!g||!axis?null
-      :intent.zone==='rail'?{left:rect.left+g.fixedLeft,top:rect.top+axis.position(intent.start!)+1}
-      :slot?{left:rect.left+g.flowLeft,top:rect.top+axis.position(slot.start)+1}:null;
+      :intent.zone==='rail'?{left:rect.left+g.fixedLeft+give,top:rect.top+axis.position(intent.start!)+1}
+      :slot?{left:rect.left+g.flowLeft+give,top:rect.top+axis.position(slot.start)+1}:null;
     const rising=intent.zone==='body'&&!!snap.current&&snap.current.top<was-.5;
     const m=motionRef.current,t=performance.now(),vx=(px-m.x)/Math.max(8,t-m.t)*16;m.x=px;m.t=t;
     m.tilt=snap.current||reduced()?0:Math.max(-MAX_TILT,Math.min(MAX_TILT,m.tilt*.85+vx*.04));

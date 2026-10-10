@@ -36,8 +36,10 @@
 .rail{position:absolute;top:0;bottom:0;background:var(--sp-rail);border-left:1px solid var(--color-divider);border-right:1px solid var(--color-divider);transition:background .15s}
 .rail::before{content:"";position:absolute;left:calc(50% - 2px);top:0;bottom:0;width:4px;border-radius:2px;background:var(--sp-groove);transition:background .15s,width .15s,left .15s}
 .column .rail::before{width:3px;left:calc(50% - 1.5px)}
-.space.armed .rail{background:var(--color-text-selection)}
-.space.armed .rail::before{background:var(--color-action);width:6px;left:calc(50% - 3px)}
+/* While a block is held every rail only hints that it is there; the one it latches to lights up. */
+.space.armed .rail::before{background:color-mix(in srgb,var(--color-action) 35%,var(--sp-groove))}
+.space.latched .rail{background:var(--color-text-selection)}
+.space.latched .rail::before{background:var(--color-action)}
 .shutter{position:absolute;z-index:1;pointer-events:none;background:repeating-linear-gradient(180deg,var(--sp-groove) 0 1px,var(--sp-rail) 1px 5px)}
 .shutter::after{content:"";position:absolute;left:0;right:0;bottom:-2px;height:3px;border-radius:2px;background:var(--color-structure)}
 /* Sits just above the anchor, so the first flow block hangs 1px under it. Below blocks: a fixed block crossing the anchor covers it. */

@@ -54,8 +54,7 @@
 .wk .chip-undo{width:20px;height:20px}
 .wk-col.past .space{background:color-mix(in srgb,var(--color-text-muted) 5%,var(--color-surface))}
 .wk-col.off .bin,.wk-col.off .slit{opacity:.5}
-/* Seven armed rails at once: keep the cue, quiet the weight. The time tag rides above the snapped block. */
-.wk .space.armed .rail::before{width:4px;left:calc(50% - 2px)}
+/* The time tag rides above the snapped block. */
 .wk .railtag{margin-top:-24px}
 
 /* 2주·월 */

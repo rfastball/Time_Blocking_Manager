@@ -75,8 +75,12 @@ export default [
   {name:'pushed into the rail a block latches to that time; a fixed block slides along and lets go when pulled away',run:async page=>{
     await toPlan(page);
     const {today}=await days(page),y16=await hourY(page,16),y17=await hourY(page,17),c=await block(page,today,'회의록 정리');
+    // A nudge toward the rail only gives; the block keeps its order.
+    await page.drag({x:c.x+40,y:c.y+6},{x:c.x+32,y:y16+6});
+    assert.match((await page.blocks(sp(today))).find(b=>b.startsWith('회의록 정리')),/예상/,'an 8px push does not latch');
     // The pointer stays over the body; only the block's left edge goes past the column's resting edge.
-    await page.drag({x:c.x+40,y:c.y+6},{x:c.x+31,y:y16+6},{before:()=>page.shot('plan-held-bite')});
+    const n=await block(page,today,'회의록 정리');
+    await page.drag({x:n.x+40,y:n.y+6},{x:n.x+24,y:y16+6},{before:()=>page.shot('plan-held-bite')});
     assert.ok((await page.blocks(sp(today))).includes('회의록 정리, 시각 고정 16:00–16:30'),'latched at 16:00');
     const f=await block(page,today,'회의록 정리');
     await page.drag({x:f.x+40,y:f.y+6},{x:f.x+40,y:y17+6});
