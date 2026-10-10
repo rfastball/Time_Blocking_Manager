@@ -9,7 +9,7 @@
   --sp-well:color-mix(in srgb,var(--color-text-muted) 10%,var(--color-surface));
   --sp-rail:color-mix(in srgb,var(--color-text-muted) 7%,var(--color-surface));
   --sp-groove:color-mix(in srgb,var(--color-text-muted) 30%,var(--color-surface));
-  --sp-lift:0 14px 28px #1622442e,0 4px 8px #1622441f;
+  --sp-lift:0 14px 28px color-mix(in srgb,var(--color-text) 18%,transparent),0 4px 8px color-mix(in srgb,var(--color-text) 12%,transparent);
 }
 .dayspace{min-width:0}
 .bin{background:var(--sp-well);padding:10px 14px 12px;min-height:52px;display:flex;flex-wrap:wrap;align-items:center;gap:8px}
@@ -60,7 +60,7 @@
 .blk.fixed{z-index:3}
 .tile{position:absolute;inset:0;border-radius:var(--radius-block);display:flex;align-items:flex-start;gap:6px;padding:6px 8px 6px 6px;user-select:none;transition:translate .14s ease,box-shadow .14s ease;overflow:hidden}
 .column .tile{gap:4px;padding:3px 5px 3px 4px}
-.blk:hover>.tile,.tblk:hover>.tile{translate:0 -1px;box-shadow:0 3px 8px #1622441a}
+.blk:hover>.tile,.tblk:hover>.tile{translate:0 -1px;box-shadow:0 3px 8px color-mix(in srgb,var(--color-text) 10%,transparent)}
 .flow>.tile{background:var(--sp-flow);border:1px solid var(--sp-flow-edge);color:var(--sp-flow-ink)}
 .next>.tile{background:var(--color-action);border:1px solid var(--color-action);color:var(--color-on-action)}
 .fixed>.tile{background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--color-text-muted) 12%,transparent) 0 1px,transparent 1px 7px),var(--sp-fixed);border:1px solid var(--sp-fixed-edge);color:var(--color-text);padding-left:34px}
@@ -97,7 +97,7 @@
 .ttl-row{display:flex;align-items:center;gap:6px;min-width:0}
 .ttl{font-weight:600;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .column .ttl{font-size:12px}
-.tag{flex:0 0 auto;font-size:11px;font-weight:700;background:#ffffff33;border-radius:4px;padding:1px 6px}
+.tag{flex:0 0 auto;font-size:11px;font-weight:700;background:color-mix(in srgb,var(--color-on-action) 20%,transparent);border-radius:4px;padding:1px 6px}
 .meta{display:flex;gap:8px;font-size:12px;opacity:.8;font-variant-numeric:tabular-nums;white-space:nowrap}
 .column .meta{font-size:11px}
 .flow .tm,.next .tm{display:none}
