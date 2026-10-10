@@ -1,5 +1,5 @@
 import {createContext,useCallback,useContext,useMemo,useRef,useState,type ReactNode} from 'react';
-import {DndContext,DragOverlay,PointerSensor,useSensor,useSensors,defaultDropAnimationSideEffects,type DragEndEvent,type DragMoveEvent,type DragStartEvent,type DropAnimation,type Modifier,type Active} from '@dnd-kit/core';
+import {DndContext,DragOverlay,PointerSensor,TouchSensor,useSensor,useSensors,defaultDropAnimationSideEffects,type DragEndEvent,type DragMoveEvent,type DragStartEvent,type DropAnimation,type Modifier,type Active} from '@dnd-kit/core';
 import {motion,useMotionValue,useSpring,type MotionValue} from 'motion/react';
 import {applyIntent,noIntent,type Intent} from '../../intent.ts';
 import {dayPlan,overrunEnd} from '../../today.ts';
@@ -46,6 +46,12 @@ export function useDaysAxis(dates:string[],scale:number){
   return end>axis.end-30?createTimeAxis(axis.start,Math.max(Math.min(1440,end+30),end),scale):axis;
 }
 
+// A mouse or pen lifts a block after a short pull. A finger must rest on it first (TouchSensor), so a swipe still scrolls.
+class MousePenSensor extends PointerSensor{
+  static activators=[{eventName:'onPointerDown' as const,handler:(...a:Parameters<typeof PointerSensor.activators[0]['handler']>)=>(a[0].nativeEvent as PointerEvent).pointerType!=='touch'&&PointerSensor.activators[0].handler(...a)}];
+}
+const point=(e:Event)=>{const p='touches' in e?(e as TouchEvent).touches[0]??(e as TouchEvent).changedTouches[0]:e as PointerEvent;return {x:p.clientX,y:p.clientY};};
+
 export function DragProvider({children}:{children:ReactNode}){
   const {snapshot}=useApp();
   const [held,setHeld]=useState<Held|null>(null);
@@ -55,7 +61,7 @@ export function DragProvider({children}:{children:ReactNode}){
   const snap=useRef<{left:number;top:number}|null>(null);
   const start=useRef<Held['startRect']|null>(null);
   const tilt=useMotionValue(0),lean=useSpring(tilt,{stiffness:140,damping:22});
-  const sensors=useSensors(useSensor(PointerSensor,{activationConstraint:{distance:5}}));
+  const sensors=useSensors(useSensor(MousePenSensor,{activationConstraint:{distance:5}}),useSensor(TouchSensor,{activationConstraint:{delay:250,tolerance:6}}));
   const heldRef=useRef(held);heldRef.current=held;
   // dnd-kit's own English hints and ids are replaced: blocks are lifted by pointer only, and results are announced by the app.
   const accessibility=useMemo(()=>({screenReaderInstructions:{draggable:''},announcements:{
@@ -95,7 +101,7 @@ export function DragProvider({children}:{children:ReactNode}){
     const id=String(e.active.data.current?.taskId??e.active.id),task=base.find(t=>t.id===id);if(!task)return;
     // dnd-kit measures after this callback; read the block's own box so the copy starts exactly on it.
     const node=(e.activatorEvent.target as HTMLElement).closest<HTMLElement>('[data-block]')!,r=node.getBoundingClientRect();
-    const px=(e.activatorEvent as PointerEvent).clientX;
+    const px=point(e.activatorEvent!).x;
     start.current={left:r.left,top:r.top,width:r.width,height:r.height};
     motionRef.current={x:px,t:performance.now(),tilt:0};snap.current=null;tilt.set(0);
     setGesture(true);setUi({contextMenu:null});
@@ -103,7 +109,7 @@ export function DragProvider({children}:{children:ReactNode}){
   }
   function onDragMove(e:DragMoveEvent){
     const h=held,s=start.current;if(!h||!s||h.dropping)return;
-    const a=e.activatorEvent as PointerEvent,px=a.clientX+e.delta.x,py=a.clientY+e.delta.y;
+    const a=point(e.activatorEvent!),px=a.x+e.delta.x,py=a.y+e.delta.y;
     const {intent,region}=zoneAt(h.task,px,py,s.top+e.delta.y);
     const rect=region?.el.getBoundingClientRect(),g=region?.geometry,axis=region?.axis;
     snap.current=intent.zone==='rail'&&rect&&g&&axis?{left:rect.left+g.fixedLeft,top:rect.top+axis.position(intent.start!)+1}:null;

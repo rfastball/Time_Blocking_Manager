@@ -12,7 +12,7 @@ import {blockButton} from '../editor/actions.ts';
 import {openAvailability} from '../store/schedule.ts';
 import {settle,reduced} from '../ui/motion.ts';
 import {Icon,Lock} from '../ui/icons.tsx';
-import {COLUMN_GEOMETRY,DAY_GEOMETRY,useDrag,useRegion,type Geometry} from './drag.tsx';
+import {COLUMN_GEOMETRY,DAY_GEOMETRY,isGestureActive,useDrag,useRegion,type Geometry} from './drag.tsx';
 import './space.css';
 
 type Props={
@@ -166,18 +166,18 @@ function Block({item,axis,geometry:g,variant,next,hollow,selected,multi,squash,l
     variants={{leave:(done:Set<string>)=>done?.has(t.id)
       ?{y:-(top+h+40),scaleX:.5,scaleY:1.4,opacity:0,transition:{duration:reduced()?0:.3,ease:[.6,0,.9,.35]}}
       :{opacity:0,transition:{duration:.12}}}}
-    exit="leave" transition={settle} {...listeners} tabIndex={-1} role="presentation" onContextMenu={e=>{e.preventDefault();onMenu(e);}}>
+    exit="leave" transition={settle} {...listeners} tabIndex={-1} role="presentation" onContextMenu={e=>{e.preventDefault();if(!isGestureActive())onMenu(e);}}>
     <motion.div className="tile" animate={squash?{scaleX:1.05,scaleY:.86}:landed?{scaleX:[1.03,1.025,.99,1],scaleY:[1.03,.93,1.025,1]}:{scaleX:1,scaleY:1}}
       transition={squash?{duration:.1}:landed?{duration:.45}:{duration:.15}} style={{transformOrigin:'50% 100%'}}>
       {item.fixed&&<Latch clack={!!landed?.clack}/>}
-      <button type="button" className="chk" aria-label={t.title+(t.completed?' 완료 취소':' 완료')} aria-pressed={t.completed} onPointerDown={e=>e.stopPropagation()} onClick={onCheck}><Icon name="check" size={12} stroke={3}/></button>
+      <button type="button" className="chk" aria-label={t.title+(t.completed?' 완료 취소':' 완료')} aria-pressed={t.completed} onPointerDown={e=>e.stopPropagation()} onTouchStart={e=>e.stopPropagation()} onClick={onCheck}><Icon name="check" size={12} stroke={3}/></button>
       <button type="button" className="main" aria-label={`${t.title}, ${item.fixed?'시각 고정':'예상'} ${range}, ${formatDuration(t.duration)}${item.over?', 근무 외':''}${next?', 다음':''}${t.completed?', 완료':''}`} onClick={onOpen} onKeyDown={key} aria-keyshortcuts={keys} data-task={t.id}>
         <span className="ttl-row">{next&&<span className="tag">다음</span>}<span className="ttl">{t.title}</span></span>
         <span className="meta"><span className="tm">{item.fixed?range:'예상 '+range}</span><span>{formatDuration(t.duration)}</span></span>
       </button>
     </motion.div>
     {/* Pointer only: the block's own button takes the arrow keys. */}
-    {!t.completed&&<button type="button" className="grip" tabIndex={-1} aria-hidden="true" onPointerDown={onGrip}/>}
+    {!t.completed&&<button type="button" className="grip" tabIndex={-1} aria-hidden="true" onPointerDown={onGrip} onTouchStart={e=>e.stopPropagation()}/>}
   </motion.div>;
 }
 

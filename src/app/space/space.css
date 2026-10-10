@@ -26,7 +26,8 @@
 .column .slit{height:4px;margin:0 3px}
 
 .space-wrap{position:relative;margin-top:4px}
-.space{position:relative;overflow:hidden;background:var(--color-surface);touch-action:none;user-select:none}
+/* A finger scrolls over the space; drawing a new block on the background is a mouse or pen gesture. */
+.space{position:relative;overflow:hidden;background:var(--color-surface);touch-action:pan-x pan-y;user-select:none}
 .ruler{position:absolute;left:0;top:0;bottom:0}
 .ruler span{position:absolute;left:14px;transform:translateY(-50%);font-size:11px;font-weight:600;color:var(--color-text-muted);opacity:.8;font-variant-numeric:tabular-nums}
 .rail{position:absolute;top:0;bottom:0;background:var(--sp-rail);border-left:1px solid var(--color-divider);border-right:1px solid var(--color-divider);transition:background .15s}
@@ -51,7 +52,8 @@
 .column .railtag{left:2px!important}
 .railtag.bad{background:var(--color-error)}
 
-.blk{position:absolute;z-index:2;touch-action:none;cursor:grab}
+/* A quick swipe scrolls; a resting finger lifts the block (TouchSensor delay). */
+.blk{position:absolute;z-index:2;touch-action:manipulation;-webkit-touch-callout:none;cursor:grab}
 .blk.fixed{z-index:3}
 .tile{position:absolute;inset:0;border-radius:var(--radius-block);display:flex;align-items:flex-start;gap:6px;padding:6px 8px 6px 6px;user-select:none;transition:translate .14s ease,box-shadow .14s ease;overflow:hidden}
 .column .tile{gap:4px;padding:3px 5px 3px 4px}
@@ -93,7 +95,7 @@
 .blk:hover .tm,.blk:focus-within .tm{display:inline}
 .column .blk .tm{display:none}
 /* At the bottom-right corner, clear of the block's middle where clicks open it. */
-.grip{position:absolute;right:10px;bottom:-4px;width:36px;height:10px;border:1px solid var(--sp-fixed-edge);border-radius:5px;background:var(--color-surface);cursor:ns-resize;padding:0;opacity:0;z-index:4;transition:opacity .12s}
+.grip{position:absolute;right:10px;bottom:-4px;width:36px;height:10px;touch-action:none;border:1px solid var(--sp-fixed-edge);border-radius:5px;background:var(--color-surface);cursor:ns-resize;padding:0;opacity:0;z-index:4;transition:opacity .12s}
 .grip::after{content:"";position:absolute;left:10px;right:10px;top:3px;height:2px;border-radius:1px;background:var(--sp-fixed-edge)}
 .blk:hover .grip,.grip:focus-visible{opacity:1}
 
@@ -116,7 +118,7 @@
 /* An empty tray shows no box at rest; it opens as a landing area only while a block is held over it. */
 .well.empty{min-height:0;padding:0;background:transparent}
 .tray.hot .well.empty{min-height:40px;padding:8px}
-.tblk{position:relative;flex:0 0 auto;touch-action:none;cursor:grab}
+.tblk{position:relative;flex:0 0 auto;touch-action:manipulation;-webkit-touch-callout:none;cursor:grab}
 .tblk>.tile{background:var(--color-surface);border:1px solid var(--color-border);color:var(--color-text);padding:4px 8px 4px 4px}
 .tblk.sel>.tile{outline:2px solid var(--color-selection-border);outline-offset:1px}
 .tblk.compact>.tile{align-items:center;padding-top:0;padding-bottom:0}
