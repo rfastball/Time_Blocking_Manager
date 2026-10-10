@@ -58,7 +58,7 @@ function Mini({task}:{task:Task}){
   return <span ref={setNodeRef} data-block="true" className={'mini'+(fixed?' fixed':'')+(task.completed?' done':'')+(hollow?' hollow':'')} {...attributes} {...listeners} tabIndex={-1} role="presentation">
     <button type="button" onClick={e=>{e.stopPropagation();openEditor(task.id,'dialog');}}
       aria-label={`${task.title}${fixed?`, 시각 고정 ${time(taskMinute(task))}`:''}, ${formatDuration(task.duration)}${task.completed?', 완료':''}`}>
-      {fixed&&<small>{time(taskMinute(task))}</small>}{task.title}
+      <span className="mini-t">{fixed&&<small>{time(taskMinute(task))}</small>}{task.title}</span>
     </button>
   </span>;
 }

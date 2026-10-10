@@ -57,7 +57,9 @@
 .wk .railtag{margin-top:-24px}
 
 /* 2주·월 */
-.cal-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(250px,.65fr);gap:16px;align-items:start}
+/* The calendar takes the larger share; titles in 2주 cells need the width more than the date panel does. */
+.cal-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(260px,.5fr);gap:16px;align-items:start}
+.plan-desk.with-drawer .cal-layout{grid-template-columns:minmax(0,1fr) minmax(250px,.42fr)}
 .card.cal{padding:12px;min-width:0}
 .cal-weekdays,.cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
 .cal-weekdays{margin-bottom:6px;font-size:12px;font-weight:600;color:var(--color-text-muted);text-align:center}
@@ -77,9 +79,10 @@
 .cal-date strong{font-size:14px;font-weight:600;font-variant-numeric:tabular-nums}
 .cal-tasks{display:flex;flex-direction:column;gap:4px;min-width:0}
 .mini{display:block;position:relative;min-width:0;touch-action:none;cursor:grab;border-radius:var(--radius-block)}
-.mini button{display:block;width:100%;height:22px;text-align:left;border:1px solid var(--sp-flow-edge);background:var(--sp-flow);color:var(--sp-flow-ink);border-radius:var(--radius-block);font-size:12px;font-weight:600;padding:0 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:inherit;transition:translate .14s ease,box-shadow .14s ease}
+.mini button{display:block;width:100%;min-height:22px;text-align:left;border:1px solid var(--sp-flow-edge);background:var(--sp-flow);color:var(--sp-flow-ink);border-radius:var(--radius-block);font-size:12px;line-height:15px;font-weight:600;padding:3px 5px;cursor:inherit;transition:translate .14s ease,box-shadow .14s ease}
 .mini:hover button{translate:0 -1px;box-shadow:0 3px 8px #1622441a}
 .mini.fixed button{background:var(--sp-fixed);border-color:var(--sp-fixed-edge);color:var(--color-text)}
+.mini-t{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;overflow:hidden;word-break:keep-all;overflow-wrap:anywhere}
 .mini small{margin-right:5px;font-size:11px;font-weight:700;color:var(--color-text-muted);font-variant-numeric:tabular-nums}
 .mini.done button{text-decoration:line-through;opacity:.6}
 .mini.hollow{background:var(--sp-well);outline:1.5px dashed var(--sp-fixed-edge);outline-offset:-1.5px}
@@ -106,7 +109,7 @@
 /* Narrow 2주·월: 미계획 moves under the calendar, beside the date panel, instead of squeezing a third column. */
 @media (max-width:1100px){
   .plan-desk.with-drawer{grid-template-columns:minmax(0,1fr) 215px}
-  .plan-desk:not(.week),.plan-desk.with-drawer:not(.week){grid-template-columns:minmax(0,1fr) minmax(250px,.65fr);grid-template-rows:auto 1fr;grid-template-areas:"cal day" "tray day"}
+  .plan-desk:not(.week),.plan-desk.with-drawer:not(.week){grid-template-columns:minmax(0,1fr) minmax(250px,.5fr);grid-template-rows:auto 1fr;grid-template-areas:"cal day" "tray day"}
   .plan-desk:not(.week) .plan-main,.plan-desk:not(.week) .cal-layout{display:contents}
   .plan-desk:not(.week) .cal{grid-area:cal}
   .plan-desk:not(.week) .plan-day{grid-area:day}
