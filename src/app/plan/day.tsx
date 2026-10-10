@@ -14,10 +14,11 @@ export function periodDates(period:Period,anchor:string){
   return Array.from({length:count},(_,i)=>plusDays(dateKey(first),i));
 }
 
-// 휴가·조퇴·시간 변경 come from the date's exception; a day without work and without one is 휴무.
+// 휴가·조퇴 come from the date's exception; a day without work is 휴무. Changed hours show on the timetable itself.
 export function dayTag(date:string){
   const s=getState(),e=(s.drafts.settingsDraft??s.snapshot!.settings).exceptions?.find(x=>x.date===date);
-  if(e)return e.kind==='leave'?'휴가':e.kind==='early'?'조퇴':'시간 변경';
+  if(e?.kind==='leave')return '휴가';
+  if(e?.kind==='early')return '조퇴';
   return dayRule(date).enabled?null:'휴무';
 }
 
