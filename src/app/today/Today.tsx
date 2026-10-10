@@ -12,6 +12,7 @@ import {Icon} from '../ui/icons.tsx';
 import {DaySpace} from '../space/DaySpace.tsx';
 import {InboxTray} from '../space/InboxTray.tsx';
 import {EditorPanel} from '../editor/hosts.tsx';
+import {useNewBlock} from '../plan/Composer.tsx';
 import './today.css';
 
 const SCALE=1.2;
@@ -29,6 +30,7 @@ export function Today(){
   const editing=ui.editorMode==='panel'?drafts.editor?.id??null:null;
   const toggleMulti=(t:Task)=>{if(!t.completed)setMulti(m=>m.includes(t.id)?m.filter(x=>x!==t.id):[...m,t.id]);};
   const label=`배분 ${formatDuration(aDone+aFlow+aFixed)} / 가용 ${formatDuration(avail)}`;
+  const newBlock=useNewBlock(date,axis,'day');
   return <div className="today">
     <div className="today-bar">
       <div className="cap" aria-label={label}>
@@ -47,7 +49,7 @@ export function Today(){
     </div>
     <div className="today-cols">
       <section className="card today-day" aria-label="블록 공간">
-        <DaySpace date={date} axis={axis} variant="day" bin shelf selected={editing} multi={multi} onOpen={t=>openEditor(t.id,'panel')} onMulti={toggleMulti}/>
+        <DaySpace date={date} axis={axis} variant="day" bin shelf selected={editing} multi={multi} onOpen={t=>openEditor(t.id,'panel')} onMulti={toggleMulti} {...newBlock}/>
       </section>
       <aside className="today-side">
         <EditorPanel nextId={plan.items.find(i=>!i.fixed)?.task.id??null}/>

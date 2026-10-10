@@ -22,11 +22,12 @@ type Props={
   selected?:string|null;multi?:string[];
   onOpen:(t:Task)=>void;onMulti?:(t:Task)=>void;
   // Areas may layer their own overlays (new-block composer) over the space.
-  children?:ReactNode;onBackgroundPointerDown?:(e:ReactPointerEvent<HTMLDivElement>,minute:number,onRail:boolean)=>void;
+  // `children` draw inside the clipped space; `overlay` sits on the same coordinates but may spill past a narrow column.
+  children?:ReactNode;overlay?:ReactNode;onBackgroundPointerDown?:(e:ReactPointerEvent<HTMLDivElement>,minute:number,onRail:boolean)=>void;
 };
 
 // One day as a space: rail and fixed latches on the left, flow blocks in order, completed work leaves through the top.
-export function DaySpace({date,axis,variant,bin,shelf,selected,multi=[],onOpen,onMulti,children,onBackgroundPointerDown}:Props){
+export function DaySpace({date,axis,variant,bin,shelf,selected,multi=[],onOpen,onMulti,children,overlay,onBackgroundPointerDown}:Props){
   const {snapshot,today,now,ui}=useApp();
   const {held,tasks}=useDrag();
   const geometry=variant==='day'?DAY_GEOMETRY:COLUMN_GEOMETRY;
@@ -73,6 +74,7 @@ export function DaySpace({date,axis,variant,bin,shelf,selected,multi=[],onOpen,o
 
   return <div className={'dayspace '+variant}>
     {bin&&<Bin tasks={plan.completed} onOpen={onOpen}/>}
+    <div className="space-wrap">
     <div ref={spaceRef} data-surface="true" className={'space'+(holding?' armed':'')} style={{height:axis.height}} onPointerDown={background}
       onContextMenu={e=>{if(e.target!==e.currentTarget)return;e.preventDefault();const r=e.currentTarget.getBoundingClientRect();menu(e,null,Math.round(axis.minute(e.clientY-r.top)/15)*15);}}>
       <Ground axis={axis} rule={rule} geometry={geometry} date={date}/>
@@ -90,6 +92,8 @@ export function DaySpace({date,axis,variant,bin,shelf,selected,multi=[],onOpen,o
       {holding?.intent.zone==='rail'&&holding.intent.date===date&&<span className={'railtag'+(holding.intent.ok?'':' bad')} style={{top:axis.position(holding.intent.start!),left:geometry.railLeft-46}}>{time(holding.intent.start!)}</span>}
       {date===today&&now>=axis.start&&now<=axis.end&&<div className="nowline" style={{top:axis.position(now),left:Math.max(0,geometry.railLeft-22)}}>{variant==='day'&&<span>{time(now)}</span>}</div>}
       {children}
+    </div>
+    {overlay}
     </div>
     {shelf&&<div ref={shelfRef} className={'shelf'+(holding?.intent.zone==='below'&&holding.intent.date===date?' hot':'')} style={{paddingLeft:geometry.flowLeft}}>
       {plan.unplaced.length>0&&<h2 style={{marginLeft:-geometry.flowLeft+14}}>배치되지 않음 <span className="cnt">{plan.unplaced.length}</span></h2>}
@@ -109,7 +113,7 @@ function Ground({axis,rule,geometry:g,date}:{axis:TimeAxis;rule:ReturnType<typeo
     </>:<button type="button" className="off" style={{left:g.bodyLeft-4,...band(0,1440)}} aria-label="휴무일 근무시간 조정" onClick={e=>openAvailability(date,'work',e.clientX,e.clientY)}><span>휴무</span></button>}
     {hours.map(m=><div key={m} className="hl" style={{top:axis.position(m),left:g.bodyLeft}}/>)}
     {g.ruler>0&&<div className="ruler" aria-hidden="true" style={{width:g.ruler}}>{hours.map(m=><span key={m} style={{top:axis.position(m)}}>{String(m/60).padStart(2,'0')}</span>)}</div>}
-    <div className="rail" aria-hidden="true" style={{left:g.railLeft,width:g.railWidth}}/>
+    <div className="rail" data-surface="true" aria-hidden="true" style={{left:g.railLeft,width:g.railWidth}}/>
     {rule.enabled&&rule.breaks.map((b,i)=><button type="button" key={b.start} className="brk" style={{left:g.railLeft+g.railWidth,...band(b.start,b.end)}}
       aria-label={`${b.label} ${time(b.start)}–${time(b.end)} 조정`} onClick={e=>openAvailability(date,i,e.clientX,e.clientY)}><span>{b.label}</span></button>)}
     {rule.enabled&&<div className="floor" style={{left:g.railLeft,top:axis.position(rule.end)}}/>}
