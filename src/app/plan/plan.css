@@ -1,0 +1,121 @@
+/* Plan: week of spaces, 2주/월 calendars, 미계획 drawer. Flat surfaces on role tokens. */
+.plan{display:flex;flex-direction:column;gap:12px}
+.plan-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
+.plan-bar .grow{flex:1}
+.week-summary{font-size:12.5px;color:var(--color-text-muted);font-variant-numeric:tabular-nums}
+.segmented{display:inline-flex;border:1px solid var(--color-control-border);border-radius:var(--radius-control);background:var(--color-control);padding:2px;gap:2px}
+.segmented button{min-width:48px;height:calc(var(--control-height) - 6px);border:0;border-radius:calc(var(--radius-control) - 2px);background:transparent;cursor:pointer;font-weight:600;color:var(--color-text-muted);transition:background .1s,color .1s}
+.segmented button:hover{background:var(--color-control-hover)}
+.segmented button[aria-checked=true]{background:var(--color-action);color:var(--color-on-action)}
+.btn.drawer-toggle.on{background:var(--color-selection);border-color:var(--color-selection-border)}
+.drawer-toggle .cnt{margin-left:2px}
+
+.plan-desk{display:grid;grid-template-columns:minmax(0,1fr);gap:16px;align-items:start}
+.plan-desk.with-drawer{grid-template-columns:minmax(0,1fr) 250px}
+.plan-main{min-width:0}
+.plan-drawer{position:sticky;top:12px;max-height:calc(100vh - 150px);overflow:auto;border-radius:var(--radius-panel)}
+.plan-drawer[hidden]{display:none}
+.plan-drawer .tray{padding:14px}
+.plan-drawer .tray h2{padding-right:36px}
+.ibtn.drawer-close{position:absolute;top:8px;right:8px;width:30px;height:30px;min-height:30px;border-color:transparent;background:transparent}
+
+/* 주 */
+.card.wk{--wk-bin:44px;padding:0;overflow:hidden}
+.wk-scroll{overflow:auto;max-height:calc(100vh - 160px);overscroll-behavior:contain}
+.wk-grid{display:grid;grid-template-columns:46px repeat(7,minmax(118px,1fr))}
+.wk-corner{position:sticky;top:0;left:0;z-index:32;background:var(--color-panel);border-bottom:1px solid var(--color-divider)}
+.wk-head{position:sticky;top:0;z-index:30;background:var(--color-panel);border-left:1px solid var(--color-divider);border-bottom:1px solid var(--color-divider);transition:background .15s}
+.wk-date{width:100%;height:100%;border:0;background:transparent;text-align:left;padding:8px 8px 9px;display:flex;flex-direction:column;gap:6px;cursor:pointer;color:inherit}
+.wk-date:hover{background:var(--color-control-hover)}
+.wk-day{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 6px;min-height:22px}
+.wk-day small{font-size:12px;color:var(--color-text-muted)}
+.wk-day strong{font-size:17px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.1}
+.wk-day .pill,.cal-date .pill{align-self:center;font-size:11px;padding:1px 7px}
+.wk-alloc{font-size:11px;line-height:1.3;word-break:keep-all;color:var(--color-text-muted);font-variant-numeric:tabular-nums;min-height:2.6em}
+.wk-head.today strong,.cal-cell.today .cal-date strong{color:var(--color-calendar-today)}
+.wk-head.sel{background:var(--color-selection);box-shadow:inset 0 -2px 0 var(--color-selection-border)}
+.wk-head.off .wk-day strong{color:var(--color-text-muted)}
+.wk-head.hot{background:var(--color-text-selection);box-shadow:inset 0 0 0 2px var(--color-action)}
+.tag-chip{display:inline-block;align-self:center;font-size:11px;font-weight:600;color:var(--color-text-muted);border:1px solid var(--color-border);background:var(--color-surface);border-radius:4px;padding:0 5px;line-height:17px;white-space:nowrap}
+.wk-ruler{position:sticky;left:0;z-index:20;background:var(--color-panel);padding-top:calc(var(--wk-bin) + 8px)}
+.wk-hours{position:relative}
+.wk-hours span{position:absolute;right:8px;transform:translateY(-50%);font-size:11px;font-weight:600;color:var(--color-text-muted);opacity:.8;font-variant-numeric:tabular-nums}
+.wk-col{position:relative;min-width:0;border-left:1px solid var(--color-divider)}
+.wk-col.composing{z-index:25}
+.wk .bin{height:var(--wk-bin);min-height:0;overflow-y:auto;align-content:flex-start;scrollbar-width:thin}
+.wk .bin-label{font-size:11px}
+.wk .chip{height:24px;max-width:100%}
+.wk .chip-title{height:22px;font-size:11.5px;gap:4px;padding:0 2px}
+.wk .chip-title small{display:none}
+.wk .chip-undo{width:20px;height:20px}
+.wk .shelf{padding:8px 4px 10px;gap:5px}
+.wk .shelf h2{font-size:11px}
+.wk-col.off .bin,.wk-col.off .slit{opacity:.5}
+/* Seven armed rails at once: keep the cue, quiet the weight. The time tag rides above the snapped block. */
+.wk .space.armed .rail::before{width:4px;left:calc(50% - 2px)}
+.wk .railtag{margin-top:-24px}
+
+/* 2주·월 */
+.cal-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(250px,.65fr);gap:16px;align-items:start}
+.card.cal{padding:12px;min-width:0}
+.cal-weekdays,.cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+.cal-weekdays{margin-bottom:6px;font-size:12px;font-weight:600;color:var(--color-text-muted);text-align:center}
+.cal-grid.two{grid-auto-rows:minmax(190px,auto)}
+.cal-grid.month{grid-auto-rows:minmax(92px,auto)}
+.cal-cell{min-width:0;display:flex;flex-direction:column;gap:6px;padding:5px;border:1px solid var(--color-divider);border-radius:var(--radius-control);background:var(--color-surface);cursor:pointer;transition:background .12s}
+.cal-cell:hover{background:var(--color-control-hover)}
+.cal-cell.off{background:var(--color-unavailable-soft)}
+.cal-cell.outside{opacity:.55}
+.cal-cell.sel{background:var(--color-selection);box-shadow:inset 0 0 0 2px var(--color-selection-border);border-color:transparent}
+.cal-cell.hot{background:var(--color-text-selection);box-shadow:inset 0 0 0 2px var(--color-action)}
+.cal-top{display:flex;align-items:center;gap:4px;flex-wrap:wrap;min-width:0}
+.cal-date{border:0;background:none;padding:1px 4px;border-radius:4px;display:inline-flex;flex-wrap:wrap;align-items:center;gap:2px 6px;cursor:pointer;color:inherit}
+.cal-date .pill{white-space:nowrap}
+.cal-date strong{font-size:14px;font-weight:600;font-variant-numeric:tabular-nums}
+.cal-tasks{display:flex;flex-direction:column;gap:4px;min-width:0}
+.mini{display:block;position:relative;min-width:0;touch-action:none;cursor:grab;border-radius:var(--radius-block)}
+.mini button{display:block;width:100%;height:22px;text-align:left;border:1px solid var(--sp-flow-edge);background:var(--sp-flow);color:var(--sp-flow-ink);border-radius:var(--radius-block);font-size:12px;font-weight:600;padding:0 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:inherit;transition:translate .14s ease,box-shadow .14s ease}
+.mini:hover button{translate:0 -1px;box-shadow:0 3px 8px #1622441a}
+.mini.fixed button{background:var(--sp-fixed);border-color:var(--sp-fixed-edge);color:var(--color-text)}
+.mini small{margin-right:5px;font-size:11px;font-weight:700;color:var(--color-text-muted);font-variant-numeric:tabular-nums}
+.mini.done button{text-decoration:line-through;opacity:.6}
+.mini.hollow{background:var(--sp-well);outline:1.5px dashed var(--sp-fixed-edge);outline-offset:-1.5px}
+.mini.hollow button{visibility:hidden}
+.cal-more{font-size:11.5px;color:var(--color-text-muted);padding-left:4px;font-variant-numeric:tabular-nums}
+.cal-load{margin-top:auto;display:flex;flex-direction:column;gap:5px}
+.cal-sum{display:flex;flex-wrap:wrap;gap:0 4px;font-size:12px;color:var(--color-text-muted);font-variant-numeric:tabular-nums;word-break:keep-all}
+.card.plan-day{padding:0;overflow:hidden;min-width:0}
+.plan-day-head{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:12px 14px 10px}
+.plan-day-head h2{margin:0;font-size:15px;font-weight:600}
+.plan-day-alloc{display:flex;align-items:center;gap:8px;margin-left:auto;font-size:12px;color:var(--color-text-muted);font-variant-numeric:tabular-nums}
+.plan-day-alloc .pm{width:96px}
+
+/* Allocation meter */
+.pm{position:relative;display:flex;gap:1px;width:100%;height:8px;border-radius:3px;background:color-mix(in srgb,var(--color-text-muted) 16%,var(--color-surface));overflow:hidden;flex:0 0 auto}
+.pm.thin{height:6px}
+.pm i{display:block;height:100%}
+.pm-done{background:color-mix(in srgb,var(--color-text-muted) 45%,var(--color-surface))}
+.pm-flow{background:var(--color-action)}
+.pm-fixed{background:color-mix(in srgb,var(--color-structure) 75%,var(--color-surface))}
+.pm-over{position:absolute;top:0;bottom:0;right:0;border-left:1.5px solid var(--color-text);background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--color-surface) 75%,transparent) 0 2px,transparent 2px 4px)}
+
+/* Narrow 2주·월: 미계획 moves under the calendar, beside the date panel, instead of squeezing a third column. */
+@media (max-width:1100px){
+  .plan-desk.with-drawer{grid-template-columns:minmax(0,1fr) 215px}
+  .plan-desk:not(.week),.plan-desk.with-drawer:not(.week){grid-template-columns:minmax(0,1fr) minmax(250px,.65fr);grid-template-rows:auto 1fr;grid-template-areas:"cal day" "tray day"}
+  .plan-desk:not(.week) .plan-main,.plan-desk:not(.week) .cal-layout{display:contents}
+  .plan-desk:not(.week) .cal{grid-area:cal}
+  .plan-desk:not(.week) .plan-day{grid-area:day}
+  .plan-desk:not(.week) .plan-drawer{grid-area:tray;position:relative;top:0;max-height:none}
+  .plan-desk:not(.week) .plan-drawer .well{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));min-height:180px;align-content:start}
+}
+@media (max-width:760px){
+  .plan-desk.with-drawer,.cal-layout{grid-template-columns:minmax(0,1fr)}
+  .plan-desk:not(.week),.plan-desk.with-drawer:not(.week){grid-template-columns:minmax(0,1fr);grid-template-rows:none;grid-template-areas:"cal" "day" "tray"}
+  .plan-drawer{position:relative;top:0;max-height:none}
+}
+@media (max-width:680px){
+  .cal-grid.two{grid-auto-rows:minmax(160px,auto)}
+  .wk-scroll{max-height:480px}
+}
+@media (prefers-reduced-motion:reduce){.wk-head,.cal-cell,.segmented button,.mini button{transition:none}}
