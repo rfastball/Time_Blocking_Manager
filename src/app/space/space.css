@@ -57,7 +57,7 @@
 .railtag.bad{background:var(--color-error)}
 
 /* A quick swipe scrolls; a resting finger lifts the block (TouchSensor delay). */
-.blk{position:absolute;z-index:2;touch-action:manipulation;-webkit-touch-callout:none;cursor:grab}
+.blk{position:absolute;z-index:2;touch-action:manipulation;-webkit-touch-callout:none;cursor:grab;scroll-margin-block:32px}
 .blk.fixed{z-index:3}
 .tile{position:absolute;inset:0;border-radius:var(--radius-block);display:flex;align-items:flex-start;gap:6px;padding:6px 8px 6px 6px;user-select:none;transition:translate .14s ease,box-shadow .14s ease;overflow:hidden}
 .column .tile{gap:4px;padding:3px 5px 3px 4px}

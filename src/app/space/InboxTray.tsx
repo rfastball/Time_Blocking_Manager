@@ -42,6 +42,6 @@ function TrayBlock({task,scale,hollow,selected,onOpen,past}:{task:Task;scale:num
   return <motion.div ref={setNodeRef} data-block="true" layout className={'tblk'+(hollow?' hollow':'')+(selected?' sel':'')+(compact?' compact':'')} style={{height:h}}
     initial={{opacity:0,scale:.96}} animate={{opacity:1,scale:1}} exit={{opacity:0,transition:{duration:0}}} transition={settle} {...listeners} tabIndex={-1} role="presentation">
     <div className="tile"><Dots/><button type="button" className="main" onClick={onOpen} aria-label={`${task.title}, ${formatDuration(task.duration)}, ${past?dateLabel(task.plan_date!):'미계획'}`}>
-      <span className="ttl">{task.title}</span><span className="meta" style={compact?{display:'flex'}:undefined}>{past?dateLabel(task.plan_date!)+' · ':''}{formatDuration(task.duration)}</span></button></div>
+      <span className="ttl">{task.title}</span><span className="meta">{past?dateLabel(task.plan_date!)+' · ':''}{formatDuration(task.duration)}</span></button></div>
   </motion.div>;
 }
