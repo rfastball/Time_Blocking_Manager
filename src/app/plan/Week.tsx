@@ -45,7 +45,7 @@ function Head({date}:{date:string}){
   const {today,nav}=useApp(),{held,tasks}=useDrag();
   const ref=useRegion('date',date);
   const a=allocation(date,tasks),tag=dayTag(date),off=!dayRule(date).enabled;
-  const hot=!!held&&!held.dropping&&held.intent.zone==='date'&&held.intent.date===date;
+  const hot=!!held&&!held.dropping&&held.intent.zone==='date'&&held.intent.ok&&held.intent.date===date;
   const d=dateOf(date),past=date<today;
   return <div ref={ref} data-date={date} className={'wk-head'+(date===today?' today':'')+(past?' past':'')+(date===nav.selected?' sel':'')+(off?' off':'')+(hot?' hot':'')}>
     <button type="button" className="wk-date" onClick={()=>setNav({view:'today',selected:date})}
