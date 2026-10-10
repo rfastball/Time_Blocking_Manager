@@ -118,11 +118,8 @@ export function composerAction(date:string,start:number,duration:number,fixed:bo
 function sameComposerAction(action:Action,date:string,start:number,duration:number,fixed:boolean){
   return fixed?action.type==='create_scheduled'&&action.starts_at===date+'T'+time(start)&&action.duration===duration:action.type==='create_flow'&&action.date===date&&action.duration===duration;
 }
-// New work never starts out overdue; a composer restored onto a past day can still be closed.
-export const PAST_COMPOSER='지난 날짜에는 블록을 만들 수 없어요.';
 export function openComposer(date:string,start:number,duration=30,fixed=false){
   const s=getState();if(!s.ready)return false;
-  if(date<s.today){showError(Error(PAST_COMPOSER));return false;}
   if(s.drafts.editorDirty){setUi({editorMode:'dialog'});return false;}
   if(fixed){const issue=issueAt('',date,start,duration);if(issue){showError(Error(issue.label));return false;}}
   setDrafts({composer:{date,start,duration,fixed}});return true;
@@ -132,7 +129,6 @@ export function closeComposer(){setDrafts({composer:null});void persistDraft();}
 export async function submitComposer(){
   const s=getState(),c=s.drafts.composer,title=s.drafts.capture.trim();
   if(!c||!title||queue.busy||queue.failed)return false;
-  if(c.date<s.today){showError(Error(PAST_COMPOSER));return false;}
   const fixed=c.fixed??false;
   if(fixed){const issue=issueAt('',c.date,c.start,c.duration);if(issue){showError(Error(issue.label+'. 다른 시간을 선택하세요.'));return false;}}
   let command=s.drafts.captureCommand;

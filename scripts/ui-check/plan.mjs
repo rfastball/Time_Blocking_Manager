@@ -124,7 +124,7 @@ export default [
     await page.click(`.cal-cell[data-date="${empty}"] .cal-date`);
     const box=await page.rect('.plan-day .space'),y11=await hourY(page,11,'.plan-day .ruler');
     await press(page,box.x+box.w-40,y11+5);
-    assert.match(await page.text('.composer .cm-head'),/순서 끝 · 30분/);
+    assert.match(await page.text('.composer .cm-head'),/순서 끝 · \d\d:\d\d–\d\d:\d\d/);
     const form=await page.rect('.composer'),card=await page.rect('.plan-day');
     assert.ok(form.x>=card.x&&form.x+form.w<=card.x+card.w,'composer stays inside the panel');
     await page.shot('plan-two-1024');
@@ -148,7 +148,7 @@ export default [
     await toPlan(page);
     const {other}=await days(page),col=await page.rect(sp(other)),y11=await hourY(page,11);
     await press(page,col.x+70,y11+5);
-    assert.match(await page.text('.composer .cm-head'),/순서 끝 · 30분/);
+    assert.match(await page.text('.composer .cm-head'),/순서 끝 · \d\d:\d\d–\d\d:\d\d/);
     assert.equal(await page.js(`document.activeElement?.id`),'composer-title');
     assert.ok(await page.js(`!!document.querySelector('${sp(other)} .ghost')`),'the landing slot is outlined');
     await page.shot('plan-composer-flow');
@@ -172,7 +172,7 @@ export default [
     await press(page,rail.cx,y15+3);
     assert.match(await page.text('.composer .cm-head'),/15:00–15:30/);
     await page.click('.composer .cm-fix input');
-    assert.match(await page.text('.composer .cm-head'),/순서 끝 · 30분/);
+    assert.match(await page.text('.composer .cm-head'),/순서 끝 · \d\d:\d\d–\d\d:\d\d/);
     await page.key('Escape');await page.sleep(200);
     assert.equal(await page.js(`!!document.querySelector('.composer')`),false);
   }},
@@ -189,7 +189,7 @@ export default [
   {name:'today: clicking empty time opens the composer and an unfitting block runs past the end of work',run:async page=>{
     const box=await page.rect('.today-day .space'),last=await page.rect('.today-day .blk','신규 입사자 교육');
     await press(page,box.x+box.w-60,last.y+last.h+20);
-    assert.match(await page.text('.composer .cm-head'),/순서 끝 · 30분/);
+    assert.match(await page.text('.composer .cm-head'),/순서 끝 · \d\d:\d\d–\d\d:\d\d/);
     await page.shot('today-composer');
     await page.type('오늘 추가');await page.key('Enter',{text:'\r'});await page.sleep(700);
     assert.ok((await page.blocks('.today-day .space')).includes('오늘 추가, 예상 20:00–20:30'));

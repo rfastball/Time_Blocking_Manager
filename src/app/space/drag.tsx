@@ -55,8 +55,6 @@ export function useDaysAxis(dates:string[],scale:number){
 class MousePenSensor extends PointerSensor{
   static activators=[{eventName:'onPointerDown' as const,handler:(...a:Parameters<typeof PointerSensor.activators[0]['handler']>)=>(a[0].nativeEvent as PointerEvent).pointerType!=='touch'&&PointerSensor.activators[0].handler(...a)}];
 }
-// Work is never put on a day that has passed, even its own: it would turn straight into 지난 미완료.
-const pastReason=(date:string|null)=>date&&date<getState().today?'지난 날짜에는 놓을 수 없어요':null;
 const point=(e:Event)=>{const p='touches' in e?(e as TouchEvent).touches[0]??(e as TouchEvent).changedTouches[0]:e as PointerEvent;return {x:p.clientX,y:p.clientY};};
 
 export function DragProvider({children}:{children:ReactNode}){
@@ -96,22 +94,20 @@ export function DragProvider({children}:{children:ReactNode}){
       const edge=px-r.left-grab*(r.width-(was?g.fixedLeft:g.flowLeft)-g.right);
       if(px-r.left<g.bodyLeft||(was?edge<g.fixedLeft+g.pull:edge<=g.flowLeft-g.bite)){
         const minute=Math.round(axis.minute(Math.max(0,topIn))/15)*15;
-        const reason=pastReason(date)??placementIssue(task.id,date,minute,task.duration,rule,base)?.label??null;
+        const reason=placementIssue(task.id,date,minute,task.duration,rule,base)?.label??null;
         return {intent:{...intent,zone:'rail',date,start:minute,ok:!reason,reason},region,near:was?Math.max(0,Math.min(1,(edge-g.fixedLeft)/g.pull)):0};
       }
-      const rest=dayPlan(date,base.filter(t=>t.id!==task.id),rule,layouts),past=pastReason(date);
+      const rest=dayPlan(date,base.filter(t=>t.id!==task.id),rule,layouts);
       const centre=axis.minute(topIn+task.duration*axis.scale/2),flows=rest.items.filter(i=>!i.fixed);
-      const body:Intent={...intent,zone:'body',date,before:insertionBefore(flows,centre),ok:!past,reason:past};
+      const body:Intent={...intent,zone:'body',date,before:insertionBefore(flows,centre),ok:true,reason:null};
       const near=Math.max(0,Math.min(1,(g.flowLeft-edge)/g.bite));
-      if(past)return {intent:body,region,near};
       const item=dayPlan(date,applyIntent(base,body),rule,layouts).items.find(i=>i.task.id===task.id);
       return {intent:body,region,near,slot:item&&{start:item.start,end:item.end,over:item.over}};
     }
     for(const kind of ['date','tray'] as const)for(const region of all.filter(r=>r.kind===kind)){
       if(!inside(region.el))continue;
       if(kind==='tray')return task.plan_date?{intent:{...intent,zone:'tray'}}:{intent};
-      const reason=pastReason(region.date);
-      return {intent:{...intent,zone:'date',date:region.date,ok:!reason,reason},region};
+      return {intent:{...intent,zone:'date',date:region.date},region};
     }
     return {intent};
   }
