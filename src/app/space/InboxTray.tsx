@@ -5,7 +5,7 @@ import {formatDuration} from '../../format.ts';
 import {dateLabel} from '../../dates.ts';
 import type {Task} from '../../types.ts';
 import {useApp} from '../store/state.ts';
-import {editCapture,submitCapture} from '../store/tasks.ts';
+import {closeComposer,editCapture,submitCapture} from '../store/tasks.ts';
 import {settle} from '../ui/motion.ts';
 import {Dots} from '../ui/icons.tsx';
 import {useDrag,useRegion} from './drag.tsx';
@@ -20,7 +20,7 @@ export function InboxTray({scale,overdue=[],onOpen,selected,heading='미계획',
     <h2>{heading} {inbox.length>0&&<span className="cnt">{inbox.length}</span>}</h2>
     <label className="sr-only" htmlFor="tray-capture">미계획에 추가</label>
     <input id="tray-capture" className="capture-line" autoComplete="off" maxLength={650} placeholder="새 할 일" value={drafts.composer?'':drafts.capture} disabled={!ready||!draftLoaded}
-      onChange={e=>editCapture(e.target.value)}
+      onFocus={()=>{if(drafts.composer)closeComposer();}} onChange={e=>{if(drafts.composer)closeComposer();else editCapture(e.target.value);}}
       onKeyDown={e=>{if(e.key!=='Enter')return;e.preventDefault();if(isCompositionKey(e.nativeEvent))return;void submitCapture();}}/>
     <div className={'well'+(inbox.length?'':' empty')}>
       <AnimatePresence initial={false}>

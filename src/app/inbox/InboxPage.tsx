@@ -4,7 +4,7 @@ import {isCompositionKey} from '../../capture.ts';
 import {formatDuration} from '../../format.ts';
 import type {Task} from '../../types.ts';
 import {setNav,useApp} from '../store/state.ts';
-import {deleteTask,editCapture,submitCapture,toggleComplete} from '../store/tasks.ts';
+import {closeComposer,deleteTask,editCapture,submitCapture,toggleComplete} from '../store/tasks.ts';
 import {openEditor} from '../store/editor.ts';
 import {settle} from '../ui/motion.ts';
 import {Icon} from '../ui/icons.tsx';
@@ -23,7 +23,7 @@ export function InboxPage(){
       <Icon name="plus" size={18}/>
       <label className="sr-only" htmlFor="inbox-capture">할 일 담기</label>
       <input id="inbox-capture" autoComplete="off" maxLength={650} placeholder="어떤 일을 해야 하나요?" value={drafts.composer?'':drafts.capture} disabled={!ready||!draftLoaded||quitSaving}
-        onChange={e=>editCapture(e.target.value)}
+        onFocus={()=>{if(drafts.composer)closeComposer();}} onChange={e=>{if(drafts.composer)closeComposer();else editCapture(e.target.value);}}
         onKeyDown={e=>{if(e.key!=='Enter')return;e.preventDefault();if(isCompositionKey(e.nativeEvent))return;void submitCapture();}}/>
     </div>
     {open.length>0&&<div className="inbox-head">
