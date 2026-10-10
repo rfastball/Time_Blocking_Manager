@@ -1,3 +1,4 @@
+import {useLayoutEffect,useRef} from 'react';
 import type {TimeAxis} from '../../time-axis.ts';
 import {dateLabel,dateOf} from '../../dates.ts';
 import type {Task} from '../../types.ts';
@@ -16,8 +17,20 @@ const open=(t:Task)=>openEditor(t.id,'dialog');
 export function Week({dates}:{dates:string[]}){
   const axis=useDaysAxis(dates,WEEK_SCALE);
   const hours=Array.from({length:25},(_,i)=>i*60).filter(m=>m>=axis.start-60&&m<=axis.end+60);
+  const {today,nav}=useApp(),scroll=useRef<HTMLDivElement>(null),shown=useRef(false);
+  const target=dates.includes(today)?today:dates.includes(nav.selected)?nav.selected:null;
+  // A grid wider than the card would start with today cut off: bring its column in sideways, never vertically.
+  useLayoutEffect(()=>{
+    const el=scroll.current,col=target?el?.querySelector<HTMLElement>(`.wk-col[data-date="${target}"]`):null,first=!shown.current;shown.current=true;
+    if(!el||!col||el.scrollWidth<=el.clientWidth)return;
+    const box=el.getBoundingClientRect(),c=col.getBoundingClientRect(),ruler=el.querySelector<HTMLElement>('.wk-ruler')?.offsetWidth??0;
+    const left=c.left-box.left+el.scrollLeft-ruler,right=c.right-box.left+el.scrollLeft-el.clientWidth;
+    const to=el.scrollLeft>left?left:el.scrollLeft<right?Math.min(left,right):el.scrollLeft;
+    if(Math.abs(to-el.scrollLeft)<1)return;
+    el.scrollTo({left:to,behavior:first||matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});
+  },[dates[0],target,nav.inboxOpen]);
   return <section className="card wk" aria-label="주간 블록 공간">
-    <div className="wk-scroll">
+    <div ref={scroll} className="wk-scroll">
       <div className="wk-grid">
         <div className="wk-corner"/>
         {dates.map(date=><Head key={date} date={date}/>)}
