@@ -50,7 +50,7 @@ const scenarios=[
     await open(page);
     await page.click(rows+' .irow-main','SQLite');
     assert.ok(await page.js(`!!document.querySelector('dialog[open]')`),'editor dialog');
-    await page.click('dialog[open] button','닫기');
+    await page.click('dialog[open] .ed-close');
     await page.click(rows+' .irow-size','45분');
     assert.ok(await page.js(`!!document.querySelector('dialog[open]')`),'editor dialog from size');
   }},

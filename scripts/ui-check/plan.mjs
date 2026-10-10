@@ -108,7 +108,7 @@ export default [
     const today=await page.js(`document.querySelector('.cal-cell.today').dataset.date`),other=await page.js(`(()=>{const c=[...document.querySelectorAll('.cal-cell')];const i=c.findIndex(e=>e.classList.contains('today'));return c[i===0?1:i-1].dataset.date;})()`);
     await page.click(`.cal-cell[data-date="${today}"] .mini button`,'설계 문서 자료 조사');
     assert.ok(await page.js(`!!document.querySelector('dialog[open]')`),'editor dialog opens');
-    await page.click('dialog[open] .btn','닫기');
+    await page.click('dialog[open] .ed-close');
     const m=await page.rect(`.cal-cell[data-date="${today}"] .mini`,'회의록 정리'),target=await page.rect(`.cal-cell[data-date="${other}"]`);
     await page.drag({x:m.x+20,y:m.cy},{x:target.cx,y:target.cy});
     assert.match(await page.text(`.cal-cell[data-date="${other}"] .cal-tasks`),/회의록 정리/);

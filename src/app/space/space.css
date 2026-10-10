@@ -92,7 +92,8 @@
 .flow .tm,.next .tm{display:none}
 .blk:hover .tm,.blk:focus-within .tm{display:inline}
 .column .blk .tm{display:none}
-.grip{position:absolute;left:50%;bottom:-4px;width:36px;margin-left:-18px;height:10px;border:1px solid var(--sp-fixed-edge);border-radius:5px;background:var(--color-surface);cursor:ns-resize;padding:0;opacity:0;z-index:4;transition:opacity .12s}
+/* At the bottom-right corner, clear of the block's middle where clicks open it. */
+.grip{position:absolute;right:10px;bottom:-4px;width:36px;height:10px;border:1px solid var(--sp-fixed-edge);border-radius:5px;background:var(--color-surface);cursor:ns-resize;padding:0;opacity:0;z-index:4;transition:opacity .12s}
 .grip::after{content:"";position:absolute;left:10px;right:10px;top:3px;height:2px;border-radius:1px;background:var(--sp-fixed-edge)}
 .blk:hover .grip,.grip:focus-visible{opacity:1}
 
