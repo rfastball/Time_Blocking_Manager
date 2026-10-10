@@ -10,7 +10,7 @@ import {settle} from '../ui/motion.ts';
 import {Icon} from '../ui/icons.tsx';
 import {DaySpace} from '../space/DaySpace.tsx';
 import {useDaysAxis} from '../space/drag.tsx';
-import {allocationLabel,allocationShort} from '../plan/day.tsx';
+import {allocationLabel,allocationShort,Outside,outsideOf} from '../plan/day.tsx';
 import {InboxTray} from '../space/InboxTray.tsx';
 import {EditorPanel} from '../editor/hosts.tsx';
 import {useNewBlock} from '../plan/Composer.tsx';
@@ -30,13 +30,13 @@ export function Today(){
   const anchor=Math.max(rule.start,plan.anchor??rule.start);
   const editing=ui.editorMode==='panel'?drafts.editor?.id??null:null;
   const toggleMulti=(t:Task)=>{if(!t.completed)setMulti(m=>m.includes(t.id)?m.filter(x=>x!==t.id):[...m,t.id]);};
-  const load={used:aDone+aFlow+aFixed,avail};
+  const load={used:aDone+aFlow+aFixed,avail,outside:outsideOf(plan.items)};
   const newBlock=useNewBlock(date,axis,'day');
   return <div className="today">
     <div className="today-bar">
       <div className="cap" aria-label={allocationLabel(load)}>
         <span className="meter" aria-hidden="true">{([['done',aDone],['flow',aFlow],['fixed',aFixed]] as const).map(([k,n])=><motion.i key={k} className={'m-'+k} animate={{width:pct(n)}} transition={settle}/>)}</span>
-        <span aria-hidden="true">{allocationShort(load)}</span>
+        <span aria-hidden="true">{allocationShort(load)}</span><Outside a={load}/>
       </div>
       <span className="grow"/>
       {multi.length>0?<div className="multi-bar"><span>{multi.length}개 선택</span>

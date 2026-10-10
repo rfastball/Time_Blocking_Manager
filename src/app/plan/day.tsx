@@ -1,5 +1,5 @@
 import {motion} from 'motion/react';
-import {dayPlan} from '../../today.ts';
+import {dayPlan,type DayItem} from '../../today.ts';
 import {formatDuration} from '../../format.ts';
 import {dateKey,dateOf,plusDays} from '../../dates.ts';
 import type {Task} from '../../types.ts';
@@ -22,7 +22,9 @@ export function dayTag(date:string){
   return dayRule(date).enabled?null:'휴무';
 }
 
-export type Allocation={done:number;flow:number;fixed:number;used:number;avail:number;over:number;count:number;tasks:Task[]};
+export type Allocation={done:number;flow:number;fixed:number;used:number;avail:number;over:number;outside:number;count:number;tasks:Task[]};
+// Minutes of flow work laid out after working time.
+export const outsideOf=(items:DayItem[])=>items.reduce((n,i)=>i.over?n+i.end-i.start:n,0);
 // What the day holds against what it can hold. `tasks` may include a held block's preview.
 export function allocation(date:string,tasks:Task[]):Allocation{
   const plan=dayPlan(date,tasks,dayRule(date),getState().snapshot!.layouts??[]);
@@ -31,12 +33,15 @@ export function allocation(date:string,tasks:Task[]):Allocation{
   const done=sum(plan.completed),flow=sum(flowTasks),fixed=sum(fixedTasks),used=done+flow+fixed,avail=available(date);
   // In time order. Completed flow work has left the space.
   const ordered=plan.items.map(i=>i.task);
-  return {done,flow,fixed,used,avail,over:Math.max(0,used-avail),count:ordered.length,tasks:ordered};
+  return {done,flow,fixed,used,avail,over:Math.max(0,used-avail),outside:outsideOf(plan.items),count:ordered.length,tasks:ordered};
 }
-export const allocationLabel=(a:{used:number;avail:number})=>`배분 ${formatDuration(a.used)} / 가용 ${formatDuration(a.avail)}`;
+type Load={used:number;avail:number;outside?:number};
+export const allocationLabel=(a:Load)=>`배분 ${formatDuration(a.used)} / 가용 ${formatDuration(a.avail)}${a.outside?`, 근무 외 ${formatDuration(a.outside)}`:''}`;
 // The same pair as numbers only, in hours: "7.75 / 8h".
 const hours=(minutes:number)=>String(Math.round(minutes/60*100)/100);
-export const allocationShort=(a:{used:number;avail:number})=>`${hours(a.used)} / ${hours(a.avail)}h`;
+export const allocationShort=(a:Load)=>`${hours(a.used)} / ${hours(a.avail)}h`;
+// Work running past the end of the day, beside the pair: "근무 외 2.5h". Nothing when it all fits.
+export const Outside=({a}:{a:{outside?:number}})=>a.outside?<span className="alloc-out" aria-hidden="true">근무 외 {hours(a.outside)}h</span>:null;
 
 // Done, flow and fixed share the bar; what goes past the available time is hatched, not alarmed.
 export function Meter({a,className=''}:{a:Allocation;className?:string}){

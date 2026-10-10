@@ -8,7 +8,7 @@ import {openEditor} from '../store/editor.ts';
 import {DaySpace} from '../space/DaySpace.tsx';
 import {useDaysAxis,useDrag,useRegion} from '../space/drag.tsx';
 import {useNewBlock} from './Composer.tsx';
-import {allocation,allocationLabel,allocationShort,dayTag,Meter} from './day.tsx';
+import {allocation,allocationLabel,allocationShort,dayTag,Meter,Outside} from './day.tsx';
 
 const DAY_SCALE=1.05;
 const weekdays=['월','화','수','목','금','토','일'];
@@ -44,7 +44,7 @@ function Cell({date,period,outside}:{date:string;period:Exclude<Period,'week'>;o
       {a.tasks.slice(0,4).map(t=><Mini key={t.id} task={t}/>)}
       {a.tasks.length>4&&<small className="cal-more">+{a.tasks.length-4}건</small>}
     </div>:<div className="cal-load">
-      {a.count>0&&<span className="cal-sum"><span>{a.count}건</span><span>{formatDuration(a.used)}</span></span>}
+      {a.count>0&&<span className="cal-sum"><span>{a.count}건</span><span>{formatDuration(a.used)}</span><Outside a={a}/></span>}
       {a.used>0&&<Meter a={a} className="thin"/>}
     </div>}
   </div>;
@@ -70,7 +70,7 @@ function DatePanel({date}:{date:string}){
   return <section className="card plan-day" aria-label={`${dateLabel(date)} 블록 공간`}>
     <header className="plan-day-head">
       <h2>{dateLabel(date)}</h2>{tag&&<span className="tag-chip">{tag}</span>}
-      <span className="plan-day-alloc" aria-label={allocationLabel(a)}><Meter a={a}/><span aria-hidden="true">{allocationShort(a)}</span></span>
+      <span className="plan-day-alloc" aria-label={allocationLabel(a)}><Meter a={a}/><span aria-hidden="true">{allocationShort(a)}</span><Outside a={a}/></span>
     </header>
     <DaySpace date={date} axis={axis} variant="day" bin onOpen={t=>openEditor(t.id,'dialog')} {...nb}/>
   </section>;

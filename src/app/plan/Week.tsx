@@ -7,7 +7,7 @@ import {openEditor} from '../store/editor.ts';
 import {DaySpace} from '../space/DaySpace.tsx';
 import {useDaysAxis,useDrag,useRegion} from '../space/drag.tsx';
 import {useNewBlock} from './Composer.tsx';
-import {allocation,allocationLabel,allocationShort,dayTag,Meter} from './day.tsx';
+import {allocation,allocationLabel,allocationShort,dayTag,Meter,Outside} from './day.tsx';
 
 export const WEEK_SCALE=1;
 const open=(t:Task)=>openEditor(t.id,'dialog');
@@ -39,7 +39,7 @@ function Head({date}:{date:string}){
       aria-label={`${dateLabel(date)}${date===today?', 오늘':''}${tag?', '+tag:''}, ${allocationLabel(a)}`}>
       <span className="wk-day"><small>{d.toLocaleDateString('ko-KR',{weekday:'short'})}</small><strong>{d.getDate()}</strong>{date===today&&<span className="pill">오늘</span>}{tag&&<span className="tag-chip">{tag}</span>}</span>
       <Meter a={a}/>
-      <span className="wk-alloc">{allocationShort(a)}</span>
+      <span className="wk-alloc"><span>{allocationShort(a)}</span><Outside a={a}/></span>
     </button>
   </div>;
 }

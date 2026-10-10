@@ -31,7 +31,7 @@
 .wk-day small{font-size:12px;color:var(--color-text-muted)}
 .wk-day strong{font-size:17px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.1}
 .wk-day .pill,.cal-date .pill{align-self:center;font-size:11px;padding:1px 7px}
-.wk-alloc{font-size:11px;line-height:1.3;color:var(--color-text-muted);font-variant-numeric:tabular-nums}
+.wk-alloc{display:flex;flex-wrap:wrap;gap:0 6px;font-size:11px;line-height:1.3;color:var(--color-text-muted);font-variant-numeric:tabular-nums}
 .wk-head.today strong,.cal-cell.today .cal-date strong{color:var(--color-calendar-today)}
 .wk-head.sel{background:var(--color-selection);box-shadow:inset 0 -2px 0 var(--color-selection-border)}
 .wk-head.off .wk-day strong{color:var(--color-text-muted)}
@@ -88,7 +88,8 @@
 .plan-day-alloc{display:flex;align-items:center;gap:8px;margin-left:auto;font-size:12px;color:var(--color-text-muted);font-variant-numeric:tabular-nums}
 .plan-day-alloc .pm{width:96px}
 
-/* Allocation meter */
+/* Allocation meter. 근무 외 is a quiet count beside the pair, never an alarm. */
+.alloc-out{color:color-mix(in srgb,var(--color-overdue) 70%,var(--color-text-muted));font-variant-numeric:tabular-nums;white-space:nowrap}
 .pm{position:relative;display:flex;gap:1px;width:100%;height:8px;border-radius:3px;background:color-mix(in srgb,var(--color-text-muted) 16%,var(--color-surface));overflow:hidden;flex:0 0 auto}
 .pm.thin{height:6px}
 .pm i{display:block;height:100%}
