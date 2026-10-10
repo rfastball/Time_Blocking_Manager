@@ -22,7 +22,7 @@ export function InboxTray({scale,overdue=[],onOpen,selected,heading='미계획',
     <input id="tray-capture" className="capture-line" autoComplete="off" maxLength={650} placeholder="새 할 일" value={drafts.composer?'':drafts.capture} disabled={!ready||!draftLoaded}
       onChange={e=>editCapture(e.target.value)}
       onKeyDown={e=>{if(e.key!=='Enter')return;e.preventDefault();if(isCompositionKey(e.nativeEvent))return;void submitCapture();}}/>
-    <div className="well">
+    <div className={'well'+(inbox.length?'':' empty')}>
       <AnimatePresence initial={false}>
         {inbox.map(t=><TrayBlock key={t.id} task={t} scale={scale} hollow={holding?.task.id===t.id} selected={selected===t.id} onOpen={()=>onOpen(t)}/>)}
       </AnimatePresence>
