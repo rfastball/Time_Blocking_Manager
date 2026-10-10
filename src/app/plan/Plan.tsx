@@ -1,7 +1,7 @@
 import {useRef,type KeyboardEvent} from 'react';
 import {weekCapacity} from '../../settings.ts';
 import {formatDuration} from '../../format.ts';
-import {dateLabel} from '../../dates.ts';
+import {dateLabel,dateOf} from '../../dates.ts';
 import {getState,setNav,useApp,type Period} from '../store/state.ts';
 import {clearDay,inboxTasks,overdueTasks} from '../store/tasks.ts';
 import {openEditor} from '../store/editor.ts';
@@ -33,7 +33,7 @@ export function Plan(){
       <span className="week-summary">선택한 주 근무 {formatDuration(week.minutes)} / {formatDuration(settings.weekly_target??2400)} · {week.days} / {settings.work_days??5}일</span>
       <span className="grow"/>
       <button type="button" className="btn" onClick={goRoutines}>정기 업무</button>
-      <button type="button" className="btn text" disabled={!dated} aria-label={`${dateLabel(nav.selected)} 일정 비우기`} onClick={()=>void clearDay(nav.selected)}>하루 비우기</button>
+      <button type="button" className="btn text" disabled={!dated} aria-label={`${dateLabel(nav.selected)} 일정 비우기`} onClick={()=>void clearDay(nav.selected)}>{dateOf(nav.selected).getDate()}일 비우기</button>
       <button type="button" className={'btn drawer-toggle'+(open?' on':'')} aria-expanded={open} aria-controls="plan-drawer" aria-label={inbox.length?`미계획 ${inbox.length}건`:'미계획'}
         onClick={()=>setNav({inboxOpen:!open})}><Icon name="inbox" size={16}/>미계획{inbox.length>0&&<span className="cnt">{inbox.length}</span>}</button>
     </div>
