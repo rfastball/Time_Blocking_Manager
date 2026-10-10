@@ -3,6 +3,7 @@ import {DndContext,DragOverlay,PointerSensor,useSensor,useSensors,defaultDropAni
 import {motion,useMotionValue,useSpring,type MotionValue} from 'motion/react';
 import {applyIntent,noIntent,type Intent,type Zone} from '../../intent.ts';
 import {dayPlan} from '../../today.ts';
+import {insertionBefore} from '../../flow.ts';
 import {placementIssue} from '../../placement.ts';
 import type {TimeAxis} from '../../time-axis.ts';
 import type {Task} from '../../types.ts';
@@ -63,7 +64,7 @@ export function DragProvider({children}:{children:ReactNode}){
       }
       const rest=dayPlan(date,base.filter(t=>t.id!==task.id),rule,snapshot!.layouts??[]);
       const centre=axis.minute(topIn+task.duration*axis.scale/2),flows=rest.items.filter(i=>!i.fixed);
-      const before=flows.find(i=>centre<(i.start+i.end)/2)?.task.id??rest.unplaced[0]?.task.id??null;
+      const before=insertionBefore(flows,centre)??rest.unplaced[0]?.task.id??null;
       return {intent:{...intent,zone:'body',date,before},region};
     }
     for(const kind of ['shelf','date','tray'] as const)for(const region of all.filter(r=>r.kind===kind)){

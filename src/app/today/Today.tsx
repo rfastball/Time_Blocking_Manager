@@ -1,6 +1,7 @@
 import {useState} from 'react';
 import {motion} from 'motion/react';
 import {timeAxisForDays} from '../../time-axis.ts';
+import {nextFlowId} from '../../today.ts';
 import {formatDuration} from '../../format.ts';
 import {time} from '../../dates.ts';
 import type {Task} from '../../types.ts';
@@ -52,7 +53,7 @@ export function Today(){
         <DaySpace date={date} axis={axis} variant="day" bin shelf selected={editing} multi={multi} onOpen={t=>openEditor(t.id,'panel')} onMulti={toggleMulti} {...newBlock}/>
       </section>
       <aside className="today-side">
-        <EditorPanel nextId={plan.items.find(i=>!i.fixed)?.task.id??null}/>
+        <EditorPanel nextId={nextFlowId(plan.items)}/>
         <InboxTray scale={SCALE} overdue={overdueTasks()} selected={editing} onOpen={t=>openEditor(t.id,'panel')}/>
       </aside>
     </div>

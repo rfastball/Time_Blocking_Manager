@@ -16,6 +16,10 @@ export function toggleCheck(body:string,line:number,checked:boolean){
   lines[line]=lines[line].replace(/\[[ xX]\]/,checked?'[x]':'[ ]');
   return lines.join('\n');
 }
+// The memo as read at a glance: checklist marks become ✓ / · and blank lines drop out.
+export function memoPreview(body:string){
+  return body.split('\n').filter(l=>l.trim()).map(l=>{const m=l.match(CHECK);return m?`${m[1]===' '?'·':'✓'} ${m[2]}`:l.trim();}).join('\n');
+}
 export function checkCount(body:string){const items=checklist(body);return {done:items.filter(i=>i.checked).length,total:items.length};}
 
 export const taskState=(t:Pick<Task,'completed'|'plan_date'|'starts_at'>)=>t.completed?'완료':!t.plan_date?'미계획':t.starts_at?'시각 고정':'계획';

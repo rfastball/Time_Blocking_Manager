@@ -22,26 +22,7 @@ export function expandTimeAxis(axis:TimeAxis,minute:number):TimeAxis{
   return createTimeAxis(Math.min(axis.start,Math.max(0,Math.floor(minute/60)*60-60)),Math.max(axis.end,Math.min(1440,Math.ceil(minute/60)*60+60)),axis.scale);
 }
 
-export function readTimeAxis(element:HTMLElement):TimeAxis{
-  return createTimeAxis(Number(element.dataset.axisStart),Number(element.dataset.axisEnd),Number(element.dataset.axisScale));
-}
-export function setTimeAxis(element:HTMLElement,axis:TimeAxis){
-  element.dataset.axisStart=String(axis.start);element.dataset.axisEnd=String(axis.end);element.dataset.axisScale=String(axis.scale);
-}
-export const timeAxisAttributes=(axis:TimeAxis)=>`data-axis-start="${axis.start}" data-axis-end="${axis.end}" data-axis-scale="${axis.scale}"`;
-
+// Hour labels in the compressed outer hours would overlap; show one only where it has room.
 export function timeAxisLabelVisible(axis:TimeAxis,minute:number){
   return minute===0||minute===1440||(axis.position(minute)-axis.position(Math.max(0,minute-60))>=24&&axis.position(Math.min(1440,minute+60))-axis.position(minute)>=24);
-}
-
-export function paintCalendarAxis(surface:HTMLElement,axis:TimeAxis){
-  const container=surface.closest<HTMLElement>('.week-time-grid')||surface;
-  container.style.height=axis.height+'px';
-  const surfaces=container.matches('[data-calendar-surface]')?[container]:Array.from(container.querySelectorAll<HTMLElement>('[data-calendar-surface]'));
-  surfaces.forEach(el=>setTimeAxis(el,axis));
-  container.querySelectorAll<HTMLElement>('[data-minute]').forEach(el=>{
-    const start=Number(el.dataset.minute);el.style.top=axis.position(start)+'px';
-    if(el.dataset.duration)el.style.height=(axis.position(start+Number(el.dataset.duration))-axis.position(start))+'px';
-    if(el.hasAttribute('data-hour-label'))el.hidden=!timeAxisLabelVisible(axis,start);
-  });
 }

@@ -3,6 +3,7 @@
 import {useCallback,useEffect,useRef} from 'react';
 import {animate,motion} from 'motion/react';
 import {time} from '../../dates.ts';
+import {memoPreview} from '../../detail.ts';
 import {getState,useApp} from '../store/state.ts';
 import {closeEditor,openEditor} from '../store/editor.ts';
 import {planOf} from '../store/tasks.ts';
@@ -25,7 +26,7 @@ export function EditorPanel({nextId}:{nextId:string|null}){
     <button type="button" className="ed-next-open" onClick={()=>openEditor(next.id,'panel')}>
       <span className="pill">다음</span>
       <span className="ed-next-title">{next.title}</span>
-      {next.body.trim()&&<span className="ed-next-memo">{next.body}</span>}
+      {next.body.trim()&&<span className="ed-next-memo">{memoPreview(next.body)}</span>}
       {item&&<span className="ed-next-time">예상 {time(item.start)}–{time(item.end)}</span>}
     </button>
   </section>;

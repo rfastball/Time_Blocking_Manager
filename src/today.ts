@@ -18,16 +18,7 @@ export function dayPlan(date:string,tasks:Task[],rule:WorkingDay,layouts:DayLayo
   return {items,unplaced:layout.unplaced,completed:flow.filter(t=>t.completed),anchor};
 }
 // Time passing never changes a task's state: there is no current, late or missed block.
-export type AgendaItem={kind:'task';start:number;end:number;task:Task;fixed:boolean;state:'done'|'next'|'upcoming'}|{kind:'unavailable'|'gap';start:number;end:number;label:string};
-// Gaps before the anchor are space already left behind by the last reflow, not free time.
-export function agenda(items:DayItem[],rule:WorkingDay,anchor:number|null=null):AgendaItem[]{
-  const next=items.find(i=>!i.fixed&&!i.task.completed)?.task.id;
-  const result:AgendaItem[]=items.map(i=>({kind:'task',...i,state:i.task.completed?'done':i.task.id===next?'next':'upcoming'}));
-  if(!rule.enabled)return result;
-  result.push(...rule.breaks.map(b=>({kind:'unavailable' as const,...b})));
-  result.sort((a,b)=>a.start-b.start);
-  const gaps:AgendaItem[]=[];let cursor=Math.max(rule.start,anchor??rule.start);
-  for(const item of result){if(item.end<=cursor)continue;if(item.start-cursor>=15)gaps.push({kind:'gap',start:cursor,end:item.start,label:'빈 시간'});cursor=Math.max(cursor,item.end);}
-  if(rule.end-cursor>=15)gaps.push({kind:'gap',start:cursor,end:rule.end,label:'빈 시간'});
-  return [...result,...gaps].sort((a,b)=>a.start-b.start);
+// The next block is simply the first remaining flow block, whatever the clock says.
+export function nextFlowId(items:DayItem[],skip:string[]=[]){
+  return items.find(i=>!i.fixed&&!i.task.completed&&!skip.includes(i.task.id))?.task.id??null;
 }

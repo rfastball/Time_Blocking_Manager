@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {checkCount,checklist,durationValid,quarter,scheduleHint,scheduleSummary,taskState,toggleCheck,withSchedule} from './detail.ts';
+import {checkCount,checklist,durationValid,memoPreview,quarter,scheduleHint,scheduleSummary,taskState,toggleCheck,withSchedule} from './detail.ts';
 
 const body='진행 상황\n[ ] 계획 화면 정리\n- [x] 검토 의견 반영\n  [X] 들여쓴 항목\n[] 아님\n끝';
 
@@ -19,6 +19,10 @@ test('toggling rewrites only that line mark and leaves the memo otherwise unchan
   assert.equal(toggleCheck(body,0,true),body);
   assert.equal(toggleCheck(body,40,true),body);
   assert.equal(toggleCheck('[ ] a [ ] b',0,true),'[x] a [ ] b');
+});
+
+test('the memo preview shows checklist marks as ✓ and · without blank lines',()=>{
+  assert.equal(memoPreview('진행 메모\n\n[x] 요구사항 확인\n- [ ] 초안에 반영'),'진행 메모\n✓ 요구사항 확인\n· 초안에 반영');
 });
 
 test('state badge follows completion, then date, then fixed time',()=>{

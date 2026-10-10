@@ -22,7 +22,3 @@ export function saveTheme(storage:Pick<Storage,'setItem'>,value:unknown):Theme {
   storage.setItem(themeStorageKey,theme);
   return theme;
 }
-
-export function themePickerHTML(theme:Theme){
-  return `<fieldset class="theme-picker"><legend>화면 테마</legend><div class="theme-options">${themes.map(t=>`<label class="theme-option" title="${t.name}"><input type="radio" name="theme" aria-label="${t.name}" value="${t.id}" ${theme===t.id?'checked':''}><span class="theme-preview" data-theme="${t.id}" aria-hidden="true"><span class="theme-preview-rail"></span><span class="theme-preview-page"><strong>오늘</strong><span class="theme-preview-block">할 일</span><span class="theme-preview-line"></span></span></span></label>`).join('')}</div><p id="theme-result" role="status"></p></fieldset>`;
-}

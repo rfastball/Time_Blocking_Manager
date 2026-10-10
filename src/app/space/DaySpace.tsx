@@ -1,7 +1,7 @@
 import {useEffect,useRef,useState,type KeyboardEvent,type MouseEvent as ReactMouseEvent,type PointerEvent as ReactPointerEvent,type ReactNode} from 'react';
 import {useDraggable} from '@dnd-kit/core';
 import {AnimatePresence,motion,useAnimate} from 'motion/react';
-import {dayPlan,type DayItem} from '../../today.ts';
+import {dayPlan,nextFlowId,type DayItem} from '../../today.ts';
 import {unplacedLabel} from '../../flow.ts';
 import {formatDuration} from '../../format.ts';
 import {time} from '../../dates.ts';
@@ -37,7 +37,7 @@ export function DaySpace({date,axis,variant,bin,shelf,selected,multi=[],onOpen,o
   const spaceRef=useRegion('space',date,{axis,geometry}),shelfRef=useRegion('shelf',date);
   const shown=sizing?tasks.map(t=>t.id===sizing.id?{...t,duration:sizing.dur}:t):tasks;
   const plan=dayPlan(date,shown,rule,snapshot?.layouts??[]);
-  const nextId=date===today?plan.items.find(i=>!i.fixed&&!squash.includes(i.task.id))?.task.id??null:null;
+  const nextId=date===today?nextFlowId(plan.items,squash):null;
   const doneIds=new Set((snapshot?.tasks??[]).filter(t=>t.completed).map(t=>t.id));
   const holding=held&&!held.dropping?held:null;
   const anchor=Math.max(rule.start,plan.anchor??rule.start);
