@@ -10,7 +10,13 @@ pub struct Task {
     pub duration: i64,
     pub completed: bool,
     pub revision: i64,
+    // Fixed tasks derive plan_date from starts_at; flow tasks have a date and an order only.
+    #[serde(default)] pub plan_date: Option<String>,
+    #[serde(default)] pub flow_order: Option<i64>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct DayLayout { pub date: String, pub anchor: i64 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Unavailable { pub start: i64, pub end: i64, pub label: String }
@@ -63,7 +69,7 @@ impl Default for Settings {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Snapshot { pub epoch: String, pub tasks: Vec<Task>, pub settings: Settings }
+pub struct Snapshot { pub epoch: String, pub tasks: Vec<Task>, pub settings: Settings, #[serde(default)] pub layouts: Vec<DayLayout> }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Command {
@@ -77,7 +83,11 @@ pub struct Command {
 pub enum Action {
     Create { id: String, title: String },
     CreateScheduled { id:String,title:String,starts_at:Option<String>,duration:i64 },
-    Update { id: String, expected_revision: i64, title: String, body: String, starts_at: Option<String>, duration: i64 },
+    CreateFlow { id:String, title:String, date:String, duration:i64 },
+    // Omitted placement fields keep request fingerprints of older clients unchanged.
+    Update { id: String, expected_revision: i64, title: String, body: String, starts_at: Option<String>, duration: i64,
+        #[serde(default, skip_serializing_if="Option::is_none")] plan_date: Option<String>,
+        #[serde(default, skip_serializing_if="Option::is_none")] before: Option<String> },
     SetCompleted { id: String, expected_revision: i64, completed: bool },
     Delete { id: String, expected_revision: i64 },
     Split { id:String, expected_revision:i64, new_id:String, first_duration:i64 },
@@ -86,6 +96,9 @@ pub enum Action {
     SetRoutines { expected_revision:i64, routines:Vec<Routine> },
     EnsureRoutines { from:String, to:String },
     ClearDay { date:String, expected_tasks:Vec<TaskRevision> },
+    ReorderFlow { date:String, expected:Vec<TaskRevision> },
+    CompleteFlow { date:String, items:Vec<TaskRevision>, at:Option<String> },
+    Reflow { date:String, at:String },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -176,7 +189,13 @@ pub fn validate_task(task: &Task, tasks: &[Task], settings: &Settings) -> Result
         || task.duration < 15 || task.duration > 1440 || task.duration % 15 != 0 {
         return Err(error("validation", "제목(최대 2,000바이트), 본문(최대 200KB), 소요시간을 확인하세요."));
     }
-    let Some(start) = task.starts_at.as_deref() else { return Ok(()); };
+    if let Some(date)=task.plan_date.as_deref() { parse_start(&format!("{date}T00:00"))?; }
+    let start=match (task.starts_at.as_deref(),task.plan_date.as_deref(),task.flow_order) {
+        (Some(start),Some(date),None) if start.get(..10)==Some(date) => start,
+        // Flow tasks are placed by the client layout and never reserve exact minutes.
+        (None,Some(_),Some(_)) | (None,None,None) => return Ok(()),
+        _ => return Err(error("validation","작업의 날짜·순서·시각 배치 상태가 올바르지 않습니다.")),
+    };
     let dt = parse_start(start)?;
     let minute = (dt.hour() * 60 + dt.minute()) as i64;
     if minute % 15 != 0 { return Err(error("validation", "시작시각은 15분 단위로 지정하세요.")); }

@@ -157,3 +157,13 @@ Test delta 결과: added/extended/removed **3/3/0**, 수집 **13→16**. `cargo 
 - Expected cost delta / Evidence to retire: 사례 1개, 새 실행 프로세스·브라우저·의존성·파일·CI lane 0, 퇴역할 증거 없음.
 
 Test delta 결과: added/extended/removed **1/0/0**, 기본 Node 수집 **21→22**, `npm test` **22/22 · 101.2982ms**. 사례 본체 1.8778ms이며 같은 조건의 변경 전 baseline이 없어 runtime delta는 미측정. heavy-resource launch delta 0, coverage-floor 영향 0. 브라우저 수동 검증은 기존 미리보기 세션을 재사용하며 자동 suite에 넣지 않는다.
+
+
+## 유동 배분 저장소 v4 Test delta brief (2026-10-10)
+
+- Unique risk: v3 배치가 이관 중 사라지거나 고정 시각을 잃음, 이관 전 원본이 남지 않음, 일괄 완료가 일부만 반영됨, 지연 재시도가 배치 기준 시각을 과거로 되돌림, 순서 변경이 열린 편집을 무효화함, 하루 비우기·복원에서 기준 시각이 남거나 사라짐.
+- Existing owner / Selected layer: `src-tauri/tests/storage.rs`의 실제 임시 SQLite owner. 기존 하루 비우기·정기 업무·구버전 이관·날짜 예외·백업 검사 사례를 확장하고, 유동 순서와 완료 기준 시각 시나리오 2개를 추가한다. 배치 위치 계산은 저장 경계가 아니므로 Node `src/flow.ts` owner가 소유한다.
+- Expected cost delta: 같은 storage 실행 파일 안의 시나리오 2개 추가, 기존 5개 확장. 새 파일·의존성·worker·GUI·네트워크·CI lane 0, coverage floor 변경 0.
+- Evidence to retire: 없음. ‘충돌 시 미계획 이동’ 단언은 같은 사례 안에서 ‘같은 날짜 유동’ 단언으로 교체했다(D8·D9).
+
+Test delta 결과: added/extended/removed **2/5/0**, 수집 **16→18**. `cargo test --manifest-path src-tauri/Cargo.toml --no-default-features --locked` **18/18**, 본체 **5.18초**. baseline 16/16 4.24초(단일 실행, 별도 시점)와의 차이는 성능 추정이 아니다. 구버전 사례는 v1·v2·v3 각각 열 삭제로 실제 이전 표 형태를 재구성해 이관·`before-migration` 백업·복원을 검증한다. desktop `cargo check` 성공. heavy-resource launch·dependency·CI lane·coverage-floor 영향 0.

@@ -31,7 +31,7 @@ fn backup_kind(id: &str) -> Option<&'static str> {
             return Some(kind);
         }
     }
-    for (prefix,kind) in [("manual-","manual"),("before-restore-","safety")] {
+    for (prefix,kind) in [("manual-","manual"),("before-restore-","safety"),("before-migration-","migration")] {
         if let Some(value)=stem.strip_prefix(prefix) {
             let id=uuid::Uuid::parse_str(value).ok()?;
             return (id.to_string()==value).then_some(kind);
@@ -76,13 +76,58 @@ CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE tasks (
  id TEXT PRIMARY KEY, title TEXT NOT NULL CHECK(length(trim(title)) > 0),
  body TEXT NOT NULL DEFAULT '', starts_at TEXT, duration INTEGER NOT NULL DEFAULT 30 CHECK(duration >= 15 AND duration % 15 = 0),
- completed INTEGER NOT NULL DEFAULT 0 CHECK(completed IN (0,1)), revision INTEGER NOT NULL DEFAULT 1 CHECK(revision > 0)
+ completed INTEGER NOT NULL DEFAULT 0 CHECK(completed IN (0,1)), revision INTEGER NOT NULL DEFAULT 1 CHECK(revision > 0),
+ plan_date TEXT, flow_order INTEGER
 );
 CREATE INDEX task_start ON tasks(starts_at);
 CREATE TABLE receipts (id TEXT PRIMARY KEY, payload TEXT NOT NULL);
 CREATE TABLE drafts (slot TEXT PRIMARY KEY, sequence INTEGER NOT NULL, content TEXT NOT NULL);
 CREATE TABLE routine_occurrences (routine_id TEXT NOT NULL, date TEXT NOT NULL, PRIMARY KEY(routine_id,date));
-PRAGMA user_version = 3;";
+CREATE TABLE day_layouts (date TEXT PRIMARY KEY, anchor INTEGER NOT NULL);
+PRAGMA user_version = 4;";
+
+const TASK_COLUMNS: &str = "id,title,body,starts_at,duration,completed,revision,plan_date,flow_order";
+
+fn insert_task(conn: &Connection, t: &Task) -> Result<()> {
+    conn.execute(&format!("INSERT INTO tasks({TASK_COLUMNS}) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9)"),
+        params![t.id,t.title,t.body,t.starts_at,t.duration,t.completed,t.revision,t.plan_date,t.flow_order])?;
+    Ok(())
+}
+
+fn insert_layouts(conn: &Connection, layouts: &[DayLayout]) -> Result<()> {
+    for layout in layouts {conn.execute("INSERT INTO day_layouts(date,anchor) VALUES(?1,?2)",params![layout.date,layout.anchor])?;}
+    Ok(())
+}
+
+// Appending after completed flow tasks lets an undone task return to its own place.
+fn next_flow_order(tasks: &[Task], date: &str) -> i64 {
+    tasks.iter().filter(|t|t.plan_date.as_deref()==Some(date)&&t.starts_at.is_none()).filter_map(|t|t.flow_order).max().unwrap_or(0)+1
+}
+
+fn is_open_flow(t: &Task, date: &str) -> bool {
+    t.plan_date.as_deref()==Some(date) && t.starts_at.is_none() && t.flow_order.is_some() && !t.completed
+}
+
+fn minute_on(at: &str, date: &str) -> Result<i64> {
+    use chrono::Timelike;
+    let parsed=parse_start(at)?;
+    if parsed.date().format("%Y-%m-%d").to_string()!=date {return Err(error("validation","배치 기준 시각은 같은 날짜여야 합니다."));}
+    Ok(i64::from(parsed.hour()*60+parsed.minute()))
+}
+
+// The anchor only moves forward so a delayed retry cannot reopen past space.
+fn advance_anchor(conn: &Connection, date: &str, minute: i64) -> Result<()> {
+    conn.execute("INSERT INTO day_layouts(date,anchor) VALUES(?1,?2) ON CONFLICT(date) DO UPDATE SET anchor=max(anchor,excluded.anchor)",params![date,minute])?;
+    Ok(())
+}
+
+fn unique_revisions(items: &[TaskRevision], message: &str) -> Result<std::collections::HashMap<String,i64>> {
+    let mut expected=std::collections::HashMap::new();
+    for task in items {
+        if task.id.is_empty() || task.id.len()>100 || task.revision<1 || expected.insert(task.id.clone(),task.revision).is_some() {return Err(error("validation",message));}
+    }
+    Ok(expected)
+}
 
 fn parse_date(value: &str) -> Result<chrono::NaiveDate> {
     Ok(parse_start(&format!("{value}T00:00"))?.date())
@@ -104,9 +149,16 @@ fn occurrences(conn: &Connection) -> Result<Vec<(String,String)>> {
 fn read(conn: &Connection) -> Result<Snapshot> {
     let epoch = conn.query_row("SELECT value FROM meta WHERE key='epoch'", [], |r| r.get(0))?;
     let raw: String = conn.query_row("SELECT value FROM meta WHERE key='settings'", [], |r| r.get(0))?;
-    let mut stmt = conn.prepare("SELECT id,title,body,starts_at,duration,completed,revision FROM tasks ORDER BY starts_at,id")?;
-    let tasks = stmt.query_map([], |r| Ok(Task { id: r.get(0)?, title: r.get(1)?, body: r.get(2)?, starts_at: r.get(3)?, duration: r.get(4)?, completed: r.get(5)?, revision: r.get(6)? }))?.collect::<std::result::Result<Vec<_>, _>>()?;
-    Ok(Snapshot { epoch, tasks, settings: serde_json::from_str(&raw)? })
+    let version:i64=conn.query_row("PRAGMA user_version",[],|r|r.get(0))?;
+    // Earlier schemas only had exact placements, so their dated tasks are fixed plans.
+    let columns=if version>=4 {TASK_COLUMNS} else {"id,title,body,starts_at,duration,completed,revision,substr(starts_at,1,10),NULL"};
+    let mut stmt = conn.prepare(&format!("SELECT {columns} FROM tasks ORDER BY starts_at,id"))?;
+    let tasks = stmt.query_map([], |r| Ok(Task { id: r.get(0)?, title: r.get(1)?, body: r.get(2)?, starts_at: r.get(3)?, duration: r.get(4)?, completed: r.get(5)?, revision: r.get(6)?, plan_date: r.get(7)?, flow_order: r.get(8)? }))?.collect::<std::result::Result<Vec<_>, _>>()?;
+    let layouts=if version>=4 {
+        let mut stmt=conn.prepare("SELECT date,anchor FROM day_layouts ORDER BY date")?;
+        let rows=stmt.query_map([],|r|Ok(DayLayout{date:r.get(0)?,anchor:r.get(1)?}))?.collect::<std::result::Result<Vec<_>,_>>()?;rows
+    } else {vec![]};
+    Ok(Snapshot { epoch, tasks, settings: serde_json::from_str(&raw)?, layouts })
 }
 
 fn validate_snapshot(s: &Snapshot) -> Result<()> {
@@ -123,12 +175,17 @@ fn validate_snapshot(s: &Snapshot) -> Result<()> {
         if t.revision < 1 { return Err(error("schema", "항목 버전이 올바르지 않습니다.")); }
         validate_task(t, &[], &s.settings)?;
     }
+    let mut dates=std::collections::HashSet::new();
+    for layout in &s.layouts {
+        parse_date(&layout.date)?;
+        if !(0..=1440).contains(&layout.anchor) || !dates.insert(&layout.date) {return Err(error("schema","날짜별 배치 기준이 올바르지 않습니다."));}
+    }
     Ok(())
 }
 
 fn check_database(conn: &Connection) -> Result<Snapshot> {
     let version: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
-    if !(1..=3).contains(&version) { return Err(error("schema", "지원하지 않는 저장소 버전입니다. 원본은 변경하지 않았습니다.")); }
+    if !(1..=4).contains(&version) { return Err(error("schema", "지원하지 않는 저장소 버전입니다. 원본은 변경하지 않았습니다.")); }
     let mut stmt = conn.prepare("PRAGMA integrity_check")?;
     let results = stmt.query_map([], |r| r.get::<_, String>(0))?.collect::<std::result::Result<Vec<_>, _>>()?;
     if results != ["ok"] { return Err(error("corrupt", "무결성 검사에 실패했습니다. 원본은 변경하지 않았습니다.")); }
@@ -161,6 +218,21 @@ fn check_database_copy(path: &Path) -> Result<Snapshot> {
     result
 }
 
+fn backup_connection(source: &Connection, destination: &Path) -> Result<()> {
+    if destination.exists(){return Err(error("destination_exists","기존 파일은 덮어쓰지 않습니다. 새 백업 파일명을 선택하세요."));}
+    // create_new protects the active database and existing user backups from overwrite.
+    let reservation = fs::OpenOptions::new().write(true).create_new(true).open(destination)?;
+    drop(reservation);
+    let mut dest = Connection::open(destination)?;
+    let backup = rusqlite::backup::Backup::new(source, &mut dest)?;
+    backup.run_to_completion(128, Duration::from_millis(5), None)?;
+    drop(backup);
+    dest.execute_batch("PRAGMA journal_mode=DELETE; PRAGMA synchronous=FULL;")?;
+    check_database(&dest)?;
+    dest.execute("INSERT OR REPLACE INTO meta VALUES('backup_created_at',?1)",[chrono::Utc::now().to_rfc3339()])?;
+    Ok(())
+}
+
 impl Store {
     pub fn open(path: &Path) -> Result<Self> {
         if sidecar(path,".recovering").exists() {
@@ -179,12 +251,25 @@ impl Store {
             tx.commit()?;
         }
         check_database(&conn)?;
-        // Older executables must not discard routines or their generation history.
+        // Older executables must not discard routines, flow plans or their generation history.
         let version:i64=conn.query_row("PRAGMA user_version",[],|r|r.get(0))?;
-        if version<3 {
+        if version<4 {
+            let root=path.parent().ok_or_else(||error("storage","저장소 폴더를 확인할 수 없습니다."))?;
+            let directory=backup_directory(root)?;fs::create_dir_all(&directory)?;
+            backup_connection(&conn,&directory.join(format!("before-migration-{}.sqlite",uuid::Uuid::new_v4())))?;
             let tx=conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
-            tx.execute_batch("CREATE TABLE routine_occurrences (routine_id TEXT NOT NULL, date TEXT NOT NULL, PRIMARY KEY(routine_id,date)); PRAGMA user_version=3;")?;
+            tx.execute_batch("CREATE TABLE IF NOT EXISTS routine_occurrences (routine_id TEXT NOT NULL, date TEXT NOT NULL, PRIMARY KEY(routine_id,date));")?;
+            let columns=tx.prepare("SELECT name FROM pragma_table_info('tasks')")?.query_map([],|r|r.get::<_,String>(0))?.collect::<std::result::Result<Vec<_>,_>>()?;
+            for (column,kind) in [("plan_date","TEXT"),("flow_order","INTEGER")] {
+                if !columns.iter().any(|c|c==column) {tx.execute_batch(&format!("ALTER TABLE tasks ADD COLUMN {column} {kind};"))?;}
+            }
+            // Every existing placement keeps its exact time as a fixed plan.
+            tx.execute_batch("UPDATE tasks SET plan_date=substr(starts_at,1,10),flow_order=NULL WHERE starts_at IS NOT NULL;
+                UPDATE tasks SET plan_date=NULL,flow_order=NULL WHERE starts_at IS NULL;
+                CREATE TABLE IF NOT EXISTS day_layouts (date TEXT PRIMARY KEY, anchor INTEGER NOT NULL);
+                PRAGMA user_version=4;")?;
             tx.commit()?;
+            check_database(&conn)?;
         }
         conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA foreign_keys=ON;")?;
         Ok(Self { conn, path: path.into() })
@@ -214,7 +299,7 @@ impl Store {
         }
         match &command.action {
             Action::Create { id, title } => {
-                let task = Task { id: id.clone(), title: title.trim().into(), body: String::new(), starts_at: None, duration: 30, completed: false, revision: 1 };
+                let task = Task { id: id.clone(), title: title.trim().into(), body: String::new(), starts_at: None, duration: 30, completed: false, revision: 1, plan_date: None, flow_order: None };
                 validate_task(&task, &snapshot.tasks, &snapshot.settings)?;
                 tx.execute("INSERT INTO tasks(id,title) VALUES(?1,?2)", params![task.id, task.title])?;
             }
@@ -226,18 +311,52 @@ impl Store {
                 tx.execute("UPDATE meta SET value=?1 WHERE key='settings'", [serde_json::to_string(&settings)?])?;
             }
             Action::CreateScheduled { id,title,starts_at,duration } => {
-                let task=Task{id:id.clone(),title:title.trim().into(),body:String::new(),starts_at:starts_at.clone(),duration:*duration,completed:false,revision:1};
+                let plan_date=starts_at.as_deref().map(|start|start.get(..10).unwrap_or_default().to_string());
+                let task=Task{id:id.clone(),title:title.trim().into(),body:String::new(),starts_at:starts_at.clone(),duration:*duration,completed:false,revision:1,plan_date,flow_order:None};
                 validate_task(&task,&snapshot.tasks,&snapshot.settings)?;
-                tx.execute("INSERT INTO tasks(id,title,starts_at,duration) VALUES(?1,?2,?3,?4)",params![task.id,task.title,task.starts_at,task.duration])?;
+                insert_task(&tx,&task)?;
+            }
+            Action::CreateFlow { id,title,date,duration } => {
+                parse_date(date)?;
+                let task=Task{id:id.clone(),title:title.trim().into(),body:String::new(),starts_at:None,duration:*duration,completed:false,revision:1,plan_date:Some(date.clone()),flow_order:Some(next_flow_order(&snapshot.tasks,date))};
+                validate_task(&task,&snapshot.tasks,&snapshot.settings)?;
+                insert_task(&tx,&task)?;
+            }
+            Action::ReorderFlow { date,expected } => {
+                parse_date(date)?;
+                let revisions=unique_revisions(expected,"하루 순서 항목 정보를 확인하세요.")?;
+                let open:Vec<_>=snapshot.tasks.iter().filter(|t|is_open_flow(t,date)).collect();
+                if open.len()!=revisions.len() || open.iter().any(|t|revisions.get(&t.id)!=Some(&t.revision)) {return Err(error("conflict","다른 창에서 하루 순서가 변경됐습니다. 다시 확인하세요."));}
+                // Order is a property of the day, so it does not invalidate open task editors.
+                for (index,task) in expected.iter().enumerate() {tx.execute("UPDATE tasks SET flow_order=?1 WHERE id=?2",params![index as i64+1,task.id])?;}
+            }
+            Action::CompleteFlow { date,items,at } => {
+                parse_date(date)?;
+                let revisions=unique_revisions(items,"완료할 항목 정보를 확인하세요.")?;
+                if revisions.is_empty() {return Err(error("validation","완료할 항목을 선택하세요."));}
+                let anchor=at.as_deref().map(|at|minute_on(at,date)).transpose()?;
+                for (id,revision) in &revisions {
+                    if !snapshot.tasks.iter().any(|t|&t.id==id && t.revision==*revision && is_open_flow(t,date)) {return Err(error("conflict","다른 창에서 작업이 변경됐습니다. 다시 확인하세요."));}
+                }
+                for (id,revision) in &revisions {tx.execute("UPDATE tasks SET completed=1,revision=revision+1 WHERE id=?1 AND revision=?2",params![id,revision])?;}
+                if let Some(minute)=anchor {advance_anchor(&tx,date,minute)?;}
+            }
+            Action::Reflow { date,at } => {
+                parse_date(date)?;
+                let minute=minute_on(at,date)?;advance_anchor(&tx,date,minute)?;
             }
             Action::SetSchedule {expected_revision,days,exceptions,weekly_target,work_days,move_conflicts} => {
                 if *expected_revision!=snapshot.settings.revision {return Err(error("conflict","다른 창에서 시간 설정이 변경됐습니다. 다시 확인하세요."));}
                 let settings=Settings{days:days.clone(),exceptions:exceptions.clone(),weekly_target:*weekly_target,work_days:*work_days,revision:expected_revision+1,routines:snapshot.settings.routines.clone()};
                 validate_settings(&settings)?;
+                let mut tasks=snapshot.tasks.clone();
                 for t in &snapshot.tasks {
                     if let Err(e)=validate_task(t,&snapshot.tasks,&settings) {
                         if e.code!="unavailable"||!*move_conflicts{return Err(e);}
-                        tx.execute("UPDATE tasks SET starts_at=NULL,revision=revision+1 WHERE id=?1",[&t.id])?;
+                        // A conflicting reservation keeps its date and becomes flow work there.
+                        let date=t.plan_date.clone().unwrap_or_default();let order=next_flow_order(&tasks,&date);
+                        tx.execute("UPDATE tasks SET starts_at=NULL,flow_order=?1,revision=revision+1 WHERE id=?2",params![order,t.id])?;
+                        if let Some(task)=tasks.iter_mut().find(|task|task.id==t.id) {task.starts_at=None;task.flow_order=Some(order);}
                     }
                 }
                 tx.execute("UPDATE meta SET value=?1 WHERE key='settings'",[serde_json::to_string(&settings)?])?;
@@ -260,26 +379,24 @@ impl Store {
                         if !routine.weekdays.contains(&(date.weekday().num_days_from_monday() as usize)) {continue;}
                         let generated=tx.execute("INSERT OR IGNORE INTO routine_occurrences(routine_id,date) VALUES(?1,?2)",params![routine.id,key])?;
                         if generated==0 {continue;}
-                        let mut task=Task{id:uuid::Uuid::new_v4().to_string(),title:routine.title.clone(),body:routine.body.clone(),starts_at:Some(format!("{key}T{:02}:{:02}",routine.start/60,routine.start%60)),duration:routine.duration,completed:false,revision:1};
+                        let mut task=Task{id:uuid::Uuid::new_v4().to_string(),title:routine.title.clone(),body:routine.body.clone(),starts_at:Some(format!("{key}T{:02}:{:02}",routine.start/60,routine.start%60)),duration:routine.duration,completed:false,revision:1,plan_date:Some(key.clone()),flow_order:None};
                         if let Err(e)=validate_task(&task,&tasks,&snapshot.settings) {
                             if e.code!="unavailable" && e.code!="overlap" {return Err(e);}
-                            task.starts_at=None;
+                            // The routine still belongs to this date; only its exact time is released.
+                            task.starts_at=None;task.flow_order=Some(next_flow_order(&tasks,&key));
                         }
-                        tx.execute("INSERT INTO tasks(id,title,body,starts_at,duration) VALUES(?1,?2,?3,?4,?5)",params![task.id,task.title,task.body,task.starts_at,task.duration])?;
+                        insert_task(&tx,&task)?;
                         tasks.push(task);
                     }
                 }
             }
             Action::ClearDay {date,expected_tasks} => {
                 parse_date(date)?;
-                let mut expected=std::collections::HashMap::new();
-                for task in expected_tasks {
-                    if task.id.is_empty() || task.id.len()>100 || task.revision<1 || expected.insert(&task.id,task.revision).is_some() {return Err(error("validation","하루 초기화 항목 정보를 확인하세요."));}
-                }
-                let prefix=format!("{date}T");
-                let scheduled:Vec<_>=snapshot.tasks.iter().filter(|task|task.starts_at.as_deref().is_some_and(|start|start.starts_with(&prefix))).collect();
+                let expected=unique_revisions(expected_tasks,"하루 초기화 항목 정보를 확인하세요.")?;
+                let scheduled:Vec<_>=snapshot.tasks.iter().filter(|task|task.plan_date.as_deref()==Some(date.as_str())).collect();
                 if scheduled.len()!=expected.len() || scheduled.iter().any(|task|expected.get(&task.id)!=Some(&task.revision)) {return Err(error("conflict","다른 창에서 하루 일정이 변경됐습니다. 다시 확인하세요."));}
-                for task in scheduled {tx.execute("UPDATE tasks SET starts_at=NULL,revision=revision+1 WHERE id=?1",[&task.id])?;}
+                for task in scheduled {tx.execute("UPDATE tasks SET starts_at=NULL,plan_date=NULL,flow_order=NULL,revision=revision+1 WHERE id=?1",[&task.id])?;}
+                tx.execute("DELETE FROM day_layouts WHERE date=?1",[date])?;
             }
             action => {
                 let (id, revision) = match action {
@@ -294,15 +411,33 @@ impl Store {
                             return Err(error("validation","미완료 블록을 각각 15분 이상으로 나눠 주세요."));
                         }
                         if snapshot.tasks.iter().any(|t| &t.id == new_id) { return Err(error("validation","이미 사용 중인 블록 식별자입니다.")); }
-                        let remainder=Task{id:new_id.clone(),starts_at:None,duration:current.duration-first_duration,revision:1,..current.clone()};
+                        let remainder=Task{id:new_id.clone(),starts_at:None,plan_date:None,flow_order:None,duration:current.duration-first_duration,revision:1,..current.clone()};
                         validate_task(&remainder,&snapshot.tasks,&snapshot.settings)?;
                         tx.execute("UPDATE tasks SET duration=?1,revision=revision+1 WHERE id=?2 AND revision=?3",params![first_duration,id,revision])?;
                         tx.execute("INSERT INTO tasks(id,title,body,duration) VALUES(?1,?2,?3,?4)",params![remainder.id,remainder.title,remainder.body,remainder.duration])?;
                     }
-                    Action::Update { title, body, starts_at, duration, .. } => {
-                        let task = Task { title: title.trim().into(), body: body.clone(), starts_at: starts_at.clone(), duration: *duration, ..current.clone() };
+                    Action::Update { title, body, starts_at, duration, plan_date, before, .. } => {
+                        let derived=starts_at.as_deref().map(|start|start.get(..10).unwrap_or_default().to_string());
+                        if derived.is_some() && plan_date.is_some() && derived!=*plan_date {return Err(error("validation","시각을 고정한 날짜와 계획 날짜가 다릅니다."));}
+                        let date=derived.or_else(||plan_date.clone());
+                        if let Some(date)=&date {parse_date(date)?;}
+                        let mut shift=None;
+                        let flow_order=match (starts_at,&date,before) {
+                            (None,Some(date),Some(before)) => {
+                                let target=snapshot.tasks.iter().find(|t|&t.id==before && t.id!=*id && is_open_flow(t,date))
+                                    .ok_or_else(||error("validation","순서를 정할 같은 날짜의 작업을 확인하세요."))?;
+                                shift=target.flow_order.map(|order|(date.clone(),order));target.flow_order
+                            }
+                            (_,_,Some(_)) => return Err(error("validation","순서는 날짜만 정한 작업에서 지정할 수 있습니다.")),
+                            (None,Some(date),None) if current.plan_date.as_ref()==Some(date) && current.flow_order.is_some() => current.flow_order,
+                            (None,Some(date),None) => Some(next_flow_order(&snapshot.tasks,date)),
+                            _ => None,
+                        };
+                        let task = Task { title: title.trim().into(), body: body.clone(), starts_at: starts_at.clone(), duration: *duration, plan_date: date, flow_order, ..current.clone() };
                         validate_task(&task, &snapshot.tasks, &snapshot.settings)?;
-                        tx.execute("UPDATE tasks SET title=?1,body=?2,starts_at=?3,duration=?4,revision=revision+1 WHERE id=?5 AND revision=?6", params![task.title,task.body,task.starts_at,task.duration,id,revision])?;
+                        // Inserting before another task moves only the later order numbers of that day.
+                        if let Some((date,order))=shift {tx.execute("UPDATE tasks SET flow_order=flow_order+1 WHERE plan_date=?1 AND starts_at IS NULL AND flow_order>=?2 AND id<>?3",params![date,order,id])?;}
+                        tx.execute("UPDATE tasks SET title=?1,body=?2,starts_at=?3,duration=?4,plan_date=?5,flow_order=?6,revision=revision+1 WHERE id=?7 AND revision=?8", params![task.title,task.body,task.starts_at,task.duration,task.plan_date,task.flow_order,id,revision])?;
                     }
                     Action::SetCompleted { completed, .. } => { tx.execute("UPDATE tasks SET completed=?1,revision=revision+1 WHERE id=?2 AND revision=?3", params![completed,id,revision])?; }
                     Action::Delete { .. } => { tx.execute("DELETE FROM tasks WHERE id=?1 AND revision=?2", params![id,revision])?; }
@@ -316,20 +451,7 @@ impl Store {
         Ok(result)
     }
 
-    pub fn backup(&self, destination: &Path) -> Result<()> {
-        if destination.exists(){return Err(error("destination_exists","기존 파일은 덮어쓰지 않습니다. 새 백업 파일명을 선택하세요."));}
-        // create_new protects the active database and existing user backups from overwrite.
-        let reservation = fs::OpenOptions::new().write(true).create_new(true).open(destination)?;
-        drop(reservation);
-        let mut dest = Connection::open(destination)?;
-        let backup = rusqlite::backup::Backup::new(&self.conn, &mut dest)?;
-        backup.run_to_completion(128, Duration::from_millis(5), None)?;
-        drop(backup);
-        dest.execute_batch("PRAGMA journal_mode=DELETE; PRAGMA synchronous=FULL;")?;
-        check_database(&dest)?;
-        dest.execute("INSERT OR REPLACE INTO meta VALUES('backup_created_at',?1)",[chrono::Utc::now().to_rfc3339()])?;
-        Ok(())
-    }
+    pub fn backup(&self, destination: &Path) -> Result<()> { backup_connection(&self.conn,destination) }
 
     pub fn create_backup(&self, root: &Path) -> Result<ManagedBackup> {
         let directory=backup_directory(root)?;
@@ -398,7 +520,7 @@ impl Store {
         Ok(BackupInspection {
             created_at, tasks: snapshot.tasks.len(),
             completed: snapshot.tasks.iter().filter(|t| t.completed).count(),
-            scheduled: snapshot.tasks.iter().filter(|t| t.starts_at.is_some()).count(),
+            scheduled: snapshot.tasks.iter().filter(|t| t.plan_date.is_some()).count(),
         })
     }
 
@@ -420,9 +542,8 @@ impl Store {
         let result=(|| {
             let mut staged=Self::open(&stage)?;
             let tx=staged.conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
-            for t in &restored.tasks {
-                tx.execute("INSERT INTO tasks VALUES(?1,?2,?3,?4,?5,?6,?7)",params![t.id,t.title,t.body,t.starts_at,t.duration,t.completed,t.revision])?;
-            }
+            for t in &restored.tasks {insert_task(&tx,t)?;}
+            insert_layouts(&tx,&restored.layouts)?;
             tx.execute("UPDATE meta SET value=?1 WHERE key='settings'",[serde_json::to_string(&restored.settings)?])?;
             for (id,date) in &generated {tx.execute("INSERT INTO routine_occurrences VALUES(?1,?2)",params![id,date])?;}
             tx.commit()?;
@@ -498,9 +619,9 @@ impl Store {
         tx.execute("DELETE FROM tasks", [])?;
         tx.execute("DELETE FROM receipts", [])?;
         tx.execute("DELETE FROM routine_occurrences", [])?;
-        for t in &restored.tasks {
-            tx.execute("INSERT INTO tasks VALUES(?1,?2,?3,?4,?5,?6,?7)", params![t.id,t.title,t.body,t.starts_at,t.duration,t.completed,t.revision])?;
-        }
+        tx.execute("DELETE FROM day_layouts", [])?;
+        for t in &restored.tasks {insert_task(&tx,t)?;}
+        insert_layouts(&tx,&restored.layouts)?;
         tx.execute("UPDATE meta SET value=?1 WHERE key='settings'", [serde_json::to_string(&restored.settings)?])?;
         for (id,date) in &generated {tx.execute("INSERT INTO routine_occurrences VALUES(?1,?2)",params![id,date])?;}
         tx.execute("UPDATE meta SET value=?1 WHERE key='epoch'", [uuid::Uuid::new_v4().to_string()])?;

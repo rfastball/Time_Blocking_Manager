@@ -9,7 +9,19 @@ fn create(s: &mut Store, id: &str) -> Task {
     s.apply(&c).unwrap().tasks.into_iter().find(|t| t.id == id).unwrap()
 }
 fn update(t: &Task, start: &str, duration: i64) -> Action {
-    Action::Update { id: t.id.clone(), expected_revision: t.revision, title: t.title.clone(), body: "[x] 확인\n메모 보존".into(), starts_at: Some(start.into()), duration }
+    Action::Update { id: t.id.clone(), expected_revision: t.revision, title: t.title.clone(), body: "[x] 확인\n메모 보존".into(), starts_at: Some(start.into()), duration, plan_date: None, before: None }
+}
+fn place(t: &Task, date: Option<&str>, before: Option<&str>) -> Action {
+    Action::Update { id: t.id.clone(), expected_revision: t.revision, title: t.title.clone(), body: t.body.clone(), starts_at: None, duration: t.duration, plan_date: date.map(Into::into), before: before.map(Into::into) }
+}
+fn find(s: &Snapshot, id: &str) -> Task { s.tasks.iter().find(|t| t.id == id).unwrap().clone() }
+fn flow(s: &mut Store, id: &str, date: &str, duration: i64) -> Task {
+    let c=command(s,Action::CreateFlow{id:id.into(),title:"유동 업무".into(),date:date.into(),duration});find(&s.apply(&c).unwrap(),id)
+}
+fn revision(t: &Task) -> TaskRevision { TaskRevision{id:t.id.clone(),revision:t.revision} }
+fn ordered(s: &Snapshot, date: &str) -> Vec<String> {
+    let mut tasks:Vec<_>=s.tasks.iter().filter(|t|t.plan_date.as_deref()==Some(date)&&t.starts_at.is_none()&&!t.completed).collect();
+    tasks.sort_by(|a,b|a.flow_order.cmp(&b.flow_order).then_with(||a.id.cmp(&b.id)));tasks.into_iter().map(|t|t.id.clone()).collect()
 }
 fn routine(id:&str,start:i64) -> Routine {
     Routine{id:id.into(),title:"정기 확인".into(),body:"보존할 정기 메모".into(),weekdays:vec![0,1],start,duration:30}
@@ -23,6 +35,10 @@ fn clearing_a_day_checks_the_complete_revision_set_atomically() {
     let dir=tempdir().unwrap();let mut s=Store::open(&dir.path().join("app.db")).unwrap();
     for (id,start) in [("a","2026-10-08T10:00"),("b","2026-10-08T11:00"),("other","2026-10-09T10:00")] {
         let task=create(&mut s,id);let c=command(&s,update(&task,start,30));s.apply(&c).unwrap();
+    }
+    flow(&mut s,"f","2026-10-08",600);
+    for (date,at) in [("2026-10-08","2026-10-08T10:20"),("2026-10-09","2026-10-09T09:40")] {
+        let c=command(&s,Action::Reflow{date:date.into(),at:at.into()});s.apply(&c).unwrap();
     }
     let a=s.snapshot().unwrap().tasks.into_iter().find(|task|task.id=="a").unwrap();
     let c=command(&s,Action::SetCompleted{id:a.id,expected_revision:a.revision,completed:true});s.apply(&c).unwrap();
@@ -40,8 +56,11 @@ fn clearing_a_day_checks_the_complete_revision_set_atomically() {
         let task=result.tasks.iter().find(|t|t.id==old.id).unwrap();
         assert_eq!((task.title.clone(),task.body.clone(),task.completed),(old.title,old.body,old.completed));
         assert_eq!(task.starts_at,if old.id=="other" {old.starts_at}else {None});
+        assert_eq!((task.plan_date.clone(),task.flow_order),if old.id=="other" {(old.plan_date,None)}else {(None,None)});
         assert_eq!(task.revision,old.revision+i64::from(old.id!="other"));
     }
+    // Only the cleared date loses its layout anchor.
+    assert_eq!(result.layouts,vec![DayLayout{date:"2026-10-09".into(),anchor:580}]);
     for date in ["2026-02-30","2026-1-01"] {
         let c=command(&s,Action::ClearDay{date:date.into(),expected_tasks:vec![]});assert_eq!(s.apply(&c).unwrap_err().code,"validation");
     }
@@ -58,8 +77,11 @@ fn routine_occurrences_survive_moves_deletion_settings_restart_and_restore() {
         let c=command(&s,Action::EnsureRoutines{from:from.into(),to:to.into()});assert_eq!(s.apply(&c).unwrap_err().code,"validation");
     }
     let snapshot=ensure(&mut s,"2026-10-05","2026-10-07");assert_eq!(snapshot.tasks.len(),5);
-    // Overlap and lunch preserve the work in the unplanned list; Wednesday is not a selected weekday.
-    assert_eq!(snapshot.tasks.iter().filter(|t|t.starts_at.is_none()).count(),3);
+    // Overlap and lunch keep the work on its date as flow plans; Wednesday is not a selected weekday.
+    let released:Vec<_>=snapshot.tasks.iter().filter(|t|t.starts_at.is_none()).collect();assert_eq!(released.len(),3);
+    let mut released_dates:Vec<_>=released.iter().map(|t|(t.plan_date.clone().unwrap(),t.flow_order.is_some())).collect();released_dates.sort();
+    assert_eq!(released_dates,[("2026-10-05".to_string(),true),("2026-10-05".to_string(),true),("2026-10-06".to_string(),true)]);
+    assert_eq!(ordered(&snapshot,"2026-10-05").len(),2);
     let t=snapshot.tasks.iter().find(|t|t.starts_at.as_deref()==Some("2026-10-06T10:00")).unwrap();
     let c=command(&s,update(t,"2026-10-07T10:00",30));let moved=s.apply(&c).unwrap();
     let t=moved.tasks.iter().find(|task|task.id==t.id).unwrap();
@@ -81,18 +103,30 @@ fn routine_occurrences_survive_moves_deletion_settings_restart_and_restore() {
 #[test]
 fn legacy_databases_and_backups_migrate_without_losing_work() {
     let dir=tempdir().unwrap();
-    for version in [1,2] {
-        let path=dir.path().join(format!("legacy-{version}.db"));let mut s=Store::open(&path).unwrap();let task=create(&mut s,"legacy");drop(s);
+    for (n,version) in [1,2,3].into_iter().enumerate() {
+        let path=dir.path().join(format!("legacy-{version}.db"));let mut s=Store::open(&path).unwrap();let task=create(&mut s,"legacy");
+        let c=command(&s,update(&task,"2026-10-05T10:00",30));let task=find(&s.apply(&c).unwrap(),"legacy");drop(s);
+        assert_eq!((task.plan_date.as_deref(),task.flow_order),(Some("2026-10-05"),None));
         let conn=rusqlite::Connection::open(&path).unwrap();
-        let mut settings=serde_json::to_value(Settings::default()).unwrap();settings.as_object_mut().unwrap().remove("routines");
-        conn.execute("UPDATE meta SET value=?1 WHERE key='settings'",[settings.to_string()]).unwrap();
-        conn.execute_batch(&format!("DROP TABLE routine_occurrences; PRAGMA user_version={version};")).unwrap();drop(conn);
-        assert_eq!(Store::inspect_backup(&path).unwrap().tasks,1);
+        if version<3 {
+            let mut settings=serde_json::to_value(Settings::default()).unwrap();settings.as_object_mut().unwrap().remove("routines");
+            conn.execute("UPDATE meta SET value=?1 WHERE key='settings'",[settings.to_string()]).unwrap();
+            conn.execute_batch("DROP TABLE routine_occurrences;").unwrap();
+        }
+        // Rebuild the exact older table shape: no flow columns and no layout anchors.
+        conn.execute_batch(&format!("ALTER TABLE tasks DROP COLUMN plan_date; ALTER TABLE tasks DROP COLUMN flow_order; DROP TABLE day_layouts; PRAGMA user_version={version};")).unwrap();drop(conn);
+        let inspection=Store::inspect_backup(&path).unwrap();assert_eq!((inspection.tasks,inspection.scheduled),(1,1));
         let mut target=Store::open(&dir.path().join(format!("restored-{version}.db"))).unwrap();let epoch=target.snapshot().unwrap().epoch;
         assert_eq!(target.restore(&path,&epoch,&dir.path().join(format!("safety-{version}.db"))).unwrap().tasks,vec![task.clone()]);
         let mut s=Store::open(&path).unwrap();assert_eq!(s.snapshot().unwrap().tasks,vec![task]);assert!(s.snapshot().unwrap().settings.routines.is_empty());
-        let c=command(&s,Action::SetRoutines{expected_revision:1,routines:vec![routine("new",600)]});s.apply(&c).unwrap();assert_eq!(ensure(&mut s,"2026-10-05","2026-10-05").tasks.len(),2);
-        assert_eq!(rusqlite::Connection::open(&path).unwrap().query_row::<i64,_,_>("PRAGMA user_version",[],|r|r.get(0)).unwrap(),3);
+        let migrations:Vec<_>=Store::list_backups(dir.path()).unwrap().into_iter().filter(|b|b.kind=="migration").collect();
+        assert_eq!(migrations.len(),n+1);assert!(migrations.iter().all(|b|b.error.is_none()&&b.tasks==Some(1)&&b.scheduled==Some(1)));
+        let c=command(&s,Action::SetRoutines{expected_revision:s.snapshot().unwrap().settings.revision,routines:vec![routine("new",600)]});s.apply(&c).unwrap();
+        // The migrated fixed task occupies 10:00, so the routine stays on its date as flow work.
+        let generated=ensure(&mut s,"2026-10-05","2026-10-05");assert_eq!(generated.tasks.len(),2);
+        assert!(generated.tasks.iter().any(|t|t.id!="legacy"&&t.plan_date.as_deref()==Some("2026-10-05")&&t.flow_order==Some(1)));
+        assert_eq!(rusqlite::Connection::open(&path).unwrap().query_row::<i64,_,_>("PRAGMA user_version",[],|r|r.get(0)).unwrap(),4);
+        drop(s);assert_eq!(Store::list_backups(dir.path()).unwrap().iter().filter(|b|b.kind=="migration").count(),n+1);
     }
 }
 
@@ -172,6 +206,8 @@ fn date_exceptions_are_atomic_persistent_and_restorable() {
     assert_eq!(s.snapshot().unwrap().settings.exceptions[0].kind,"custom");
     let c=command(&s,set(&settings,true));let snapshot=s.apply(&c).unwrap();
     assert_eq!(snapshot.tasks[0].id,"lunch");assert_eq!(snapshot.tasks[0].starts_at,None);assert_eq!(snapshot.tasks[0].revision,2);
+    // Leave releases the exact time but keeps the work assigned to its date.
+    assert_eq!((snapshot.tasks[0].plan_date.as_deref(),snapshot.tasks[0].flow_order),(Some("2026-10-08"),Some(1)));
     assert_eq!(s.apply(&c).unwrap().tasks[0].revision,2);
     let backup=dir.path().join("backup.db");s.backup(&backup).unwrap();drop(s);
     let mut s=Store::open(&path).unwrap();let restored=s.snapshot().unwrap();assert_eq!(restored.settings.exceptions[0].kind,"leave");
@@ -280,7 +316,7 @@ fn backup_inspection_reports_validated_contents_without_changing_files() {
     assert!(Store::inspect_backup(&source).unwrap().created_at.is_none());
     assert_eq!(std::fs::read(&source).unwrap(),legacy);
     let safety=dir.path().join("safety.db");let epoch=s.snapshot().unwrap().epoch;
-    for (sql,code) in [("UPDATE tasks SET id='' WHERE id='a'","validation"),("PRAGMA user_version=4","schema")] {
+    for (sql,code) in [("UPDATE tasks SET id='' WHERE id='a'","validation"),("PRAGMA user_version=5","schema")] {
         {rusqlite::Connection::open(&source).unwrap().execute_batch(sql).unwrap();}
         let original=std::fs::read(&source).unwrap();
         assert_eq!(Store::inspect_backup(&source).unwrap_err().code,code);
@@ -397,4 +433,90 @@ fn automatic_backups_keep_distinct_hours_and_days_and_verify_metadata() {
     let broken=backups.join("hour-2026100409.sqlite");std::fs::write(&broken,b"broken").unwrap();
     assert!(s.automatic_backup(&backups,start+Duration::days(33)).is_err());
     assert_eq!(std::fs::read(&broken).unwrap(),b"broken");
+}
+
+#[test]
+fn flow_plans_keep_order_without_minutes_and_switch_with_fixed_reservations() {
+    let dir=tempdir().unwrap();let path=dir.path().join("app.db");let mut s=Store::open(&path).unwrap();let day="2026-10-08";
+    assert_eq!(flow(&mut s,"e",day,600).flow_order,Some(1));
+    let (a,b,c,d)=(create(&mut s,"a"),create(&mut s,"b"),create(&mut s,"c"),create(&mut s,"d"));
+    for t in [&a,&b] {let cmd=command(&s,place(t,Some(day),None));s.apply(&cmd).unwrap();}
+    let snap=s.snapshot().unwrap();assert_eq!(ordered(&snap,day),["e","a","b"]);let (a,b)=(find(&snap,"a"),find(&snap,"b"));
+    // Inserting shifts only later order numbers and leaves their editors valid.
+    let cmd=command(&s,place(&c,Some(day),Some("a")));let snap=s.apply(&cmd).unwrap();
+    assert_eq!(ordered(&snap,day),["e","c","a","b"]);assert_eq!((find(&snap,"a").revision,find(&snap,"b").revision),(a.revision,b.revision));
+    // Flow work is never refused for overlapping work, lunch or a day off.
+    let cmd=command(&s,place(&d,Some("2026-10-10"),None));assert_eq!(find(&s.apply(&cmd).unwrap(),"d").flow_order,Some(1));
+    let before=s.snapshot().unwrap();let c=find(&before,"c");
+    for (date,target) in [(Some(day),Some("d")),(Some(day),Some("missing")),(Some(day),Some("c")),(None,Some("e")),(Some("2026-02-30"),None)] {
+        let cmd=command(&s,place(&c,date,target));assert_eq!(s.apply(&cmd).unwrap_err().code,"validation","{date:?} {target:?}");
+        assert_eq!(s.snapshot().unwrap().tasks,before.tasks);
+    }
+    let mismatch=command(&s,Action::Update{id:c.id.clone(),expected_revision:c.revision,title:c.title.clone(),body:String::new(),starts_at:Some("2026-10-08T10:00".into()),duration:30,plan_date:Some("2026-10-09".into()),before:None});
+    assert_eq!(s.apply(&mismatch).unwrap_err().code,"validation");
+    // Fixing reserves exact minutes against other fixed tasks only.
+    let cmd=command(&s,update(&find(&before,"a"),"2026-10-08T10:00",60));let snap=s.apply(&cmd).unwrap();
+    let fixed=find(&snap,"a");assert_eq!((fixed.plan_date.as_deref(),fixed.flow_order),(Some(day),None));assert_eq!(ordered(&snap,day),["e","c","b"]);
+    let cmd=command(&s,update(&find(&snap,"b"),"2026-10-08T10:30",30));assert_eq!(s.apply(&cmd).unwrap_err().code,"overlap");
+    // Releasing the time appends the task to the end of that day's order.
+    let cmd=command(&s,place(&fixed,Some(day),None));let snap=s.apply(&cmd).unwrap();
+    assert_eq!(ordered(&snap,day),["e","c","b","a"]);assert_eq!(find(&snap,"a").starts_at,None);
+    let open:Vec<_>=["e","c","b","a"].iter().map(|id|revision(&find(&snap,id))).collect();
+    let stale=vec![TaskRevision{revision:open[0].revision+1,..open[0].clone()},open[1].clone(),open[2].clone(),open[3].clone()];
+    for (expected,code) in [(open[..3].to_vec(),"conflict"),(stale,"conflict"),([open.clone(),vec![revision(&find(&snap,"d"))]].concat(),"conflict"),(vec![open[0].clone(),open[0].clone(),open[1].clone(),open[2].clone()],"validation")] {
+        let cmd=command(&s,Action::ReorderFlow{date:day.into(),expected});assert_eq!(s.apply(&cmd).unwrap_err().code,code);
+        assert_eq!(s.snapshot().unwrap().tasks,snap.tasks);
+    }
+    let reorder=command(&s,Action::ReorderFlow{date:day.into(),expected:vec![open[3].clone(),open[2].clone(),open[1].clone(),open[0].clone()]});
+    let reordered=s.apply(&reorder).unwrap();assert_eq!(ordered(&reordered,day),["a","b","c","e"]);
+    assert!(open.iter().all(|r|find(&reordered,&r.id).revision==r.revision));assert_eq!(s.apply(&reorder).unwrap().tasks,reordered.tasks);
+    // Returning to the unplanned list clears both date and order.
+    let cmd=command(&s,place(&find(&reordered,"e"),None,None));let snap=s.apply(&cmd).unwrap();
+    assert_eq!((find(&snap,"e").plan_date,find(&snap,"e").flow_order),(None,None));
+    // Older clients that omit placement fields still fix by time with an unchanged fingerprint.
+    let b=find(&snap,"b");
+    let legacy:Action=serde_json::from_value(serde_json::json!({"type":"update","id":"b","expected_revision":b.revision,"title":b.title,"body":"","starts_at":"2026-10-09T10:00","duration":30})).unwrap();
+    assert!(!serde_json::to_string(&legacy).unwrap().contains("plan_date"));
+    let cmd=command(&s,legacy);let snap=s.apply(&cmd).unwrap();assert_eq!(find(&snap,"b").plan_date.as_deref(),Some("2026-10-09"));
+    drop(s);let s=Store::open(&path).unwrap();assert_eq!(s.snapshot().unwrap().tasks,snap.tasks);
+}
+
+#[test]
+fn completing_flow_moves_the_anchor_forward_atomically_and_survives_restore() {
+    let dir=tempdir().unwrap();let path=dir.path().join("app.db");let mut s=Store::open(&path).unwrap();let day="2026-10-08";
+    let (x,y,z,other)=(flow(&mut s,"x",day,60),flow(&mut s,"y",day,45),flow(&mut s,"z",day,30),flow(&mut s,"other","2026-10-09",30));
+    let cmd=command(&s,Action::CreateScheduled{id:"w".into(),title:"워크숍".into(),starts_at:Some("2026-10-08T14:00".into()),duration:60});s.apply(&cmd).unwrap();
+    let before=s.snapshot().unwrap();
+    let complete=|s:&Store,items:Vec<TaskRevision>,at:Option<&str>|command(s,Action::CompleteFlow{date:day.into(),items,at:at.map(Into::into)});
+    for (items,at,code) in [
+        (vec![revision(&x),TaskRevision{revision:y.revision+1,..revision(&y)}],Some("2026-10-08T09:40"),"conflict"),
+        (vec![],None,"validation"),(vec![revision(&x),revision(&x)],None,"validation"),
+        (vec![revision(&find(&before,"w"))],None,"conflict"),(vec![revision(&other)],None,"conflict"),
+        (vec![revision(&x)],Some("2026-10-09T09:40"),"validation"),(vec![revision(&x)],Some("2026-10-08T9:40"),"validation"),
+    ] {
+        let cmd=complete(&s,items,at);assert_eq!(s.apply(&cmd).unwrap_err().code,code);
+        let now=s.snapshot().unwrap();assert_eq!((now.tasks,now.layouts),(before.tasks.clone(),vec![]));
+    }
+    let done=complete(&s,vec![revision(&x)],Some("2026-10-08T09:40"));let after=s.apply(&done).unwrap();
+    let completed=find(&after,"x");assert!(completed.completed);
+    assert_eq!((completed.plan_date.as_deref(),completed.flow_order,completed.revision),(Some(day),x.flow_order,x.revision+1));
+    assert_eq!(after.layouts,vec![DayLayout{date:day.into(),anchor:580}]);assert_eq!(ordered(&after,day),["y","z"]);
+    assert_eq!(s.apply(&done).unwrap().tasks,after.tasks);
+    // Later confirmations never move the anchor backwards; no time leaves it untouched.
+    let cmd=complete(&s,vec![revision(&y)],Some("2026-10-08T09:10"));assert_eq!(s.apply(&cmd).unwrap().layouts[0].anchor,580);
+    let reflow=|s:&Store,date:&str,at:&str|command(s,Action::Reflow{date:date.into(),at:at.into()});
+    let cmd=reflow(&s,day,"2026-10-08T10:20");assert_eq!(s.apply(&cmd).unwrap().layouts[0].anchor,620);
+    for (date,at) in [(day,"2026-10-09T10:20"),("2026-02-30","2026-02-30T10:20")] {let cmd=reflow(&s,date,at);assert_eq!(s.apply(&cmd).unwrap_err().code,"validation");}
+    let cmd=complete(&s,vec![revision(&z)],None);let snap=s.apply(&cmd).unwrap();assert_eq!(snap.layouts[0].anchor,620);assert!(ordered(&snap,day).is_empty());
+    // Completing twice conflicts; undo returns the same task to its preserved order.
+    let cmd=complete(&s,vec![revision(&find(&snap,"x"))],None);assert_eq!(s.apply(&cmd).unwrap_err().code,"conflict");
+    let x=find(&snap,"x");let cmd=command(&s,Action::SetCompleted{id:x.id.clone(),expected_revision:x.revision,completed:false});
+    let undone=s.apply(&cmd).unwrap();assert_eq!(ordered(&undone,day),["x"]);assert_eq!(find(&undone,"x").flow_order,Some(1));
+    let backup=dir.path().join("backup.db");s.backup(&backup).unwrap();
+    assert_eq!(Store::inspect_backup(&backup).unwrap().scheduled,5);
+    for (date,at) in [(day,"2026-10-08T15:00"),("2026-10-09","2026-10-09T11:00")] {let cmd=reflow(&s,date,at);s.apply(&cmd).unwrap();}
+    drop(s);let mut s=Store::open(&path).unwrap();
+    assert_eq!(s.snapshot().unwrap().layouts,vec![DayLayout{date:day.into(),anchor:900},DayLayout{date:"2026-10-09".into(),anchor:660}]);
+    let epoch=s.snapshot().unwrap().epoch;let restored=s.restore(&backup,&epoch,&dir.path().join("safety.db")).unwrap();
+    assert_eq!(restored.layouts,vec![DayLayout{date:day.into(),anchor:620}]);assert_eq!(restored.tasks,undone.tasks);
 }
