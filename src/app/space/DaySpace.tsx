@@ -7,7 +7,8 @@ import {time} from '../../dates.ts';
 import type {TimeAxis} from '../../time-axis.ts';
 import type {Task} from '../../types.ts';
 import {setUi,useApp} from '../store/state.ts';
-import {completeTasks,dayRule,issueAt,resize,setGesture,taskMinute,uncomplete} from '../store/tasks.ts';
+import {completeTasks,dayRule,issueAt,reorder,resize,setGesture,taskMinute,uncomplete} from '../store/tasks.ts';
+import {blockButton} from '../editor/actions.ts';
 import {openAvailability} from '../store/schedule.ts';
 import {settle,reduced} from '../ui/motion.ts';
 import {Icon,Lock} from '../ui/icons.tsx';
@@ -64,6 +65,13 @@ export function DaySpace({date,axis,variant,bin,selected,multi=[],onOpen,onMulti
     };
     el.addEventListener('pointermove',move);el.addEventListener('pointerup',up);el.addEventListener('pointercancel',up);
   }
+  // Arrow keys on a block: Alt moves a flow block in its order, otherwise the length changes by 15 minutes.
+  async function nudge(id:string,delta:number,order:boolean,from:HTMLElement){
+    const t=byId(id);if(t.completed)return;
+    if(!order){void resize(t,Math.max(15,t.duration+delta*15));return;}
+    if(t.starts_at||!t.plan_date||!await reorder(t,delta))return;
+    requestAnimationFrame(()=>blockButton(id,from)?.focus({preventScroll:true}));
+  }
   function menu(e:{clientX:number;clientY:number},t:Task|null,minute:number){setUi({contextMenu:{taskId:t?.id??null,date,minute,x:e.clientX,y:e.clientY}});}
   function background(e:ReactPointerEvent<HTMLDivElement>){
     if(!onBackgroundPointerDown||e.target!==e.currentTarget&&!(e.target as HTMLElement).dataset.surface)return;
@@ -84,7 +92,7 @@ export function DaySpace({date,axis,variant,bin,selected,multi=[],onOpen,onMulti
         {plan.items.map(item=><Block key={item.task.id} item={item} axis={axis} geometry={geometry} variant={variant} next={item.task.id===nextId}
           hollow={holding?.task.id===item.task.id} selected={selected===item.task.id&&!multi.length} multi={multi.includes(item.task.id)} squash={squash.includes(item.task.id)}
           landed={ui.landed?.id===item.task.id?ui.landed:null}
-          onCheck={()=>void check(byId(item.task.id))} onGrip={e=>grip(e,byId(item.task.id))}
+          onCheck={()=>void check(byId(item.task.id))} onGrip={e=>grip(e,byId(item.task.id))} onNudge={(d,order,el)=>void nudge(item.task.id,d,order,el)}
           onOpen={e=>{if((e.shiftKey||e.ctrlKey||e.metaKey)&&onMulti){onMulti(byId(item.task.id));return;}onOpen(byId(item.task.id));}}
           onMenu={e=>menu(e,byId(item.task.id),item.start)}/>)}
       </AnimatePresence>
@@ -138,17 +146,21 @@ function Bin({tasks,onOpen}:{tasks:Task[];onOpen:(t:Task)=>void}){
 }
 
 type BlockProps={item:DayItem;axis:TimeAxis;geometry:Geometry;variant:'day'|'column';next:boolean;hollow:boolean;selected:boolean;multi:boolean;squash:boolean;landed:{clack:boolean}|null;
-  onCheck:()=>void;onOpen:(e:ReactMouseEvent)=>void;onMenu:(e:{clientX:number;clientY:number})=>void;onGrip:(e:ReactPointerEvent<HTMLButtonElement>)=>void};
+  onCheck:()=>void;onOpen:(e:ReactMouseEvent)=>void;onMenu:(e:{clientX:number;clientY:number})=>void;onGrip:(e:ReactPointerEvent<HTMLButtonElement>)=>void;onNudge:(delta:number,order:boolean,el:HTMLElement)=>void};
 // Blocks are placed with `top`, never a transform: dnd-kit measures boxes without transforms.
 // Only completion pulls a block up into the intake; any other departure just fades.
-function Block({item,axis,geometry:g,variant,next,hollow,selected,multi,squash,landed,onCheck,onOpen,onMenu,onGrip}:BlockProps){
+function Block({item,axis,geometry:g,variant,next,hollow,selected,multi,squash,landed,onCheck,onOpen,onMenu,onGrip,onNudge}:BlockProps){
   const t=item.task,{listeners,setNodeRef}=useDraggable({id:`${variant}:${t.id}`,data:{taskId:t.id},disabled:item.fixed&&t.completed});
   const top=axis.position(item.start)+1,h=Math.max(10,axis.position(item.end)-axis.position(item.start)-2);
   const range=`${time(item.start)}–${time(item.end)}`;
   const cls=['blk',item.fixed?'fixed':'flow',item.over?'over':'',next?'next':'',t.completed?'done':'',hollow?'hollow':'',selected?'sel':'',multi?'multi':'',h<34?'compact':'',h<20?'tiny':''].join(' ');
-  const key=(e:KeyboardEvent)=>{
-    if((e.shiftKey&&e.key==='F10')||e.key==='ContextMenu'){e.preventDefault();const r=(e.currentTarget as HTMLElement).getBoundingClientRect();onMenu({clientX:r.left+12,clientY:r.top+12});}
+  const orderable=!item.fixed&&!t.completed;
+  const key=(e:KeyboardEvent<HTMLButtonElement>)=>{
+    if((e.shiftKey&&e.key==='F10')||e.key==='ContextMenu'){e.preventDefault();const r=e.currentTarget.getBoundingClientRect();onMenu({clientX:r.left+12,clientY:r.top+12});return;}
+    if(e.key!=='ArrowUp'&&e.key!=='ArrowDown'||e.ctrlKey||e.metaKey||e.shiftKey||t.completed||e.altKey&&!orderable)return;
+    e.preventDefault();onNudge(e.key==='ArrowUp'?-1:1,e.altKey,e.currentTarget);
   };
+  const keys=t.completed?'Shift+F10':(orderable?'Alt+ArrowUp Alt+ArrowDown ':'')+'ArrowUp ArrowDown Shift+F10';
   return <motion.div ref={setNodeRef} data-block="true" className={cls} style={{left:item.fixed?g.fixedLeft:g.flowLeft,right:g.right}}
     initial={{top,height:h,opacity:0}} animate={{top,height:h,opacity:1}}
     variants={{leave:(done:Set<string>)=>done?.has(t.id)
@@ -159,13 +171,13 @@ function Block({item,axis,geometry:g,variant,next,hollow,selected,multi,squash,l
       transition={squash?{duration:.1}:landed?{duration:.45}:{duration:.15}} style={{transformOrigin:'50% 100%'}}>
       {item.fixed&&<Latch clack={!!landed?.clack}/>}
       <button type="button" className="chk" aria-label={t.title+(t.completed?' 완료 취소':' 완료')} aria-pressed={t.completed} onPointerDown={e=>e.stopPropagation()} onClick={onCheck}><Icon name="check" size={12} stroke={3}/></button>
-      <button type="button" className="main" aria-label={`${t.title}, ${item.fixed?'시각 고정':'예상'} ${range}, ${formatDuration(t.duration)}${item.over?', 근무 외':''}${next?', 다음':''}${t.completed?', 완료':''}`} onClick={onOpen} onKeyDown={key} data-task={t.id}>
+      <button type="button" className="main" aria-label={`${t.title}, ${item.fixed?'시각 고정':'예상'} ${range}, ${formatDuration(t.duration)}${item.over?', 근무 외':''}${next?', 다음':''}${t.completed?', 완료':''}`} onClick={onOpen} onKeyDown={key} aria-keyshortcuts={keys} data-task={t.id}>
         <span className="ttl-row">{next&&<span className="tag">다음</span>}<span className="ttl">{t.title}</span></span>
         <span className="meta"><span className="tm">{item.fixed?range:'예상 '+range}</span><span>{formatDuration(t.duration)}</span></span>
       </button>
     </motion.div>
-    {!t.completed&&<button type="button" className="grip" aria-label={t.title+' 크기 조절'} onPointerDown={onGrip}
-      onKeyDown={e=>{if(e.key!=='ArrowUp'&&e.key!=='ArrowDown')return;e.preventDefault();void resize(t,Math.max(15,t.duration+(e.key==='ArrowUp'?-15:15)));}}/>}
+    {/* Pointer only: the block's own button takes the arrow keys. */}
+    {!t.completed&&<button type="button" className="grip" tabIndex={-1} aria-hidden="true" onPointerDown={onGrip}/>}
   </motion.div>;
 }
 
