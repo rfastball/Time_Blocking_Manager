@@ -21,12 +21,15 @@ import {Lock} from '../ui/icons.tsx';
 export type Geometry={ruler:number;railLeft:number;railWidth:number;bodyLeft:number;flowLeft:number;fixedLeft:number;right:number;bite:number;pull:number;give:number};
 export const DAY_GEOMETRY:Geometry={ruler:50,railLeft:52,railWidth:30,bodyLeft:86,flowLeft:92,fixedLeft:56,right:10,bite:24,pull:20,give:6};
 export const COLUMN_GEOMETRY:Geometry={ruler:0,railLeft:0,railWidth:13,bodyLeft:14,flowLeft:17,fixedLeft:1,right:4,bite:12,pull:10,give:3};
+// How far a flow block's runner reaches left from the block to sit in the middle of the rail's groove.
+export const runnerReach=(g:Geometry)=>g.flowLeft-(g.railLeft+g.railWidth/2);
 
 // Places where a held block can land. Day spaces know their time axis; the others take a date or send work back to 미계획.
 type Region={key:string;kind:'space'|'date'|'tray';date:string|null;el:HTMLElement;axis?:TimeAxis;geometry?:Geometry};
 // Over a body the copy settles on its `slot`, where the order puts it; `rising` when that slot is above where the copy was.
+// `runner` carries the day space's runner reach and give while the copy is over one, and whether it is a week column.
 type Slot={start:number;end:number;over:boolean};
-export type Held={task:Task;intent:Intent;slot:Slot|null;rising:boolean;startRect:{left:number;top:number;width:number;height:number};grabX:number;width:number;height:number;dropping?:boolean};
+export type Held={task:Task;intent:Intent;slot:Slot|null;rising:boolean;runner:{reach:number;give:number;column:boolean}|null;startRect:{left:number;top:number;width:number;height:number};grabX:number;width:number;height:number;dropping?:boolean};
 type Ctx={held:Held|null;pending:Intent|null;tasks:Task[];register:(r:Region)=>()=>void};
 const DragCtx=createContext<Ctx>({held:null,pending:null,tasks:[],register:()=>()=>{}});
 export const useDrag=()=>useContext(DragCtx);
@@ -121,7 +124,7 @@ export function DragProvider({children}:{children:ReactNode}){
     motionRef.current={x:px,t:performance.now(),tilt:0};snap.current=null;tilt.set(0);
     setGesture(true);setUi({contextMenu:null});
     pull.set(0);
-    setHeld({task,intent:noIntent(task.id),slot:null,rising:false,startRect:start.current,grabX:px-r.left,width:r.width,height:r.height});
+    setHeld({task,intent:noIntent(task.id),slot:null,rising:false,runner:null,startRect:start.current,grabX:px-r.left,width:r.width,height:r.height});
   }
   function onDragMove(e:DragMoveEvent){
     const h=held,s=start.current;if(!h||!s||h.dropping)return;
@@ -141,9 +144,10 @@ export function DragProvider({children}:{children:ReactNode}){
     tilt.set(m.tilt);clearTimeout(m.idle);m.idle=setTimeout(()=>{m.tilt=0;tilt.set(0);},140);
     const width=rect&&g?(intent.zone==='rail'?rect.width-g.fixedLeft-g.right:intent.zone==='body'?rect.width-g.flowLeft-g.right:s.width):s.width;
     const height=axis?h.task.duration*axis.scale-2:s.height;
+    const runner=g?{reach:runnerReach(g),give:g.give,column:g.ruler===0}:null;
     const i=h.intent;
-    if(i.zone!==intent.zone||i.date!==intent.date||i.before!==intent.before||i.start!==intent.start||i.ok!==intent.ok||width!==h.width||height!==h.height
-      ||h.slot?.start!==slot?.start||h.slot?.end!==slot?.end)setHeld({...h,intent,slot,rising,width,height});
+    if(h.runner?.reach!==runner?.reach||i.zone!==intent.zone||i.date!==intent.date||i.before!==intent.before||i.start!==intent.start||i.ok!==intent.ok||width!==h.width||height!==h.height
+      ||h.slot?.start!==slot?.start||h.slot?.end!==slot?.end)setHeld({...h,intent,slot,rising,runner,width,height});
   }
   async function onDragEnd(_:DragEndEvent){
     const h=held;snap.current=null;tilt.set(0);setGesture(false);
@@ -179,19 +183,23 @@ const settled=(h:Held)=>h.intent.zone==='rail'||(h.intent.zone==='body'&&!!h.slo
 function HeldBlock({held,lean,reach}:{held:Held;lean:MotionValue<number>;reach:MotionValue<number>}){
   const {task,intent,slot,width,height}=held,rail=intent.zone==='rail',fixedLook=rail||(!!task.starts_at&&intent.zone==='none'),bad=!intent.ok;
   const placed=settled(held),at=rail?{start:intent.start!,end:intent.start!+task.duration}:intent.zone==='body'?slot:null;
-  // Pushed toward the rail, the tooth reaches out for it before the block bites.
-  const tooth=useTransform(reach,[0,1],[4,14]);
+  // The runner stays in the groove while the copy gives toward the rail, and swells as the clasp gets ready to come out.
+  const {reach:span=0,give=0,column=false}=held.runner??{};
+  const runnerWidth=useTransform(reach,v=>span-v*give),swell=useTransform(reach,[0,.5,1],[1,1.1,1.45]);
   const [tileRef,animateTile]=useAnimate();
   useEffect(()=>{if(held.rising&&!reduced()&&tileRef.current)void animateTile(tileRef.current,bump,{delay:RISE_MS/1000,duration:.22,ease:'easeOut'});},[slot?.start,held.rising]);
   // When the block widens over a day, the point that was grabbed stays under the pointer.
   const shift=placed||held.dropping?0:-held.grabX*(width/held.startRect.width-1);
-  return <motion.div className={'blk held '+(fixedLook?'fixed':'flow')+(bad?' bad':'')+(!rail&&slot?.over&&intent.zone==='body'?' over':'')} style={{rotate:lean,transformOrigin:'50% 30%'}}
+  return <motion.div className={'blk held '+(column?'column ':'')+(fixedLook?'fixed':'flow')+(bad?' bad':'')+(!rail&&slot?.over&&intent.zone==='body'?' over':'')} style={{rotate:lean,transformOrigin:'50% 30%'}}
     initial={{scale:1,width:held.startRect.width,height:held.startRect.height,marginLeft:0}}
     animate={{scale:held.dropping?1:placed?1.01:LIFT_SCALE,width,height,marginLeft:shift,x:bad?[0,-4,3,-2,0]:0}}
     transition={{scale:{type:'spring',visualDuration:.16,bounce:.4},width:{duration:.18},height:{duration:.18},marginLeft:{duration:.18},x:{duration:.32}}}>
-    {!fixedLook&&<motion.span className="tooth" aria-hidden="true" style={{width:tooth}}/>}
+    {!fixedLook&&intent.zone==='body'&&held.runner&&<motion.span className="runner" aria-hidden="true" style={{width:runnerWidth}}><i className="stem"/><motion.i className="shoe" style={{scale:swell}}/></motion.span>}
     <div ref={tileRef} className="tile" style={{transformOrigin:'50% 100%'}}>
-      {fixedLook&&<motion.span className="latch" initial={rail?{x:-5,scaleX:1.2}:false} animate={{x:0,scaleX:1}} transition={{duration:.3,ease:[.3,1.6,.5,1]}}><Lock open/></motion.span>}
+      {/* Latching, the clasp springs out of the runner and bites the rail. */}
+      {fixedLook&&<motion.span className="latch" style={{transformOrigin:'0 50%'}} initial={rail?{scaleX:.15,opacity:.5}:false} animate={{scaleX:1,opacity:1}} transition={{type:'spring',visualDuration:.3,bounce:.55}}>
+        <Lock open/>{rail&&<motion.i className="ring" initial={{opacity:.9,scale:.4}} animate={{opacity:0,scale:1.6}} transition={{duration:.45}}/>}
+      </motion.span>}
       <span className="chk"/>
       <span className="main"><span className="ttl">{task.title}</span><span className="meta">{at?`${time(at.start)}–${time(at.end)}`:formatDuration(task.duration)}</span></span>
     </div>

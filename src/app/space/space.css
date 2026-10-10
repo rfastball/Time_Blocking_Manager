@@ -60,12 +60,16 @@
 .railtag{position:absolute;z-index:8;pointer-events:none;background:var(--color-action);color:var(--color-on-action);font-size:11px;font-weight:700;border-radius:4px;padding:2px 5px;margin-top:-9px;font-variant-numeric:tabular-nums;transition:top .14s cubic-bezier(.3,1.5,.5,1)}
 .column .railtag{left:2px!important}
 .railtag.bad{background:var(--color-error)}
-/* A flow block's tooth sits in the gap toward the rail; held, it turns to the action colour and reaches out. */
-.tooth{position:absolute;right:100%;top:6px;width:4px;height:12px;border-radius:3px 0 0 3px;background:var(--sp-flow-edge);pointer-events:none}
-.column .tooth{top:4px;width:3px;height:9px}
-.next>.tooth{background:var(--color-action)}
-.hollow>.tooth{visibility:hidden}
-.held>.tooth{background:var(--color-action)}
+/* A flow block's runner: a stem across to the rail and a shoe riding in its groove. Held, it turns to the action colour. */
+.runner{position:absolute;right:100%;top:6px;height:12px;pointer-events:none}
+.runner .stem{position:absolute;left:0;right:0;top:5px;height:2px;background:var(--sp-flow-edge)}
+.runner .shoe{position:absolute;left:-4px;top:0;width:8px;height:12px;border-radius:4px;background:var(--sp-flow-edge);box-shadow:0 0 0 1.5px var(--sp-rail)}
+.column .runner{top:4px;height:9px}
+.column .runner .stem{top:3.5px}
+.column .runner .shoe{left:-3px;width:6px;height:9px;border-radius:3px}
+.next>.runner .stem,.next>.runner .shoe,.held>.runner .stem,.held>.runner .shoe{background:var(--color-action)}
+.hollow>.runner{visibility:hidden}
+.held.column.fixed>.tile{padding-left:19px}
 
 /* A quick swipe scrolls; a resting finger lifts the block (TouchSensor delay). */
 .blk{position:absolute;z-index:2;touch-action:manipulation;-webkit-touch-callout:none;cursor:grab;scroll-margin-block:32px}

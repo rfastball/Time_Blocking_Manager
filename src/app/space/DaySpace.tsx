@@ -12,7 +12,7 @@ import {blockButton} from '../editor/actions.ts';
 import {openAvailability} from '../store/schedule.ts';
 import {bump,rise,settle,sink,reduced} from '../ui/motion.ts';
 import {Icon,Lock} from '../ui/icons.tsx';
-import {COLUMN_GEOMETRY,DAY_GEOMETRY,isGestureActive,useDrag,useRegion,type Geometry} from './drag.tsx';
+import {COLUMN_GEOMETRY,DAY_GEOMETRY,runnerReach,isGestureActive,useDrag,useRegion,type Geometry} from './drag.tsx';
 import './space.css';
 
 type Props={
@@ -180,8 +180,8 @@ function Block({item,axis,geometry:g,variant,next,hollow,selected,multi,squash,l
       ?{y:-(top+h+40),scaleX:.5,scaleY:1.4,opacity:0,transition:{duration:reduced()?0:.3,ease:[.6,0,.9,.35]}}
       :{opacity:0,transition:{duration:.12}}}}
     exit="leave" transition={drawn&&move.current.dir?{...settle,top:move.current.dir==='up'?rise:sink}:settle} {...listeners} tabIndex={-1} role="presentation" onContextMenu={e=>{e.preventDefault();if(!isGestureActive())onMenu(e);}}>
-    {/* A flow block's tooth faces the rail: pushed into it, the block latches to a time. */}
-    {orderable&&<span className="tooth" aria-hidden="true"/>}
+    {/* A flow block rides the rail on a runner in its groove: free to slide, and pushed further it latches to a time. */}
+    {orderable&&<span className="runner" aria-hidden="true" style={{width:runnerReach(g)}}><i className="stem"/><i className="shoe"/></span>}
     <motion.div ref={tileRef} className="tile" animate={squash?{scaleX:1.05,scaleY:.86}:landed?{scaleX:[1.03,1.025,.99,1],scaleY:[1.03,.93,1.025,1]}:{scaleX:1,scaleY:1}}
       transition={squash?{duration:.1}:landed?{duration:.45}:{duration:.15}} style={{transformOrigin:'50% 100%'}}>
       {item.fixed&&<Latch clack={!!landed?.clack}/>}

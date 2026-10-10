@@ -62,7 +62,7 @@ export default [
   {name:'held over a body the copy settles on its slot and shows the time it will get',run:async page=>{
     await toPlan(page);
     const {today}=await days(page),y16=await hourY(page,16),c=await block(page,today,'회의록 정리');
-    assert.ok(await page.js(`!!document.querySelector('${sp(today)} .blk.flow .tooth')`),'flow blocks show a tooth toward the rail');
+    assert.ok(await page.js(`(()=>{const s=document.querySelector('${sp(today)}'),shoe=s.querySelector('.blk.flow .runner .shoe').getBoundingClientRect(),rail=s.querySelector('.rail').getBoundingClientRect();return Math.abs((shoe.left+shoe.right)/2-(rail.left+rail.right)/2)<=1.5;})()`),'flow blocks ride the rail groove on a runner');
     // The hollow springs into its slot; measure once it has come to rest.
     const during=await page.drag({x:c.x+40,y:c.y+6},{x:c.x+40,y:y16+6},{hold:900,before:async()=>{await page.shot('plan-held-slot');return page.js(`(()=>{
       const hollow=document.querySelector('${sp(today)} .blk.hollow'),held=document.querySelector('.held');
