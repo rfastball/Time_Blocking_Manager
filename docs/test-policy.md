@@ -1,5 +1,14 @@
 # 검증 범위
 
+## 오늘 두 열 스크롤 Test delta brief (2026-10-11)
+
+- Unique risk: 하루 높이가 전체 창을 밀거나 미계획이 세 번째 열로 분리됨, 잘린 시간표가 상단 막대의 드롭을 받음, 스크롤 뒤 고정 시각이 포인터 아래 시간과 달라짐, 완료 뒤 입력이나 키보드 순서 이동 뒤 블록 포커스가 보이지 않음.
+- Existing owner / Selected layer: 명시적 `scripts/ui-check/today.mjs`의 레이아웃·실제 포인터·완료 포커스 사례를 확장한다. 렌더링·잘림·브라우저 좌표 경계이므로 순수 Node 소스 검사는 추가하지 않는다. 공용 drag 변경은 기존 plan/editor UI 사례로 확인한다.
+- Expected cost delta: 기존 시나리오 확장·교체, 수집 수 변화 0. 같은 브라우저 세션의 스크롤·드래그 관찰 약 2초 추가 예상; 새 파일·의존성·worker·브라우저 launch·CI lane·coverage floor 변화 0.
+- Evidence to retire: 960px에서 별도 행의 미계획을 가운데 열 바로 아래에 배치한다는 단언은 공통 실행 흐름과 독립 스크롤 단언으로 교체한다. 신뢰할 동일 환경 통과 baseline이 없어 runtime delta는 not measured; 최종 브라우저 결과는 작업 검증 기록이 소유한다.
+
+Test delta 결과: **0 added / 5 extended / 0 removed**, today 수집 **8→8**. 기존 editor 10 / plan 18 / today 8의 36개를 확인했다. 첫 묶음 34/36 이후 놓는 순간의 고정 판정 회귀와 한국어 표시 기대값을 수정했고, 좁은 재검증에서 새 키보드 가시성 검사의 경계 잘림을 보완했다. 최종 최소 창 사례 **1/1 · 4.581초**, 나머지는 통과한 기존 결과를 유지한다. Node **46/46 · 167.9233ms**, 최종 빌드 통과. 전체 runtime delta는 동일 조건 전체 baseline 부재로 **not measured**. 기본 suite·정규 UI lane의 worker / heavy-resource launch / CI / coverage-floor 변화 **0**. 이번 수동 검증은 기존 시나리오를 소켓 대신 파이프로 연결한 임시 실행기로 실행했고 정규 실행기·의존성은 변경하지 않았다.
+
 ## 고정 변경 머무름·근무 외 표시 Test delta brief (2026-10-11)
 
 - Unique risk: 고정 블록을 레일에서 옮기는 동안 이웃 유동 블록이 눈금마다 고정 블록 앞뒤로 뛰어 떨리고, 근무 외로 밀릴 블록을 놓기 전에 알 수 없음.

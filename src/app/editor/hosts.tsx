@@ -40,7 +40,7 @@ export function EditorPanel({nextId}:{nextId:string|null}){
   if(!next)return null;
   const item=next.plan_date?planOf(next.plan_date).items.find(i=>i.task.id===next.id):null;
   return <section className="card ed-next" aria-label="다음 블록">
-    <button type="button" className="ed-next-open" onClick={event=>{nextButton.current=event.currentTarget;openEditor(next.id,'panel');}}>
+    <button type="button" className="ed-next-open" onClick={event=>{nextButton.current=event.currentTarget;openEditor(next.id,matchMedia('(max-width:760px)').matches?'dialog':'panel');}}>
       <span className="pill">다음</span>
       <span className="ed-next-title">{next.title}</span>
       {next.body.trim()&&<span className="ed-next-memo">{memoPreview(next.body)}</span>}

@@ -1,4 +1,4 @@
-.today{display:flex;flex-direction:column;gap:var(--space-control)}
+.today{display:flex;flex:1;min-height:0;min-width:0;flex-direction:column;gap:var(--space-control)}
 .today-bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px}
 .today-bar .grow{flex:1}
 .cap{display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--color-text-muted);font-variant-numeric:tabular-nums}
@@ -7,12 +7,20 @@
 .m-done{background:var(--color-text-muted);opacity:.45}.m-flow{background:var(--color-action)}.m-fixed{background:repeating-linear-gradient(135deg,var(--color-structure) 0 2px,var(--color-text-muted) 2px 4px)}
 .anchor{font-size:12.5px;color:var(--color-text-muted);font-variant-numeric:tabular-nums}
 .multi-bar{display:flex;align-items:center;gap:8px;font-weight:600}
-/* A paper timetable strip beside what to do next and the queue; 미계획 at the edge. */
-.today-cols{display:grid;grid-template-columns:minmax(260px,300px) minmax(0,1fr) minmax(240px,280px);gap:var(--space-section-loose);align-items:start}
-.today-day{min-width:0;padding:0;overflow:hidden}
+/* The timetable and execution flow each use the height left by the shell. */
+.today-cols{flex:1;min-height:0;display:grid;grid-template-columns:clamp(280px,25vw,360px) minmax(0,1fr);gap:var(--space-section-loose)}
+.today-day{min-width:0;min-height:0;padding:0;overflow:hidden}
+.today-day .dayspace{height:100%;display:flex;flex-direction:column;min-height:0}
+.today-day .bin{flex:0 0 auto;max-height:30%;overflow:auto}
+.today-day .slit{flex:0 0 auto}
+.today-day .space-wrap{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable}
+.today-day .main{scroll-margin-block:var(--space-related)}
+.today-flow{min-width:0;min-height:0;display:flex;flex-direction:column;gap:var(--space-section);overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable}
 .today-main{min-width:0;display:flex;flex-direction:column;gap:var(--space-section)}
 .today-main:empty{display:none}
 .today-side{min-width:0;display:flex;flex-direction:column;gap:var(--space-section)}
+.today-flow>*{flex:0 0 auto}
+.today .ed-next-open:focus-visible{outline-offset:calc(-1 * var(--space-focus))}
 .queue{padding:var(--space-section) var(--space-section) var(--space-related)}
 .queue h2{margin:0 0 var(--space-related);font-size:13px;font-weight:600;color:var(--color-text-muted)}
 .queue h2 b{color:var(--color-text);font-variant-numeric:tabular-nums}
@@ -31,12 +39,9 @@
 .q-row.next .chk{color:var(--color-action)}
 .q-row.over .q-time{color:color-mix(in srgb,var(--color-overdue) 70%,var(--color-text-muted))}
 .q-row.sel .q-main{background:var(--color-selection)}
-@media (min-width:1241px){
-  .today-cols:has(.today-main:empty){grid-template-columns:minmax(260px,300px) minmax(240px,280px)}
+@media (max-width:760px){
+  .today{flex:none}
+  .today-cols{flex:none;grid-template-columns:minmax(0,1fr)}
+  .today-day{height:70dvh}
+  .today-flow{overflow:visible;scrollbar-gutter:auto}
 }
-@media (max-width:1240px){
-  .today-cols{grid-template-columns:280px minmax(0,1fr);grid-template-rows:auto 1fr;grid-template-areas:"day main" "day side"}
-  .today-cols:has(.today-main:empty){grid-template-columns:280px minmax(240px,280px);grid-template-rows:none;grid-template-areas:"day side"}
-  .today-day{grid-area:day}.today-main{grid-area:main}.today-side{grid-area:side}
-}
-@media (max-width:760px){.today-cols{grid-template-columns:minmax(0,1fr);grid-template-rows:none;grid-template-areas:"day" "main" "side"}.today-cols:has(.today-main:empty){grid-template-columns:minmax(0,1fr);grid-template-areas:"day" "side"}}

@@ -14,9 +14,17 @@
 .notice{font-size:12px;color:var(--color-text-muted);border:1px dashed var(--color-border);border-radius:999px;padding:2px 10px;margin-left:auto}
 .notice.warning{color:var(--color-warning);background:var(--color-warning-surface);border-style:solid}
 .content{flex:1;padding:0 24px 24px;min-width:0}
+.app-shell:has(.today){height:100dvh;overflow:hidden}
+.workspace:has(.today){min-height:0}
+.content:has(>.today){display:flex;min-height:0;overflow:hidden}
+.topbar,.status{flex:0 0 auto}
 .status{position:sticky;bottom:0;z-index:40;display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:8px 24px;background:var(--color-surface);border-top:1px solid var(--color-divider);font-size:13px}
 .status .error{font-weight:600}
 .load-state{max-width:720px;margin:48px auto;display:flex;flex-direction:column;gap:12px;align-items:flex-start}
 .load-state h2{margin:0;font-size:var(--font-size-heading)}
 @media (max-width:960px){.rail-nav{flex-basis:62px}.nav-button{width:52px}}
 @media (max-width:680px){.rail-nav{flex-basis:54px}.content{padding:0 12px 16px}.topbar{padding:12px}}
+@media (max-width:760px){
+  .app-shell:has(.today){height:auto;overflow:visible}
+  .content:has(>.today){display:block;overflow:visible}
+}

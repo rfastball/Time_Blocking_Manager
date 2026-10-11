@@ -71,9 +71,11 @@ export function DragProvider({children}:{children:ReactNode}){
   const regions=useRef(new Map<string,Region>());
   // Recent motion per axis, px per frame, fading over about 120ms. Its vertical share is the budget up/down travel has taken.
   const travel=useRef({x:0,y:0,px:0,py:0,t:0});
+  const stretch=useRef(1);
   const snap=useRef<{left:number;top:number}|null>(null);
   const dropTimer=useRef<ReturnType<typeof setTimeout>|null>(null);
   const start=useRef<Held['startRect']|null>(null);
+  const pointer=useRef<{x:number;y:number}|null>(null);
   useEffect(()=>()=>{if(dropTimer.current)clearTimeout(dropTimer.current);},[]);
   const sensors=useSensors(useSensor(MousePenSensor,{activationConstraint:{distance:5}}),useSensor(TouchSensor,{activationConstraint:{delay:250,tolerance:6}}));
   const heldRef=useRef(held);heldRef.current=held;
@@ -101,7 +103,17 @@ export function DragProvider({children}:{children:ReactNode}){
   // `stretch` scales both distances: 1 when the hand is still or moving sideways, up to STRETCH while it travels up or down.
   function zoneAt(task:Task,px:number,py:number,grabY:number,grab:number,prev:Intent,stretch=1):{intent:Intent;region?:Region;slot?:Slot;near?:number;boundary?:boolean}{
     const intent=noIntent(task.id);
-    const inside=(el:HTMLElement)=>{const r=el.getBoundingClientRect();return px>=r.left&&px<=r.right&&py>=r.top&&py<=r.bottom?r:null;};
+    const inside=(el:HTMLElement)=>{
+      const r=el.getBoundingClientRect();
+      if(px<Math.max(0,r.left)||px>Math.min(innerWidth,r.right)||py<Math.max(0,r.top)||py>Math.min(innerHeight,r.bottom))return null;
+      // Keep the full rect for time coordinates, but only accept its visible portion.
+      for(let p=el.parentElement;p;p=p.parentElement){
+        const css=getComputedStyle(p),box=p.getBoundingClientRect(),left=box.left+p.clientLeft,top=box.top+p.clientTop;
+        if(/auto|scroll|hidden|clip/.test(css.overflowX)&&(px<left||px>left+p.clientWidth)
+          ||/auto|scroll|hidden|clip/.test(css.overflowY)&&(py<top||py>top+p.clientHeight))return null;
+      }
+      return r;
+    };
     const all=[...regions.current.values()];
     for(const region of all.filter(r=>r.kind==='space')){
       const r=inside(region.el);if(!r||!region.axis||!region.geometry||!region.date)continue;
@@ -139,16 +151,22 @@ export function DragProvider({children}:{children:ReactNode}){
     // dnd-kit measures after this callback; read the block's own box so the copy starts exactly on it.
     const node=(e.activatorEvent.target as HTMLElement).closest<HTMLElement>('[data-block]')!,r=node.getBoundingClientRect();
     const {x:px,y:py}=point(e.activatorEvent!);
+    pointer.current={x:px,y:py};
     start.current={left:r.left,top:r.top,width:r.width,height:r.height};
     snap.current=null;
     travel.current={x:0,y:0,px,py,t:performance.now()};
+    stretch.current=1;
     setGesture(true);setUi({contextMenu:null});
     setHeld({task,intent:noIntent(task.id),slot:null,column:false,startRect:start.current,grabX:px-r.left,grabY:py-r.top,width:r.width,height:r.height});
   }
   function onDragMove(e:DragMoveEvent){
     const h=held,s=start.current;if(!h||!s||h.dropping)return;
-    const a=point(e.activatorEvent!),px=a.x+e.delta.x,py=a.y+e.delta.y;
-    const {intent,region,slot=null,near=0,boundary=false}=zoneAt(h.task,px,py,h.grabY/s.height,h.grabX/s.width,h.intent,steadiness(travel.current,px,py));
+    const a=point(e.activatorEvent!),{x:px,y:py}=pointer.current??{x:a.x+e.delta.x,y:a.y+e.delta.y};
+    stretch.current=steadiness(travel.current,px,py);
+    moveHeld(h,s,px,py);
+  }
+  function moveHeld(h:Held,s:Held['startRect'],px:number,py:number){
+    const {intent,region,slot=null,near=0,boundary=false}=zoneAt(h.task,px,py,h.grabY/s.height,h.grabX/s.width,h.intent,stretch.current);
     const rect=region?.el.getBoundingClientRect(),g=region?.geometry,axis=region?.axis;
     // Only the rail constrains the hand to a 15-minute tick; the hollow carries the projected order slot.
     snap.current=rect&&g&&axis&&intent.zone==='rail'?{left:rect.left+g.fixedLeft+near*g.give,top:rect.top+axis.position(intent.start!)+1}:null;
@@ -160,17 +178,27 @@ export function DragProvider({children}:{children:ReactNode}){
     if(h.column!==column||i.zone!==intent.zone||i.date!==intent.date||i.before!==intent.before||i.start!==intent.start||i.ok!==intent.ok||width!==h.width||height!==h.height||h.boundary!==boundary
       ||h.slot?.start!==slot?.start||h.slot?.end!==slot?.end)setHeld({...h,intent,slot,column,width,height,boundary,axis});
   }
-  async function onDragEnd(_:DragEndEvent){
+  useEffect(()=>{
+    const track=(e:Event)=>{if(heldRef.current&&!heldRef.current.dropping)pointer.current=point(e);};
+    const scroll=()=>{const h=heldRef.current,s=start.current,p=pointer.current;if(h&&!h.dropping&&s&&p)moveHeld(h,s,p.x,p.y);};
+    const events=['pointermove','pointerup','touchmove','touchend'];
+    events.forEach(event=>window.addEventListener(event,track,true));
+    document.addEventListener('scroll',scroll,true);
+    return ()=>{events.forEach(event=>window.removeEventListener(event,track,true));document.removeEventListener('scroll',scroll,true);};
+  },[snapshot]);
+  async function onDragEnd(e:DragEndEvent){
     const h=held;snap.current=null;setGesture(false);
     if(!h)return;
+    const a=point(e.activatorEvent!),p=pointer.current??{x:a.x+e.delta.x,y:a.y+e.delta.y};
+    const intent=zoneAt(h.task,p.x,p.y,h.grabY/h.startRect.height,h.grabX/h.startRect.width,h.intent,stretch.current).intent;
     // The copy keeps rendering while it settles onto the block, now aligned with it.
-    setHeld({...h,dropping:true});
+    setHeld({...h,intent,dropping:true});
     if(dropTimer.current)clearTimeout(dropTimer.current);
     dropTimer.current=setTimeout(()=>setHeld(x=>x?.dropping?null:x),reduced()?0:160);
-    if(h.intent.zone==='none'||!h.intent.ok)return;
+    if(intent.zone==='none'||!intent.ok)return;
     // The dropped block stays where it was put until the store answers; a failure lets it spring back.
-    setPending(h.intent);
-    await drop(h.intent);
+    setPending(intent);
+    await drop(intent);
     setPending(null);
   }
   const snapModifier:Modifier=({transform})=>{const s=snap.current,o=start.current;return s&&o?{...transform,x:s.left-o.left,y:s.top-o.top}:transform;};

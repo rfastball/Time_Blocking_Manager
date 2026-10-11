@@ -85,7 +85,7 @@ export function DaySpace({date,axis,variant,bin,selected,multi=[],onOpen,onMulti
     const t=byId(id);if(t.completed)return;
     if(!order){void resize(t,Math.max(15,t.duration+delta*15));return;}
     if(t.starts_at||!t.plan_date||!await reorder(t,delta))return;
-    requestAnimationFrame(()=>blockButton(id,from)?.focus({preventScroll:true}));
+    requestAnimationFrame(()=>{const button=blockButton(id,from);button?.focus({preventScroll:true});if(button?.closest('.today-day'))button.scrollIntoView({block:'nearest'});});
   }
   function menu(e:{clientX:number;clientY:number},t:Task|null,minute:number){setUi({contextMenu:{taskId:t?.id??null,date,minute,x:e.clientX,y:e.clientY}});}
   function background(e:ReactPointerEvent<HTMLDivElement>){
@@ -183,6 +183,7 @@ function Block({item,pushed,axis,geometry:g,variant,next,hollow,resizing,selecte
   const immediate=hollow||reduced();
   return <motion.div ref={setNodeRef} data-block="true" className={cls} style={{left:item.fixed?g.fixedLeft:g.flowLeft,right:g.right}}
     initial={{top,height:h,opacity:0}} animate={{top,height:h,opacity:1}}
+    onAnimationComplete={()=>{const button=document.activeElement;if(button instanceof HTMLElement&&button.dataset.task===t.id&&button.closest('.today-day'))button.scrollIntoView({block:'nearest'});}}
     variants={{leave:(done:Set<string>)=>done?.has(t.id)
       ?{y:-(top+h+40),scaleX:.5,scaleY:1.4,opacity:0,transition:{duration:reduced()?0:.3,ease:[.6,0,.9,.35]}}
       :{opacity:0,transition:{duration:.12}}}}

@@ -17,8 +17,8 @@ import {EditorPanel} from '../editor/hosts.tsx';
 import './today.css';
 
 const SCALE=1.2;
-// One column at this width puts the panel below the whole day, so the editor opens over it instead.
-const open=(t:Task)=>openEditor(t.id,matchMedia('(max-width:960px)').matches?'dialog':'panel');
+// The single-column fallback opens detail over the timetable.
+const open=(t:Task)=>openEditor(t.id,matchMedia('(max-width:760px)').matches?'dialog':'panel');
 
 // 오늘 is for doing the day, not planning it: a slim timetable strip, what comes next, and the queue of what is left.
 // Planning a day in full (new blocks, clearing it) is the plan tab's 일 view.
@@ -52,13 +52,15 @@ export function Today(){
       <section className="card today-day" aria-label="시간표">
         <DaySpace date={date} axis={axis} variant="day" bin selected={editing} multi={multi} onOpen={open} onMulti={toggleMulti}/>
       </section>
-      <div className="today-main">
-        <EditorPanel nextId={nextId}/>
-        {queue.length>0&&<Queue items={queue} nextId={nextId} selected={editing}/>}
+      <div className="today-flow">
+        <div className="today-main">
+          <EditorPanel nextId={nextId}/>
+          {queue.length>0&&<Queue items={queue} nextId={nextId} selected={editing}/>}
+        </div>
+        <aside className="today-side">
+          <InboxTray scale={SCALE} overdue={overdueTasks()} selected={editing} onOpen={open}/>
+        </aside>
       </div>
-      <aside className="today-side">
-        <InboxTray scale={SCALE} overdue={overdueTasks()} selected={editing} onOpen={open}/>
-      </aside>
     </div>
   </div>;
 }
@@ -75,7 +77,7 @@ function Queue({items,nextId,selected}:{items:DayItem[];nextId:string|null;selec
       requestAnimationFrame(()=>{
         if(moved||(document.activeElement!==document.body&&document.activeElement!==button))return;
         const next=neighbours.map(({task})=>document.querySelector<HTMLButtonElement>(`.queue [data-task="${CSS.escape(task.id)}"] .chk`)).find(el=>el);
-        (next??document.querySelector<HTMLInputElement>('.today-side #tray-capture'))?.focus({preventScroll:true});
+        (next??document.querySelector<HTMLInputElement>('.today-side #tray-capture'))?.focus();
       });
     }finally{document.removeEventListener('focusin',notice);}
   }

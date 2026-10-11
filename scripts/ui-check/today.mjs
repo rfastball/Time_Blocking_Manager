@@ -2,11 +2,22 @@ import assert from 'node:assert/strict';
 
 // Preview data: §10 example (A 60, B 45, C 30, D 60 flow; workshop 14:00 fixed; E 90, F 120) at 10:20.
 const space='.today-day .space';
-const find=(page,text)=>page.rect('.today-day .blk, .tray .tblk',text);
+const find=async(page,text)=>{
+  await page.js(`(()=>{const el=[...document.querySelectorAll('.today-day .blk, .tray .tblk')].find(e=>e.textContent.includes(${JSON.stringify(text)}));el?.scrollIntoView({block:'nearest'});})()`);
+  return page.rect('.today-day .blk, .tray .tblk',text);
+};
 export default [
-  {name:'initial layout follows the stored order without times on flow blocks',run:async page=>{
+  {name:'initial layout follows the stored order in two independently scrolling columns',viewport:{width:1440,height:900},run:async page=>{
     assert.deepEqual(await page.blocks(space),['설계 문서 자료 조사, 예상 09:00–10:00','설계 문서 초안 작성, 예상 10:00–10:45','회의록 정리, 예상 10:45–11:15','분리망 배포 의존성 검토, 예상 13:00–14:00','설계 워크숍, 시각 고정 14:00–15:00','신규 입사자 교육 자료, 예상 15:00–16:30','경쟁사 자료 조사, 예상 18:00–20:00']);
     assert.match(await page.text('.today-day .blk.over'),/경쟁사 자료 조사/,'work that no longer fits runs past the end of work instead of leaving the timetable');
+    const day=await page.rect('.today-day'),flow=await page.rect('.today-flow');
+    assert.ok(flow.x>day.x+day.w,'the execution flow sits beside the timetable');
+    assert.ok(Math.abs(flow.y-day.y)<=1&&Math.abs(flow.h-day.h)<=1,'both columns share the available viewport height');
+    assert.ok(day.y+day.h<=900&&flow.y+flow.h<=900,'the complete day is bounded by the viewport');
+    assert.equal(await page.js(`getComputedStyle(document.querySelector('.today-cols')).gridTemplateColumns.split(' ').length`),2);
+    assert.deepEqual(await page.js(`[...document.querySelectorAll('.today-flow .card')].map(e=>e.getAttribute('aria-label'))`),['다음 블록','남은 블록','미계획'],'DOM order follows the execution flow');
+    assert.ok(await page.js(`document.querySelector('.today-day .space-wrap').scrollHeight>document.querySelector('.today-day .space-wrap').clientHeight`),'the day retains its complete scrollable axis');
+    assert.ok(await page.js(`document.documentElement.scrollHeight<=innerHeight`),'the dashboard itself does not scroll');
     await page.shot('today-initial');
   }},
   {name:'a block past the end of work drags back into the order while the space holds still',viewport:{width:1440,height:900},run:async page=>{
@@ -20,6 +31,14 @@ export default [
     assert.equal(new Set(tops.map(Math.round)).size,1,'the space never shifts under a held block');
     const order=(await page.blocks(space)).map(b=>b.split(',')[0]);
     assert.equal(order.indexOf('경쟁사 자료 조사'),order.indexOf('신규 입사자 교육 자료')-1);
+    const block=await find(page,'경쟁사 자료 조사'),bar=await page.rect('.today-bar'),day=await page.rect('.today-day');
+    const unchanged=await page.blocks(space);
+    await page.drag({x:block.x+60,y:block.y+10},{x:day.x+170,y:bar.cy},{before:async()=>{
+      assert.equal(await page.js(`document.querySelectorAll('${space} .hollow').length`),1,'the source stays hollow');
+      assert.equal(await page.js(`document.querySelectorAll('${space} .latched, ${space}.latched').length`),0,'a clipped rail does not accept the pointer above its scroller');
+      assert.equal(await page.js(`document.querySelector('.held .meta').textContent`),'2시간','the hidden timeline is not a drop destination');
+    }});
+    assert.deepEqual(await page.blocks(space),unchanged,'dropping over the toolbar preserves the stored order');
   }},
   {name:'completing at 10:20 pulls the block into the intake and lays the rest out from now',run:async page=>{
     await page.js(`document.querySelector('.queue .chk').focus()`);
@@ -38,6 +57,10 @@ export default [
     }
     assert.equal(await page.rect('.queue'),null);
     assert.equal(await page.js(`document.activeElement?.id`),'tray-capture','the last completion lands on the stable capture input');
+    const flow=await page.rect('.today-flow'),side=await page.rect('.today-side');
+    assert.ok(Math.abs(flow.y-side.y)<=1,'an empty main group leaves the capture at the start of the execution flow');
+    const capture=await page.rect('#tray-capture');
+    assert.ok(capture.y>=0&&capture.y+capture.h<=1000,'the last completion reveals the capture input');
   }},
   {name:'a 미계획 block held over the body opens a gap and drops into that order',run:async page=>{
     const tray=await find(page,'회의록 템플릿'),c=await find(page,'회의록 정리');
@@ -47,13 +70,22 @@ export default [
     assert.equal(order.indexOf('회의록 템플릿 업데이트'),order.indexOf('회의록 정리')-1);
   }},
   {name:'held on the rail it snaps to a slot and permits explicit lunch placement',run:async page=>{
-    const c=await find(page,'회의록 정리'),rail=await page.rect(space+' .rail'),lunch=await page.rect(space+' .brk');
     const work=await find(page,'설계 워크숍');
+    const c=await find(page,'회의록 정리'),rail=await page.rect(space+' .rail'),lunch=await page.rect(space+' .brk');
     await page.drag({x:c.x+80,y:c.y+6},{x:rail.cx,y:work.y+work.h+40},{before:()=>page.shot('today-held-rail')});
     assert.ok((await page.blocks(space)).includes('회의록 정리, 시각 고정 15:30–16:00'),'fixed at 15:30');
     const d=await find(page,'분리망 배포');
     await page.drag({x:d.x+80,y:d.y+6},{x:rail.cx,y:lunch.y+10},{before:async()=>{await page.shot('today-held-lunch');assert.equal(await page.js(`document.querySelector('.held .off-part')?.style.height`),'100%');}});
     assert.ok((await page.blocks(space)).includes('분리망 배포 의존성 검토, 시각 고정 12:00–13:00'));
+    const fixed=await find(page,'회의록 정리'),scroller=await page.rect('.today-day .space-wrap'),left=await page.rect(space+' .rail');
+    const shown=await page.drag({x:fixed.x+60,y:fixed.y+6},{x:left.cx,y:scroller.y+scroller.h/2},{before:async()=>{
+      const before=await page.text('.held .meta');
+      await page.js(`document.querySelector('.today-day .space-wrap').scrollTop+=36`);
+      await page.js(`new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))`);
+      assert.notEqual(await page.text('.held .meta'),before,'scrolling under a stationary held block updates its rail time');
+      return await page.text('.held .meta');
+    }});
+    assert.ok((await page.blocks(space)).includes('회의록 정리, 시각 고정 '+shown),'release commits the time shown after scrolling');
   }},
   {name:'the grip resizes and the following blocks are laid out again',run:async page=>{
     await page.js(`document.querySelector('.today-day .blk.next')?.dispatchEvent(new MouseEvent('mouseover',{bubbles:true}))`);
@@ -71,15 +103,32 @@ export default [
     assert.equal(await page.js('document.querySelector(".today-day .blk.sel")?.textContent.includes("설계 문서 초안")'),true);
     assert.ok(await page.js('!!document.querySelector(".today-main [aria-label=\'블록 상세\']")'));
   }},
-  {name:'at 960px 미계획 follows the main cards without waiting for the timeline',viewport:{width:960,height:640},run:async page=>{
-    const main=await page.rect('.today-main'),side=await page.rect('.today-side'),day=await page.rect('.today-day');
-    assert.ok(Math.abs(side.y-main.y-main.h-18)<=2,'the side starts directly below the main cards');
-    assert.ok(side.y<day.y+day.h,'the tall timeline does not push capture below the whole day');
+  {name:'at 960px the execution flow scrolls independently and reveals capture',viewport:{width:960,height:640},run:async page=>{
+    const main=await page.rect('.today-main'),side=await page.rect('.today-side'),day=await page.rect('.today-day'),flow=await page.rect('.today-flow');
+    assert.ok(Math.abs(side.y-main.y-main.h-16)<=2,'the side starts directly below the main cards');
+    assert.ok(side.x===main.x&&side.w===main.w,'Next, Queue, and Inbox use one right column');
+    assert.ok(day.y+day.h<=640&&Math.abs(flow.h-day.h)<=1,'the minimum native height bounds both scroll flows');
     assert.ok(await page.js(`document.documentElement.scrollWidth<=innerWidth`),'the page fits the viewport');
     await page.js(`document.querySelector('.today-side #tray-capture').focus()`);
     const capture=await page.rect('.today-side #tray-capture');
     assert.equal(await page.js(`document.activeElement?.id`),'tray-capture');
     assert.ok(capture.y>=0&&capture.y+capture.h<=640,'focusing capture scrolls it into view');
+    assert.ok(await page.js(`document.querySelector('.today-flow').scrollTop>0`),'capture scrolls the execution flow');
+    assert.equal(await page.js(`document.querySelector('.today-day .space-wrap').scrollTop`),0,'the timeline keeps its own scroll position');
+    await page.type('긴 제목 '.repeat(45));await page.key('Enter',{text:'\r'});await page.sleep(200);
+    assert.ok(await page.js(`document.documentElement.scrollWidth<=innerWidth`),'long capture content remains within the viewport');
     await page.shot('today-960');
+    await find(page,'신규 입사자 교육');
+    await page.js(`document.querySelector('${space} [data-task="sample-e"]').focus()`);
+    await page.key('ArrowDown',{modifiers:1});await page.sleep(300);
+    assert.match(await page.js(`document.activeElement?.getAttribute('aria-label')`),/신규 입사자 교육 자료, 예상 18:00–19:30/,'Alt+Down keeps focus on the reordered block');
+    const focused=await page.rect(space+' [data-task="sample-e"]'),scrollport=await page.rect('.today-day .space-wrap');
+    assert.ok(focused.y>=scrollport.y&&focused.y+focused.h<=scrollport.y+scrollport.h,'the focused block stays visible after its reorder motion');
+    await page.goto('/?now=10:20',{width:760,height:640});
+    const narrowDay=await page.rect('.today-day'),narrowFlow=await page.rect('.today-flow');
+    assert.ok(narrowFlow.y>=narrowDay.y+narrowDay.h,'the fallback keeps the same DOM order in one column');
+    await page.js(`document.querySelector('.ed-next-open').focus()`);await page.key('Enter',{text:'\r'});await page.sleep(200);
+    assert.equal(await page.js(`document.querySelector('dialog.ed-dialog')?.open`),true,'Next detail uses the dialog in the one-column fallback');
+    await page.key('Escape');
   }},
 ];
