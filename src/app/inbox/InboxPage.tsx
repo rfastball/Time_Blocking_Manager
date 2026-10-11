@@ -34,14 +34,18 @@ export function InboxPage(){
     <Rows tasks={open}/>
     {done.length>0&&<details className="inbox-done" open={doneOpen} onToggle={e=>{const o=e.currentTarget.open;doneOpenMemory=o;setDoneOpen(o);}}>
       <summary>완료 {done.length}</summary>
-      <Rows tasks={done}/>
+      {doneOpen&&(
+        <Rows tasks={done}/>
+      )}
     </details>}
     {trash.length>0&&<details className="inbox-done inbox-trash" open={trashOpen} onToggle={e=>{const o=e.currentTarget.open;trashOpenMemory=o;setTrashOpen(o);}}>
       <summary>휴지통 {trash.length}</summary>
-      <ul className="inbox-rows">
-        <AnimatePresence initial={false} mode="popLayout">{trash.map(t=><TrashRow key={t.id} item={t} next={trash[trash.indexOf(t)+1]??trash[trash.indexOf(t)-1]}/>)}</AnimatePresence>
-      </ul>
-      <EmptyTrash items={trash}/>
+      {trashOpen&&<>
+        <ul className="inbox-rows">
+          <AnimatePresence initial={false} mode="popLayout">{trash.map((t,index)=><TrashRow key={t.id} item={t} next={trash[index+1]??trash[index-1]}/>)}</AnimatePresence>
+        </ul>
+        <EmptyTrash items={trash}/>
+      </>}
     </details>}
   </section>;
 }

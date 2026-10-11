@@ -40,6 +40,7 @@ const scenarios=[
     assert.deepEqual(await titles(page),['SQLite 백업 방식 조사']);
     assert.match(await page.text('.inbox-done > summary'),/완료 1/);
     assert.equal(await page.js('document.querySelector(".inbox-done").open'),false);
+    assert.equal(await page.js(`document.querySelectorAll(${JSON.stringify(done)}).length`),0,'closed completed disclosure does not mount rows');
     await page.click('.inbox-done > summary');await page.sleep(400);
     assert.deepEqual(await titles(page,done),['회의록 템플릿 업데이트']);
     assert.equal(await page.js(`document.querySelector('.inbox-done input[type=checkbox]').checked`),true);
@@ -65,6 +66,7 @@ const scenarios=[
     assert.equal(await page.text('[role=status]'),'‘SQLite 백업 방식 조사’을 휴지통으로 옮겼어요');
     assert.match(await page.text('.inbox-trash > summary'),/휴지통 1/);
     assert.equal(await page.js('document.querySelector(".inbox-trash").open'),false);
+    assert.equal(await page.js(`document.querySelectorAll(${JSON.stringify(trashed)}).length`),0,'closed trash disclosure does not mount rows');
     await page.click('.inbox-trash > summary');await page.sleep(400);
     assert.deepEqual(await titles(page,trashed),['SQLite 백업 방식 조사']);
     assert.match(await page.text(trashed+' small'),/\d+월 \d+일 삭제/);
