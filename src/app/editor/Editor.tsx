@@ -1,6 +1,6 @@
 import {useEffect,useId,useRef,useState,type KeyboardEvent as ReactKeyboardEvent,type MutableRefObject} from 'react';
 import {AnimatePresence,motion} from 'motion/react';
-import {isCompositionKey} from '../../capture.ts';
+import {isCompositionKey,needsSavedReview} from '../../capture.ts';
 import {formatDuration} from '../../format.ts';
 import {time} from '../../dates.ts';
 import {checkCount,checklist,durationValid,quarter,scheduleHint,scheduleSummary,taskState,toggleCheck,withSchedule} from '../../detail.ts';
@@ -129,7 +129,7 @@ export function Editor({mode,closer}:{mode:'panel'|'dialog';closer?:MutableRefOb
       </details>
       {dirty&&!confirming&&<button type="button" className="btn text ed-discard" onClick={()=>void discardEditorDraft()}>초안 버리기</button>}
       {mode==='dialog'&&failure&&<div className="ed-recovery"><p className="error" role="alert">{failure}</p>
-        {s.failed&&<div className="ed-row"><button type="button" className="btn" onClick={()=>void retry()}>{s.failed.code==='conflict'||s.failed.code==='epoch'?'저장된 내용 확인':'다시 시도'}</button><button type="button" className="btn" onClick={release}>입력 유지하고 수정</button></div>}
+        {s.failed&&<div className="ed-row"><button type="button" className="btn" onClick={()=>void retry()}>{needsSavedReview(s.failed.code)?'저장된 내용 확인':'다시 시도'}</button><button type="button" className="btn" onClick={()=>void release()}>입력 유지하고 수정</button></div>}
       </div>}
     </div>
     <footer className="ed-foot">

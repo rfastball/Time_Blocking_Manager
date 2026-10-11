@@ -2,6 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {benchOrder,benchPiles,normalize,pileName,place} from './bench.ts';
 import {previewMutation} from './preview.ts';
+import {requestLifetimeMs} from './capture.ts';
 import type {Action,Pile,Settings,Snapshot,Task} from './types.ts';
 
 const card=(id:string,pile:string|null,order:number,extra:Partial<Task>={}):Task=>({id,title:id,body:'',starts_at:null,duration:30,completed:false,revision:1,plan_date:null,flow_order:null,pile_id:pile,pile_order:order,...extra});
@@ -43,7 +44,7 @@ test('normalizing drops empty piles, strips non-bench places and renumbers',()=>
 
 test('the preview store follows the bench rules of the Rust store',()=>{
   let s:Snapshot={epoch:'e',tasks:[],settings:{revision:1,days:[]},layouts:[],trash:[],piles:[]};
-  const run=(action:Action)=>{s=previewMutation(s,{request_id:crypto.randomUUID(),epoch:'e',action},new Set());return s;};
+  const run=(action:Action)=>{s=previewMutation(s,{request_id:crypto.randomUUID(),epoch:'e',issued_at:Date.now(),action},new Set());return s;};
   const rev=(...ids:string[])=>ids.map(id=>({id,revision:s.tasks.find(t=>t.id===id)!.revision}));
   for(const id of ['a','b','c'])run({type:'create',id,title:id});
   assert.deepEqual(view(s.tasks,s.piles!),[[null,['c','b','a']]]);assert.ok(s.tasks.every(t=>t.proto));
@@ -64,7 +65,7 @@ test('the preview store follows the bench rules of the Rust store',()=>{
 
 test('the preview store records 미계획 completion on the given day and returns old dateless ones to the 투입구',()=>{
   let s:Snapshot={epoch:'e',tasks:[card('a',null,1,{proto:true}),card('old',null,0,{completed:true,pile_order:null})],settings:{revision:1,days:[]},layouts:[],trash:[],piles:[]};
-  const run=(action:Action)=>{s=previewMutation(s,{request_id:crypto.randomUUID(),epoch:'e',action},new Set());return s;};
+  const run=(action:Action)=>{s=previewMutation(s,{request_id:crypto.randomUUID(),epoch:'e',issued_at:Date.now(),action},new Set());return s;};
   assert.throws(()=>run({type:'set_completed',id:'a',expected_revision:1,completed:true}),/날짜/);
   run({type:'set_completed',id:'a',expected_revision:1,completed:true,date:'2026-10-11'});
   const a=s.tasks.find(t=>t.id==='a')!;
@@ -77,7 +78,7 @@ test('the preview store records 미계획 completion on the given day and return
 
 test('the preview rejects stale editors and settings and trims accepted titles like Rust',()=>{
   let s:Snapshot={epoch:'e',tasks:[],settings:settings(),layouts:[],trash:[],piles:[]};
-  const run=(action:Action)=>s=previewMutation(s,{request_id:crypto.randomUUID(),epoch:'e',action},new Set());
+  const run=(action:Action)=>s=previewMutation(s,{request_id:crypto.randomUUID(),epoch:'e',issued_at:Date.now(),action},new Set());
   for(const action of [
     {type:'create',id:'a',title:'  업무  '},
     {type:'create_scheduled',id:'b',title:'  고정  ',starts_at:'2026-10-14T09:00',duration:30},
@@ -97,8 +98,13 @@ test('the preview rejects stale editors and settings and trims accepted titles l
     {type:'set_routines',expected_revision:1,routines:[]},{type:'delete',id:'gone',expected_revision:1}] satisfies Action[]){
     assert.throws(()=>run(action),{code:'conflict'},action.type);assert.deepEqual(s,before);
   }
-  assert.throws(()=>previewMutation(s,{request_id:'r',epoch:'old',action:update},new Set()),{code:'epoch'});
-  assert.throws(()=>previewMutation(s,{request_id:'',epoch:'e',action:update},new Set()),{code:'validation'});
+  assert.throws(()=>previewMutation(s,{request_id:'r',epoch:'old',issued_at:Date.now(),action:update},new Set()),{code:'epoch'});
+  assert.throws(()=>previewMutation(s,{request_id:'',epoch:'e',issued_at:Date.now(),action:update},new Set()),{code:'validation'});
+  const now=1800000000000,command={request_id:'r',epoch:'e',issued_at:now,action:{type:'create' as const,id:'new',title:'업무'}};
+  assert.equal(previewMutation(s,command,new Set(),now+requestLifetimeMs-1).tasks.length,s.tasks.length+1);
+  assert.throws(()=>previewMutation(s,command,new Set(),now+requestLifetimeMs),{code:'expired'});
+  const {issued_at:_,...legacy}=command;
+  assert.throws(()=>previewMutation(s,legacy,new Set(),now),{code:'expired'});assert.deepEqual(s,before);
 });
 
 test('the preview rejects invalid command inputs without changing work, trash, piles or anchors',()=>{
@@ -134,17 +140,17 @@ test('the preview rejects invalid command inputs without changing work, trash, p
     {type:'ship_flow',date:day,items:[]},{type:'ship_flow',date:day,items:[item,item]}
   ];
   for(const action of cases){
-    assert.throws(()=>previewMutation(s,{request_id:'r',epoch:'e',action},occurrences),{code:'validation'},JSON.stringify(action));
+    assert.throws(()=>previewMutation(s,{request_id:'r',epoch:'e',issued_at:Date.now(),action},occurrences),{code:'validation'},JSON.stringify(action));
     assert.deepEqual(s,before);assert.deepEqual([...occurrences],['kept:2026-10-11']);
   }
-  const fixed=previewMutation(s,{request_id:'r',epoch:'e',action:{...update,starts_at:day+'T04:00',plan_date:day}},occurrences);
+  const fixed=previewMutation(s,{request_id:'r',epoch:'e',issued_at:Date.now(),action:{...update,starts_at:day+'T04:00',plan_date:day}},occurrences);
   assert.equal(fixed.tasks.find(t=>t.id==='a')!.starts_at,day+'T04:00','explicit off-hours are allowed');
 });
 
 test('the preview validates settings and generates routines atomically with independent saved values',()=>{
   const day='2026-10-14',occurrences=new Set<string>();
   let s:Snapshot={epoch:'e',settings:settings(),tasks:[],trash:[],piles:[],layouts:[]};
-  const run=(action:Action)=>s=previewMutation(s,{request_id:crypto.randomUUID(),epoch:'e',action},occurrences);
+  const run=(action:Action)=>s=previewMutation(s,{request_id:crypto.randomUUID(),epoch:'e',issued_at:Date.now(),action},occurrences);
   const days=settings().days;
   run({type:'set_settings',expected_revision:1,days});days[0].start=0;assert.equal(s.settings.days[0].start,540);
   const routine={id:'r',title:'  정기 확인  ',body:'메모',weekdays:[2],start:540,duration:30};
@@ -164,6 +170,6 @@ test('the preview validates settings and generates routines atomically with inde
   // A rejected batch must not remember its earlier successful occurrence.
   const broken={...before,settings:{...before.settings,routines:[before.settings.routines![0],{...before.settings.routines![1],body:'x'.repeat(200001)}]}};
   const brokenBefore=structuredClone(broken),markers=new Set<string>();
-  assert.throws(()=>previewMutation(broken,{request_id:'r',epoch:'e',action:{type:'ensure_routines',from:day,to:day}},markers),{code:'validation'});
+  assert.throws(()=>previewMutation(broken,{request_id:'r',epoch:'e',issued_at:Date.now(),action:{type:'ensure_routines',from:day,to:day}},markers),{code:'validation'});
   assert.deepEqual(broken,brokenBefore);assert.equal(markers.size,0);
 });

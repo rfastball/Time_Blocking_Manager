@@ -1,4 +1,20 @@
-import type {Command} from './types';
+import type {Action,AppError,Command} from './types';
+
+export const requestLifetimeMs=30*24*60*60*1000;
+export function createCommand(action:Action,epoch:string,issued_at=Date.now()):Command {
+  return {request_id:crypto.randomUUID(),epoch,issued_at,action};
+}
+export function requestTimeIssue(command:Command,now=Date.now(),cutoff=0):AppError|null {
+  if(now<=cutoff)return {code:'clock',message:'시스템 시각이 처리 기록 정리 시각보다 이전입니다. PC 시각을 확인하거나 백업에서 복원해 주세요.',retryable:false};
+  const issued=command.issued_at;
+  return issued===undefined||!Number.isSafeInteger(issued)||issued<0||issued>now||issued<=now-requestLifetimeMs||issued<=cutoff
+    ?{code:'expired',message:'저장 요청의 기한이 지났거나 시각이 올바르지 않습니다. 입력은 유지됩니다. 저장된 내용을 확인한 뒤 다시 저장해 주세요.',retryable:false}:null;
+}
+// Releasing one failed request must not erase a newer capture's identity.
+export function releaseCaptureCommand(current:Command|null,failed:Command|null){
+  return current&&failed&&current.request_id===failed.request_id&&current.epoch===failed.epoch?null:current;
+}
+export const needsSavedReview=(code:string|undefined)=>code==='conflict'||code==='epoch'||code==='expired';
 
 export class CaptureDraft {
   text='';

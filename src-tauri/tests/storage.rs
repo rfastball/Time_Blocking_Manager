@@ -2,7 +2,7 @@ use blokky_core::{db::{managed_backup_path, Store}, model::*};
 use tempfile::tempdir;
 
 fn command(s: &Store, action: Action) -> Command {
-    Command { request_id: uuid::Uuid::new_v4().to_string(), epoch: s.snapshot().unwrap().epoch, action }
+    Command { request_id: uuid::Uuid::new_v4().to_string(), epoch: s.snapshot().unwrap().epoch, issued_at:Some(chrono::Utc::now().timestamp_millis()), action }
 }
 fn create(s: &mut Store, id: &str) -> Task {
     let c = command(s, Action::Create { id: id.into(), title: "한글 업무".into() });
@@ -118,6 +118,7 @@ fn legacy_databases_and_backups_migrate_without_losing_work() {
         conn.execute_batch("ALTER TABLE tasks DROP COLUMN proto; ALTER TABLE tasks DROP COLUMN pile_id; ALTER TABLE tasks DROP COLUMN pile_order; DROP TABLE piles;").unwrap();
         if version<4 {conn.execute_batch("ALTER TABLE tasks DROP COLUMN plan_date; ALTER TABLE tasks DROP COLUMN flow_order; DROP TABLE day_layouts;").unwrap();}
         if version<5 {conn.execute_batch("ALTER TABLE tasks DROP COLUMN deleted_at;").unwrap();}
+        conn.execute_batch("DROP INDEX receipt_accepted; ALTER TABLE receipts DROP COLUMN accepted_at; DELETE FROM meta WHERE key='receipt_cutoff';").unwrap();
         conn.execute_batch(&format!("PRAGMA user_version={version};")).unwrap();drop(conn);
         let inspection=Store::inspect_backup(&path).unwrap();assert_eq!((inspection.tasks,inspection.scheduled),(1,1));
         let mut target=Store::open(&dir.path().join(format!("restored-{version}.db"))).unwrap();let epoch=target.snapshot().unwrap().epoch;
@@ -129,7 +130,7 @@ fn legacy_databases_and_backups_migrate_without_losing_work() {
         // The migrated fixed task occupies 10:00, so the routine stays on its date as flow work.
         let generated=ensure(&mut s,"2026-10-05","2026-10-05");assert_eq!(generated.tasks.len(),2);
         assert!(generated.tasks.iter().any(|t|t.id!="legacy"&&t.plan_date.as_deref()==Some("2026-10-05")&&t.flow_order==Some(1)));
-        assert_eq!(rusqlite::Connection::open(&path).unwrap().query_row::<i64,_,_>("PRAGMA user_version",[],|r|r.get(0)).unwrap(),6);
+        assert_eq!(rusqlite::Connection::open(&path).unwrap().query_row::<i64,_,_>("PRAGMA user_version",[],|r|r.get(0)).unwrap(),7);
         // The added trash column works on the migrated file: delete sets aside, restore returns it unchanged.
         let c=command(&s,Action::Delete{id:"legacy".into(),expected_revision:task.revision});let trashed=s.apply(&c).unwrap();
         assert!(trashed.tasks.iter().all(|t|t.id!="legacy"));assert_eq!(trashed.trash[0].task,task);
@@ -164,6 +165,62 @@ fn persistence_revisions_and_retry_receipts() {
     drop(store);
     let store = Store::open(&path).unwrap(); let a = &store.snapshot().unwrap().tasks[0];
     assert_eq!(a.revision, 2); assert_eq!(a.body, "[x] 확인\n메모 보존"); assert_eq!(a.duration, 45);
+}
+
+#[test]
+fn requests_expire_and_receipts_purge_without_replay_or_pile_order_loss() {
+    let dir=tempdir().unwrap();let path=dir.path().join("requests.db");let mut s=Store::open(&path).unwrap();
+    let now=1_800_000_000_000;
+    let c=Command{request_id:"first".into(),epoch:s.snapshot().unwrap().epoch,issued_at:Some(now),action:Action::Create{id:"a".into(),title:"private title".into()}};
+    let once=s.apply_at(&c,now).unwrap();
+    assert_eq!(s.apply_at(&c,now+REQUEST_LIFETIME_MS-1).unwrap().tasks,once.tasks);
+    let mut renewed=c.clone();renewed.issued_at=Some(now+1);
+    assert_eq!(s.apply_at(&renewed,now+1).unwrap_err().code,"validation","the timestamp is part of the immutable payload");
+    let before=serde_json::to_value(s.snapshot().unwrap()).unwrap();
+    for issued_at in [None,Some(now-REQUEST_LIFETIME_MS),Some(now+1),Some(-1)] {
+        let invalid=Command{request_id:"invalid".into(),issued_at,..c.clone()};
+        assert_eq!(s.apply_at(&invalid,now).unwrap_err().code,"expired");
+        assert_eq!(serde_json::to_value(s.snapshot().unwrap()).unwrap(),before);
+    }
+    let legacy:Command=serde_json::from_value(serde_json::json!({"request_id":"legacy","epoch":c.epoch,"action":{"type":"create","id":"old","title":"kept"}})).unwrap();
+    assert_eq!(s.apply_at(&legacy,now).unwrap_err().code,"expired","missing timestamps expire instead of failing draft decoding or renewing");
+    assert_eq!(s.apply_at(&c,now+REQUEST_LIFETIME_MS).unwrap_err().code,"expired","even a recorded retry expires at exactly thirty days");
+    let conn=rusqlite::Connection::open(&path).unwrap();
+    let (payload,accepted):(String,i64)=conn.query_row("SELECT payload,accepted_at FROM receipts WHERE id='first'",[],|r|Ok((r.get(0)?,r.get(1)?))).unwrap();
+    assert_eq!(accepted,now);assert_eq!(payload.len(),64);assert!(payload.bytes().all(|c|c.is_ascii_hexdigit()));
+    assert_eq!(conn.prepare("SELECT name FROM pragma_table_info('receipts')").unwrap().query_map([],|r|r.get::<_,String>(0)).unwrap().collect::<std::result::Result<Vec<_>,_>>().unwrap(),["id","payload","accepted_at"]);
+    assert_eq!(s.purge_receipts(now+REQUEST_LIFETIME_MS).unwrap(),1);
+    assert_eq!(s.apply_at(&c,now+REQUEST_LIFETIME_MS-1).unwrap_err().code,"expired","the watermark blocks a purged retry after clock rollback");
+    let fresh=Command{request_id:"fresh".into(),issued_at:Some(now+REQUEST_LIFETIME_MS-1),action:Action::Create{id:"b".into(),title:"fresh".into()},..c.clone()};
+    s.apply_at(&fresh,now+REQUEST_LIFETIME_MS-1).unwrap();
+    assert_eq!(s.purge_receipts(now+REQUEST_LIFETIME_MS-1).unwrap(),0);
+    assert_eq!(conn.query_row::<String,_,_>("SELECT value FROM meta WHERE key='receipt_cutoff'",[],|r|r.get(0)).unwrap(),now.to_string());
+    assert_eq!(s.apply_at(&fresh,now-1).unwrap_err().code,"clock","a larger clock correction names the clock problem");
+    // The existing restore changes epoch and safely resets a mistaken future watermark.
+    let backup=dir.path().join("backup.db");s.backup(&backup).unwrap();
+    let epoch=s.snapshot().unwrap().epoch;s.restore(&backup,&epoch,&dir.path().join("safety.db")).unwrap();
+    assert_eq!(s.apply_at(&c,now+REQUEST_LIFETIME_MS-1).unwrap_err().code,"epoch");
+    let fresh=command(&s,Action::Create{id:"after-restore".into(),title:"current clock".into()});s.apply(&fresh).unwrap();
+    assert_eq!(conn.query_row::<String,_,_>("SELECT value FROM meta WHERE key='receipt_cutoff'",[],|r|r.get(0)).unwrap(),"0");
+    // A real v6 receipt shape upgrades once, without the older list-to-inbox backfill.
+    let path=dir.path().join("v6.db");let mut s=Store::open(&path).unwrap();
+    for id in ["z","a","m","b"] {create(&mut s,id);}
+    put(&mut s,&["a","z"],Some("p1"),Some(1),0).unwrap();put(&mut s,&["m","b"],Some("p2"),Some(1),0).unwrap();
+    let move_pile=command(&s,Action::MovePile{pile:"p2".into(),position:1});s.apply(&move_pile).unwrap();
+    let kept=s.snapshot().unwrap();drop(s);
+    let conn=rusqlite::Connection::open(&path).unwrap();
+    conn.execute_batch("DROP INDEX receipt_accepted; ALTER TABLE receipts DROP COLUMN accepted_at; DELETE FROM meta WHERE key='receipt_cutoff'; PRAGMA user_version=6;").unwrap();drop(conn);
+    assert_eq!(Store::inspect_backup(&path).unwrap().tasks,4);
+    let start=chrono::Utc::now().timestamp_millis();let s=Store::open(&path).unwrap();let end=chrono::Utc::now().timestamp_millis();
+    assert_eq!((s.snapshot().unwrap().tasks,s.snapshot().unwrap().piles),(kept.tasks.clone(),kept.piles.clone()));
+    let conn=rusqlite::Connection::open(&path).unwrap();
+    let (count,min,max):(i64,i64,i64)=conn.query_row("SELECT count(*),min(accepted_at),max(accepted_at) FROM receipts",[],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?))).unwrap();
+    assert_eq!(count,7);assert_eq!(min,max);assert!((start..=end).contains(&min));
+    assert_eq!(conn.query_row::<i64,_,_>("SELECT count(*) FROM pragma_index_list('receipts') WHERE name='receipt_accepted'",[],|r|r.get(0)).unwrap(),1);
+    drop(s);drop(conn);let mut s=Store::open(&path).unwrap();
+    assert_eq!(s.purge_receipts(max+REQUEST_LIFETIME_MS-1).unwrap(),0);
+    assert_eq!(s.purge_receipts(max+REQUEST_LIFETIME_MS).unwrap(),7);
+    assert_eq!(bench(&s.snapshot().unwrap()),bench(&kept));
 }
 
 #[test]
@@ -321,7 +378,7 @@ fn backup_inspection_reports_validated_contents_without_changing_files() {
     assert!(Store::inspect_backup(&source).unwrap().created_at.is_none());
     assert_eq!(std::fs::read(&source).unwrap(),legacy);
     let safety=dir.path().join("safety.db");let epoch=s.snapshot().unwrap().epoch;
-    for (sql,code) in [("UPDATE tasks SET id='' WHERE id='a'","validation"),("PRAGMA user_version=7","schema")] {
+    for (sql,code) in [("UPDATE tasks SET id='' WHERE id='a'","validation"),("PRAGMA user_version=8","schema")] {
         {rusqlite::Connection::open(&source).unwrap().execute_batch(sql).unwrap();}
         let original=std::fs::read(&source).unwrap();
         assert_eq!(Store::inspect_backup(&source).unwrap_err().code,code);

@@ -92,7 +92,19 @@ pub struct Snapshot { pub epoch: String, pub tasks: Vec<Task>, pub settings: Set
 pub struct Command {
     pub request_id: String,
     pub epoch: String,
+    // Missing on old saved drafts: never renew an old request's retry lifetime.
+    #[serde(default)] pub issued_at: Option<i64>,
     pub action: Action,
+}
+
+pub const REQUEST_LIFETIME_MS: i64 = 30 * 24 * 60 * 60 * 1000;
+pub fn validate_request_time(command: &Command, now: i64, cutoff: i64) -> Result<()> {
+    if now<=cutoff {return Err(error("clock","시스템 시각이 처리 기록 정리 시각보다 이전입니다. PC 시각을 확인하거나 백업에서 복원해 주세요."));}
+    let Some(issued)=command.issued_at else {return Err(error("expired","저장 요청의 기한이 지났습니다. 입력은 유지됩니다. 저장된 내용을 확인한 뒤 다시 저장해 주세요."));};
+    if issued<0 || issued>now || issued<=now.saturating_sub(REQUEST_LIFETIME_MS) || issued<=cutoff {
+        return Err(error("expired","저장 요청의 기한이 지났거나 시각이 올바르지 않습니다. 입력은 유지됩니다. 저장된 내용을 확인한 뒤 다시 저장해 주세요."));
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

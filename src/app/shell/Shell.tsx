@@ -1,5 +1,6 @@
 import {useEffect,useState} from 'react';
 import {rangeTitle} from '../../format.ts';
+import {needsSavedReview} from '../../capture.ts';
 import {dateKey,dateLabel,dateOf,plusDays} from '../../dates.ts';
 import {setNav,useApp,type View} from '../store/state.ts';
 import {discardStoredDraft,release,reload,retry,queue} from '../store/session.ts';
@@ -100,7 +101,7 @@ function StatusBar(){
   if(!issue&&!state&&!resume&&!cutting)return null;
   return <footer className="status">
     <span className={issue&&!dialogOpen?'error':''} role={issue&&!dialogOpen?'alert':undefined}>{issue&&!dialogOpen?issue:state}</span>
-    {s.failed&&!dialogOpen&&<><button type="button" className="btn" onClick={()=>void retry()}>{s.failed.code==='conflict'||s.failed.code==='epoch'?'저장된 내용 확인':'다시 시도'}</button><button type="button" className="btn" onClick={release}>입력 유지하고 수정</button></>}
+    {s.failed&&!dialogOpen&&<><button type="button" className="btn" onClick={()=>void retry()}>{needsSavedReview(s.failed.code)?'저장된 내용 확인':'다시 시도'}</button><button type="button" className="btn" onClick={()=>void release()}>입력 유지하고 수정</button></>}
     {s.ready&&!dialogOpen&&(s.draftLoadFailed||s.info.failed)&&<button type="button" className="btn" onClick={()=>{if(!queue.busy)void reload();}}>다시 불러오기</button>}
     {s.ready&&s.draftLoadFailed&&s.draftSequenceKnown&&!dialogOpen&&<button type="button" className="btn" onClick={()=>void discardStoredDraft()}>보관 초안 버리기</button>}
     {resume&&<button type="button" className="btn" onClick={()=>openEditor(s.drafts.editor!.id,'dialog')}>‘{s.drafts.editor!.title}’ 이어서 편집</button>}

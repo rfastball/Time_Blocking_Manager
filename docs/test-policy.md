@@ -1,5 +1,14 @@
 # 검증 범위
 
+## 요청 재시도 기한·처리 기록 정리 Test delta brief (2026-10-11)
+
+- Unique risk: 처리 기록을 지운 뒤 오래된 요청이 다시 실행되거나, 초안/재시도가 생성 시각을 갱신해 30일 기한을 우회함. 시계가 앞으로 갔다 돌아온 뒤 삭제된 요청이 되살아남. v6→v7 이관이 기존 더미 순서를 바꾸거나 오래된 초안을 자동으로 새 요청으로 저장함.
+- Existing owner / Selected layer: 기존 `src/queue.test.ts`의 캡처·재시도·보관 초안 순수 owner를 확장. Rust `src-tauri/tests/storage.rs` 처리 기록 owner에 결정적 시각으로 만료·정리·시계 역행·v6 이관 사례 1개를 추가하고 기존 이관 owner를 v7로 갱신. 미리보기 명령 owner는 새 timestamp 계약을 따라 기존 사례를 갱신. 실제 복구 버튼 연결은 기존 명시적 `scripts/ui-check/capture.mjs`의 Edge owner에 만료/legacy를 한 시나리오로 확인.
+- Expected cost delta: Rust 임시 SQLite 시나리오 +1, Node 기존 사례 확장으로 수집 유지, 명시적 UI +1. 새 테스트 파일·dependency·worker·CI lane·기본 suite 브라우저/네트워크 실행·coverage floor 변화 0; UI는 기존 Edge 실행을 공유.
+- Evidence to retire: 무기한 요청 재시도 기대값과 저장소 v6 지원 상한. 30일 경계 및 v7 이관·이전 버전 백업 호환으로 대체.
+
+Test delta 결과: Rust **1 added**, 기존 이관/지원 상한 owner를 v7로 갱신, 수집 **22→23**, **23/23 · 본체 4.69초**; desktop `cargo check --locked` 통과(11.84초). Node **0 added / 3 extended / 0 removed**, 수집 **63→63**, 대상 queue·bench·cut **20/20 · 122.9388ms**, 전체 **63/63 · 190.9114ms**. `npm run build` 통과(TypeScript·Vite 1.89초). 명시적 capture UI **1 added**, 수집 **4→5**, 새 만료/legacy 복구 사례 **4.262초**, 대상 **5/5** 확인. 최초 실행의 포커스 사례는 차가운 Vite에서 빈 페이지를 읽어 실패했고, 서버가 준비된 뒤 그 사례만 재실행해 **1/1 · 2.177초**로 통과했다. 상대 Edge 프로필 경로 실행은 시작하지 못해 절대 경로로 다시 실행했다. 전체 runtime delta는 같은 조건의 신뢰할 baseline 부재로 **not measured**; 기존 suite의 process·worker·브라우저 실행·CI lane·coverage floor 변화 **0**. 실제 설치본과 OS 시계 조작은 실행하지 않았으며 만료/역행은 결정적 시각 인자로 검증했다.
+
 ## 미리보기 명령 일치 Test delta brief (2026-10-11)
 
 - Unique risk: 브라우저에서는 오래된 편집·잘못된 날짜/길이/설정·중복 항목을 받아 실제 Rust 앱과 다른 결과를 보이거나, 거절한 정기 업무 생성이 생성 기록을 남김. 기존 일치 사례는 정상 작업대·완료·도마 전이만 확인해 거절 경계를 검출하지 못함.

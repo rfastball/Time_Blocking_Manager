@@ -81,14 +81,15 @@ CREATE TABLE tasks (
  proto INTEGER NOT NULL DEFAULT 0 CHECK(proto IN (0,1)), pile_id TEXT, pile_order INTEGER
 );
 CREATE INDEX task_start ON tasks(starts_at);
-CREATE TABLE receipts (id TEXT PRIMARY KEY, payload TEXT NOT NULL);
+CREATE TABLE receipts (id TEXT PRIMARY KEY, payload TEXT NOT NULL, accepted_at INTEGER NOT NULL CHECK(accepted_at>=0));
+CREATE INDEX receipt_accepted ON receipts(accepted_at);
 CREATE TABLE drafts (slot TEXT PRIMARY KEY, sequence INTEGER NOT NULL, content TEXT NOT NULL);
 CREATE TABLE routine_occurrences (routine_id TEXT NOT NULL, date TEXT NOT NULL, PRIMARY KEY(routine_id,date));
 CREATE TABLE day_layouts (date TEXT PRIMARY KEY, anchor INTEGER NOT NULL);
 CREATE TABLE piles (id TEXT PRIMARY KEY, position INTEGER NOT NULL);
-PRAGMA user_version = 6;";
+PRAGMA user_version = 7;";
 
-const SCHEMA_VERSION: i64 = 6;
+const SCHEMA_VERSION: i64 = 7;
 const TASK_COLUMNS: &str = "id,title,body,starts_at,duration,completed,revision,plan_date,flow_order,proto,pile_id,pile_order";
 // Open unplanned work: the only tasks that sit in a pile.
 const BENCH: &str = "deleted_at IS NULL AND plan_date IS NULL AND completed=0";
@@ -190,6 +191,11 @@ fn unique_revisions(items: &[TaskRevision], message: &str) -> Result<std::collec
 
 fn parse_date(value: &str) -> Result<chrono::NaiveDate> {
     Ok(parse_start(&format!("{value}T00:00"))?.date())
+}
+
+fn receipt_cutoff(conn: &Connection) -> Result<i64> {
+    let value:String=conn.query_row("SELECT value FROM meta WHERE key='receipt_cutoff'",[],|r|r.get(0))?;
+    value.parse::<i64>().ok().filter(|v|*v>=0).ok_or_else(||error("schema","처리 기록 정리 시각이 올바르지 않습니다."))
 }
 
 fn occurrences(conn: &Connection) -> Result<Vec<(String,String)>> {
@@ -306,6 +312,7 @@ fn check_database(conn: &Connection) -> Result<Snapshot> {
     let snapshot = read(conn)?;
     validate_snapshot(&snapshot)?;
     occurrences(conn)?;
+    if version>=7 {receipt_cutoff(conn)?;conn.prepare("SELECT accepted_at FROM receipts LIMIT 1")?;}
     Ok(snapshot)
 }
 
@@ -362,6 +369,7 @@ impl Store {
             tx.execute_batch(SCHEMA)?;
             tx.execute("INSERT INTO meta VALUES ('epoch',?1)", [uuid::Uuid::new_v4().to_string()])?;
             tx.execute("INSERT INTO meta VALUES ('settings',?1)", [serde_json::to_string(&Settings::default())?])?;
+            tx.execute("INSERT INTO meta VALUES ('receipt_cutoff','0')", [])?;
             tx.commit()?;
         }
         check_database(&conn)?;
@@ -388,10 +396,18 @@ impl Store {
             // Additive: every existing row stays live.
             add("deleted_at","TEXT")?;
             add("proto","INTEGER NOT NULL DEFAULT 0 CHECK(proto IN (0,1))")?;add("pile_id","TEXT")?;add("pile_order","INTEGER")?;
-            // Open unplanned work becomes the 투입구 in the order the list showed it (by id), as `read` derives for older files.
-            tx.execute_batch(&format!("CREATE TABLE IF NOT EXISTS piles (id TEXT PRIMARY KEY, position INTEGER NOT NULL);
-                UPDATE tasks SET pile_order=(SELECT count(*) FROM tasks b WHERE b.deleted_at IS NULL AND b.plan_date IS NULL AND b.completed=0 AND b.id<=tasks.id) WHERE {BENCH};
-                PRAGMA user_version={SCHEMA_VERSION};"))?;
+            if version<6 {
+                // Only older list-based stores need the inbox backfill; v6 piles keep their own order.
+                tx.execute_batch(&format!("CREATE TABLE IF NOT EXISTS piles (id TEXT PRIMARY KEY, position INTEGER NOT NULL);
+                    UPDATE tasks SET pile_order=(SELECT count(*) FROM tasks b WHERE b.deleted_at IS NULL AND b.plan_date IS NULL AND b.completed=0 AND b.id<=tasks.id) WHERE {BENCH};"))?;
+            }
+            let receipt_columns=tx.prepare("SELECT name FROM pragma_table_info('receipts')")?.query_map([],|r|r.get::<_,String>(0))?.collect::<std::result::Result<Vec<_>,_>>()?;
+            if !receipt_columns.iter().any(|c|c=="accepted_at") {
+                let at=chrono::Utc::now().timestamp_millis();
+                tx.execute_batch(&format!("ALTER TABLE receipts ADD COLUMN accepted_at INTEGER NOT NULL DEFAULT {at} CHECK(accepted_at>=0);"))?;
+            }
+            tx.execute_batch(&format!("CREATE INDEX IF NOT EXISTS receipt_accepted ON receipts(accepted_at);
+                INSERT OR IGNORE INTO meta VALUES('receipt_cutoff','0'); PRAGMA user_version={SCHEMA_VERSION};"))?;
             tx.commit()?;
             check_database(&conn)?;
         }
@@ -411,11 +427,16 @@ impl Store {
     }
 
     pub fn apply(&mut self, command: &Command) -> Result<Snapshot> {
+        self.apply_at(command,chrono::Utc::now().timestamp_millis())
+    }
+
+    pub fn apply_at(&mut self, command: &Command, now: i64) -> Result<Snapshot> {
         if command.request_id.is_empty() || command.request_id.len() > 100 { return Err(error("validation", "요청 식별자가 올바르지 않습니다.")); }
         let payload = format!("{:x}",Sha256::digest(serde_json::to_vec(command)?));
         let tx = self.conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
         let snapshot = read(&tx)?;
         if command.epoch != snapshot.epoch { return Err(error("epoch", "복원 전 화면의 요청입니다. 초안을 보존하고 최신 데이터를 확인하세요.")); }
+        validate_request_time(command,now,receipt_cutoff(&tx)?)?;
         let previous: Option<String> = tx.query_row("SELECT payload FROM receipts WHERE id=?1", [&command.request_id], |r| r.get(0)).optional()?;
         if let Some(previous) = previous {
             if previous != payload { return Err(error("validation", "같은 요청 식별자에 서로 다른 변경이 전달됐습니다.")); }
@@ -700,7 +721,7 @@ impl Store {
             }
         }
         normalize_piles(&tx)?;
-        tx.execute("INSERT INTO receipts(id,payload) VALUES(?1,?2)", params![command.request_id,payload])?;
+        tx.execute("INSERT INTO receipts(id,payload,accepted_at) VALUES(?1,?2,?3)", params![command.request_id,payload,now])?;
         let result = read(&tx)?;
         validate_bench(&result)?;
         tx.commit()?;
@@ -713,6 +734,15 @@ impl Store {
     pub fn purge_trash(&self, now: chrono::DateTime<chrono::Utc>) -> Result<usize> {
         let cutoff=trash_stamp(now-chrono::Duration::days(TRASH_RETENTION_DAYS));
         Ok(self.conn.execute("DELETE FROM tasks WHERE deleted_at IS NOT NULL AND deleted_at<?1",[cutoff])?)
+    }
+
+    /// The cutoff never retreats: a clock correction cannot replay a receipt already removed.
+    pub fn purge_receipts(&mut self, now: i64) -> Result<usize> {
+        let tx=self.conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        let cutoff=receipt_cutoff(&tx)?.max(now.saturating_sub(REQUEST_LIFETIME_MS).max(0));
+        let removed=tx.execute("DELETE FROM receipts WHERE accepted_at<=?1",[cutoff])?;
+        tx.execute("UPDATE meta SET value=?1 WHERE key='receipt_cutoff'",[cutoff.to_string()])?;
+        tx.commit()?;Ok(removed)
     }
 
     pub fn create_backup(&self, root: &Path) -> Result<ManagedBackup> {
@@ -880,6 +910,8 @@ impl Store {
         let tx = self.conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
         tx.execute("DELETE FROM tasks", [])?;
         tx.execute("DELETE FROM receipts", [])?;
+        // The new epoch rejects every old request, so a mistaken future cutoff can safely reset.
+        tx.execute("UPDATE meta SET value='0' WHERE key='receipt_cutoff'", [])?;
         tx.execute("DELETE FROM routine_occurrences", [])?;
         tx.execute("DELETE FROM day_layouts", [])?;
         tx.execute("DELETE FROM piles", [])?;

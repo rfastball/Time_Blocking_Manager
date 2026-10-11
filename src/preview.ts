@@ -3,6 +3,7 @@ import {placementIssue as checkPlacement,unavailableParts} from './placement.ts'
 import {effectiveDay} from './settings.ts';
 import {dateOf,minutes,plusDays,time} from './dates.ts';
 import {insertPile,movePile,normalize,onBench,place} from './bench.ts';
+import {requestTimeIssue} from './capture.ts';
 
 const bytes=(value:string)=>new TextEncoder().encode(value).length;
 function reject(message:string,code='validation'):never {throw Object.assign(Error(message),{code,retryable:false});}
@@ -62,9 +63,10 @@ function validateTask(task:Task,tasks:Task[],settings:Settings){
 }
 
 // Browser preview stand-in for the Rust store: the same transitions on a cloned snapshot.
-export function previewMutation(snapshot:Snapshot,command:Command,occurrences:Set<string>):Snapshot {
+export function previewMutation(snapshot:Snapshot,command:Command,occurrences:Set<string>,now=Date.now()):Snapshot {
   if(!command.request_id||bytes(command.request_id)>100)reject('요청 식별자가 올바르지 않습니다.');
   if(command.epoch!==snapshot.epoch)reject('복원 전 화면의 요청입니다. 초안을 보존하고 최신 데이터를 확인하세요.','epoch');
+  const issue=requestTimeIssue(command,now);if(issue)throw issue;
   const s=structuredClone(snapshot),a=command.action;s.layouts??=[];s.trash??=[];s.piles??=[];
   const generated=new Set<string>();
   const nextOrder=(date:string)=>Math.max(0,...s.tasks.filter(t=>t.plan_date===date&&!t.starts_at).map(t=>t.flow_order??0))+1;

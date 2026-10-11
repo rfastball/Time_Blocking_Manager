@@ -1,7 +1,7 @@
 import {invoke} from '@tauri-apps/api/core';
 import {confirm} from '@tauri-apps/plugin-dialog';
 import {SaveQueue} from '../../queue.ts';
-import {StoredDraft} from '../../capture.ts';
+import {StoredDraft,createCommand,needsSavedReview,releaseCaptureCommand,requestTimeIssue} from '../../capture.ts';
 import {previewMutation} from '../../preview.ts';
 import {plusDays,today as todayKey} from '../../dates.ts';
 import type {Action,AppError,Command,Snapshot,Task} from '../../types.ts';
@@ -20,19 +20,24 @@ export const afterIdle=new Set<()=>void>();
 export const storedDraft=new StoredDraft();storedDraft.loaded=!getState().native;
 const previewOccurrences=new Set<string>();
 let refreshNeeded=false,draftTimer:ReturnType<typeof setTimeout>|undefined;
+let rejectedCommand:Command|null=null;
 
 export function showError(e:unknown){setState({error:typeof e==='object'&&e&&'message' in e?String((e as {message:unknown}).message):String(e)});}
 export const announce=(message:string)=>setState({message});
 export async function ask(text:string){return getState().native?confirm(text,{title:'BLOKKY',kind:'warning'}):window.confirm(text);}
 
-type DispatchOptions={epoch?:string;requestId?:string;done?:()=>void};
+type DispatchOptions={epoch?:string;command?:Command;done?:()=>void};
 // Resolves true only after the store answered and the snapshot was replaced.
-export async function dispatch(action:Action,{epoch,requestId,done}:DispatchOptions={}):Promise<boolean>{
+export async function dispatch(action:Action,{epoch,command:savedCommand,done}:DispatchOptions={}):Promise<boolean>{
   const s=getState();
   if(!s.ready||!s.draftLoaded||!s.snapshot){showError(Error('기록과 초안을 불러온 뒤 입력해 주세요.'));return false;}
-  const command:Command={request_id:requestId??crypto.randomUUID(),epoch:epoch??s.snapshot.epoch,action};
+  const command=savedCommand??createCommand(action,epoch??s.snapshot.epoch);
   return queue.add(async()=>{
-    const result=s.native?await invoke<Snapshot>('mutate',{command}):previewMutation(getState().snapshot!,command,previewOccurrences);
+    let result:Snapshot;
+    try{
+      const issue=requestTimeIssue(command);if(issue)throw issue;
+      result=s.native?await invoke<Snapshot>('mutate',{command}):previewMutation(getState().snapshot!,command,previewOccurrences);
+    }catch(e){if((e as AppError).code==='expired')rejectedCommand=command;throw e;}
     setState({snapshot:result,error:'',message:s.native?'변경을 저장했어요.':'미리보기에 반영했어요.'});
     done?.();
   }).then(()=>true,e=>{showError(e);return false;});
@@ -109,13 +114,25 @@ export function replaceSnapshot(snapshot:Snapshot){setState({snapshot,ready:true
 // A conflict keeps the user's input and shows what is now saved.
 export async function retry(){
   const failed=getState().failed;
-  if(failed?.code==='conflict'||failed?.code==='epoch'){
+  if(failed?.code==='expired'){await recoverExpired();return;}
+  if(needsSavedReview(failed?.code)){
     queue.discardFailed();await reload();
     setState({error:'다른 곳에서 이 항목이 바뀌었어요. 입력한 내용은 그대로 있어요. 저장된 내용을 확인한 뒤 내 입력으로 저장할 수 있어요.'});return;
   }
   setState({error:''});queue.retry();
 }
-export function release(){queue.discardFailed();setState({error:'',message:'입력한 내용은 그대로 있어요. 확인한 뒤 다시 저장해 주세요.'});}
+async function recoverExpired(){
+  const command=rejectedCommand;
+  queue.discardFailed();await reload();
+  if(!getState().ready)return;
+  rejectedCommand=null;
+  setDrafts({captureCommand:releaseCaptureCommand(getState().drafts.captureCommand,command)});
+  void persistDraft();setState({error:'',message:'입력한 내용은 그대로 있어요. 저장된 내용을 확인한 뒤 다시 저장해 주세요.'});
+}
+export async function release(){
+  if(getState().failed?.code==='expired'){await recoverExpired();return;}
+  queue.discardFailed();setState({error:'',message:'입력한 내용은 그대로 있어요. 확인한 뒤 다시 저장해 주세요.'});
+}
 
 export function tick(){
   const s=getState(),now=clockMinute(),day=todayKey();

@@ -38,4 +38,4 @@ export type Action = {type:'create';id:string;title:string}
  | {type:'set_schedule';expected_revision:number;days:WorkingDay[];exceptions:DayException[];weekly_target:number;work_days:number;move_conflicts:boolean}
  | {type:'create_scheduled';id:string;title:string;starts_at:string|null;duration:number}
  | {type:'create_flow';id:string;title:string;date:string;duration:number};
-export interface Command { request_id:string;epoch:string;action:Action }
+export interface Command { request_id:string;epoch:string;readonly issued_at?:number;action:Action }

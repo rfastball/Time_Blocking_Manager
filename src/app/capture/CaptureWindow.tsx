@@ -1,5 +1,5 @@
 import {useEffect,useRef,useState} from 'react';
-import {captureEnterAction} from '../../capture.ts';
+import {captureEnterAction,needsSavedReview} from '../../capture.ts';
 import {useApp} from '../store/state.ts';
 import {release,reload,retry,queue} from '../store/session.ts';
 import {editCapture,submitCapture} from '../store/tasks.ts';
@@ -40,7 +40,7 @@ export function CaptureWindow(){
     setSaving(true);
     try{await submitCapture();}finally{setSaving(false);}
   }
-  const conflict=failed?.code==='conflict'||failed?.code==='epoch';
+  const conflict=needsSavedReview(failed?.code);
   const issue=s.loadError||s.error||(s.draftLoadFailed?'보관 중인 초안을 불러오지 못했습니다.':'')||(failed?'저장하지 못했어요. 입력한 내용은 그대로 있어요.':'');
   // Draft writes also use the lane while typing; only an explicit save reads as 저장 중.
   const state=!s.ready?'기록 불러오는 중…':!s.draftLoaded?'초안 불러오는 중…':saving?'저장 중…':s.quitSaving?'종료 전 저장 중…':'';
@@ -56,7 +56,7 @@ export function CaptureWindow(){
     <div className="capture-bar">
       <div className="capture-status">
         {issue?<span className="error" role="alert">{issue}</span>:state&&<span role="status">{state}</span>}
-        {failed&&<><button type="button" onClick={()=>void retry()}>{conflict?'저장된 내용 확인':'다시 시도'}</button><button type="button" onClick={release}>입력 유지하고 수정</button></>}
+        {failed&&<><button type="button" onClick={()=>void retry()}>{conflict?'저장된 내용 확인':'다시 시도'}</button><button type="button" onClick={()=>void release()}>입력 유지하고 수정</button></>}
         {reloadable&&<button type="button" onClick={()=>{if(!queue.busy)void reload();}}>다시 불러오기</button>}
       </div>
       <button type="button" className="capture-close" onClick={()=>{void hideCapture();if(!s.native)hide(true);}}>닫기</button>

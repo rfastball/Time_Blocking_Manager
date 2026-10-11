@@ -46,12 +46,13 @@ impl QuitCoordinator {
 }
 fn audit(s: &State, event: &str, code: &str) {
     if let Ok(mut f) = OpenOptions::new().create(true).append(true).open(s.root.join("blokky.log")) {
-        let _ = writeln!(f, "{} app={} schema=6 event={} code={}", chrono::Local::now().to_rfc3339(), env!("CARGO_PKG_VERSION"), event, code);
+        let _ = writeln!(f, "{} app={} schema=7 event={} code={}", chrono::Local::now().to_rfc3339(), env!("CARGO_PKG_VERSION"), event, code);
     }
 }
-// Expired trash goes when the store opens and on the hourly pass; a failed purge only waits for the next one.
+// Trash and receipts expire on open and the existing hourly pass; failed cleanup waits for the next pass.
 fn open_store(path: &Path) -> Result<Store> {
-    let store=Store::open(path)?;let _=store.purge_trash(chrono::Utc::now());Ok(store)
+    let mut store=Store::open(path)?;let now=chrono::Utc::now();
+    let _=store.purge_trash(now);let _=store.purge_receipts(now.timestamp_millis());Ok(store)
 }
 fn with_store<T>(s: &State, f: impl FnOnce(&mut Store) -> Result<T>) -> Result<T> {
     let mut guard = s.store.lock().map_err(|_| error("internal", "저장소 잠금을 얻지 못했습니다."))?;
@@ -285,6 +286,7 @@ fn main() {
                 match with_store(&s,|db|db.purge_trash(now.with_timezone(&chrono::Utc))) {
                     Ok(0)=>{},Ok(_)=>{audit(&s,"trash-purge","ok");let _=handle.emit("data-changed",());},Err(e)=>audit(&s,"trash-purge",&e.code),
                 }
+                if let Err(e)=with_store(&s,|db|db.purge_receipts(now.timestamp_millis())) {audit(&s,"receipt-purge",&e.code);}
                 let result=with_store(&s,|db|db.automatic_backup(&s.root.join("backups"),now));
                 match result {Err(e)=>{ audit(&s,"automatic-backup",&e.code);*s.warning.lock().unwrap()=Some(format!("자동 백업 실패: {}",e.message));},Ok(timestamp)=>{checked_hour=hour;*s.last_backup.lock().unwrap()=Some(timestamp);audit(&s,"automatic-backup","ok");let mut warning=s.warning.lock().unwrap();if warning.as_ref().is_some_and(|w|w.starts_with("자동 백업 실패")){*warning=None;}}}
                 let _=handle.emit("backup-warning",());

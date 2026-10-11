@@ -5,6 +5,7 @@ import {byFlowOrder,moveInOrder} from '../../flow.ts';
 import {placementIssue} from '../../placement.ts';
 import {dateKey,dateLabel,dateOf,plusDays,time} from '../../dates.ts';
 import {intentAction,updateAction,type Intent} from '../../intent.ts';
+import {createCommand,requestTimeIssue} from '../../capture.ts';
 import type {Action,Task,Trashed,WorkingDay} from '../../types.ts';
 import {getState,setDrafts,setState,setUi} from './state.ts';
 import {afterIdle,announce,ask,dispatch,draftChanged,persistDraft,queue,showError,stamp} from './session.ts';
@@ -122,11 +123,12 @@ export async function submitCapture(){
   const s=getState();
   if(!s.drafts.capture.trim()||!s.ready||!s.draftLoaded||queue.failed)return false;
   const title=s.drafts.capture.trim();
+  if(s.drafts.captureCommand&&requestTimeIssue(s.drafts.captureCommand))return dispatch(s.drafts.captureCommand.action,{command:s.drafts.captureCommand});
   let command=s.drafts.captureCommand?.action.type==='create'?s.drafts.captureCommand:null;
-  command??={request_id:crypto.randomUUID(),epoch:snap().epoch,action:{type:'create',id:crypto.randomUUID(),title}};
+  command??=createCommand({type:'create',id:crypto.randomUUID(),title},snap().epoch);
   setDrafts({composer:null,captureCommand:command});void persistDraft();
   const sent=command;
-  return dispatch(sent.action,{epoch:sent.epoch,requestId:sent.request_id,done:()=>{
+  return dispatch(sent.action,{command:sent,done:()=>{
     if(getState().drafts.captureCommand!==sent){announce('이전 항목을 저장했습니다. 새 입력은 유지했습니다.');return;}
     setDrafts({capture:'',captureCommand:null});void persistDraft();announce('저장했어요.');
     if(s.captureWindow&&s.native)void queue.add(async()=>{await invoke('hide_capture');});
@@ -150,14 +152,15 @@ export function closeComposer(){setDrafts({composer:null});void persistDraft();}
 export async function submitComposer(){
   const s=getState(),c=s.drafts.composer,title=s.drafts.capture.trim();
   if(!c||!title||queue.busy||queue.failed)return false;
+  if(s.drafts.captureCommand&&requestTimeIssue(s.drafts.captureCommand))return dispatch(s.drafts.captureCommand.action,{command:s.drafts.captureCommand});
   const fixed=c.fixed??false;
   if(fixed){const issue=issueAt('',c.date,c.start,c.duration);if(issue){showError(Error(issue.label+'. 다른 시간을 선택하세요.'));return false;}}
   let command=s.drafts.captureCommand;
   if(!command||!sameComposerAction(command.action,c.date,c.start,c.duration,fixed))command=null;
-  command??={request_id:crypto.randomUUID(),epoch:snap().epoch,action:composerAction(c.date,c.start,c.duration,fixed,title)};
+  command??=createCommand(composerAction(c.date,c.start,c.duration,fixed,title),snap().epoch);
   setDrafts({captureCommand:command});void persistDraft();
   const sent=command,a=sent.action,id=a.type==='create_flow'||a.type==='create_scheduled'?a.id:null;
-  return dispatch(a,{epoch:sent.epoch,requestId:sent.request_id,done:()=>{if(getState().drafts.captureCommand===sent)setDrafts({capture:'',captureCommand:null,composer:null});void persistDraft();if(id)reveal(id,fixed);}});
+  return dispatch(a,{command:sent,done:()=>{if(getState().drafts.captureCommand===sent)setDrafts({capture:'',captureCommand:null,composer:null});void persistDraft();if(id)reveal(id,fixed);}});
 }
 // A new block can land far from where it was asked for (the end of a full day): bring it into view, then let it settle.
 function reveal(id:string,clack:boolean){

@@ -54,7 +54,7 @@ test('the preview store places pieces where the original stood, as the Rust stor
     task({id:'x',pile_order:1}),task({id:'t',pile_order:2}),task({id:'y',pile_order:3}),
     task({id:'a',plan_date:day,flow_order:1,pile_order:null}),task({id:'f',plan_date:day,flow_order:2,pile_order:null}),task({id:'b',plan_date:day,flow_order:3,pile_order:null})]};
   const run=(id:string,pieces:{id:string;completed?:boolean;duration?:number;title?:string;body?:string}[],date?:string)=>{const t=s.tasks.find(x=>x.id===id)!;
-    s=previewMutation(s,{request_id:'r'+Math.random(),epoch:'e',action:{type:'split_pieces',id,expected_revision:t.revision,date,pieces:pieces.map(p=>({title:'조각',body:'',duration:30,proto:false,completed:false,...p}))}},new Set());};
+    s=previewMutation(s,{request_id:'r'+Math.random(),epoch:'e',issued_at:Date.now(),action:{type:'split_pieces',id,expected_revision:t.revision,date,pieces:pieces.map(p=>({title:'조각',body:'',duration:30,proto:false,completed:false,...p}))}},new Set());};
   run('t',[{id:'t'},{id:'n1'},{id:'n2',completed:true}],'2026-10-11');
   assert.deepEqual(benchPiles(s.tasks,s.piles).map(p=>p.cards.map(c=>c.id)),[['x','t','n1','y']]);
   assert.deepEqual(s.tasks.find(t=>t.id==='n2')!.plan_date,'2026-10-11');
@@ -68,7 +68,7 @@ test('the preview store places pieces where the original stood, as the Rust stor
   ]){assert.throws(()=>run('a',pieces),{code:'validation'});assert.deepEqual(s,before);}
   const fixed:Snapshot={...s,tasks:[task({id:'w',plan_date:day,starts_at:day+'T10:00',flow_order:null,pile_order:null,duration:60}),task({id:'m',plan_date:day,starts_at:day+'T11:00',flow_order:null,pile_order:null,duration:30})]};
   const pieces=[{id:'w',title:'  준비  ',body:'',duration:60,completed:false,proto:false},{id:'w2',title:'정리',body:'',duration:30,completed:false,proto:false}];
-  const command={request_id:'fixed',epoch:'e',action:{type:'split_pieces' as const,id:'w',expected_revision:1,pieces}};
+  const command={request_id:'fixed',epoch:'e',issued_at:Date.now(),action:{type:'split_pieces' as const,id:'w',expected_revision:1,pieces}};
   const kept=structuredClone(fixed);assert.throws(()=>previewMutation(fixed,command,new Set()),{code:'overlap'});assert.deepEqual(fixed,kept);
   pieces[0].duration=30;
   const cutFixed=previewMutation(fixed,command,new Set());
