@@ -143,13 +143,24 @@ fn legacy_databases_and_backups_migrate_without_losing_work() {
 fn persistence_revisions_and_retry_receipts() {
     let dir = tempdir().unwrap(); let path = dir.path().join("app.db");
     let mut store = Store::open(&path).unwrap();
-    let create_cmd = command(&store, Action::Create { id: "a".into(), title: "메모".into() });
+    let create_cmd = command(&store, Action::Create { id: "a".into(), title: "  메모  ".into() });
     let a = store.apply(&create_cmd).unwrap().tasks[0].clone();
+    assert_eq!(a.title,"메모");
     assert_eq!(store.apply(&create_cmd).unwrap().tasks.len(), 1);
-    let edit = command(&store, update(&a, "2026-10-08T10:00", 45));
-    store.apply(&edit).unwrap();
-    let stale = command(&store, Action::Delete { id: a.id.clone(), expected_revision: a.revision });
-    assert_eq!(store.apply(&stale).unwrap_err().code, "conflict");
+    let mut edit = command(&store, update(&a, "2026-10-08T10:00", 45));
+    if let Action::Update{title,..}=&mut edit.action {*title="  최신  ".into();}
+    assert_eq!(find(&store.apply(&edit).unwrap(),"a").title,"최신");
+    let days=store.snapshot().unwrap().settings.days;
+    let c=command(&store,Action::SetSettings{expected_revision:1,days:days.clone()});store.apply(&c).unwrap();
+    let before=serde_json::to_value(store.snapshot().unwrap()).unwrap();
+    for action in [update(&a,"2026-10-08T11:00",30),Action::Delete{id:a.id.clone(),expected_revision:a.revision},
+        Action::SetCompleted{id:a.id.clone(),expected_revision:a.revision,completed:true,date:None},
+        Action::SetSettings{expected_revision:1,days:days.clone()},
+        Action::SetSchedule{expected_revision:1,days,exceptions:vec![],weekly_target:2400,work_days:5,move_conflicts:false},
+        Action::SetRoutines{expected_revision:1,routines:vec![]}] {
+        let stale=command(&store,action);assert_eq!(store.apply(&stale).unwrap_err().code,"conflict");
+        assert_eq!(serde_json::to_value(store.snapshot().unwrap()).unwrap(),before);
+    }
     drop(store);
     let store = Store::open(&path).unwrap(); let a = &store.snapshot().unwrap().tasks[0];
     assert_eq!(a.revision, 2); assert_eq!(a.body, "[x] 확인\n메모 보존"); assert_eq!(a.duration, 45);
@@ -472,6 +483,10 @@ fn flow_plans_keep_order_without_minutes_and_switch_with_fixed_reservations() {
     let legacy:Action=serde_json::from_value(serde_json::json!({"type":"update","id":"b","expected_revision":b.revision,"title":b.title,"body":"","starts_at":"2026-10-09T10:00","duration":30})).unwrap();
     assert!(!serde_json::to_string(&legacy).unwrap().contains("plan_date"));
     let cmd=command(&s,legacy);let snap=s.apply(&cmd).unwrap();assert_eq!(find(&snap,"b").plan_date.as_deref(),Some("2026-10-09"));
+    // Moving to an empty date starts at one, regardless of the previous day's order.
+    let c=find(&snap,"c");assert!(c.flow_order.unwrap()>1);
+    let cmd=command(&s,place(&c,Some("2026-10-15"),None));let snap=s.apply(&cmd).unwrap();
+    assert_eq!(find(&snap,"c").flow_order,Some(1));
     drop(s);let s=Store::open(&path).unwrap();assert_eq!(s.snapshot().unwrap().tasks,snap.tasks);
 }
 

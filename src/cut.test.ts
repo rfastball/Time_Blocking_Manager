@@ -53,7 +53,7 @@ test('the preview store places pieces where the original stood, as the Rust stor
   let s:Snapshot={epoch:'e',settings:{revision:1,days:Array.from({length:7},()=>({enabled:true,start:540,end:1080,breaks:[]}))},layouts:[],trash:[],piles:[],tasks:[
     task({id:'x',pile_order:1}),task({id:'t',pile_order:2}),task({id:'y',pile_order:3}),
     task({id:'a',plan_date:day,flow_order:1,pile_order:null}),task({id:'f',plan_date:day,flow_order:2,pile_order:null}),task({id:'b',plan_date:day,flow_order:3,pile_order:null})]};
-  const run=(id:string,pieces:{id:string;completed?:boolean}[],date?:string)=>{const t=s.tasks.find(x=>x.id===id)!;
+  const run=(id:string,pieces:{id:string;completed?:boolean;duration?:number;title?:string;body?:string}[],date?:string)=>{const t=s.tasks.find(x=>x.id===id)!;
     s=previewMutation(s,{request_id:'r'+Math.random(),epoch:'e',action:{type:'split_pieces',id,expected_revision:t.revision,date,pieces:pieces.map(p=>({title:'조각',body:'',duration:30,proto:false,completed:false,...p}))}},new Set());};
   run('t',[{id:'t'},{id:'n1'},{id:'n2',completed:true}],'2026-10-11');
   assert.deepEqual(benchPiles(s.tasks,s.piles).map(p=>p.cards.map(c=>c.id)),[['x','t','n1','y']]);
@@ -61,4 +61,16 @@ test('the preview store places pieces where the original stood, as the Rust stor
   run('f',[{id:'f'},{id:'f2'}]);
   assert.deepEqual(s.tasks.filter(t=>t.plan_date===day).sort((p,q)=>p.flow_order!-q.flow_order!).map(t=>t.id),['a','f','f2','b']);
   assert.throws(()=>run('a',[{id:'a'},{id:'f2'}]),/조각/);
+  const before=structuredClone(s);
+  for(const pieces of [
+    [{id:'a',duration:1455}],[{id:'a',title:'가'.repeat(667)}],[{id:'a',body:'x'.repeat(200001)}],
+    [{id:'a'},{id:'가'.repeat(34)}],Array.from({length:101},(_,n)=>({id:n?'new'+n:'a'}))
+  ]){assert.throws(()=>run('a',pieces),{code:'validation'});assert.deepEqual(s,before);}
+  const fixed:Snapshot={...s,tasks:[task({id:'w',plan_date:day,starts_at:day+'T10:00',flow_order:null,pile_order:null,duration:60}),task({id:'m',plan_date:day,starts_at:day+'T11:00',flow_order:null,pile_order:null,duration:30})]};
+  const pieces=[{id:'w',title:'  준비  ',body:'',duration:60,completed:false,proto:false},{id:'w2',title:'정리',body:'',duration:30,completed:false,proto:false}];
+  const command={request_id:'fixed',epoch:'e',action:{type:'split_pieces' as const,id:'w',expected_revision:1,pieces}};
+  const kept=structuredClone(fixed);assert.throws(()=>previewMutation(fixed,command,new Set()),{code:'overlap'});assert.deepEqual(fixed,kept);
+  pieces[0].duration=30;
+  const cutFixed=previewMutation(fixed,command,new Set());
+  assert.deepEqual(cutFixed.tasks.filter(t=>t.id!=='m').map(t=>[t.title,t.starts_at]),[['준비',day+'T10:00'],['정리',day+'T10:30']]);
 });

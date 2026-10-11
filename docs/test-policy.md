@@ -1,5 +1,14 @@
 # 검증 범위
 
+## 미리보기 명령 일치 Test delta brief (2026-10-11)
+
+- Unique risk: 브라우저에서는 오래된 편집·잘못된 날짜/길이/설정·중복 항목을 받아 실제 Rust 앱과 다른 결과를 보이거나, 거절한 정기 업무 생성이 생성 기록을 남김. 기존 일치 사례는 정상 작업대·완료·도마 전이만 확인해 거절 경계를 검출하지 못함.
+- Existing owner / Selected layer: 기존 `src/bench.test.ts`의 순수 미리보기 상태 owner에 버전·제목, 거절 입력, 설정·정기 업무 사례를 추가하고 `src/cut.test.ts`의 도마 일치 사례를 확장. Rust 계약은 기존 `src-tauri/tests/storage.rs` 저장 시나리오에서 같은 대표 입력·결과로 보강.
+- Expected cost delta: Node 동기 사례 +3, 도마 기존 사례 확장; Rust 기존 사례 확장으로 수집 수 유지. 새 테스트 파일·dependency·worker·CI lane·브라우저/네트워크 실행·coverage floor 변화 0.
+- Evidence to retire: 없음. 기존 정상 전이는 유지하고 같은 owner에서 거절 후 원본 상태 보존을 확인.
+
+Test delta 결과: Node **3 added / 1 extended / 0 removed**, 대상 bench·cut 수집 **11→14**, **14/14 · 118.586ms**. 전체 Node **60→63**, **63/63 · 209.3894ms**, `npm run build` 통과(TypeScript·Vite 2.49초). Rust 기존 persistence·flow 사례 **2 extended**, 수집 **22→22**, **22/22 · 본체 4.51초**. UTF-8 길이·날짜/시각·중복/버전·설정 거절, 정기 업무 생성 실패의 원본/생성 기록 보존, 도마 고정 시각 충돌과 제목 정리, 날짜 이동 후 순서 1을 확인했다. 대상 Node 변경 전 단일 실행은 129.7299ms였으며 단일 실행 차이는 성능 추정이 아니다. 전체 runtime delta는 신뢰할 동일 조건 baseline 부재로 **not measured**. 샌드박스 Windows canonicalize/realpath 제한으로 Rust·Vite는 승인된 제한 외 실행에서 통과했다. 새 heavy-resource launch·worker·CI lane·coverage floor 변화 **0**.
+
 ## 전역 검색 Test delta brief (2026-10-11)
 
 - Unique risk: 결과의 현재 위치 표기가 화면과 다름, 미계획·날짜·완료·휴지통 중 일부를 못 찾음, 이동 뒤 블록이 보이지 않거나 포커스를 잃음, Esc가 원래 포커스로 돌아가지 않음, 한글 조합 중 결과가 멈추거나 Enter가 이동을 실행함.
