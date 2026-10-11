@@ -1,5 +1,15 @@
 # 검증 범위
 
+## 대시보드 감사 후속 Test delta brief (2026-10-11)
+
+- Unique risk: 대기열 완료·상세/드로어 닫기 후 포커스가 사라짐, 최소 창에서 미계획 입력이 긴 시간표 아래로 밀림, 지난 날짜 텍스트의 대비 부족, 접힌 완료·휴지통 목록의 불필요한 DOM 생성.
+- Existing owner / Selected layer: 기존 `scripts/ui-check/{today,editor,plan,inbox}.mjs`의 명시적 Edge UI 경계. 실제 DOM 포커스·배치·합성 색상·접힘을 확인하므로 순수 Node 시험이나 소스 문자열 검사는 대체 증거가 아니다.
+- Expected cost delta: 기존 시나리오를 확장하고 필요한 최소 창 사례만 추가한다. 기존 UI 실행기와 브라우저를 공유하며 새 파일·의존성·기본 테스트 worker·CI lane·coverage floor 변경 없음.
+- Evidence to retire: 완료 시나리오의 기존 조작을 키보드 대기열 완료로 바꾸면서 원래 배치 결과 단언을 유지한다. 나머지 기존 편집·복원·영구 삭제 증거는 유지한다.
+- Baseline: 기본 Node 43/43, 155.2711ms. 관련 UI 수집은 today 7 / editor 10 / plan 16 / inbox 8, 합계 41. UI 시간 baseline은 미측정이다.
+
+Test delta 결과: 기존 UI owner에 **1 added / 7 extended / 0 removed**, 수집 **41→42**(today 8 / editor 10 / plan 16 / inbox 8). 첫 묶음 40/42에서 Next 카드의 StrictMode 포커스 복귀 결함을 보완하고, 960px 시험의 과도한 첫 화면 수용 조건을 대기열 직후 배치·입력 포커스 스크롤로 바꿨다. 영향 영역 재실행 **editor/today 18/18 · 시나리오 합계 62.708초**, 변경 없는 plan/inbox **24/24**와 합쳐 대상 42개 모두 통과했다. 새 최소 창 사례는 1.890초이며 전체 UI runtime delta는 baseline 부재로 미측정이다. 기본 Node 사례·worker·coverage floor 변화 0. 정상 lane의 Edge launch delta 0, 이번 확인에서는 첫 묶음 1회와 실패 수정 후 좁은 재검증 1회를 실행했다(샌드박스에서 Edge가 시작되지 않은 시도 1회 제외). 최종 `npm run build` 성공. 새 테스트 파일·의존성·CI lane은 없다.
+
 ## 창 닫기 설정 Test delta brief
 
 - Unique risk: 종료 옵션이 재시작 후 사라지거나 읽기·저장 실패가 성공으로 표시됨.
