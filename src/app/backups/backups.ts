@@ -66,7 +66,7 @@ export async function restoreBackup(){
     try{
       if(state.selected!==id)throw Error('복원할 백업을 다시 확인하세요.');
       const now=getState(),d=now.drafts;
-      if(d.capture||d.editorDirty||Object.keys(d.rawSchedules).length||d.settingsDraft||d.routineDraft||now.draftPending)throw Error('작성 중인 내용을 저장하거나 되돌린 뒤 복원하세요.');
+      if(d.capture||d.captureCommand||d.editorDirty||Object.keys(d.rawSchedules).length||d.settingsDraft||d.routineDraft||now.draftPending)throw Error('작성 중인 내용을 저장하거나 되돌린 뒤 복원하세요.');
       const snapshot=await invoke<Snapshot>(recovery?'recover_backup':'restore',recovery?{id}:{id,epoch});
       replaceSnapshot(snapshot);
       setDrafts({editor:null,editorDirty:false,pendingEditorId:null});setUi({editorMode:null,editorFocus:null});

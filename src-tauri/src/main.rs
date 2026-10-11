@@ -70,6 +70,9 @@ fn load_draft(s:tauri::State<State>,window:tauri::WebviewWindow)->Result<(i64,St
 fn save_draft(s:tauri::State<State>,window:tauri::WebviewWindow,sequence:i64,content:String)->Result<()> {with_store(&s,|db|db.save_draft(window.label(),sequence,&content))}
 
 #[tauri::command]
+fn acknowledge(s: tauri::State<State>, command: Command) -> Result<Option<Snapshot>> {with_store(&s,|db|db.acknowledge(&command))}
+
+#[tauri::command]
 fn mutate(s: tauri::State<State>, app: tauri::AppHandle, command: Command) -> Result<Snapshot> {
     let result = with_store(&s, |db| db.apply(&command));
     audit(&s, "mutation", result.as_ref().err().map_or("ok", |e| e.code.as_str()));
@@ -250,7 +253,7 @@ fn main() {
                 std::thread::spawn(move || {let app=handle.clone();let _=handle.run_on_main_thread(move || show(&app,"capture"));});
             }
         }).build())
-        .invoke_handler(tauri::generate_handler![load,load_draft,save_draft,mutate,create_backup,list_backups,inspect_backup,restore,recover_backup,set_dirty,hide_capture,show_capture,capture_shortcut,autostart,exit_on_close,diagnostics,finish_quit])
+        .invoke_handler(tauri::generate_handler![load,load_draft,save_draft,acknowledge,mutate,create_backup,list_backups,inspect_backup,restore,recover_backup,set_dirty,hide_capture,show_capture,capture_shortcut,autostart,exit_on_close,diagnostics,finish_quit])
         .setup(|app| {
             let root=if cfg!(debug_assertions) {std::env::var_os("BLOKKY_TEST_DATA_DIR").map(PathBuf::from).unwrap_or(app.path().app_local_data_dir()?)} else {app.path().app_local_data_dir()?}; fs::create_dir_all(&root)?;
             let store=open_store(&root.join("blokky.sqlite"));

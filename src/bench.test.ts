@@ -102,6 +102,10 @@ test('the preview rejects stale editors and settings and trims accepted titles l
   assert.throws(()=>previewMutation(s,{request_id:'',epoch:'e',issued_at:Date.now(),action:update},new Set()),{code:'validation'});
   const now=1800000000000,command={request_id:'r',epoch:'e',issued_at:now,action:{type:'create' as const,id:'new',title:'업무'}};
   assert.equal(previewMutation(s,command,new Set(),now+requestLifetimeMs-1).tasks.length,s.tasks.length+1);
+  const receipts=new Set<string>(),applied=previewMutation(s,command,receipts,now);
+  assert.deepEqual(previewMutation(applied,command,receipts,now+requestLifetimeMs),applied,'an existing receipt acknowledges instead of executing after expiration');
+  assert.deepEqual(previewMutation(applied,command,receipts,now-1),applied,'an existing receipt acknowledges despite clock skew');
+  assert.throws(()=>previewMutation(applied,{...command,issued_at:now+1},receipts,now),{code:'validation'},'request payload cannot change');
   assert.throws(()=>previewMutation(s,command,new Set(),now+requestLifetimeMs),{code:'expired'});
   const {issued_at:_,...legacy}=command;
   assert.throws(()=>previewMutation(s,legacy,new Set(),now),{code:'expired'});assert.deepEqual(s,before);

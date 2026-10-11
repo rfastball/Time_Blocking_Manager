@@ -16,7 +16,7 @@ export function CaptureWindow(){
   const [hidden,setHidden]=useState(false),hiddenNow=useRef(false);
   const hide=(value:boolean)=>{hiddenNow.current=value;setHidden(value);};
   const locked=!s.ready||!s.draftLoaded||s.quitSaving;
-  const canSave=!!drafts.capture.trim()&&!locked&&!saving&&!failed;
+  const canSave=!!(drafts.captureCommand||drafts.capture.trim())&&!locked&&!saving&&!failed;
   const focus=()=>{const el=input.current;if(el&&!el.disabled&&document.activeElement!==el)el.focus();};
 
   useEffect(()=>{if(!locked&&!saving)focus();},[locked,saving]);

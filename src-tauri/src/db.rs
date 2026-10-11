@@ -198,6 +198,15 @@ fn receipt_cutoff(conn: &Connection) -> Result<i64> {
     value.parse::<i64>().ok().filter(|v|*v>=0).ok_or_else(||error("schema","처리 기록 정리 시각이 올바르지 않습니다."))
 }
 
+fn recorded_request(conn: &Connection, command: &Command, payload: &str) -> Result<bool> {
+    if command.request_id.is_empty() || command.request_id.len()>100 {return Err(error("validation","요청 식별자가 올바르지 않습니다."));}
+    let previous:Option<String>=conn.query_row("SELECT payload FROM receipts WHERE id=?1",[&command.request_id],|r|r.get(0)).optional()?;
+    match previous {
+        Some(previous) if previous!=payload=>Err(error("validation","같은 요청 식별자에 서로 다른 변경이 전달됐습니다.")),
+        Some(_)=>Ok(true),None=>Ok(false)
+    }
+}
+
 fn occurrences(conn: &Connection) -> Result<Vec<(String,String)>> {
     let version:i64=conn.query_row("PRAGMA user_version",[],|r|r.get(0))?;
     if version<3 {return Ok(vec![]);}
@@ -430,18 +439,22 @@ impl Store {
         self.apply_at(command,chrono::Utc::now().timestamp_millis())
     }
 
+    /// Acknowledges only a matching receipt; never executes an unresolved draft.
+    pub fn acknowledge(&self, command: &Command) -> Result<Option<Snapshot>> {
+        let snapshot=read(&self.conn)?;
+        if command.epoch!=snapshot.epoch {return Err(error("epoch","복원 전 화면의 요청입니다. 초안을 보존하고 최신 데이터를 확인하세요."));}
+        let payload=format!("{:x}",Sha256::digest(serde_json::to_vec(command)?));
+        Ok(if recorded_request(&self.conn,command,&payload)? {Some(snapshot)} else {None})
+    }
+
     pub fn apply_at(&mut self, command: &Command, now: i64) -> Result<Snapshot> {
         if command.request_id.is_empty() || command.request_id.len() > 100 { return Err(error("validation", "요청 식별자가 올바르지 않습니다.")); }
         let payload = format!("{:x}",Sha256::digest(serde_json::to_vec(command)?));
         let tx = self.conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
         let snapshot = read(&tx)?;
         if command.epoch != snapshot.epoch { return Err(error("epoch", "복원 전 화면의 요청입니다. 초안을 보존하고 최신 데이터를 확인하세요.")); }
+        if recorded_request(&tx,command,&payload)? {return Ok(snapshot);}
         validate_request_time(command,now,receipt_cutoff(&tx)?)?;
-        let previous: Option<String> = tx.query_row("SELECT payload FROM receipts WHERE id=?1", [&command.request_id], |r| r.get(0)).optional()?;
-        if let Some(previous) = previous {
-            if previous != payload { return Err(error("validation", "같은 요청 식별자에 서로 다른 변경이 전달됐습니다.")); }
-            return Ok(snapshot);
-        }
         match &command.action {
             Action::Create { id, title } => {
                 // Captured work has no chosen length yet and lands on top of the 투입구.
@@ -721,7 +734,8 @@ impl Store {
             }
         }
         normalize_piles(&tx)?;
-        tx.execute("INSERT INTO receipts(id,payload,accepted_at) VALUES(?1,?2,?3)", params![command.request_id,payload,now])?;
+        // Retain a tolerated future request until its own retry horizon also expires.
+        tx.execute("INSERT INTO receipts(id,payload,accepted_at) VALUES(?1,?2,?3)", params![command.request_id,payload,now.max(command.issued_at.unwrap_or(now))])?;
         let result = read(&tx)?;
         validate_bench(&result)?;
         tx.commit()?;

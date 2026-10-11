@@ -5,10 +5,10 @@ import {byFlowOrder,moveInOrder} from '../../flow.ts';
 import {placementIssue} from '../../placement.ts';
 import {dateKey,dateLabel,dateOf,plusDays,time} from '../../dates.ts';
 import {intentAction,updateAction,type Intent} from '../../intent.ts';
-import {createCommand,requestTimeIssue} from '../../capture.ts';
+import {createCommand} from '../../capture.ts';
 import type {Action,Task,Trashed,WorkingDay} from '../../types.ts';
 import {getState,setDrafts,setState,setUi} from './state.ts';
-import {afterIdle,announce,ask,dispatch,draftChanged,persistDraft,queue,showError,stamp} from './session.ts';
+import {acknowledgeCapture,afterIdle,announce,ask,dispatch,draftChanged,persistDraft,queue,showError,stamp} from './session.ts';
 
 const snap=()=>getState().snapshot!;
 const find=(id:string)=>snap().tasks.find(t=>t.id===id);
@@ -118,28 +118,25 @@ export async function clearDay(date:string){
 
 // ── 담기·새 블록 ──
 // Capture text is one draft shared by the 미계획 input, the capture window and the timetable composer.
-export function editCapture(text:string){setDrafts({capture:text,captureCommand:null});draftChanged();}
+export function editCapture(text:string){setDrafts({capture:text});draftChanged();}
 export async function submitCapture(){
   const s=getState();
-  if(!s.drafts.capture.trim()||!s.ready||!s.draftLoaded||queue.failed)return false;
+  if(!s.drafts.captureCommand&&!s.drafts.capture.trim()||!s.ready||!s.draftLoaded||queue.failed)return false;
   const title=s.drafts.capture.trim();
-  if(s.drafts.captureCommand&&requestTimeIssue(s.drafts.captureCommand))return dispatch(s.drafts.captureCommand.action,{command:s.drafts.captureCommand});
-  let command=s.drafts.captureCommand?.action.type==='create'?s.drafts.captureCommand:null;
+  let command=s.drafts.captureCommand;
   command??=createCommand({type:'create',id:crypto.randomUUID(),title},snap().epoch);
-  setDrafts({composer:null,captureCommand:command});void persistDraft();
+  setDrafts({captureCommand:command,...(!s.drafts.captureCommand?{composer:null}:{})});await persistDraft();
+  if(queue.failed)return false;
   const sent=command;
   return dispatch(sent.action,{command:sent,done:()=>{
-    if(getState().drafts.captureCommand!==sent){announce('이전 항목을 저장했습니다. 새 입력은 유지했습니다.');return;}
-    setDrafts({capture:'',captureCommand:null});void persistDraft();announce('저장했어요.');
+    if(!acknowledgeCapture(sent)){announce('이전 항목을 저장했습니다. 새 입력은 유지했습니다.');return;}
+    announce('저장했어요.');
     if(s.captureWindow&&s.native)void queue.add(async()=>{await invoke('hide_capture');});
   }});
 }
 // A new block is a date assignment unless the user keeps the time fixed.
 export function composerAction(date:string,start:number,duration:number,fixed:boolean,title:string):Action{
   return fixed?{type:'create_scheduled',id:crypto.randomUUID(),title,starts_at:date+'T'+time(start),duration}:{type:'create_flow',id:crypto.randomUUID(),title,date,duration};
-}
-function sameComposerAction(action:Action,date:string,start:number,duration:number,fixed:boolean){
-  return fixed?action.type==='create_scheduled'&&action.starts_at===date+'T'+time(start)&&action.duration===duration:action.type==='create_flow'&&action.date===date&&action.duration===duration;
 }
 export function openComposer(date:string,start:number,duration=30,fixed=false){
   const s=getState();if(!s.ready)return false;
@@ -151,16 +148,15 @@ export function setComposerFixed(fixed:boolean){const c=getState().drafts.compos
 export function closeComposer(){setDrafts({composer:null});void persistDraft();}
 export async function submitComposer(){
   const s=getState(),c=s.drafts.composer,title=s.drafts.capture.trim();
-  if(!c||!title||queue.busy||queue.failed)return false;
-  if(s.drafts.captureCommand&&requestTimeIssue(s.drafts.captureCommand))return dispatch(s.drafts.captureCommand.action,{command:s.drafts.captureCommand});
+  if(!c||!title&&!s.drafts.captureCommand||queue.busy||queue.failed)return false;
   const fixed=c.fixed??false;
-  if(fixed){const issue=issueAt('',c.date,c.start,c.duration);if(issue){showError(Error(issue.label+'. 다른 시간을 선택하세요.'));return false;}}
+  if(!s.drafts.captureCommand&&fixed){const issue=issueAt('',c.date,c.start,c.duration);if(issue){showError(Error(issue.label+'. 다른 시간을 선택하세요.'));return false;}}
   let command=s.drafts.captureCommand;
-  if(!command||!sameComposerAction(command.action,c.date,c.start,c.duration,fixed))command=null;
   command??=createCommand(composerAction(c.date,c.start,c.duration,fixed,title),snap().epoch);
-  setDrafts({captureCommand:command});void persistDraft();
+  setDrafts({captureCommand:command});await persistDraft();
+  if(queue.failed)return false;
   const sent=command,a=sent.action,id=a.type==='create_flow'||a.type==='create_scheduled'?a.id:null;
-  return dispatch(a,{command:sent,done:()=>{if(getState().drafts.captureCommand===sent)setDrafts({capture:'',captureCommand:null,composer:null});void persistDraft();if(id)reveal(id,fixed);}});
+  return dispatch(a,{command:sent,done:()=>{acknowledgeCapture(sent);if(id)reveal(id,a.type==='create_scheduled');}});
 }
 // A new block can land far from where it was asked for (the end of a full day): bring it into view, then let it settle.
 function reveal(id:string,clack:boolean){

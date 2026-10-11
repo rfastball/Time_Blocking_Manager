@@ -40,7 +40,7 @@ const scenarios=[
     assert.equal(await value(page),'다음 주 일정 확인');
     await discard(page);
   }},
-  {name:'expired saved capture commands keep the draft until a fresh Enter saves',path,viewport,run:async page=>{
+  {name:'unresolved captures retain their identity until completion or explicit review',path,viewport,run:async page=>{
     const before=await page.js(`(async()=>{const {getState}=await import('/src/app/store/state.ts');return JSON.stringify(getState().snapshot);})()`);
     const expired=[
       {name:'legacy',issued_at:null},
@@ -57,16 +57,65 @@ const scenarios=[
         assert.equal(await page.js(`(async()=>{const {getState}=await import('/src/app/store/state.ts');return JSON.stringify(getState().snapshot);})()`),before,'rejection does not mutate the snapshot');
         assert.equal(await value(page),text,'rejection keeps capture text');
         await page.click('.capture-status button','저장된 내용 확인');await page.sleep(250);
-        assert.equal(await page.js(`(async()=>{const {getState}=await import('/src/app/store/state.ts');const s=getState();return JSON.stringify({text:s.drafts.capture,command:s.drafts.captureCommand,failed:s.failed,snapshot:s.snapshot});})()`),JSON.stringify({text,command:null,failed:null,snapshot:JSON.parse(before)}),'recovery reloads without the expired command');
+        assert.deepEqual(await page.js(`(async()=>{const {getState}=await import('/src/app/store/state.ts');const s=getState();return {text:s.drafts.capture,id:s.drafts.captureCommand?.request_id,failed:s.failed?.code,snapshot:s.snapshot};})()`),{text,id:command.request_id,failed:'expired',snapshot:JSON.parse(before)},'review preserves the unresolved command without executing it');
+        await page.js('window.confirm=()=>false');
+        await page.click('.capture-status button','입력 유지하고 수정');await page.sleep(100);
+        assert.equal(await page.js(`(async()=>{const {getState}=await import('/src/app/store/state.ts');return getState().drafts.captureCommand?.request_id;})()`),command.request_id,'declining renewal retains the original identity');
+        await page.js('window.confirm=()=>true');
+        await page.click('.capture-status button','입력 유지하고 수정');await page.sleep(100);
+        assert.deepEqual(await page.js(`(async()=>{const {getState}=await import('/src/app/store/state.ts');const s=getState();return {text:s.drafts.capture,command:s.drafts.captureCommand,failed:s.failed,snapshot:s.snapshot};})()`),{text,command:null,failed:null,snapshot:JSON.parse(before)},'explicit confirmation unlocks editing but does not save');
       }
       await page.click('#capture');
       await page.key('Enter');await page.sleep(300);
       assert.equal(await value(page),'');
       const saved=await page.js(`(async()=>{const {getState}=await import('/src/app/store/state.ts');const tasks=getState().snapshot.tasks;return {count:tasks.length,task:tasks.find(t=>t.title==='만료 캡처 exactly 30 days old')};})()`);
       assert.equal(saved.count,JSON.parse(before).tasks.length+1,'fresh Enter saves once');
-      assert.ok(saved.task&&saved.task.id!=='expired-capture-1','fresh Enter gives the saved task a new identity');
+      assert.ok(saved.task&&saved.task.id!=='expired-capture-1','a deliberately renewed save gets a new identity');
+      const oldReceipt=await page.js(`(async()=>{const [{getState,setDrafts},{createCommand},{submitCapture}]=await Promise.all([import('/src/app/store/state.ts'),import('/src/capture.ts'),import('/src/app/store/tasks.ts')]);const command=createCommand({type:'create',id:'known-retry',title:'이미 저장한 입력'},getState().snapshot.epoch);setDrafts({capture:command.action.title,captureCommand:command});await submitCapture();return command;})()`);
+      await page.js(`(async()=>{const [{setDrafts},{editCapture}]=await Promise.all([import('/src/app/store/state.ts'),import('/src/app/store/tasks.ts')]);setDrafts({capture:'이미 저장한 입력',captureCommand:${JSON.stringify(oldReceipt)}});editCapture('새로운 입력');})()`);
+      await page.click('#capture');await page.key('Enter');await page.sleep(200);
+      assert.equal(await value(page),'새로운 입력','receipt completion keeps changed input');
+      assert.deepEqual(await page.js(`(async()=>{const {getState}=await import('/src/app/store/state.ts');const s=getState();return {pending:s.drafts.captureCommand,count:s.snapshot.tasks.filter(t=>t.id==='known-retry').length};})()`),{pending:null,count:1},'a recorded capture retry acknowledges once without creating another task');
+      await page.js(`(async()=>{const {setDrafts}=await import('/src/app/store/state.ts');setDrafts({capture:'',captureCommand:${JSON.stringify(oldReceipt)}});})()`);
+      assert.equal(await saveDisabled(page),false,'a pending request can be resolved after its editable input is cleared');
+      await page.click('#capture');await page.key('Enter');await page.sleep(150);
+      assert.equal(await saveDisabled(page),true,'completion releases an empty pending draft');
+      const blocked=await page.js(`(async()=>{
+        const [{getState,setDrafts,setState},{queue},{submitCapture},{previewMutation}]=await Promise.all([import('/src/app/store/state.ts'),import('/src/app/store/session.ts'),import('/src/app/store/tasks.ts'),import('/src/preview.ts')]);
+        window.saveRecoveryPreviousIPC=window.__TAURI_INTERNALS__;
+        const mock=window.saveRecoveryMock={snapshot:structuredClone(getState().snapshot),draft:[0,''],receipts:new Set(),accepted:null,mutations:0,lookups:0,failDraft:true,loseResponse:true,failLookup:false};
+        window.__TAURI_INTERNALS__={invoke:async(cmd,args)=>{
+          if(cmd==='save_draft'){if(mock.failDraft)throw {code:'storage',message:'초안 저장 실패',retryable:true};mock.draft=[args.sequence,args.content];return;}
+          if(cmd==='load_draft')return mock.draft;
+          if(cmd==='load')return structuredClone(mock.snapshot);
+          if(cmd==='mutate'){mock.mutations++;mock.snapshot=previewMutation(mock.snapshot,args.command,mock.receipts);mock.accepted=args.command;if(mock.loseResponse)throw {code:'storage',message:'저장 응답을 받지 못했습니다.',retryable:true};return structuredClone(mock.snapshot);}
+          if(cmd==='acknowledge'){mock.lookups++;if(mock.failLookup)throw {code:'storage',message:'처리 기록 읽기 실패',retryable:true};return mock.accepted&&JSON.stringify(mock.accepted)===JSON.stringify(args.command)?structuredClone(mock.snapshot):null;}
+          if(cmd==='diagnostics')return {db_path:'mock',warning:null,last_backup:null};
+          if(cmd==='autostart'||cmd==='exit_on_close'||cmd==='plugin:dialog|confirm')return false;
+          if(cmd==='capture_shortcut')return 'Ctrl+Shift+Space';
+          if(cmd==='set_dirty'||cmd==='hide_capture')return;
+          throw Error('Unexpected mock IPC '+cmd);
+        }};
+        setState({native:true});setDrafts({capture:'응답을 잃은 입력',captureCommand:null,composer:null});
+        const saved=await submitCapture();return {saved,mutations:mock.mutations,pending:getState().drafts.captureCommand?.request_id,failed:queue.failed.code};
+      })()`);
+      assert.equal(blocked.saved,false);assert.equal(blocked.mutations,0,'draft persistence failure prevents mutation transmission');assert.equal(blocked.failed,'storage');assert.ok(blocked.pending);
+      const lost=await page.js(`(async()=>{const [{getState},{queue,retry},{submitCapture}]=await Promise.all([import('/src/app/store/state.ts'),import('/src/app/store/session.ts'),import('/src/app/store/tasks.ts')]);window.saveRecoveryMock.failDraft=false;await retry();await queue.whenIdle();await submitCapture();return {mutations:window.saveRecoveryMock.mutations,pending:getState().drafts.captureCommand?.request_id,failed:queue.failed.code};})()`);
+      assert.deepEqual(lost,{mutations:1,pending:blocked.pending,failed:'storage'},'retrying persistence keeps the same request before uncertain completion');
+      const restored=await page.js(`(async()=>{
+        const [{getState,setDrafts,setState},{queue,storedDraft,reload}]=await Promise.all([import('/src/app/store/state.ts'),import('/src/app/store/session.ts')]);
+        queue.discardFailed();await queue.whenIdle();setDrafts({capture:'',captureCommand:null,composer:null});storedDraft.loaded=false;setState({snapshot:null,ready:false,draftLoaded:false,error:''});
+        await reload();await queue.whenIdle();const s=getState();return {text:s.drafts.capture,pending:s.drafts.captureCommand,count:s.snapshot.tasks.filter(t=>t.title==='응답을 잃은 입력').length,mutations:window.saveRecoveryMock.mutations,lookups:window.saveRecoveryMock.lookups};
+      })()`);
+      assert.deepEqual(restored,{text:'',pending:null,count:1,mutations:1,lookups:1},'reload confirms the lost response through read-only IPC without replaying the mutation');
+      const lookupFailure=await page.js(`(async()=>{
+        const [{getState,setDrafts},{storedDraft,loadStoredDraft,queue}]=await Promise.all([import('/src/app/store/state.ts'),import('/src/app/store/session.ts')]);
+        const mock=window.saveRecoveryMock;mock.failLookup=true;mock.draft=[mock.draft[0]+1,JSON.stringify({capture:'보존할 입력',captureCommand:mock.accepted})];setDrafts({capture:'',captureCommand:null});storedDraft.loaded=false;
+        await loadStoredDraft();await queue.whenIdle();const s=getState();return {text:s.drafts.capture,pending:s.drafts.captureCommand.request_id,error:s.error,mutations:mock.mutations};
+      })()`);
+      assert.deepEqual(lookupFailure,{text:'보존할 입력',pending:blocked.pending,error:'처리 기록 읽기 실패',mutations:1},'failed receipt lookup retains input and unresolved identity');
     }finally{
-      await page.js(`(async()=>{const [{setDrafts,setState},{release}]=await Promise.all([import('/src/app/store/state.ts'),import('/src/app/store/session.ts')]);release();setDrafts({capture:'',captureCommand:null,composer:null});setState({error:'',message:''});})()`).catch(()=>{});
+      await page.js(`(async()=>{const [{setDrafts,setState},{queue,storedDraft}]=await Promise.all([import('/src/app/store/state.ts'),import('/src/app/store/session.ts')]);queue.discardFailed();await queue.whenIdle();setDrafts({capture:'',captureCommand:null,composer:null});setState({native:false,error:'',message:'',draftLoaded:true});storedDraft.loaded=true;if(window.saveRecoveryMock){if(window.saveRecoveryPreviousIPC)window.__TAURI_INTERNALS__=window.saveRecoveryPreviousIPC;else delete window.__TAURI_INTERNALS__;delete window.saveRecoveryMock;delete window.saveRecoveryPreviousIPC;}})()`).catch(()=>{});
       await page.sleep(250);
     }
   }},

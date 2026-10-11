@@ -1,8 +1,8 @@
 import {invoke} from '@tauri-apps/api/core';
 import {confirm} from '@tauri-apps/plugin-dialog';
 import {SaveQueue} from '../../queue.ts';
-import {StoredDraft,createCommand,needsSavedReview,releaseCaptureCommand,requestTimeIssue} from '../../capture.ts';
-import {previewMutation} from '../../preview.ts';
+import {StoredDraft,captureMatchesCommand,createCommand,needsSavedReview,releaseCaptureCommand} from '../../capture.ts';
+import {previewAcknowledgement,previewMutation} from '../../preview.ts';
 import {plusDays,today as todayKey} from '../../dates.ts';
 import type {Action,AppError,Command,Snapshot,Task} from '../../types.ts';
 import {clockMinute,emptyDrafts,getState,pinnedClock,setDrafts,setState} from './state.ts';
@@ -20,7 +20,8 @@ export const afterIdle=new Set<()=>void>();
 export const storedDraft=new StoredDraft();storedDraft.loaded=!getState().native;
 const previewOccurrences=new Set<string>();
 let refreshNeeded=false,draftTimer:ReturnType<typeof setTimeout>|undefined;
-let rejectedCommand:Command|null=null;
+let failedCommand:Command|null=null;
+let failedDone:(()=>void)|undefined;
 
 export function showError(e:unknown){setState({error:typeof e==='object'&&e&&'message' in e?String((e as {message:unknown}).message):String(e)});}
 export const announce=(message:string)=>setState({message});
@@ -35,9 +36,9 @@ export async function dispatch(action:Action,{epoch,command:savedCommand,done}:D
   return queue.add(async()=>{
     let result:Snapshot;
     try{
-      const issue=requestTimeIssue(command);if(issue)throw issue;
       result=s.native?await invoke<Snapshot>('mutate',{command}):previewMutation(getState().snapshot!,command,previewOccurrences);
-    }catch(e){if((e as AppError).code==='expired')rejectedCommand=command;throw e;}
+    }catch(e){failedCommand=command;failedDone=done;throw e;}
+    failedCommand=null;failedDone=undefined;
     setState({snapshot:result,error:'',message:s.native?'변경을 저장했어요.':'미리보기에 반영했어요.'});
     done?.();
   }).then(()=>true,e=>{showError(e);return false;});
@@ -47,12 +48,12 @@ export const enqueue=(run:()=>Promise<void>)=>queue.add(run);
 // ── 초안 ──
 export function unsaved(){
   const {ready,draftLoaded,drafts:d}=getState();
-  return !!(ready&&!draftLoaded||d.capture||d.editorDirty||Object.keys(d.rawSchedules).length||d.settingsDraft||d.routineDraft||d.cut||queue.busy||draftTimer);
+  return !!(ready&&!draftLoaded||d.capture||d.captureCommand||d.editorDirty||Object.keys(d.rawSchedules).length||d.settingsDraft||d.routineDraft||d.cut||queue.busy||draftTimer);
 }
 // The stored JSON keeps the shape written by the earlier app so existing drafts survive the update.
 function draftContent(){
   const {drafts:d,snapshot}=getState();
-  return d.capture||d.editorDirty||Object.keys(d.rawSchedules).length||d.settingsDraft||d.routineDraft||d.cut?JSON.stringify({
+  return d.capture||d.captureCommand||d.editorDirty||Object.keys(d.rawSchedules).length||d.settingsDraft||d.routineDraft||d.cut?JSON.stringify({
     capture:d.capture,captureCommand:d.captureCommand,calendarComposer:d.capture?d.composer:null,editor:d.editorDirty?d.editor:null,
     rawSchedules:d.rawSchedules,settingsBase:d.settingsBase,settingsDraft:d.settingsDraft,routineDraft:d.routineDraft,cut:d.cut,epoch:snapshot?.epoch
   }):'';
@@ -73,13 +74,29 @@ export async function loadStoredDraft(allowBusy=false){
   try{
     const [sequence,content]=await invoke<[number,string]>('load_draft');
     const d=getState().drafts;
-    if(d.capture||d.editorDirty||Object.keys(d.rawSchedules).length||d.settingsDraft||d.routineDraft||d.cut||(!allowBusy&&queue.busy)||draftTimer)return;
+    if(d.capture||d.captureCommand||d.editorDirty||Object.keys(d.rawSchedules).length||d.settingsDraft||d.routineDraft||d.cut||(!allowBusy&&queue.busy)||draftTimer)return;
     const draft=storedDraft.read(sequence,content);
     if(draft)setDrafts({capture:draft.capture||'',captureCommand:draft.captureCommand||null,composer:draft.calendarComposer||null,editor:draft.editor||null,editorDirty:!!draft.editor,
       rawSchedules:draft.rawSchedules||{},settingsBase:draft.settingsBase||null,settingsDraft:draft.settingsDraft||null,routineDraft:draft.routineDraft||null,cut:draft.cut||null});
     setState({draftLoaded:true,draftLoadFailed:false,draftSequenceKnown:true,message:''});
   }catch{setState({draftLoaded:storedDraft.loaded,draftLoadFailed:true,draftSequenceKnown:storedDraft.sequenceKnown});}
+  if(getState().draftLoaded)await reconcileCapture().catch(showError);
   void invoke('set_dirty',{dirty:unsaved()});
+}
+export function acknowledgeCapture(command:Command){
+  const d=getState().drafts;
+  if(releaseCaptureCommand(d.captureCommand,command)!==null||!d.captureCommand)return false;
+  const matching=captureMatchesCommand(command,d.capture,d.composer);
+  setDrafts({captureCommand:null,...(matching?{capture:'',composer:null}:{})});
+  void persistDraft();
+  return matching;
+}
+async function reconcileCapture(command=getState().drafts.captureCommand,done?:()=>void){
+  if(!command)return false;
+  const s=getState(),snapshot=s.native?await invoke<Snapshot|null>('acknowledge',{command}):previewAcknowledgement(s.snapshot!,command,previewOccurrences);
+  if(!snapshot)return false;
+  setState({snapshot,error:'',message:'이전 저장이 완료된 것을 확인했어요.'});
+  if(done)done();else acknowledgeCapture(command);return true;
 }
 export async function discardStoredDraft(){
   if(queue.busy||!storedDraft.sequenceKnown||!await ask('읽을 수 없는 보관 초안을 버릴까요? 저장된 작업은 유지됩니다.'))return;
@@ -114,24 +131,33 @@ export function replaceSnapshot(snapshot:Snapshot){setState({snapshot,ready:true
 // A conflict keeps the user's input and shows what is now saved.
 export async function retry(){
   const failed=getState().failed;
-  if(failed?.code==='expired'){await recoverExpired();return;}
+  if(failed?.code==='expired'){await reviewExpired();return;}
   if(needsSavedReview(failed?.code)){
-    queue.discardFailed();await reload();
+    const command=failedCommand;failedCommand=null;failedDone=undefined;queue.discardFailed();await reload();
+    if(getState().ready){setDrafts({captureCommand:releaseCaptureCommand(getState().drafts.captureCommand,command)});void persistDraft();}
     setState({error:'다른 곳에서 이 항목이 바뀌었어요. 입력한 내용은 그대로 있어요. 저장된 내용을 확인한 뒤 내 입력으로 저장할 수 있어요.'});return;
   }
   setState({error:''});queue.retry();
 }
-async function recoverExpired(){
-  const command=rejectedCommand;
-  queue.discardFailed();await reload();
-  if(!getState().ready)return;
-  rejectedCommand=null;
-  setDrafts({captureCommand:releaseCaptureCommand(getState().drafts.captureCommand,command)});
-  void persistDraft();setState({error:'',message:'입력한 내용은 그대로 있어요. 저장된 내용을 확인한 뒤 다시 저장해 주세요.'});
+async function reviewExpired(){
+  const command=failedCommand??getState().drafts.captureCommand;
+  await reload();
+  if(!getState().ready)return false;
+  if(await reconcileCapture(command,failedDone).catch(e=>{showError(e);return false;})){
+    failedCommand=null;failedDone=undefined;queue.discardFailed();return true;
+  }
+  setState({error:'이전 저장의 완료 여부를 확인할 수 없습니다. 입력은 유지됩니다. 저장된 내용을 확인한 뒤 ‘입력 유지하고 수정’을 선택해 주세요.'});
+  return false;
 }
 export async function release(){
-  if(getState().failed?.code==='expired'){await recoverExpired();return;}
+  const command=failedCommand??getState().drafts.captureCommand,code=getState().failed?.code;
+  if(code==='expired'||command&&!['validation','overlap','conflict','epoch'].includes(code??'')){
+    if(await reviewExpired()||!getState().ready)return;
+    if(!await ask('이전 저장이 완료됐는지 확인할 수 없습니다. 저장된 작업을 확인하셨나요? 입력을 유지하고 수정하면 다음 저장은 새 요청으로 처리되어 작업이 중복될 수 있습니다. 계속할까요?'))return;
+  }
+  setDrafts({captureCommand:releaseCaptureCommand(getState().drafts.captureCommand,command)});failedCommand=null;failedDone=undefined;
   queue.discardFailed();setState({error:'',message:'입력한 내용은 그대로 있어요. 확인한 뒤 다시 저장해 주세요.'});
+  void persistDraft();
 }
 
 export function tick(){

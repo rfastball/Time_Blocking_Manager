@@ -58,8 +58,8 @@ export async function saveBeforeQuit(requestId:string){
       await queue.whenIdle();
     }
     if(!current())return;
-    if(getState().drafts.capture.trim()){
-      if(getState().drafts.composer)await submitComposer();else await submitCapture();
+    while(getState().drafts.capture.trim()||getState().drafts.captureCommand){
+      if(!await (getState().drafts.composer?submitComposer():submitCapture()))throw Error(getState().error||'입력을 저장하지 못했습니다. 다시 시도해 주세요.');
       await queue.whenIdle();
     }
     if(!current())return;

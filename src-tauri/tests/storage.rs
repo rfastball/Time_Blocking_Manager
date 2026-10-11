@@ -177,42 +177,63 @@ fn requests_expire_and_receipts_purge_without_replay_or_pile_order_loss() {
     let mut renewed=c.clone();renewed.issued_at=Some(now+1);
     assert_eq!(s.apply_at(&renewed,now+1).unwrap_err().code,"validation","the timestamp is part of the immutable payload");
     let before=serde_json::to_value(s.snapshot().unwrap()).unwrap();
-    for issued_at in [None,Some(now-REQUEST_LIFETIME_MS),Some(now+1),Some(-1)] {
+    for issued_at in [None,Some(now-REQUEST_LIFETIME_MS),Some(-1)] {
         let invalid=Command{request_id:"invalid".into(),issued_at,..c.clone()};
         assert_eq!(s.apply_at(&invalid,now).unwrap_err().code,"expired");
         assert_eq!(serde_json::to_value(s.snapshot().unwrap()).unwrap(),before);
     }
     let legacy:Command=serde_json::from_value(serde_json::json!({"request_id":"legacy","epoch":c.epoch,"action":{"type":"create","id":"old","title":"kept"}})).unwrap();
     assert_eq!(s.apply_at(&legacy,now).unwrap_err().code,"expired","missing timestamps expire instead of failing draft decoding or renewing");
-    assert_eq!(s.apply_at(&c,now+REQUEST_LIFETIME_MS).unwrap_err().code,"expired","even a recorded retry expires at exactly thirty days");
+    assert_eq!(s.apply_at(&c,now+REQUEST_LIFETIME_MS).unwrap().tasks,once.tasks,"a recorded retry acknowledges completion even after its execution lifetime");
+    assert_eq!(s.apply_at(&c,now-1).unwrap().tasks,once.tasks,"receipt lookup precedes clock validation");
+    assert_eq!(s.acknowledge(&c).unwrap().unwrap().tasks,once.tasks);
+    assert!(s.acknowledge(&legacy).unwrap().is_none(),"an unknown legacy draft is only inspected, never executed");
+    assert_eq!(s.acknowledge(&renewed).unwrap_err().code,"validation");
+    let ahead=Command{request_id:"ahead".into(),issued_at:Some(now+REQUEST_CLOCK_TOLERANCE_MS),action:Action::Create{id:"ahead".into(),title:"clock tolerance".into()},..c.clone()};
+    let too_far=Command{request_id:"too-far".into(),issued_at:Some(now+REQUEST_CLOCK_TOLERANCE_MS+1),..ahead.clone()};
+    assert_eq!(s.apply_at(&too_far,now).unwrap_err().code,"clock");
+    s.apply_at(&ahead,now).unwrap();
     let conn=rusqlite::Connection::open(&path).unwrap();
     let (payload,accepted):(String,i64)=conn.query_row("SELECT payload,accepted_at FROM receipts WHERE id='first'",[],|r|Ok((r.get(0)?,r.get(1)?))).unwrap();
     assert_eq!(accepted,now);assert_eq!(payload.len(),64);assert!(payload.bytes().all(|c|c.is_ascii_hexdigit()));
     assert_eq!(conn.prepare("SELECT name FROM pragma_table_info('receipts')").unwrap().query_map([],|r|r.get::<_,String>(0)).unwrap().collect::<std::result::Result<Vec<_>,_>>().unwrap(),["id","payload","accepted_at"]);
     assert_eq!(s.purge_receipts(now+REQUEST_LIFETIME_MS).unwrap(),1);
+    assert!(s.acknowledge(&c).unwrap().is_none());
+    assert_eq!(conn.query_row::<i64,_,_>("SELECT accepted_at FROM receipts WHERE id='ahead'",[],|r|r.get(0)).unwrap(),now+REQUEST_CLOCK_TOLERANCE_MS);
+    assert!(s.apply_at(&ahead,now+REQUEST_LIFETIME_MS).is_ok(),"a tolerated future timestamp retains its receipt through its retry horizon");
     assert_eq!(s.apply_at(&c,now+REQUEST_LIFETIME_MS-1).unwrap_err().code,"expired","the watermark blocks a purged retry after clock rollback");
     let fresh=Command{request_id:"fresh".into(),issued_at:Some(now+REQUEST_LIFETIME_MS-1),action:Action::Create{id:"b".into(),title:"fresh".into()},..c.clone()};
     s.apply_at(&fresh,now+REQUEST_LIFETIME_MS-1).unwrap();
     assert_eq!(s.purge_receipts(now+REQUEST_LIFETIME_MS-1).unwrap(),0);
     assert_eq!(conn.query_row::<String,_,_>("SELECT value FROM meta WHERE key='receipt_cutoff'",[],|r|r.get(0)).unwrap(),now.to_string());
-    assert_eq!(s.apply_at(&fresh,now-1).unwrap_err().code,"clock","a larger clock correction names the clock problem");
+    assert!(s.apply_at(&fresh,now-1).is_ok(),"a recorded request still acknowledges after a larger clock correction");
+    let unseen=Command{request_id:"unseen".into(),..fresh.clone()};
+    assert_eq!(s.apply_at(&unseen,now-1).unwrap_err().code,"clock","an unresolved request cannot execute after a larger clock correction");
     // The existing restore changes epoch and safely resets a mistaken future watermark.
     let backup=dir.path().join("backup.db");s.backup(&backup).unwrap();
     let epoch=s.snapshot().unwrap().epoch;s.restore(&backup,&epoch,&dir.path().join("safety.db")).unwrap();
     assert_eq!(s.apply_at(&c,now+REQUEST_LIFETIME_MS-1).unwrap_err().code,"epoch");
+    assert_eq!(s.acknowledge(&c).unwrap_err().code,"epoch");
     let fresh=command(&s,Action::Create{id:"after-restore".into(),title:"current clock".into()});s.apply(&fresh).unwrap();
     assert_eq!(conn.query_row::<String,_,_>("SELECT value FROM meta WHERE key='receipt_cutoff'",[],|r|r.get(0)).unwrap(),"0");
     // A real v6 receipt shape upgrades once, without the older list-to-inbox backfill.
     let path=dir.path().join("v6.db");let mut s=Store::open(&path).unwrap();
     for id in ["z","a","m","b"] {create(&mut s,id);}
     put(&mut s,&["a","z"],Some("p1"),Some(1),0).unwrap();put(&mut s,&["m","b"],Some("p2"),Some(1),0).unwrap();
-    let move_pile=command(&s,Action::MovePile{pile:"p2".into(),position:1});s.apply(&move_pile).unwrap();
+    let mut move_pile=command(&s,Action::MovePile{pile:"p2".into(),position:1});s.apply(&move_pile).unwrap();
     let kept=s.snapshot().unwrap();drop(s);
     let conn=rusqlite::Connection::open(&path).unwrap();
+    // The historical serializer had no issued_at field, including no null placeholder.
+    use sha2::{Digest,Sha256};
+    let historical=format!(r#"{{"request_id":"{}","epoch":"{}","action":{{"type":"move_pile","pile":"p2","position":1}}}}"#,move_pile.request_id,move_pile.epoch);
+    conn.execute("UPDATE receipts SET payload=?1 WHERE id=?2",rusqlite::params![format!("{:x}",Sha256::digest(historical.as_bytes())),move_pile.request_id]).unwrap();
+    move_pile.issued_at=None;
     conn.execute_batch("DROP INDEX receipt_accepted; ALTER TABLE receipts DROP COLUMN accepted_at; DELETE FROM meta WHERE key='receipt_cutoff'; PRAGMA user_version=6;").unwrap();drop(conn);
     assert_eq!(Store::inspect_backup(&path).unwrap().tasks,4);
-    let start=chrono::Utc::now().timestamp_millis();let s=Store::open(&path).unwrap();let end=chrono::Utc::now().timestamp_millis();
+    let start=chrono::Utc::now().timestamp_millis();let mut s=Store::open(&path).unwrap();let end=chrono::Utc::now().timestamp_millis();
     assert_eq!((s.snapshot().unwrap().tasks,s.snapshot().unwrap().piles),(kept.tasks.clone(),kept.piles.clone()));
+    assert_eq!(s.acknowledge(&move_pile).unwrap().unwrap().piles,kept.piles);
+    assert_eq!(s.apply_at(&move_pile,0).unwrap().piles,kept.piles,"migrated legacy receipts acknowledge without renewing or reapplying");
     let conn=rusqlite::Connection::open(&path).unwrap();
     let (count,min,max):(i64,i64,i64)=conn.query_row("SELECT count(*),min(accepted_at),max(accepted_at) FROM receipts",[],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?))).unwrap();
     assert_eq!(count,7);assert_eq!(min,max);assert!((start..=end).contains(&min));

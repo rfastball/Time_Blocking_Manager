@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {SaveQueue} from './queue.ts';
-import {CaptureDraft,StoredDraft,captureEnterAction,isCompositionKey,createCommand,requestLifetimeMs,requestTimeIssue,releaseCaptureCommand,needsSavedReview} from './capture.ts';
+import {CaptureDraft,StoredDraft,captureEnterAction,captureMatchesCommand,isCompositionKey,createCommand,requestLifetimeMs,requestClockToleranceMs,requestTimeIssue,releaseCaptureCommand,needsSavedReview} from './capture.ts';
 
 test('failure keeps later writes pending and explicit retry preserves order',async()=>{
   const q=new SaveQueue(()=>{});const written:number[]=[];let fail=true;
@@ -40,21 +40,29 @@ test('retried capture acknowledges only its own draft, preserving newer input',a
   const at=1800000000000,saved=draft.command=createCommand({type:'create',id:'a',title:draft.text},'epoch',at),sent:string[]=[];
   await assert.rejects(q.add(async()=>{sent.push(JSON.stringify(saved));if(fail)throw Error('disk full');hidden=draft.acknowledge(saved);}),/disk full/);
   draft.edit('newer input');
+  assert.equal(draft.command,saved,'editing preserves the unresolved request for reload and retry');
   fail=false;q.retry();await q.add(async()=>{});
   assert.equal(sent.length,2);assert.equal(sent[0],sent[1]);assert.equal(saved.issued_at,at,'retry does not renew its timestamp');
   assert.equal(draft.text,'newer input');assert.equal(hidden,false);
-  const next=draft.command=createCommand({...saved.action},'epoch',at+1);
+  assert.equal(draft.command,null,'confirmed completion releases the pending identity even for changed text');
+  const next=draft.command=createCommand({type:'create',id:'b',title:draft.text},'epoch',at+1);
   assert.equal(releaseCaptureCommand(next,saved),next,'recovering the old write keeps newer input identity');
   assert.equal(releaseCaptureCommand(saved,saved),null);
   assert.equal(draft.text,'newer input','release never discards text or submits it');
   assert.equal(requestTimeIssue(saved,at+requestLifetimeMs-1),null);
-  for(const issued_at of [undefined,at-requestLifetimeMs,at+1,NaN,1.5]){
+  for(const issued_at of [undefined,at-requestLifetimeMs,NaN,1.5]){
     const issue=requestTimeIssue({...saved,issued_at},at);assert.equal(issue?.code,'expired');assert.equal(needsSavedReview(issue?.code),true);
   }
+  for(const skew of [1,requestClockToleranceMs])assert.equal(requestTimeIssue({...saved,issued_at:at+skew},at),null);
+  assert.equal(requestTimeIssue({...saved,issued_at:at+requestClockToleranceMs+1},at)?.code,'clock');
   assert.equal(requestTimeIssue(saved,at+requestLifetimeMs)?.code,'expired');
   assert.equal(requestTimeIssue(saved,at+requestLifetimeMs-1,at)?.code,'expired','purged requests stay expired after modest clock rollback');
   assert.equal(requestTimeIssue(saved,at,at)?.code,'clock','large clock rollback gets a clock diagnostic');
   assert.equal(draft.acknowledge(next),true);assert.equal(draft.text,'');
+  const scheduled=createCommand({type:'create_scheduled',id:'c',title:'block',starts_at:'2026-10-12T10:00',duration:30},'epoch',at);
+  assert.equal(captureMatchesCommand(scheduled,'block',{date:'2026-10-12',start:600,duration:30,fixed:true}),true);
+  assert.equal(captureMatchesCommand(scheduled,'block',{date:'2026-10-12',start:615,duration:30,fixed:true}),false,'changed placement remains an editable draft');
+  assert.equal(captureMatchesCommand(saved,'first',{date:'2026-10-12',start:600,duration:30}),false,'a newly opened composer is not the submitted capture');
 });
 
 test('capture Enter saves only outside IME and Shift+Enter retains a newline',()=>{

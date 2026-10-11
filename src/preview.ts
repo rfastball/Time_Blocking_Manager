@@ -6,6 +6,7 @@ import {insertPile,movePile,normalize,onBench,place} from './bench.ts';
 import {requestTimeIssue} from './capture.ts';
 
 const bytes=(value:string)=>new TextEncoder().encode(value).length;
+const receipts=new WeakMap<Set<string>,Map<string,{epoch:string;payload:string}>>();
 function reject(message:string,code='validation'):never {throw Object.assign(Error(message),{code,retryable:false});}
 function parseDate(value:string){
   const date=dateOf(value);
@@ -62,10 +63,17 @@ function validateTask(task:Task,tasks:Task[],settings:Settings){
   if(issue)reject(issue.label,issue.kind==='overlap'?'overlap':'validation');
 }
 
-// Browser preview stand-in for the Rust store: the same transitions on a cloned snapshot.
-export function previewMutation(snapshot:Snapshot,command:Command,occurrences:Set<string>,now=Date.now()):Snapshot {
+export function previewAcknowledgement(snapshot:Snapshot,command:Command,occurrences:Set<string>):Snapshot|null {
   if(!command.request_id||bytes(command.request_id)>100)reject('요청 식별자가 올바르지 않습니다.');
   if(command.epoch!==snapshot.epoch)reject('복원 전 화면의 요청입니다. 초안을 보존하고 최신 데이터를 확인하세요.','epoch');
+  const previous=receipts.get(occurrences)?.get(command.request_id);
+  if(!previous||previous.epoch!==snapshot.epoch)return null;
+  if(previous.payload!==JSON.stringify(command))reject('같은 요청 식별자에 서로 다른 변경이 전달됐습니다.');
+  return structuredClone(snapshot);
+}
+// Browser preview stand-in for the Rust store: the same transitions on a cloned snapshot.
+export function previewMutation(snapshot:Snapshot,command:Command,occurrences:Set<string>,now=Date.now()):Snapshot {
+  const acknowledged=previewAcknowledgement(snapshot,command,occurrences);if(acknowledged)return acknowledged;
   const issue=requestTimeIssue(command,now);if(issue)throw issue;
   const s=structuredClone(snapshot),a=command.action;s.layouts??=[];s.trash??=[];s.piles??=[];
   const generated=new Set<string>();
@@ -221,5 +229,7 @@ export function previewMutation(snapshot:Snapshot,command:Command,occurrences:Se
   }
   const bench=normalize(s.tasks,s.piles);s.tasks=bench.tasks;s.piles=bench.piles;
   for(const key of generated)occurrences.add(key);
+  let recorded=receipts.get(occurrences);if(!recorded){recorded=new Map();receipts.set(occurrences,recorded);}
+  recorded.set(command.request_id,{epoch:command.epoch,payload:JSON.stringify(command)});
   return s;
 }

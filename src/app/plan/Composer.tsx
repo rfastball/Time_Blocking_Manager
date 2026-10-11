@@ -87,7 +87,7 @@ function Ghost({c,axis,left,right}:{c:Composer;axis:TimeAxis;left:number;right:n
 function ComposerForm({c,axis,style}:{c:Composer;axis:TimeAxis;style:CSSProperties}){
   const {drafts,busy,failed}=useApp();
   const input=useRef<HTMLInputElement>(null);
-  const fixed=!!c.fixed,issue=fixed?issueAt('',c.date,c.start,c.duration):null,slot=useFlowSlot(c);
+  const fixed=!!c.fixed,issue=fixed&&!drafts.captureCommand?issueAt('',c.date,c.start,c.duration):null,slot=useFlowSlot(c);
   useEffect(()=>{if(focusNext){focusNext=false;input.current?.focus({preventScroll:true});}},[c.date,c.start,c.duration]);
   // Sits under the chosen range; near the floor it opens above it instead.
   const below=axis.position(c.start+(fixed?c.duration:0))+6,top=below+150>axis.height?Math.max(0,axis.position(c.start)-150):below;
@@ -101,7 +101,7 @@ function ComposerForm({c,axis,style}:{c:Composer;axis:TimeAxis;style:CSSProperti
       onChange={e=>editCapture(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&isCompositionKey(e.nativeEvent))e.preventDefault();}}/>
     <div className="cm-row">
       <label className="cm-fix"><input type="checkbox" checked={fixed} onChange={e=>setComposerFixed(e.target.checked)}/><Lock/>{time(c.start)} 고정</label>
-      <button type="submit" className="btn primary" disabled={!drafts.capture.trim()||busy||!!failed||!!issue}>배치</button>
+      <button type="submit" className="btn primary" disabled={!drafts.captureCommand&&!drafts.capture.trim()||busy||!!failed||!!issue}>배치</button>
     </div>
     {issue&&<p className="error" role="alert">{issue.label}. 다른 시간을 선택하세요.</p>}
   </form>;

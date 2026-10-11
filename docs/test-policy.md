@@ -1,5 +1,16 @@
 # 검증 범위
 
+## 저장 결과 확인과 초안·재시도 분리 Test delta brief (2026-10-12)
+
+- Unique risk: 이미 저장된 요청을 시각 검사에서 차단해 중복 저장을 유도함. 응답을 받기 전 입력을 바꾸면 기존 요청 식별자가 사라지거나, 늦은 성공 응답이 새 입력을 지움. 처리 기록이 없는 만료 요청을 복구하면서 사용자 확인 없이 새 요청으로 바꿈. 미래 시각 허용과 처리 기록 정리의 기준이 달라 정리 후 같은 요청이 다시 실행됨.
+- Existing owner / Selected layer: 기존 `src/queue.test.ts`의 입력·재시도 owner, `src/bench.test.ts`의 미리보기 명령 owner, `src-tauri/tests/storage.rs`의 처리 기록·만료 owner를 확장한다. 실제 세션 연결과 복구 버튼은 기존 명시적 `scripts/ui-check/capture.mjs` owner를 갱신한다.
+- Expected cost delta: 기존 실행 계층과 테스트 파일 안에서 결정적 시각 및 임시 SQLite로 검증한다. 기본 suite의 브라우저·네트워크·새 dependency·CI lane·coverage floor 변화 0. UI는 기존 명시적 Edge 실행을 공유한다.
+- Evidence to retire: 처리 기록이 남은 요청도 30일 경계에서 무조건 거절한다는 기대값, 미래 1ms 거절, 만료 복구 버튼만으로 요청 식별자를 자동 해제하는 기대값을 교체한다.
+
+Test delta 결과: 기존 Node queue·bench owner **2 extended**, 수집 **63→63**, 전체 **63/63 · 264.5194ms**. 후속 단언 보강 후 해당 owner **15/15 · 117.3609ms**. Rust 처리 기록 owner **1 extended**, 수집 **23→23**, 좁은 사례 **1/1 · 0.43초**, 전체 **23/23 · 본체 5.69초**. TypeScript·Vite 최종 빌드 **1.92초**, desktop `cargo check --locked` **0.86초**, `git diff --check` 통과. Vite·Cargo는 Windows sandbox 경로 정규화 제한으로 실패한 뒤 동일 명령의 승인된 제한 외 실행으로 통과했다. 새 테스트 파일·기본 suite 실행 프로세스·dependency·CI lane·coverage floor 변화 **0**. 신뢰할 동일 조건 변경 전 baseline 부재로 runtime delta는 **not measured**. Sol 구현과 별도 Sol 읽기 전용 검토를 거쳤고, root는 문서 통합 및 필수 최종 검증을 담당했다.
+
+명시적 capture UI **1 extended / 0 added / 0 removed**, 수집 **5→5**, **5/5** 통과. 동일 시나리오의 IPC 대역 보강 후 해당 사례만 **1/1 · 6.120초**로 재검증했다. 알 수 없는 요청의 확인 취소·승인, 이미 처리한 요청의 새 입력 보존, 빈 입력의 재시도 버튼, 초안 보관 실패 시 전송 차단, 응답 유실 후 재시작의 읽기 전용 처리 기록 확인, 처리 기록 조회 실패 시 입력·요청 보존을 확인했다. 초기 UI 실행은 개발 서버 부재와 브라우저 프로필의 Vite 파일 감시 충돌로 실패했으며, 서버 준비 및 무시 경로로 출력 이동 후 통과했다. 기본 suite의 heavy-resource launch delta는 **0**이며 실제 설치본 GUI·OS 시계 변경 시험은 수행하지 않았다. IPC 대역 검사는 실제 Rust 저장소 검사를 대신하지 않는다.
+
 ## 요청 재시도 기한·처리 기록 정리 Test delta brief (2026-10-11)
 
 - Unique risk: 처리 기록을 지운 뒤 오래된 요청이 다시 실행되거나, 초안/재시도가 생성 시각을 갱신해 30일 기한을 우회함. 시계가 앞으로 갔다 돌아온 뒤 삭제된 요청이 되살아남. v6→v7 이관이 기존 더미 순서를 바꾸거나 오래된 초안을 자동으로 새 요청으로 저장함.
