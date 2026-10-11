@@ -46,7 +46,7 @@ impl QuitCoordinator {
 }
 fn audit(s: &State, event: &str, code: &str) {
     if let Ok(mut f) = OpenOptions::new().create(true).append(true).open(s.root.join("blokky.log")) {
-        let _ = writeln!(f, "{} app={} schema=5 event={} code={}", chrono::Local::now().to_rfc3339(), env!("CARGO_PKG_VERSION"), event, code);
+        let _ = writeln!(f, "{} app={} schema=6 event={} code={}", chrono::Local::now().to_rfc3339(), env!("CARGO_PKG_VERSION"), event, code);
     }
 }
 // Expired trash goes when the store opens and on the hourly pass; a failed purge only waits for the next one.

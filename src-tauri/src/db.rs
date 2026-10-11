@@ -77,17 +77,21 @@ CREATE TABLE tasks (
  id TEXT PRIMARY KEY, title TEXT NOT NULL CHECK(length(trim(title)) > 0),
  body TEXT NOT NULL DEFAULT '', starts_at TEXT, duration INTEGER NOT NULL DEFAULT 30 CHECK(duration >= 15 AND duration % 15 = 0),
  completed INTEGER NOT NULL DEFAULT 0 CHECK(completed IN (0,1)), revision INTEGER NOT NULL DEFAULT 1 CHECK(revision > 0),
- plan_date TEXT, flow_order INTEGER, deleted_at TEXT
+ plan_date TEXT, flow_order INTEGER, deleted_at TEXT,
+ proto INTEGER NOT NULL DEFAULT 0 CHECK(proto IN (0,1)), pile_id TEXT, pile_order INTEGER
 );
 CREATE INDEX task_start ON tasks(starts_at);
 CREATE TABLE receipts (id TEXT PRIMARY KEY, payload TEXT NOT NULL);
 CREATE TABLE drafts (slot TEXT PRIMARY KEY, sequence INTEGER NOT NULL, content TEXT NOT NULL);
 CREATE TABLE routine_occurrences (routine_id TEXT NOT NULL, date TEXT NOT NULL, PRIMARY KEY(routine_id,date));
 CREATE TABLE day_layouts (date TEXT PRIMARY KEY, anchor INTEGER NOT NULL);
-PRAGMA user_version = 5;";
+CREATE TABLE piles (id TEXT PRIMARY KEY, position INTEGER NOT NULL);
+PRAGMA user_version = 6;";
 
-const SCHEMA_VERSION: i64 = 5;
-const TASK_COLUMNS: &str = "id,title,body,starts_at,duration,completed,revision,plan_date,flow_order";
+const SCHEMA_VERSION: i64 = 6;
+const TASK_COLUMNS: &str = "id,title,body,starts_at,duration,completed,revision,plan_date,flow_order,proto,pile_id,pile_order";
+// Open unplanned work: the only tasks that sit in a pile.
+const BENCH: &str = "deleted_at IS NULL AND plan_date IS NULL AND completed=0";
 /// Trashed tasks older than this are removed for good on open and by the hourly pass.
 pub const TRASH_RETENTION_DAYS: i64 = 30;
 
@@ -95,8 +99,51 @@ pub const TRASH_RETENTION_DAYS: i64 = 30;
 fn trash_stamp(at: chrono::DateTime<chrono::Utc>) -> String { at.to_rfc3339_opts(chrono::SecondsFormat::Secs,true) }
 
 fn insert_task(conn: &Connection, t: &Task, deleted_at: Option<&str>) -> Result<()> {
-    conn.execute(&format!("INSERT INTO tasks({TASK_COLUMNS},deleted_at) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)"),
-        params![t.id,t.title,t.body,t.starts_at,t.duration,t.completed,t.revision,t.plan_date,t.flow_order,deleted_at])?;
+    conn.execute(&format!("INSERT INTO tasks({TASK_COLUMNS},deleted_at) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13)"),
+        params![t.id,t.title,t.body,t.starts_at,t.duration,t.completed,t.revision,t.plan_date,t.flow_order,t.proto,t.pile_id,t.pile_order,deleted_at])?;
+    Ok(())
+}
+
+fn insert_piles(conn: &Connection, piles: &[Pile]) -> Result<()> {
+    for pile in piles {conn.execute("INSERT INTO piles(id,position) VALUES(?1,?2)",params![pile.id,pile.position])?;}
+    Ok(())
+}
+
+// Puts `ids`, in that order, into `pile` (None: the 투입구) before the card now at `index` among the others.
+fn place(conn: &Connection, ids: &[String], pile: Option<&str>, index: usize) -> Result<()> {
+    let mut members={
+        let mut stmt=conn.prepare(&format!("SELECT id FROM tasks WHERE {BENCH} AND pile_id IS ?1 ORDER BY pile_order IS NOT NULL,pile_order,id"))?;
+        let rows=stmt.query_map([pile],|r|r.get::<_,String>(0))?.collect::<std::result::Result<Vec<_>,_>>()?;rows
+    };
+    members.retain(|id|!ids.contains(id));
+    let at=index.min(members.len());
+    members.splice(at..at,ids.iter().cloned());
+    for (n,id) in members.iter().enumerate() {conn.execute("UPDATE tasks SET pile_id=?1,pile_order=?2 WHERE id=?3",params![pile,n as i64+1,id])?;}
+    Ok(())
+}
+
+// After every write: piles hold only open unplanned work, empty piles go, and orders and positions count from 1.
+fn normalize_piles(conn: &Connection) -> Result<()> {
+    conn.execute_batch(&format!("
+        UPDATE tasks SET pile_id=NULL,pile_order=NULL WHERE deleted_at IS NULL AND NOT ({BENCH}) AND (pile_id IS NOT NULL OR pile_order IS NOT NULL);
+        UPDATE tasks SET proto=0 WHERE deleted_at IS NULL AND proto=1 AND NOT ({BENCH});
+        UPDATE tasks SET pile_id=NULL WHERE {BENCH} AND pile_id IS NOT NULL AND pile_id NOT IN (SELECT id FROM piles);
+        DELETE FROM piles WHERE id NOT IN (SELECT pile_id FROM tasks WHERE {BENCH} AND pile_id IS NOT NULL);"))?;
+    let rows={
+        let mut stmt=conn.prepare(&format!("SELECT id,pile_id,pile_order FROM tasks WHERE {BENCH} ORDER BY pile_id,pile_order IS NOT NULL,pile_order,id"))?;
+        let rows=stmt.query_map([],|r|Ok((r.get::<_,String>(0)?,r.get::<_,Option<String>>(1)?,r.get::<_,Option<i64>>(2)?)))?.collect::<std::result::Result<Vec<_>,_>>()?;rows
+    };
+    let (mut current,mut count)=(None::<Option<String>>,0);
+    for (id,pile,order) in rows {
+        if current.as_ref()!=Some(&pile) {current=Some(pile);count=0;}
+        count+=1;
+        if order!=Some(count) {conn.execute("UPDATE tasks SET pile_order=?1 WHERE id=?2",params![count,id])?;}
+    }
+    let piles={
+        let mut stmt=conn.prepare("SELECT id FROM piles ORDER BY position,id")?;
+        let rows=stmt.query_map([],|r|r.get::<_,String>(0))?.collect::<std::result::Result<Vec<_>,_>>()?;rows
+    };
+    for (n,id) in piles.iter().enumerate() {conn.execute("UPDATE piles SET position=?1 WHERE id=?2",params![n as i64+1,id])?;}
     Ok(())
 }
 
@@ -163,10 +210,17 @@ fn read(conn: &Connection) -> Result<Snapshot> {
     let raw: String = conn.query_row("SELECT value FROM meta WHERE key='settings'", [], |r| r.get(0))?;
     let version:i64=conn.query_row("PRAGMA user_version",[],|r|r.get(0))?;
     // Earlier schemas only had exact placements, so their dated tasks are fixed plans.
-    let columns=if version>=4 {TASK_COLUMNS} else {"id,title,body,starts_at,duration,completed,revision,substr(starts_at,1,10),NULL"};
+    let columns=if version>=6 {TASK_COLUMNS} else if version>=4 {"id,title,body,starts_at,duration,completed,revision,plan_date,flow_order,0,NULL,NULL"}
+        else {"id,title,body,starts_at,duration,completed,revision,substr(starts_at,1,10),NULL,0,NULL,NULL"};
     let deleted=if version>=5 {"deleted_at"} else {"NULL"};
     let mut stmt = conn.prepare(&format!("SELECT {columns},{deleted} FROM tasks ORDER BY starts_at,id"))?;
-    let rows = stmt.query_map([], |r| Ok((Task { id: r.get(0)?, title: r.get(1)?, body: r.get(2)?, starts_at: r.get(3)?, duration: r.get(4)?, completed: r.get(5)?, revision: r.get(6)?, plan_date: r.get(7)?, flow_order: r.get(8)? },r.get::<_,Option<String>>(9)?)))?.collect::<std::result::Result<Vec<_>, _>>()?;
+    let mut rows = stmt.query_map([], |r| Ok((Task { id: r.get(0)?, title: r.get(1)?, body: r.get(2)?, starts_at: r.get(3)?, duration: r.get(4)?, completed: r.get(5)?, revision: r.get(6)?,
+        plan_date: r.get(7)?, flow_order: r.get(8)?, proto: r.get(9)?, pile_id: r.get(10)?, pile_order: r.get(11)? },r.get::<_,Option<String>>(12)?)))?.collect::<std::result::Result<Vec<_>, _>>()?;
+    // Before piles, open unplanned work was one list in id order; it stays that list, as the 투입구.
+    if version<6 {
+        let mut n=0;
+        for (task,deleted_at) in &mut rows {if deleted_at.is_none()&&task.plan_date.is_none()&&!task.completed {n+=1;task.pile_order=Some(n);}}
+    }
     // Trashed rows never reach `tasks`, so layouts, overlap checks and routines ignore them.
     let (mut tasks,mut trash)=(Vec::new(),Vec::new());
     for (task,deleted_at) in rows {match deleted_at {None=>tasks.push(task),Some(deleted_at)=>trash.push(Trashed{task,deleted_at})}}
@@ -175,7 +229,37 @@ fn read(conn: &Connection) -> Result<Snapshot> {
         let mut stmt=conn.prepare("SELECT date,anchor FROM day_layouts ORDER BY date")?;
         let rows=stmt.query_map([],|r|Ok(DayLayout{date:r.get(0)?,anchor:r.get(1)?}))?.collect::<std::result::Result<Vec<_>,_>>()?;rows
     } else {vec![]};
-    Ok(Snapshot { epoch, tasks, settings: serde_json::from_str(&raw)?, layouts, trash })
+    let piles=if version>=6 {
+        let mut stmt=conn.prepare("SELECT id,position FROM piles ORDER BY position,id")?;
+        let rows=stmt.query_map([],|r|Ok(Pile{id:r.get(0)?,position:r.get(1)?}))?.collect::<std::result::Result<Vec<_>,_>>()?;rows
+    } else {vec![]};
+    Ok(Snapshot { epoch, tasks, settings: serde_json::from_str(&raw)?, layouts, trash, piles })
+}
+
+// Only open unplanned work has a pile place and only it can be a proto; every pile holds some of it.
+fn validate_bench(s: &Snapshot) -> Result<()> {
+    use std::collections::HashSet;
+    let bad=||error("schema","미계획 더미 정보가 올바르지 않습니다.");
+    let (mut piles,mut positions,mut used,mut slots)=(HashSet::new(),HashSet::new(),HashSet::new(),HashSet::new());
+    for pile in &s.piles {
+        if pile.id.is_empty() || pile.id.len()>100 || pile.position<1 || !piles.insert(pile.id.as_str()) || !positions.insert(pile.position) {return Err(bad());}
+    }
+    for t in &s.tasks {
+        let bench=t.plan_date.is_none()&&!t.completed;
+        if t.proto&&!bench {return Err(bad());}
+        if !bench {
+            if t.pile_id.is_some()||t.pile_order.is_some() {return Err(bad());}
+            continue;
+        }
+        let Some(order)=t.pile_order else {return Err(bad());};
+        if let Some(pile)=t.pile_id.as_deref() {if !piles.contains(pile) {return Err(bad());}used.insert(pile);}
+        if order<1 || !slots.insert((t.pile_id.as_deref(),order)) {return Err(bad());}
+    }
+    if used.len()!=piles.len() {return Err(bad());}
+    for t in &s.trash {
+        if t.task.proto&&t.task.plan_date.is_some() || t.task.pile_id.as_ref().is_some_and(|p|p.is_empty()||p.len()>100) {return Err(bad());}
+    }
+    Ok(())
 }
 
 fn validate_snapshot(s: &Snapshot) -> Result<()> {
@@ -210,7 +294,7 @@ fn validate_snapshot(s: &Snapshot) -> Result<()> {
         parse_date(&layout.date)?;
         if !(0..=1440).contains(&layout.anchor) || !dates.insert(&layout.date) {return Err(error("schema","날짜별 배치 기준이 올바르지 않습니다."));}
     }
-    Ok(())
+    validate_bench(s)
 }
 
 fn check_database(conn: &Connection) -> Result<Snapshot> {
@@ -303,7 +387,11 @@ impl Store {
             }
             // Additive: every existing row stays live.
             add("deleted_at","TEXT")?;
-            tx.execute_batch(&format!("PRAGMA user_version={SCHEMA_VERSION};"))?;
+            add("proto","INTEGER NOT NULL DEFAULT 0 CHECK(proto IN (0,1))")?;add("pile_id","TEXT")?;add("pile_order","INTEGER")?;
+            // Open unplanned work becomes the 투입구 in the order the list showed it (by id), as `read` derives for older files.
+            tx.execute_batch(&format!("CREATE TABLE IF NOT EXISTS piles (id TEXT PRIMARY KEY, position INTEGER NOT NULL);
+                UPDATE tasks SET pile_order=(SELECT count(*) FROM tasks b WHERE b.deleted_at IS NULL AND b.plan_date IS NULL AND b.completed=0 AND b.id<=tasks.id) WHERE {BENCH};
+                PRAGMA user_version={SCHEMA_VERSION};"))?;
             tx.commit()?;
             check_database(&conn)?;
         }
@@ -335,9 +423,11 @@ impl Store {
         }
         match &command.action {
             Action::Create { id, title } => {
-                let task = Task { id: id.clone(), title: title.trim().into(), body: String::new(), starts_at: None, duration: 30, completed: false, revision: 1, plan_date: None, flow_order: None };
+                // Captured work has no chosen length yet and lands on top of the 투입구.
+                let task = Task { id: id.clone(), title: title.trim().into(), duration: 30, revision: 1, proto: true, ..Task::default() };
                 validate_task(&task, &snapshot.tasks)?;
-                tx.execute("INSERT INTO tasks(id,title) VALUES(?1,?2)", params![task.id, task.title])?;
+                insert_task(&tx,&task,None)?;
+                place(&tx,std::slice::from_ref(id),None,0)?;
             }
             Action::SetSettings { expected_revision, days } => {
                 if *expected_revision != snapshot.settings.revision { return Err(error("conflict", "다른 창에서 시간 설정이 변경됐습니다. 작성 내용을 보존했습니다.")); }
@@ -347,13 +437,13 @@ impl Store {
             }
             Action::CreateScheduled { id,title,starts_at,duration } => {
                 let plan_date=starts_at.as_deref().map(|start|start.get(..10).unwrap_or_default().to_string());
-                let task=Task{id:id.clone(),title:title.trim().into(),body:String::new(),starts_at:starts_at.clone(),duration:*duration,completed:false,revision:1,plan_date,flow_order:None};
+                let task=Task{id:id.clone(),title:title.trim().into(),starts_at:starts_at.clone(),duration:*duration,revision:1,plan_date,..Task::default()};
                 validate_task(&task,&snapshot.tasks)?;
                 insert_task(&tx,&task,None)?;
             }
             Action::CreateFlow { id,title,date,duration } => {
                 parse_date(date)?;
-                let task=Task{id:id.clone(),title:title.trim().into(),body:String::new(),starts_at:None,duration:*duration,completed:false,revision:1,plan_date:Some(date.clone()),flow_order:Some(next_flow_order(&snapshot.tasks,date))};
+                let task=Task{id:id.clone(),title:title.trim().into(),duration:*duration,revision:1,plan_date:Some(date.clone()),flow_order:Some(next_flow_order(&snapshot.tasks,date)),..Task::default()};
                 validate_task(&task,&snapshot.tasks)?;
                 insert_task(&tx,&task,None)?;
             }
@@ -404,7 +494,7 @@ impl Store {
                         if !routine.weekdays.contains(&(date.weekday().num_days_from_monday() as usize)) {continue;}
                         let generated=tx.execute("INSERT OR IGNORE INTO routine_occurrences(routine_id,date) VALUES(?1,?2)",params![routine.id,key])?;
                         if generated==0 {continue;}
-                        let mut task=Task{id:uuid::Uuid::new_v4().to_string(),title:routine.title.clone(),body:routine.body.clone(),starts_at:Some(format!("{key}T{:02}:{:02}",routine.start/60,routine.start%60)),duration:routine.duration,completed:false,revision:1,plan_date:Some(key.clone()),flow_order:None};
+                        let mut task=Task{id:uuid::Uuid::new_v4().to_string(),title:routine.title.clone(),body:routine.body.clone(),starts_at:Some(format!("{key}T{:02}:{:02}",routine.start/60,routine.start%60)),duration:routine.duration,revision:1,plan_date:Some(key.clone()),..Task::default()};
                         let validation=validate_task(&task,&tasks);
                         if let Err(e)=&validation {if e.code!="overlap" {return Err(e.clone());}}
                         let day=snapshot.settings.day(date);
@@ -424,7 +514,11 @@ impl Store {
                 let expected=unique_revisions(expected_tasks,"하루 초기화 항목 정보를 확인하세요.")?;
                 let scheduled:Vec<_>=snapshot.tasks.iter().filter(|task|task.plan_date.as_deref()==Some(date.as_str())).collect();
                 if scheduled.len()!=expected.len() || scheduled.iter().any(|task|expected.get(&task.id)!=Some(&task.revision)) {return Err(error("conflict","다른 창에서 하루 일정이 변경됐습니다. 다시 확인하세요."));}
-                for task in scheduled {tx.execute("UPDATE tasks SET starts_at=NULL,plan_date=NULL,flow_order=NULL,revision=revision+1 WHERE id=?1",[&task.id])?;}
+                for task in &scheduled {tx.execute("UPDATE tasks SET starts_at=NULL,plan_date=NULL,flow_order=NULL,revision=revision+1 WHERE id=?1",[&task.id])?;}
+                // The day's open work goes on top of the 투입구 in the order it was planned.
+                let mut open:Vec<_>=scheduled.iter().filter(|t|!t.completed).collect();
+                open.sort_by(|a,b|a.flow_order.is_none().cmp(&b.flow_order.is_none()).then(a.flow_order.cmp(&b.flow_order)).then(a.starts_at.cmp(&b.starts_at)).then(a.id.cmp(&b.id)));
+                place(&tx,&open.iter().map(|t|t.id.clone()).collect::<Vec<_>>(),None,0)?;
                 tx.execute("DELETE FROM day_layouts WHERE date=?1",[date])?;
             }
             Action::RestoreTrashed {id} => {
@@ -442,6 +536,58 @@ impl Store {
                 }
                 validate_task(&task,&snapshot.tasks)?;
                 tx.execute("UPDATE tasks SET starts_at=?1,flow_order=?2,revision=?3,deleted_at=NULL WHERE id=?4",params![task.starts_at,task.flow_order,task.revision,id])?;
+                // Open unplanned work returns to its pile while that pile still exists, else to the top of the 투입구.
+                if task.plan_date.is_none()&&!task.completed {
+                    let pile=task.pile_id.as_deref().filter(|p|snapshot.piles.iter().any(|x|x.id==*p));
+                    let index=pile.and(task.pile_order).map_or(0,|order|(order-1).max(0) as usize);
+                    tx.execute("UPDATE tasks SET pile_id=NULL,pile_order=NULL WHERE id=?1",[id])?;
+                    place(&tx,std::slice::from_ref(id),pile,index)?;
+                }
+            }
+            Action::PlaceUnplanned {items,pile,create_at,index} => {
+                let revisions=unique_revisions(items,"옮길 항목 정보를 확인하세요.")?;
+                if revisions.is_empty() || *index<0 {return Err(error("validation","옮길 항목과 위치를 확인하세요."));}
+                let moving:Vec<&Task>=items.iter().map(|i|snapshot.tasks.iter().find(|t|t.id==i.id&&t.revision==i.revision&&!t.completed)).collect::<Option<_>>()
+                    .ok_or_else(||error("conflict","다른 창에서 작업이 변경됐습니다. 다시 확인하세요."))?;
+                let exists=|id:&str|snapshot.piles.iter().any(|p|p.id==id);
+                match (pile.as_deref(),create_at) {
+                    (Some(id),Some(at)) => {
+                        if id.is_empty() || id.len()>100 || exists(id) || *at<1 {return Err(error("validation","새 더미 정보를 확인하세요."));}
+                        // A new pile takes the asked position; those at or after it move one step right.
+                        tx.execute("UPDATE piles SET position=position+1 WHERE position>=?1",[at])?;
+                        tx.execute("INSERT INTO piles(id,position) VALUES(?1,?2)",params![id,at])?;
+                    }
+                    (None,Some(_)) => return Err(error("validation","새 더미 정보를 확인하세요.")),
+                    (Some(id),None) if !exists(id) => return Err(error("conflict","더미가 바뀌었습니다. 다시 확인하세요.")),
+                    _ => {},
+                }
+                // Dated work coming back loses its date; moving within the bench is a property of the bench, like a day's order.
+                for t in &moving {
+                    if t.plan_date.is_some() {tx.execute("UPDATE tasks SET starts_at=NULL,plan_date=NULL,flow_order=NULL,revision=revision+1 WHERE id=?1",[&t.id])?;}
+                }
+                place(&tx,&moving.iter().map(|t|t.id.clone()).collect::<Vec<_>>(),pile.as_deref(),*index as usize)?;
+            }
+            Action::MovePile {pile,position} => {
+                let mut ids:Vec<_>=snapshot.piles.iter().map(|p|p.id.clone()).collect();
+                let Some(from)=ids.iter().position(|id|id==pile) else {return Err(error("conflict","더미가 바뀌었습니다. 다시 확인하세요."));};
+                if *position<1 {return Err(error("validation","더미 위치를 확인하세요."));}
+                let id=ids.remove(from);let at=(*position as usize-1).min(ids.len());ids.insert(at,id);
+                for (n,id) in ids.iter().enumerate() {tx.execute("UPDATE piles SET position=?1 WHERE id=?2",params![n as i64+1,id])?;}
+            }
+            Action::ShipFlow {date,items} => {
+                parse_date(date)?;
+                let revisions=unique_revisions(items,"실을 항목 정보를 확인하세요.")?;
+                if revisions.is_empty() {return Err(error("validation","실을 항목을 선택하세요."));}
+                let mut tasks=snapshot.tasks.clone();
+                for item in items {
+                    let Some(t)=tasks.iter_mut().find(|t|t.id==item.id&&t.revision==item.revision&&!t.completed) else {return Err(error("conflict","다른 창에서 작업이 변경됐습니다. 다시 확인하세요."));};
+                    // Cleared first, so a block already on this date also goes to the end.
+                    t.flow_order=None;t.starts_at=None;t.plan_date=None;
+                    let order=next_flow_order(&tasks,date);
+                    let t=tasks.iter_mut().find(|t|t.id==item.id).unwrap();
+                    t.plan_date=Some(date.clone());t.flow_order=Some(order);
+                    tx.execute("UPDATE tasks SET starts_at=NULL,plan_date=?1,flow_order=?2,proto=0,pile_id=NULL,pile_order=NULL,revision=revision+1 WHERE id=?3",params![date,order,item.id])?;
+                }
             }
             Action::PurgeTrashed {ids} => {
                 let mut seen=std::collections::HashSet::new();
@@ -464,10 +610,11 @@ impl Store {
                         if snapshot.tasks.iter().chain(snapshot.trash.iter().map(|t|&t.task)).any(|t| &t.id == new_id) { return Err(error("validation","이미 사용 중인 블록 식별자입니다.")); }
                         let remainder=Task{id:new_id.clone(),starts_at:None,plan_date:None,flow_order:None,duration:current.duration-first_duration,revision:1,..current.clone()};
                         validate_task(&remainder,&snapshot.tasks)?;
-                        tx.execute("UPDATE tasks SET duration=?1,revision=revision+1 WHERE id=?2 AND revision=?3",params![first_duration,id,revision])?;
+                        tx.execute("UPDATE tasks SET duration=?1,proto=0,revision=revision+1 WHERE id=?2 AND revision=?3",params![first_duration,id,revision])?;
                         tx.execute("INSERT INTO tasks(id,title,body,duration) VALUES(?1,?2,?3,?4)",params![remainder.id,remainder.title,remainder.body,remainder.duration])?;
+                        place(&tx,std::slice::from_ref(new_id),None,0)?;
                     }
-                    Action::Update { title, body, starts_at, duration, plan_date, before, .. } => {
+                    Action::Update { title, body, starts_at, duration, plan_date, before, sized, .. } => {
                         let derived=starts_at.as_deref().map(|start|start.get(..10).unwrap_or_default().to_string());
                         if derived.is_some() && plan_date.is_some() && derived!=*plan_date {return Err(error("validation","시각을 고정한 날짜와 계획 날짜가 다릅니다."));}
                         let date=derived.or_else(||plan_date.clone());
@@ -488,7 +635,11 @@ impl Store {
                         validate_task(&task, &snapshot.tasks)?;
                         // Inserting before another task moves only the later order numbers of that day.
                         if let Some((date,order))=shift {tx.execute("UPDATE tasks SET flow_order=flow_order+1 WHERE plan_date=?1 AND starts_at IS NULL AND flow_order>=?2 AND id<>?3 AND deleted_at IS NULL",params![date,order,id])?;}
-                        tx.execute("UPDATE tasks SET title=?1,body=?2,starts_at=?3,duration=?4,plan_date=?5,flow_order=?6,revision=revision+1 WHERE id=?7 AND revision=?8", params![task.title,task.body,task.starts_at,task.duration,task.plan_date,task.flow_order,id,revision])?;
+                        // A length chosen or a date given makes a proto block a sized one, for good.
+                        let proto=current.proto&&task.plan_date.is_none()&&*duration==current.duration&&*sized!=Some(true);
+                        tx.execute("UPDATE tasks SET title=?1,body=?2,starts_at=?3,duration=?4,plan_date=?5,flow_order=?6,proto=?7,revision=revision+1 WHERE id=?8 AND revision=?9", params![task.title,task.body,task.starts_at,task.duration,task.plan_date,task.flow_order,proto,id,revision])?;
+                        // Sent back to 미계획 by a button: on top of the 투입구.
+                        if task.plan_date.is_none()&&current.plan_date.is_some()&&!current.completed {place(&tx,std::slice::from_ref(id),None,0)?;}
                     }
                     Action::SetCompleted { completed, .. } => { tx.execute("UPDATE tasks SET completed=?1,revision=revision+1 WHERE id=?2 AND revision=?3", params![completed,id,revision])?; }
                     Action::Delete { .. } => { tx.execute("UPDATE tasks SET deleted_at=?1 WHERE id=?2 AND revision=?3", params![trash_stamp(chrono::Utc::now()),id,revision])?; }
@@ -496,8 +647,10 @@ impl Store {
                 }
             }
         }
+        normalize_piles(&tx)?;
         tx.execute("INSERT INTO receipts(id,payload) VALUES(?1,?2)", params![command.request_id,payload])?;
         let result = read(&tx)?;
+        validate_bench(&result)?;
         tx.commit()?;
         Ok(result)
     }
@@ -600,7 +753,7 @@ impl Store {
             let mut staged=Self::open(&stage)?;
             let tx=staged.conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
             insert_all(&tx,&restored)?;
-            insert_layouts(&tx,&restored.layouts)?;
+            insert_layouts(&tx,&restored.layouts)?;insert_piles(&tx,&restored.piles)?;
             tx.execute("UPDATE meta SET value=?1 WHERE key='settings'",[serde_json::to_string(&restored.settings)?])?;
             for (id,date) in &generated {tx.execute("INSERT INTO routine_occurrences VALUES(?1,?2)",params![id,date])?;}
             tx.commit()?;
@@ -677,8 +830,9 @@ impl Store {
         tx.execute("DELETE FROM receipts", [])?;
         tx.execute("DELETE FROM routine_occurrences", [])?;
         tx.execute("DELETE FROM day_layouts", [])?;
+        tx.execute("DELETE FROM piles", [])?;
         insert_all(&tx,&restored)?;
-        insert_layouts(&tx,&restored.layouts)?;
+        insert_layouts(&tx,&restored.layouts)?;insert_piles(&tx,&restored.piles)?;
         tx.execute("UPDATE meta SET value=?1 WHERE key='settings'", [serde_json::to_string(&restored.settings)?])?;
         for (id,date) in &generated {tx.execute("INSERT INTO routine_occurrences VALUES(?1,?2)",params![id,date])?;}
         tx.execute("UPDATE meta SET value=?1 WHERE key='epoch'", [uuid::Uuid::new_v4().to_string()])?;

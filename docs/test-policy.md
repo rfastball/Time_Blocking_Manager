@@ -1,5 +1,14 @@
 # 검증 범위
 
+## 작업대 저장소 v6 Test delta brief (2026-10-11)
+
+- Unique risk: 더미·프로토 관계가 저장·재시작·백업 복원·v5 이관에서 깨지거나, 빈 더미·고아 위치가 남아 미계획 일이 화면에서 사라짐. 미리보기 저장소가 Rust 규칙과 달라 브라우저 확인이 실제 앱과 다른 결과를 보임.
+- Existing owner / Selected layer: 실제 임시 SQLite owner `src-tauri/tests/storage.rs`에 더미·프로토 전 주기 1개와 v5 이관 1개를 추가하고, 기존 legacy·백업 검사 사례를 v6 형태로 확장한다. 순수 배치 규칙과 미리보기 일치는 새 owner `src/bench.test.ts`(새 모듈 `bench.ts`)에 둔다.
+- Expected cost delta: Rust tempfile 시나리오 +2, Node 동기 사례 +5. 새 dependency·worker·브라우저·CI lane 없음.
+- Evidence to retire: 없음. legacy 사례는 v5 이관까지 확장하고 다운그레이드 거부 기준을 v7로 올렸다.
+
+Test delta 결과: Rust **2 added / 2 extended / 0 removed**, storage **19→21** 통과(4.73초). Node **46→51** 통과(145.6ms). `npm run build`, desktop `cargo check` 통과.
+
 ## 오늘 두 열 스크롤 Test delta brief (2026-10-11)
 
 - Unique risk: 하루 높이가 전체 창을 밀거나 미계획이 세 번째 열로 분리됨, 잘린 시간표가 상단 막대의 드롭을 받음, 스크롤 뒤 고정 시각이 포인터 아래 시간과 달라짐, 완료 뒤 입력이나 키보드 순서 이동 뒤 블록 포커스가 보이지 않음.

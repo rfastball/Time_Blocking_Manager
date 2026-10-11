@@ -1,7 +1,7 @@
 use chrono::{Datelike, NaiveDateTime, Timelike};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 pub struct Task {
     pub id: String,
     pub title: String,
@@ -13,7 +13,16 @@ pub struct Task {
     // Fixed tasks derive plan_date from starts_at; flow tasks have a date and an order only.
     #[serde(default)] pub plan_date: Option<String>,
     #[serde(default)] pub flow_order: Option<i64>,
+    // Captured without a chosen length yet; only unplanned work can be one, and it never becomes one again.
+    #[serde(default)] pub proto: bool,
+    // Open unplanned work sits in a pile (None: the 투입구) at an order; everything else has neither.
+    #[serde(default)] pub pile_id: Option<String>,
+    #[serde(default)] pub pile_order: Option<i64>,
 }
+
+// A user pile on the 미계획 bench. The 투입구 has no row and always comes first.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct Pile { pub id: String, pub position: i64 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct DayLayout { pub date: String, pub anchor: i64 }
@@ -73,7 +82,7 @@ impl Default for Settings {
 pub struct Trashed { #[serde(flatten)] pub task: Task, pub deleted_at: String }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Snapshot { pub epoch: String, pub tasks: Vec<Task>, pub settings: Settings, #[serde(default)] pub layouts: Vec<DayLayout>, #[serde(default)] pub trash: Vec<Trashed> }
+pub struct Snapshot { pub epoch: String, pub tasks: Vec<Task>, pub settings: Settings, #[serde(default)] pub layouts: Vec<DayLayout>, #[serde(default)] pub trash: Vec<Trashed>, #[serde(default)] pub piles: Vec<Pile> }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Command {
@@ -91,7 +100,9 @@ pub enum Action {
     // Omitted placement fields keep request fingerprints of older clients unchanged.
     Update { id: String, expected_revision: i64, title: String, body: String, starts_at: Option<String>, duration: i64,
         #[serde(default, skip_serializing_if="Option::is_none")] plan_date: Option<String>,
-        #[serde(default, skip_serializing_if="Option::is_none")] before: Option<String> },
+        #[serde(default, skip_serializing_if="Option::is_none")] before: Option<String>,
+        // The length was chosen explicitly, even if it equals the stored one: a proto block becomes a sized one.
+        #[serde(default, skip_serializing_if="Option::is_none")] sized: Option<bool> },
     SetCompleted { id: String, expected_revision: i64, completed: bool },
     // Delete sets the task aside in the trash; only purge removes it for good.
     Delete { id: String, expected_revision: i64 },
@@ -106,6 +117,11 @@ pub enum Action {
     ReorderFlow { date:String, expected:Vec<TaskRevision> },
     CompleteFlow { date:String, items:Vec<TaskRevision>, at:Option<String> },
     Reflow { date:String, at:String },
+    // Into a pile (None: the 투입구) before the card now at `index`; with `create_at` the pile is new at that position.
+    PlaceUnplanned { items:Vec<TaskRevision>, pile:Option<String>, #[serde(default)] create_at:Option<i64>, index:i64 },
+    MovePile { pile:String, position:i64 },
+    // In the given order onto the end of the date's order.
+    ShipFlow { date:String, items:Vec<TaskRevision> },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

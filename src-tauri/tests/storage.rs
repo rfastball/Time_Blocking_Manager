@@ -9,10 +9,10 @@ fn create(s: &mut Store, id: &str) -> Task {
     s.apply(&c).unwrap().tasks.into_iter().find(|t| t.id == id).unwrap()
 }
 fn update(t: &Task, start: &str, duration: i64) -> Action {
-    Action::Update { id: t.id.clone(), expected_revision: t.revision, title: t.title.clone(), body: "[x] 확인\n메모 보존".into(), starts_at: Some(start.into()), duration, plan_date: None, before: None }
+    Action::Update { id: t.id.clone(), expected_revision: t.revision, title: t.title.clone(), body: "[x] 확인\n메모 보존".into(), starts_at: Some(start.into()), duration, plan_date: None, before: None, sized: None }
 }
 fn place(t: &Task, date: Option<&str>, before: Option<&str>) -> Action {
-    Action::Update { id: t.id.clone(), expected_revision: t.revision, title: t.title.clone(), body: t.body.clone(), starts_at: None, duration: t.duration, plan_date: date.map(Into::into), before: before.map(Into::into) }
+    Action::Update { id: t.id.clone(), expected_revision: t.revision, title: t.title.clone(), body: t.body.clone(), starts_at: None, duration: t.duration, plan_date: date.map(Into::into), before: before.map(Into::into), sized: None }
 }
 fn find(s: &Snapshot, id: &str) -> Task { s.tasks.iter().find(|t| t.id == id).unwrap().clone() }
 fn flow(s: &mut Store, id: &str, date: &str, duration: i64) -> Task {
@@ -103,7 +103,7 @@ fn routine_occurrences_survive_moves_deletion_settings_restart_and_restore() {
 #[test]
 fn legacy_databases_and_backups_migrate_without_losing_work() {
     let dir=tempdir().unwrap();
-    for (n,version) in [1,2,3,4].into_iter().enumerate() {
+    for (n,version) in [1,2,3,4,5].into_iter().enumerate() {
         let path=dir.path().join(format!("legacy-{version}.db"));let mut s=Store::open(&path).unwrap();let task=create(&mut s,"legacy");
         let c=command(&s,update(&task,"2026-10-05T10:00",30));let task=find(&s.apply(&c).unwrap(),"legacy");drop(s);
         assert_eq!((task.plan_date.as_deref(),task.flow_order),(Some("2026-10-05"),None));
@@ -113,9 +113,11 @@ fn legacy_databases_and_backups_migrate_without_losing_work() {
             conn.execute("UPDATE meta SET value=?1 WHERE key='settings'",[settings.to_string()]).unwrap();
             conn.execute_batch("DROP TABLE routine_occurrences;").unwrap();
         }
-        // Rebuild the exact older table shape: no trash column, and before v4 no flow columns or layout anchors.
+        // Rebuild the exact older table shape: no bench columns or piles, before v5 no trash column, and before v4 no flow columns or layout anchors.
+        conn.execute_batch("ALTER TABLE tasks DROP COLUMN proto; ALTER TABLE tasks DROP COLUMN pile_id; ALTER TABLE tasks DROP COLUMN pile_order; DROP TABLE piles;").unwrap();
         if version<4 {conn.execute_batch("ALTER TABLE tasks DROP COLUMN plan_date; ALTER TABLE tasks DROP COLUMN flow_order; DROP TABLE day_layouts;").unwrap();}
-        conn.execute_batch(&format!("ALTER TABLE tasks DROP COLUMN deleted_at; PRAGMA user_version={version};")).unwrap();drop(conn);
+        if version<5 {conn.execute_batch("ALTER TABLE tasks DROP COLUMN deleted_at;").unwrap();}
+        conn.execute_batch(&format!("PRAGMA user_version={version};")).unwrap();drop(conn);
         let inspection=Store::inspect_backup(&path).unwrap();assert_eq!((inspection.tasks,inspection.scheduled),(1,1));
         let mut target=Store::open(&dir.path().join(format!("restored-{version}.db"))).unwrap();let epoch=target.snapshot().unwrap().epoch;
         assert_eq!(target.restore(&path,&epoch,&dir.path().join(format!("safety-{version}.db"))).unwrap().tasks,vec![task.clone()]);
@@ -126,7 +128,7 @@ fn legacy_databases_and_backups_migrate_without_losing_work() {
         // The migrated fixed task occupies 10:00, so the routine stays on its date as flow work.
         let generated=ensure(&mut s,"2026-10-05","2026-10-05");assert_eq!(generated.tasks.len(),2);
         assert!(generated.tasks.iter().any(|t|t.id!="legacy"&&t.plan_date.as_deref()==Some("2026-10-05")&&t.flow_order==Some(1)));
-        assert_eq!(rusqlite::Connection::open(&path).unwrap().query_row::<i64,_,_>("PRAGMA user_version",[],|r|r.get(0)).unwrap(),5);
+        assert_eq!(rusqlite::Connection::open(&path).unwrap().query_row::<i64,_,_>("PRAGMA user_version",[],|r|r.get(0)).unwrap(),6);
         // The added trash column works on the migrated file: delete sets aside, restore returns it unchanged.
         let c=command(&s,Action::Delete{id:"legacy".into(),expected_revision:task.revision});let trashed=s.apply(&c).unwrap();
         assert!(trashed.tasks.iter().all(|t|t.id!="legacy"));assert_eq!(trashed.trash[0].task,task);
@@ -328,7 +330,7 @@ fn backup_inspection_reports_validated_contents_without_changing_files() {
     assert!(Store::inspect_backup(&source).unwrap().created_at.is_none());
     assert_eq!(std::fs::read(&source).unwrap(),legacy);
     let safety=dir.path().join("safety.db");let epoch=s.snapshot().unwrap().epoch;
-    for (sql,code) in [("UPDATE tasks SET id='' WHERE id='a'","validation"),("PRAGMA user_version=6","schema")] {
+    for (sql,code) in [("UPDATE tasks SET id='' WHERE id='a'","validation"),("PRAGMA user_version=7","schema")] {
         {rusqlite::Connection::open(&source).unwrap().execute_batch(sql).unwrap();}
         let original=std::fs::read(&source).unwrap();
         assert_eq!(Store::inspect_backup(&source).unwrap_err().code,code);
@@ -464,7 +466,7 @@ fn flow_plans_keep_order_without_minutes_and_switch_with_fixed_reservations() {
         let cmd=command(&s,place(&c,date,target));assert_eq!(s.apply(&cmd).unwrap_err().code,"validation","{date:?} {target:?}");
         assert_eq!(s.snapshot().unwrap().tasks,before.tasks);
     }
-    let mismatch=command(&s,Action::Update{id:c.id.clone(),expected_revision:c.revision,title:c.title.clone(),body:String::new(),starts_at:Some("2026-10-08T10:00".into()),duration:30,plan_date:Some("2026-10-09".into()),before:None});
+    let mismatch=command(&s,Action::Update{id:c.id.clone(),expected_revision:c.revision,title:c.title.clone(),body:String::new(),starts_at:Some("2026-10-08T10:00".into()),duration:30,plan_date:Some("2026-10-09".into()),before:None,sized:None});
     assert_eq!(s.apply(&mismatch).unwrap_err().code,"validation");
     // Fixing reserves exact minutes against other fixed tasks only.
     let cmd=command(&s,update(&find(&before,"a"),"2026-10-08T10:00",60));let snap=s.apply(&cmd).unwrap();
@@ -591,4 +593,99 @@ fn trash_sets_work_aside_restores_it_in_place_and_purges_after_retention() {
     // A stored deletion time in any other form is rejected rather than compared loosely.
     {rusqlite::Connection::open(&backup).unwrap().execute("UPDATE tasks SET deleted_at='2026-10-05 10:00' WHERE id='y'",[]).unwrap();}
     assert_eq!(Store::inspect_backup(&backup).unwrap_err().code,"schema");
+}
+
+// The bench: (pile, order) per open unplanned task, piles left to right, the 투입구 first as None.
+fn bench(s: &Snapshot) -> Vec<(Option<String>,Vec<String>)> {
+    let mut piles:Vec<Option<String>>=vec![None];piles.extend(s.piles.iter().map(|p|Some(p.id.clone())));
+    piles.into_iter().map(|pile|{
+        let mut cards:Vec<_>=s.tasks.iter().filter(|t|t.plan_date.is_none()&&!t.completed&&t.pile_id==pile).collect();
+        cards.sort_by_key(|t|t.pile_order);(pile,cards.into_iter().map(|t|t.id.clone()).collect())
+    }).collect()
+}
+fn ids(list:&[&str]) -> Vec<String> {list.iter().map(|s|s.to_string()).collect()}
+fn revs(s: &Snapshot, list: &[&str]) -> Vec<TaskRevision> {list.iter().map(|id|revision(&find(s,id))).collect()}
+fn put(s: &mut Store, list: &[&str], pile: Option<&str>, create_at: Option<i64>, index: i64) -> Result<Snapshot> {
+    let items=revs(&s.snapshot().unwrap(),list);
+    let c=command(s,Action::PlaceUnplanned{items,pile:pile.map(Into::into),create_at,index});s.apply(&c)
+}
+
+#[test]
+fn piles_keep_relations_protos_size_once_and_everything_survives_restore() {
+    let dir=tempdir().unwrap();let path=dir.path().join("app.db");let mut s=Store::open(&path).unwrap();let day="2026-10-14";
+    // Captured work is a proto on top of the 투입구.
+    for id in ["a","b","c","d"] {create(&mut s,id);}
+    let snap=s.snapshot().unwrap();
+    assert_eq!(bench(&snap),vec![(None,ids(&["d","c","b","a"]))]);assert!(snap.tasks.iter().all(|t|t.proto&&t.duration==30));
+    // Editing the title keeps it a proto; choosing a length, even the same one, sizes it for good.
+    let a=find(&snap,"a");let c=command(&s,place(&a,None,None));let a=find(&s.apply(&c).unwrap(),"a");assert!(a.proto);
+    let c=command(&s,Action::Update{id:"a".into(),expected_revision:a.revision,title:a.title.clone(),body:String::new(),starts_at:None,duration:30,plan_date:None,before:None,sized:Some(true)});
+    let a=find(&s.apply(&c).unwrap(),"a");assert!(!a.proto);
+    let b=find(&s.snapshot().unwrap(),"b");let c=command(&s,Action::Update{id:"b".into(),expected_revision:b.revision,title:b.title.clone(),body:String::new(),starts_at:None,duration:45,plan_date:None,before:None,sized:None});
+    assert!(!find(&s.apply(&c).unwrap(),"b").proto);
+    // A new pile at a position, a card into it, another pile before it; moving within the bench keeps revisions.
+    let before=find(&s.snapshot().unwrap(),"a").revision;
+    let snap=put(&mut s,&["a"],Some("p1"),Some(1),0).unwrap();assert_eq!(find(&snap,"a").revision,before);
+    let snap=put(&mut s,&["b"],Some("p1"),None,0).unwrap();
+    assert_eq!(bench(&snap),vec![(None,ids(&["d","c"])),(Some("p1".into()),ids(&["b","a"]))]);
+    let snap=put(&mut s,&["c"],Some("p2"),Some(1),0).unwrap();
+    assert_eq!(snap.piles.iter().map(|p|(p.id.as_str(),p.position)).collect::<Vec<_>>(),[("p2",1),("p1",2)]);
+    let c=command(&s,Action::MovePile{pile:"p2".into(),position:5});let snap=s.apply(&c).unwrap();
+    assert_eq!(snap.piles.iter().map(|p|p.id.as_str()).collect::<Vec<_>>(),["p1","p2"]);
+    // Onto another pile: below its cards; the emptied pile goes. The 투입구 stays even when empty.
+    let snap=put(&mut s,&["c"],Some("p1"),None,99).unwrap();
+    assert_eq!(bench(&snap),vec![(None,ids(&["d"])),(Some("p1".into()),ids(&["b","a","c"]))]);
+    let snap=put(&mut s,&["d"],Some("p1"),None,1).unwrap();
+    assert_eq!(bench(&snap),vec![(None,vec![]),(Some("p1".into()),ids(&["b","d","a","c"]))]);
+    // Wrong targets change nothing.
+    let kept=s.snapshot().unwrap();
+    for (pile,create_at,code) in [(None,Some(1),"validation"),(Some("gone"),None,"conflict"),(Some("p1"),Some(1),"validation")] {
+        assert_eq!(put(&mut s,&["d"],pile,create_at,0).unwrap_err().code,code);
+    }
+    let c=command(&s,Action::PlaceUnplanned{items:vec![TaskRevision{id:"d".into(),revision:99}],pile:None,create_at:None,index:0});
+    assert_eq!(s.apply(&c).unwrap_err().code,"conflict");assert_eq!(s.snapshot().unwrap().tasks,kept.tasks);
+    // A whole pile ships in order to the end of a day; protos get their default length; the pile goes.
+    flow(&mut s,"early",day,60);
+    let items=revs(&s.snapshot().unwrap(),&["b","d","a","c"]);let c=command(&s,Action::ShipFlow{date:day.into(),items});let snap=s.apply(&c).unwrap();
+    assert_eq!(ordered(&snap,day),["early","b","d","a","c"]);assert!(snap.piles.is_empty());
+    assert!(snap.tasks.iter().all(|t|!t.proto&&t.pile_id.is_none()&&t.pile_order.is_none()));assert_eq!(find(&snap,"d").duration,30);
+    // Sent back by a button: top of the 투입구. Dragged back: where it was dropped, as a date change.
+    let d=find(&snap,"d");let c=command(&s,place(&d,None,None));let snap=s.apply(&c).unwrap();assert_eq!(bench(&snap),vec![(None,ids(&["d"]))]);
+    let a=find(&snap,"a");let snap=put(&mut s,&["a","c"],Some("p3"),Some(1),0).unwrap();
+    assert_eq!(bench(&snap),vec![(None,ids(&["d"])),(Some("p3".into()),ids(&["a","c"]))]);
+    assert_eq!(find(&snap,"a").revision,a.revision+1);assert_eq!(ordered(&snap,day),["early","b"]);
+    // Trash keeps the place: back into its pile at its index, or on top of the 투입구 once the pile is gone.
+    let c=command(&s,Action::Delete{id:"c".into(),expected_revision:find(&snap,"c").revision});s.apply(&c).unwrap();
+    let c=command(&s,Action::RestoreTrashed{id:"c".into()});
+    assert_eq!(bench(&s.apply(&c).unwrap()),vec![(None,ids(&["d"])),(Some("p3".into()),ids(&["a","c"]))]);
+    for id in ["a","c"] {let t=find(&s.snapshot().unwrap(),id);let c=command(&s,Action::Delete{id:id.into(),expected_revision:t.revision});s.apply(&c).unwrap();}
+    assert!(s.snapshot().unwrap().piles.is_empty());
+    let c=command(&s,Action::RestoreTrashed{id:"a".into()});assert_eq!(bench(&s.apply(&c).unwrap()),vec![(None,ids(&["a","d"]))]);
+    // Clearing a day puts its open work on top of the 투입구 in the day's order.
+    let expected_tasks=revs(&s.snapshot().unwrap(),&["early","b"]);
+    let c=command(&s,Action::ClearDay{date:day.into(),expected_tasks});let snap=s.apply(&c).unwrap();
+    assert_eq!(bench(&snap),vec![(None,ids(&["early","b","a","d"]))]);
+    // Piles and protos survive restart, backup and restore.
+    put(&mut s,&["b","a"],Some("p4"),Some(1),0).unwrap();create(&mut s,"fresh");let kept=s.snapshot().unwrap();
+    let backup=dir.path().join("backup.db");s.backup(&backup).unwrap();drop(s);
+    let mut s=Store::open(&path).unwrap();let reopened=s.snapshot().unwrap();assert_eq!((reopened.tasks,reopened.piles),(kept.tasks.clone(),kept.piles.clone()));
+    let changed=put(&mut s,&["b"],None,None,0).unwrap();assert_ne!(bench(&changed),bench(&kept));
+    let epoch=s.snapshot().unwrap().epoch;let restored=s.restore(&backup,&epoch,&dir.path().join("safety.db")).unwrap();
+    assert_eq!(bench(&restored),bench(&kept));assert!(find(&restored,"fresh").proto);
+    // A broken pile relation in a file is rejected rather than repaired silently.
+    {rusqlite::Connection::open(&backup).unwrap().execute("UPDATE tasks SET pile_id='nowhere' WHERE id='a'",[]).unwrap();}
+    assert_eq!(Store::inspect_backup(&backup).unwrap_err().code,"schema");
+}
+
+#[test]
+fn v5_unplanned_work_becomes_the_inbox_pile_in_list_order() {
+    let dir=tempdir().unwrap();let path=dir.path().join("v5.db");let mut s=Store::open(&path).unwrap();
+    for id in ["m","k","z"] {create(&mut s,id);}
+    flow(&mut s,"dated","2026-10-14",30);drop(s);
+    {rusqlite::Connection::open(&path).unwrap().execute_batch("ALTER TABLE tasks DROP COLUMN proto; ALTER TABLE tasks DROP COLUMN pile_id; ALTER TABLE tasks DROP COLUMN pile_order; DROP TABLE piles; PRAGMA user_version=5;").unwrap();}
+    // An older backup reads the same way the migration writes it.
+    assert_eq!(Store::inspect_backup(&path).unwrap().tasks,4);
+    let s=Store::open(&path).unwrap();let snap=s.snapshot().unwrap();
+    assert_eq!(bench(&snap),vec![(None,ids(&["k","m","z"]))]);assert!(snap.tasks.iter().all(|t|!t.proto));
+    assert_eq!(Store::list_backups(dir.path()).unwrap().iter().filter(|b|b.kind=="migration").count(),1);
 }
