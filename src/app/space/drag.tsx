@@ -1,5 +1,5 @@
 import {createContext,useCallback,useContext,useEffect,useMemo,useRef,useState,type ReactNode} from 'react';
-import {DndContext,DragOverlay,PointerSensor,TouchSensor,useSensor,useSensors,defaultDropAnimationSideEffects,type DragEndEvent,type DragMoveEvent,type DragStartEvent,type DropAnimation,type Modifier,type Active} from '@dnd-kit/core';
+import {DndContext,DragOverlay,PointerSensor,TouchSensor,useSensor,useSensors,type DragEndEvent,type DragMoveEvent,type DragStartEvent,type DropAnimation,type Modifier,type Active} from '@dnd-kit/core';
 import {motion} from 'motion/react';
 import {applyIntent,carried,noIntent,type Intent} from '../../intent.ts';
 import {benchOrder,benchPiles} from '../../bench.ts';
@@ -76,10 +76,11 @@ export function DragProvider({children}:{children:ReactNode}){
   const travel=useRef({x:0,y:0,px:0,py:0,t:0});
   const stretch=useRef(1);
   const snap=useRef<{left:number;top:number}|null>(null);
-  const dropTimer=useRef<ReturnType<typeof setTimeout>|null>(null);
+  type Landing={held:Held;intent:Intent;valid:boolean;animating:boolean;saved?:Promise<boolean>};
+  const landing=useRef<Landing|null>(null);
   const start=useRef<Held['startRect']|null>(null);
   const pointer=useRef<{x:number;y:number}|null>(null);
-  useEffect(()=>()=>{if(dropTimer.current)clearTimeout(dropTimer.current);},[]);
+  useEffect(()=>()=>{const dropped=landing.current;if(dropped)void saveLanding(dropped);landing.current=null;snap.current=null;setGesture(false);},[]);
   const sensors=useSensors(useSensor(MousePenSensor,{activationConstraint:{distance:5}}),useSensor(TouchSensor,{activationConstraint:{delay:250,tolerance:6}}));
   const heldRef=useRef(held);heldRef.current=held;
   // dnd-kit's own English hints and ids are replaced: blocks are lifted by pointer only, and results are announced by the app.
@@ -97,7 +98,7 @@ export function DragProvider({children}:{children:ReactNode}){
   // Anything else, and the drop itself, shows at once. A rejected place is never previewed: the days stay as they are while the copy shows why.
   const live=held&&!held.dropping?held.intent:null;
   const resting=useDwell(live,live?`${live.zone}|${live.date}|${live.before}|${live.start}|${live.ok}`:'',live?.zone==='rail');
-  const shown=held&&!held.dropping?resting:pending??held?.intent??null;
+  const shown=held&&!held.dropping?resting:pending;
   const tasks=useMemo(()=>applyIntent(base,shown?.ok?shown:null),[base,shown]);
   const pushed=useMemo(()=>held&&!held.dropping?pushedBy(base,snapshot?.layouts??[],shown):[],[held,shown,base,snapshot]);
 
@@ -159,7 +160,7 @@ export function DragProvider({children}:{children:ReactNode}){
     const ids=data?.carry?benchPiles(base,piles).find(p=>p.id===data.carry!.pile)?.cards.map(t=>t.id)??[]
       :sel.length>1&&sel.includes(id)?[...base.filter(t=>t.plan_date&&!t.completed&&sel.includes(t.id)),...benchOrder(base,piles).filter(t=>sel.includes(t.id))].map(t=>t.id):[id];
     if(!ids.length)return;
-    if(dropTimer.current)clearTimeout(dropTimer.current);
+    if(landing.current)return;
     // dnd-kit measures after this callback; read the block's own box so the copy starts exactly on it.
     const node=(e.activatorEvent.target as HTMLElement).closest<HTMLElement>('[data-block]')!,r=node.getBoundingClientRect();
     const {x:px,y:py}=point(e.activatorEvent!);
@@ -199,30 +200,72 @@ export function DragProvider({children}:{children:ReactNode}){
     document.addEventListener('scroll',scroll,true);
     return ()=>{events.forEach(event=>window.removeEventListener(event,track,true));document.removeEventListener('scroll',scroll,true);};
   },[snapshot]);
-  async function onDragEnd(e:DragEndEvent){
-    const h=held;snap.current=null;setGesture(false);
+  function onDragEnd(e:DragEndEvent){
+    const h=heldRef.current;
     if(!h)return;
     const a=point(e.activatorEvent!),p=pointer.current??{x:a.x+e.delta.x,y:a.y+e.delta.y};
     const intent=zoneAt(h.task,p.x,p.y,h.grabY/h.startRect.height,h.grabX/h.startRect.width,h.intent,stretch.current,h.ids,h.carry).intent;
-    // The copy keeps rendering while it settles onto the block, now aligned with it.
+    beginLanding(h,intent,intent.zone!=='none'&&intent.ok);
+  }
+  function saveLanding(dropped:Landing){
+    return dropped.saved??=dropped.valid?drop(dropped.intent):Promise.resolve(false);
+  }
+  function finishLanding(dropped:Landing){
+    if(landing.current===dropped){landing.current=null;snap.current=null;setHeld(null);setPending(null);setGesture(false);}
+  }
+  function beginLanding(h:Held,intent:Intent,valid:boolean){
+    const dropped:Landing={held:h,intent,valid,animating:false};landing.current=dropped;
+    // Keep the released copy until persistence and the handoff to the saved destination finish.
     setHeld({...h,intent,dropping:true});
-    if(dropTimer.current)clearTimeout(dropTimer.current);
-    dropTimer.current=setTimeout(()=>setHeld(x=>x?.dropping?null:x),reduced()?0:160);
-    if(intent.zone==='none'||!intent.ok)return;
-    // The dropped block stays where it was put until the store answers; a failure lets it spring back.
-    setPending(intent);
-    await drop(intent);
-    setPending(null);
+    // dnd-kit can skip animation when the source disappears; saving must still complete once.
+    requestAnimationFrame(()=>requestAnimationFrame(async()=>{
+      if(dropped.animating)return;
+      try{await saveLanding(dropped);}finally{finishLanding(dropped);}
+    }));
   }
   const snapModifier:Modifier=({transform})=>{const s=snap.current,o=start.current;return s&&o?{...transform,x:s.left-o.left,y:s.top-o.top}:transform;};
-  // A short, non-bouncy handoff to the projected destination.
-  const dropAnimation:DropAnimation={
-    duration:reduced()?0:140,easing:'cubic-bezier(.16,1,.3,1)',
-    keyframes:({transform})=>[{transform:`translate3d(${transform.initial.x}px,${transform.initial.y}px,0)`},{transform:`translate3d(${transform.final.x}px,${transform.final.y}px,0)`}],
-    sideEffects:defaultDropAnimationSideEffects({styles:{active:{opacity:'0'}}})
+  function savedTarget(h:Held,intent:Intent,saved:boolean){
+    const task=getState().snapshot?.tasks.find(t=>t.id===h.task.id);if(!task)return null;
+    const id=CSS.escape(task.id),all=[...regions.current.values()];
+    for(const r of all){
+      if(r.kind==='bench'){
+        if(h.carry&&(!saved||intent.zone==='pile'&&intent.create!=null))return r.el.querySelector<HTMLElement>(`[data-pile="${CSS.escape(h.carry.pile??'')}"] [data-pile-handle]`);
+        const scope=task.plan_date?null:r.el.querySelector(`[data-pile="${CSS.escape(task.pile_id??'')}"]`);
+        const card=scope?.querySelector<HTMLElement>(`[data-card="${id}"]`);if(card)return card;
+      }
+      if((r.kind==='space'||r.kind==='date')&&r.date!==task.plan_date||r.kind==='bench')continue;
+      const block=r.el.querySelector<HTMLElement>(`[data-task="${id}"]`)?.closest<HTMLElement>('[data-block]');if(block)return block;
+    }
+    return null;
+  }
+  // dnd-kit's default targets the old draggable. Measure the saved node after the store answers instead.
+  const dropAnimation:DropAnimation=async({active,dragOverlay,transform})=>{
+    const dropped=landing.current;if(!dropped)return;
+    dropped.animating=true;
+    try{
+      // Start the write after dnd-kit captures the source node, which a successful move may unmount.
+      if(dropped.valid)setPending(dropped.intent);
+      const saved=await saveLanding(dropped);
+      if(landing.current!==dropped)return;
+      if(!saved)setPending(null);
+      await new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve())));
+      if(landing.current!==dropped)return;
+      const target=savedTarget(dropped.held,dropped.intent,saved)??(!saved&&active.node.isConnected?active.node:null);
+      const rect=target?.getBoundingClientRect(),from=dragOverlay.rect;
+      const translate=(x:number,y:number)=>`translate3d(${x}px,${y}px,0) scaleX(${transform.scaleX}) scaleY(${transform.scaleY})`;
+      if(!reduced()){
+        const animation=dragOverlay.node.animate(rect?[
+          {transform:translate(transform.x,transform.y)},
+          {transform:translate(transform.x+rect.left-from.left,transform.y+rect.top-from.top)}
+        ]:[{opacity:1},{opacity:0}],{duration:140,easing:'cubic-bezier(.16,1,.3,1)',fill:'forwards'});
+        await animation.finished.catch(()=>{});
+      }
+    }finally{
+      finishLanding(dropped);
+    }
   };
   return <DragCtx.Provider value={{held,pending,tasks,pushed,register}}>
-    <DndContext sensors={sensors} accessibility={accessibility} onDragStart={onDragStart} onDragMove={onDragMove} onDragEnd={onDragEnd} onDragCancel={()=>{if(dropTimer.current)clearTimeout(dropTimer.current);setHeld(null);snap.current=null;setGesture(false);}} autoScroll={false}>
+    <DndContext sensors={sensors} accessibility={accessibility} onDragStart={onDragStart} onDragMove={onDragMove} onDragEnd={onDragEnd} onDragCancel={()=>{const h=heldRef.current;if(h)beginLanding(h,h.intent,false);else setGesture(false);}} autoScroll={false}>
       {children}
       <DragOverlay modifiers={[snapModifier]} dropAnimation={dropAnimation}>{held&&<HeldBlock held={held} out={pushed.length} outside={shownOutside(tasks,snapshot?.layouts??[],shown)}/>}</DragOverlay>
     </DndContext>

@@ -49,7 +49,7 @@ export function DaySpace({date,axis,variant,bin,selected,multi=[],onOpen,onMulti
   };
   const nextId=date===today?nextFlowId(plan.items,squash):null;
   const doneIds=new Set((snapshot?.tasks??[]).filter(t=>t.completed).map(t=>t.id));
-  const holding=held&&!held.dropping?held:null;
+  const holding=held;
   const anchor=Math.max(rule.start,plan.anchor??rule.start);
   const byId=(id:string)=>snapshot!.tasks.find(t=>t.id===id)!;
 
@@ -168,7 +168,8 @@ type BlockProps={item:DayItem;pushed:boolean;axis:TimeAxis;geometry:Geometry;var
 // Blocks are placed with `top`, never a transform: dnd-kit measures boxes without transforms.
 // Only completion pulls a block up into the intake; any other departure just fades.
 function Block({item,pushed,axis,geometry:g,variant,next,hollow,resizing,selected,multi,squash,landed,onCheck,onOpen,onMenu,onGrip,onNudge}:BlockProps){
-  const t=item.task,{listeners,setNodeRef}=useDraggable({id:`${variant}:${t.id}`,data:{taskId:t.id},disabled:item.fixed&&t.completed});
+  const {held}=useDrag();
+  const t=item.task,{listeners,setNodeRef}=useDraggable({id:`${variant}:${t.id}`,data:{taskId:t.id},disabled:item.fixed&&t.completed||!!held?.dropping});
   const top=axis.position(item.start)+1,h=Math.max(10,axis.position(item.end)-axis.position(item.start)-2);
   const range=`${time(item.start)}–${time(item.end)}`;
   // Title over meta takes about 56px in a day and 47px in a week column; anything shorter is one row with the meta beside the title.

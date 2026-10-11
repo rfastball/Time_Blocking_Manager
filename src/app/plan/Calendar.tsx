@@ -54,10 +54,10 @@ function Cell({date,period,outside}:{date:string;period:Exclude<Period,'week'>;o
 // A task title in a 2주 cell: opens the task, and can be carried to another date.
 function Mini({task}:{task:Task}){
   const {held}=useDrag();
-  const {attributes,listeners,setNodeRef}=useDraggable({id:`mini:${task.id}`,data:{taskId:task.id}});
-  const fixed=!!task.starts_at,hollow=!!held&&!held.dropping&&held.task.id===task.id;
+  const {attributes,listeners,setNodeRef}=useDraggable({id:`mini:${task.id}`,data:{taskId:task.id},disabled:!!held?.dropping});
+  const fixed=!!task.starts_at,hollow=held?.task.id===task.id;
   return <span ref={setNodeRef} data-block="true" className={'mini'+(fixed?' fixed':'')+(task.completed?' done':'')+(hollow?' hollow':'')} {...attributes} {...listeners} tabIndex={-1} role="presentation">
-    <button type="button" onClick={e=>{e.stopPropagation();openEditor(task.id,'dialog');}}
+    <button type="button" data-task={task.id} onClick={e=>{e.stopPropagation();openEditor(task.id,'dialog');}}
       aria-label={`${task.title}${fixed?`, 시각 고정 ${time(taskMinute(task))}`:''}, ${formatDuration(task.duration)}${task.completed?', 완료':''}`}>
       <span className="mini-t">{fixed&&<small>{time(taskMinute(task))}</small>}{task.title}</span>
     </button>

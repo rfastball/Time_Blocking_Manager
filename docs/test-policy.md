@@ -1,5 +1,16 @@
 # 검증 범위
 
+## 미계획 드롭 위치 연결 Test delta brief (2026-10-12)
+
+- Unique risk: 더미 이동 직후 저장 응답을 기다리는 동안 원래 카드가 다시 보이거나 드래그 복사본이 원래 자리로 돌아간 뒤 목적지에서 다시 나타남. 정상 저장의 연결을 고치면서 실패·취소의 복귀, 연속 드래그 또는 모션 감소 설정이 깨짐.
+- Existing owner / Selected layer: 기존 `scripts/ui-check/inbox.mjs`의 카드·더미 드롭 owner를 확장한다. 실제 포인터와 렌더링 프레임에서 드롭 복사본·원본·목적지의 위치와 노출을 관찰하며 저장 응답을 지연시킨다. 공유 드래그 경로는 기존 today·plan owner의 관련 시나리오로 확인한다.
+- Expected cost delta: 기존 명시적 Edge UI 계층을 사용하며 기본 Node suite에 브라우저·프로세스·네트워크 실행을 추가하지 않는다. 새 테스트 파일·dependency·CI lane·coverage floor 변화 0.
+- Evidence to retire: 최종 카드 순서만으로 드롭 애니메이션을 검증했다고 보는 기대를 중간 프레임과 저장 성공·실패 관찰로 보완한다.
+
+Test delta 결과: 기존 inbox UI owner **0 added / 2 extended / 0 removed**, 수집 **12→12**. 카드 이동 **1/1 · 9.224초**, 더미 손잡이 **1/1 · 6.872초** 통과. 지연 저장 중 원본 숨김·복사본 유지, 중간 프레임의 원래 자리 복귀·중복 표시 부재, 새 더미·더미 순서·날짜 배치, 드래그 중 원본 삭제, 취소 시 손잡이 복귀, IPC 대역 저장 실패의 복귀, 모션 감소 시 착지 애니메이션 0회를 확인했다. 기존 today 본문 드롭 **1/1 · 3.582초**, plan 레일 고정·이동·해제 **1/1 · 10.658초** 통과. 변경 전에는 지연 저장 중 복사본이 사라지는 실패를 재현했고, 변경 후 대기·저장 화면을 육안 확인했다.
+
+기존 Node suite **63/63 · 209.016ms**, TypeScript·Vite 빌드 **1.88초**, UI 소스 5개 수동 impeccable detector **[]**, `git diff --check` 통과. Vite의 Windows sandbox realpath 제한은 동일 명령의 승인된 제한 외 실행으로 해결했다. 새 테스트 파일·dependency·CI lane·coverage floor·기본 suite heavy-resource launch 변화 **0**. 신뢰할 동일 조건 baseline 부재로 runtime delta는 **not measured**. Sol이 구현·UI 검증, 별도 Sol이 읽기 전용 검토, root가 문서 통합·최종 검증을 담당했다. 실제 설치본 GUI는 실행하지 않았고 브라우저 검증용 프로세스는 종료했다.
+
 ## 저장 결과 확인과 초안·재시도 분리 Test delta brief (2026-10-12)
 
 - Unique risk: 이미 저장된 요청을 시각 검사에서 차단해 중복 저장을 유도함. 응답을 받기 전 입력을 바꾸면 기존 요청 식별자가 사라지거나, 늦은 성공 응답이 새 입력을 지움. 처리 기록이 없는 만료 요청을 복구하면서 사용자 확인 없이 새 요청으로 바꿈. 미래 시각 허용과 처리 기록 정리의 기준이 달라 정리 후 같은 요청이 다시 실행됨.

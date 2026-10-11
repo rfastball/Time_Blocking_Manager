@@ -65,7 +65,8 @@ function Gutter({before,piles,holding,end}:{before:number;piles:PileView[];holdi
 
 function PileColumn({pile:p,visual,piles,holding,onOpen}:{pile:PileView;visual:number;piles:PileView[];holding:Holding;onOpen:Open}){
   const {ui}=useApp(),inbox=p.id===null,first=p.cards[0];
-  const {listeners,setNodeRef}=useDraggable({id:`pile:${p.id??'inbox'}`,data:{taskId:first?.id,carry:{pile:p.id}},disabled:!first});
+  const {held}=useDrag();
+  const {listeners,setNodeRef}=useDraggable({id:`pile:${p.id??'inbox'}`,data:{taskId:first?.id,carry:{pile:p.id}},disabled:!first||!!held?.dropping});
   const [menu,setMenu]=useState<{x:number;y:number}|null>(null),handle=useRef<HTMLButtonElement|null>(null);
   const i=holding?.intent,carryingThis=!!holding?.carry&&holding.carry.pile===p.id;
   const merge=i?.zone==='pile'&&!!i.carry&&i.create==null&&(i.pile??null)===p.id&&!carryingThis;
@@ -89,7 +90,7 @@ function PileColumn({pile:p,visual,piles,holding,onOpen}:{pile:PileView;visual:n
     if(e.key==='Escape'&&getState().ui.benchSelection.length){e.preventDefault();setSelection([]);}
   }
   return <>
-    <div className={'wb-pile'+(inbox?' inbox':'')+(merge?' hot':'')+(carryingThis&&!holding?.dropping?' lifted':'')} data-pile={p.id??''}>
+    <div className={'wb-pile'+(inbox?' inbox':'')+(merge?' hot':'')+(carryingThis&&!holding?.dropping?' lifted':'')} data-pile={p.id??''} style={held?.dropping&&held.carry?.pile===p.id?{visibility:'hidden'}:undefined}>
       <button ref={el=>{handle.current=el;setNodeRef(el);}} type="button" className={'wb-handle'+(all?' sel':'')} data-pile-handle data-block="true" aria-label={pileName(p)} aria-pressed={all} aria-keyshortcuts="Shift+F10 Alt+ArrowLeft Alt+ArrowRight"
         {...listeners} onClick={(e:MouseEvent)=>selectPile(p,e.shiftKey||e.ctrlKey||e.metaKey)} onKeyDown={keys}
         onContextMenu={e=>{e.preventDefault();setMenu({x:e.clientX,y:e.clientY});}}>
@@ -109,10 +110,11 @@ const Slot=({height}:{height:number})=><motion.div className="wb-slot" style={{h
 // A card on the bench or the 지난 미완료 shelf. The bottom lip and ↑/↓ set its length; Alt moves it.
 function Card({task:t,past,onOpen}:{task:Task;past?:boolean;onOpen:Open}){
   const {ui,ready}=useApp(),{held}=useDrag(),memoId=useId();
-  const {listeners,setNodeRef}=useDraggable({id:`bench:${t.id}`,data:{taskId:t.id},disabled:!ready});
+  const {listeners,setNodeRef}=useDraggable({id:`bench:${t.id}`,data:{taskId:t.id},disabled:!ready||!!held?.dropping});
   const [live,setLive]=useState<number|null>(null);
   const minutes=live??t.duration,h=cardHeight(minutes),compact=h<44,sel=ui.benchSelection.includes(t.id);
   const lifted=!!held&&!held.dropping&&held.ids.includes(t.id);
+  const dropping=!!held?.dropping&&held.ids.includes(t.id);
   const proto=t.proto&&live===null,size=proto?'':formatDuration(minutes),from=past?shortDate(t.plan_date!):'';
   const memo=!compact&&t.body.trim()?memoPreview(t.body):'';
   function keys(e:KeyboardEvent<HTMLButtonElement>){
@@ -135,9 +137,9 @@ function Card({task:t,past,onOpen}:{task:Task;past?:boolean;onOpen:Open}){
     el.addEventListener('pointermove',move);el.addEventListener('pointerup',up);el.addEventListener('pointercancel',up);
   }
   const label=`${t.title}, ${proto?'길이 미정':formatDuration(minutes)}${past?`, ${from} 미완료`:''}${sel?', 선택됨':''}`;
-  return <motion.div ref={setNodeRef} data-card={t.id} data-block="true" layout="position" role="presentation" tabIndex={-1} {...listeners}
-    className={'tblk wb-card'+(proto?' proto':'')+(past?' past':'')+(sel?' sel':'')+(lifted?' lifted':'')+(compact?' compact':'')+(ui.landed?.id===t.id?' landed':'')+(ui.split===t.id?' onboard':'')} style={{height:h}}
-    initial={{opacity:0,y:-12}} animate={{opacity:1,y:0}} exit={{opacity:0,transition:{duration:0}}} transition={reflow}>
+  return <motion.div ref={setNodeRef} data-card={t.id} data-block="true" layout={dropping?false:'position'} role="presentation" tabIndex={-1} {...listeners}
+    className={'tblk wb-card'+(proto?' proto':'')+(past?' past':'')+(sel?' sel':'')+(lifted?' lifted':'')+(compact?' compact':'')+(ui.landed?.id===t.id?' landed':'')+(ui.split===t.id?' onboard':'')} style={{height:h,visibility:dropping?'hidden':undefined}}
+    initial={dropping?false:{opacity:0,y:-12}} animate={{opacity:1,y:0}} exit={{opacity:0,transition:{duration:0}}} transition={reflow}>
     <div className="tile">
       <button type="button" className="chk" aria-label={t.title+' 완료'} onClick={()=>void completeTasks([t])}><Icon name="check" size={12} stroke={3}/></button>
       <button type="button" className="main" data-task={t.id} aria-label={label} aria-describedby={memo?memoId:undefined}
