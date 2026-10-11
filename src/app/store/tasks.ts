@@ -77,7 +77,7 @@ export function resize(t:Task,duration:number){
 export const unplan=(t:Task)=>t.plan_date&&!t.completed?dispatch(updateAction(t,null,null),{done:()=>announce(`‘${t.title}’ 미계획으로 옮겼어요`)}):Promise.resolve(false);
 // One stored command for a drop: order, date, time or back to 미계획.
 export function drop(intent:Intent){
-  const action=intentAction(snap().tasks,intent);
+  const action=intentAction(snap().tasks,intent,snap().piles??[]);
   if(!action)return Promise.resolve(false);
   return dispatch(action,{done:()=>land(intent.id,intent.zone==='rail')});
 }

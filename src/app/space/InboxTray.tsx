@@ -9,12 +9,14 @@ import {closeComposer,editCapture,submitCapture} from '../store/tasks.ts';
 import {settle} from '../ui/motion.ts';
 import {Dots} from '../ui/icons.tsx';
 import {useDrag,useRegion} from './drag.tsx';
+import {benchOrder} from '../../bench.ts';
 
 // 미계획 work drawn at the same scale as the timetable, so its size reads against free space.
 export function InboxTray({scale,overdue=[],onOpen,selected,heading='미계획',className=''}:{scale:number;overdue?:Task[];onOpen:(t:Task)=>void;selected?:string|null;heading?:string;className?:string}){
-  const {drafts,ready,draftLoaded}=useApp(),{held,tasks}=useDrag();
+  const {drafts,ready,draftLoaded,snapshot}=useApp(),{held,tasks}=useDrag();
   const ref=useRegion('tray',null);
-  const inbox=tasks.filter(t=>!t.plan_date&&!t.completed);
+  // The bench read in order: the 투입구, then each pile left to right, each top to bottom.
+  const inbox=benchOrder(tasks,snapshot?.piles??[]);
   const holding=held&&!held.dropping?held:null;
   return <section ref={ref} className={'card tray'+(holding?.intent.zone==='tray'?' hot':'')+(className?' '+className:'')} aria-label={heading}>
     <h2>{heading} {inbox.length>0&&<span className="cnt">{inbox.length}</span>}</h2>
@@ -39,9 +41,9 @@ function TrayBlock({task,scale,hollow,selected,onOpen,past}:{task:Task;scale:num
   const {listeners,setNodeRef}=useDraggable({id:`tray:${task.id}`,data:{taskId:task.id}});
   // Title over meta needs about 52px; anything shorter is one row with the meta beside the title.
   const h=Math.max(24,task.duration*scale-2),compact=h<52;
-  return <motion.div ref={setNodeRef} data-block="true" layout className={'tblk'+(hollow?' hollow':'')+(selected?' sel':'')+(compact?' compact':'')} style={{height:h}}
+  return <motion.div ref={setNodeRef} data-block="true" layout className={'tblk'+(task.proto?' proto':'')+(hollow?' hollow':'')+(selected?' sel':'')+(compact?' compact':'')} style={{height:h}}
     initial={{opacity:0,scale:.96}} animate={{opacity:1,scale:1}} exit={{opacity:0,transition:{duration:0}}} transition={settle} {...listeners} tabIndex={-1} role="presentation">
-    <div className="tile"><Dots/><button type="button" className="main" onClick={onOpen} aria-label={`${task.title}, ${formatDuration(task.duration)}, ${past?dateLabel(task.plan_date!):'미계획'}`}>
-      <span className="ttl">{task.title}</span><span className="meta">{past?dateLabel(task.plan_date!)+' · ':''}{formatDuration(task.duration)}</span></button></div>
+    <div className="tile"><Dots/><button type="button" className="main" onClick={onOpen} aria-label={`${task.title}, ${task.proto?'길이 미정':formatDuration(task.duration)}, ${past?dateLabel(task.plan_date!):'미계획'}`}>
+      <span className="ttl">{task.title}</span><span className="meta">{past?dateLabel(task.plan_date!)+(task.proto?'':' · '):''}{task.proto?'':formatDuration(task.duration)}</span></button></div>
   </motion.div>;
 }

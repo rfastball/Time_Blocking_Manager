@@ -27,6 +27,8 @@ export type Ui={
   split:string|null;
   pendingShortcut:string|null;
   landed:{id:string;clack:boolean}|null;
+  // Blocks picked on the 미계획 bench (Shift/Ctrl+click, a pile handle); a drag of one of them carries them all.
+  benchSelection:string[];
 };
 export type Info={dbPath:string;warning:string;lastBackup:string;autoStart:boolean;shortcut:string;exitOnClose:boolean;failed:boolean};
 export type AppState={
@@ -59,7 +61,7 @@ let state:AppState={
   now:clockMinute(),today:day,
   nav:{view:'today',selected:day,planAnchor:day,period:'week',inboxOpen:true},
   drafts:emptyDrafts(),
-  ui:{editorMode:null,editorFocus:null,contextMenu:null,availability:null,split:null,pendingShortcut:null,landed:null},
+  ui:{editorMode:null,editorFocus:null,contextMenu:null,availability:null,split:null,pendingShortcut:null,landed:null,benchSelection:[]},
   quitSaving:false,draftPending:false,gesture:false
 };
 const listeners=new Set<()=>void>();

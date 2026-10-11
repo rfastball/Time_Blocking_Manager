@@ -155,3 +155,5 @@
 .tblk.compact .main{flex-direction:row;justify-content:space-between;align-items:center;padding:0}
 .dots{width:12px;height:18px;color:var(--color-text-muted);opacity:.6;flex:0 0 auto}
 @media (prefers-reduced-motion:reduce){.tile,.railtag,.rail,.rail::before{transition:none!important}}
+/* A proto has no chosen length yet: an outline with no fill and no size. */
+.tblk.proto>.tile{background:transparent;border:1.5px solid var(--sp-fixed-edge);color:var(--color-text-muted)}

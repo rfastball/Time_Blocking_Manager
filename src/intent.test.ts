@@ -38,3 +38,22 @@ test('a held block previews and stores order, date, time and 미계획 as one co
   // Dropping a block back where it was stores nothing.
   assert.equal(intentAction(tasks,at({id:'b',zone:'body',date:day,before:'c'})),null);
 });
+
+test('the bench stores card, new-pile, pile-move and stack drops, and nothing when put back',()=>{
+  const card=(id:string,pile:string|null,order:number):Task=>task(id,{plan_date:null,pile_id:pile,pile_order:order});
+  const bench=[card('a',null,1),card('b',null,2),card('c','p1',1),card('d','p1',2),card('e','p2',1)],piles=[{id:'p1',position:1},{id:'p2',position:2}];
+  const act=(patch:Partial<Intent>&{id:string})=>intentAction(bench,at({zone:'pile',...patch}),piles,()=>'new');
+  assert.deepEqual(act({id:'a',pile:'p1',index:1}),{type:'place_unplanned',items:[{id:'a',revision:1}],pile:'p1',index:1});
+  assert.equal(act({id:'c',pile:'p1',index:0}),null);
+  assert.equal(act({id:'b',pile:null,index:1}),null);
+  assert.deepEqual(act({id:'d',pile:'p1',index:0}),{type:'place_unplanned',items:[{id:'d',revision:1}],pile:'p1',index:0});
+  assert.deepEqual(act({id:'a',create:2}),{type:'place_unplanned',items:[{id:'a',revision:1}],pile:'new',create_at:2,index:0});
+  // A pile by its handle: between piles moves it, onto a pile stacks below its cards; the 투입구 never moves.
+  assert.deepEqual(act({id:'e',ids:['e'],carry:{pile:'p2'},create:1}),{type:'move_pile',pile:'p2',position:1});
+  assert.equal(act({id:'a',ids:['a','b'],carry:{pile:null},create:1}),null);
+  assert.deepEqual(act({id:'c',ids:['c','d'],carry:{pile:'p1'},pile:'p2'}),{type:'place_unplanned',items:[{id:'c',revision:1},{id:'d',revision:1}],pile:'p2',index:1});
+  // Several onto a date: in order to its end, previewed the same way.
+  const ship=at({id:'a',ids:['a','c'],zone:'date',date:day});
+  assert.deepEqual(intentAction(bench,ship),{type:'ship_flow',date:day,items:[{id:'a',revision:1},{id:'c',revision:1}]});
+  assert.deepEqual(orderOf(applyIntent(bench,ship)),['a','c']);
+});

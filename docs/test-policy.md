@@ -1,5 +1,14 @@
 # 검증 범위
 
+## 미계획 작업대 Test delta brief (2026-10-11)
+
+- Unique risk: 카드가 더미 안·사이·날짜 기둥에 놓일 때 저장 관계와 미리 보인 자리가 다름, 더미 통째 이동·합치기가 다른 더미를 흔듦, 키보드만으로 길이·순서·더미 이동·싣기를 할 수 없음, 최소 창에서 날짜 기둥이 밀려남, 공용 드래그 확장으로 오늘·계획 드래그가 회귀.
+- Existing owner / Selected layer: 드롭 해석은 순수 `intent.ts` owner `src/intent.test.ts`에 사례 1개. 실제 포인터·DOM 좌표·포커스는 명시적 `scripts/ui-check/inbox.mjs`를 작업대 시나리오로 교체한다. 공용 drag 변경은 기존 today/plan/editor 시나리오로 확인한다.
+- Expected cost delta: Node +1. UI inbox 8→10(목록형 시나리오 6개를 작업대 시나리오로 교체, 드래그·키보드·좁은 화면 추가). 새 파일·dependency·CI lane 없음.
+- Evidence to retire: 목록 행·‘배치를 기다리는 일’ 머리·‘계획에 배치하기’·‘빈 미계획은 입력만’ 기대값. 같은 위험은 더미·투입구·날짜 기둥 단언으로 대체.
+
+Test delta 결과: Node **53/53**, UI inbox **10/10**, today·plan·editor·settings·backups·capture **51/51**, `npm run build` 통과.
+
 ## 완료 정책 Test delta brief (2026-10-11)
 
 - Unique risk: 미계획 완료가 날짜 없는 기록으로 남거나 다른 날짜로 새고, 하루 비우기·미계획 이동이 완료 기록을 날짜 없이 만듦. 이전 날짜 없는 완료를 되돌릴 수 없음.
