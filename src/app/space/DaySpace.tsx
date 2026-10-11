@@ -12,7 +12,7 @@ import {blockButton} from '../editor/actions.ts';
 import {openAvailability} from '../store/schedule.ts';
 import {reflow,reduced} from '../ui/motion.ts';
 import {Icon,Lock} from '../ui/icons.tsx';
-import {COLUMN_GEOMETRY,DAY_GEOMETRY,runnerReach,isGestureActive,useDrag,useRegion,type Geometry} from './drag.tsx';
+import {COLUMN_GEOMETRY,DAY_GEOMETRY,runnerReach,isGestureActive,useDrag,useDwell,useRegion,type Geometry} from './drag.tsx';
 import './space.css';
 
 type Props={
@@ -29,14 +29,18 @@ type Props={
 // One day as a space: rail and fixed latches on the left, flow blocks in order, completed work leaves through the top.
 export function DaySpace({date,axis,variant,bin,selected,multi=[],onOpen,onMulti,children,overlay,onBackgroundPointerDown}:Props){
   const {snapshot,today,now,ui}=useApp();
-  const {held,tasks}=useDrag();
+  const {held,tasks,pushed}=useDrag();
   const geometry=variant==='day'?DAY_GEOMETRY:COLUMN_GEOMETRY;
   const rule=dayRule(date);
   const [squash,setSquash]=useState<string[]>([]);
-  const [sizing,setSizing]=useState<{id:string;dur:number}|null>(null);
+  // `done`: let go, waiting for the store; the length is then shown at once.
+  const [sizing,setSizing]=useState<{id:string;dur:number;done?:boolean}|null>(null);
   const spaceRef=useRegion('space',date,{axis,geometry});
-  const shown=sizing?tasks.map(t=>t.id===sizing.id?{...t,duration:sizing.dur}:t):tasks;
+  // The block being sized follows the hand; the others make way only for a length it rests on, as on the rail.
+  const settled=useDwell(sizing,sizing?`${sizing.id}:${sizing.dur}`:'',!!sizing&&!sizing.done);
+  const shown=settled?tasks.map(t=>t.id===settled.id?{...t,duration:settled.dur}:t):tasks;
   const plan=dayPlan(date,shown,rule,snapshot?.layouts??[]);
+  const sized=(item:DayItem)=>sizing?.id===item.task.id?{...item,end:item.start+sizing.dur}:item;
   const nextId=date===today?nextFlowId(plan.items,squash):null;
   const doneIds=new Set((snapshot?.tasks??[]).filter(t=>t.completed).map(t=>t.id));
   const holding=held&&!held.dropping?held:null;
@@ -60,6 +64,7 @@ export function DaySpace({date,axis,variant,bin,selected,multi=[],onOpen,onMulti
     };
     const up=async()=>{
       el.removeEventListener('pointermove',move);el.removeEventListener('pointerup',up);el.removeEventListener('pointercancel',up);setGesture(false);
+      setSizing(s=>s&&{...s,done:true});
       if(dur!==d0)await resize(t,dur);
       setSizing(null);
     };
@@ -92,7 +97,7 @@ export function DaySpace({date,axis,variant,bin,selected,multi=[],onOpen,onMulti
         initial={false} animate={{top:axis.position(anchor)}} transition={reduced()?{duration:0}:reflow}/>}
       {date===today&&<AnchorFlash top={axis.position(anchor)} left={geometry.railLeft} anchor={anchor}/>}
       <AnimatePresence initial={false} custom={doneIds}>
-        {plan.items.map(item=><Block key={item.task.id} item={item} axis={axis} geometry={geometry} variant={variant} next={item.task.id===nextId}
+        {plan.items.map(item=><Block key={item.task.id} item={sized(item)} pushed={pushed.includes(item.task.id)} axis={axis} geometry={geometry} variant={variant} next={item.task.id===nextId}
           hollow={holding?.task.id===item.task.id} resizing={sizing?.id===item.task.id} selected={selected===item.task.id&&!multi.length} multi={multi.includes(item.task.id)} squash={squash.includes(item.task.id)}
           landed={ui.landed?.id===item.task.id?ui.landed:null}
           onCheck={()=>void check(byId(item.task.id))} onGrip={e=>grip(e,byId(item.task.id))} onNudge={(d,order,el)=>void nudge(item.task.id,d,order,el)}
@@ -148,16 +153,16 @@ function Bin({tasks,onOpen}:{tasks:Task[];onOpen:(t:Task)=>void}){
   </>;
 }
 
-type BlockProps={item:DayItem;axis:TimeAxis;geometry:Geometry;variant:'day'|'column';next:boolean;hollow:boolean;resizing:boolean;selected:boolean;multi:boolean;squash:boolean;landed:{clack:boolean}|null;
+type BlockProps={item:DayItem;pushed:boolean;axis:TimeAxis;geometry:Geometry;variant:'day'|'column';next:boolean;hollow:boolean;resizing:boolean;selected:boolean;multi:boolean;squash:boolean;landed:{clack:boolean}|null;
   onCheck:()=>void;onOpen:(e:ReactMouseEvent)=>void;onMenu:(e:{clientX:number;clientY:number})=>void;onGrip:(e:ReactPointerEvent<HTMLButtonElement>)=>void;onNudge:(delta:number,order:boolean,el:HTMLElement)=>void};
 // Blocks are placed with `top`, never a transform: dnd-kit measures boxes without transforms.
 // Only completion pulls a block up into the intake; any other departure just fades.
-function Block({item,axis,geometry:g,variant,next,hollow,resizing,selected,multi,squash,landed,onCheck,onOpen,onMenu,onGrip,onNudge}:BlockProps){
+function Block({item,pushed,axis,geometry:g,variant,next,hollow,resizing,selected,multi,squash,landed,onCheck,onOpen,onMenu,onGrip,onNudge}:BlockProps){
   const t=item.task,{listeners,setNodeRef}=useDraggable({id:`${variant}:${t.id}`,data:{taskId:t.id},disabled:item.fixed&&t.completed});
   const top=axis.position(item.start)+1,h=Math.max(10,axis.position(item.end)-axis.position(item.start)-2);
   const range=`${time(item.start)}–${time(item.end)}`;
   // Title over meta takes about 56px in a day and 47px in a week column; anything shorter is one row with the meta beside the title.
-  const cls=['blk',item.fixed?'fixed':'flow',item.over?'over':'',next?'next':'',t.completed?'done':'',hollow?'hollow':'',selected?'sel':'',multi?'multi':'',h<(variant==='day'?56:47)?'compact':'',h<20?'tiny':''].join(' ');
+  const cls=['blk',item.fixed?'fixed':'flow',item.over?'over':'',pushed?'pushed':'',next?'next':'',t.completed?'done':'',hollow?'hollow':'',selected?'sel':'',multi?'multi':'',h<(variant==='day'?56:47)?'compact':'',h<20?'tiny':''].join(' ');
   const orderable=!item.fixed&&!t.completed;
   const key=(e:KeyboardEvent<HTMLButtonElement>)=>{
     if((e.shiftKey&&e.key==='F10')||e.key==='ContextMenu'){e.preventDefault();const r=e.currentTarget.getBoundingClientRect();onMenu({clientX:r.left+12,clientY:r.top+12});return;}

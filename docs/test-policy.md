@@ -1,5 +1,14 @@
 # 검증 범위
 
+## 고정 변경 머무름·근무 외 표시 Test delta brief (2026-10-11)
+
+- Unique risk: 고정 블록을 레일에서 옮기는 동안 이웃 유동 블록이 눈금마다 고정 블록 앞뒤로 뛰어 떨리고, 근무 외로 밀릴 블록을 놓기 전에 알 수 없음.
+- Existing owner / Selected layer: 새로 밀린 블록 판정은 순수 `today.ts`의 owner `src/schedule.test.ts` 기존 파일에 사례 1개. 머무름·표시는 실제 포인터 타이밍이 필요하므로 명시적 `scripts/ui-check/plan.mjs`에 시나리오 1개.
+- Expected cost delta: Node 동기 사례 +1, UI 시나리오 +1(약 6초). 새 파일·의존성·worker·CI lane·coverage floor 변화 0.
+- Evidence to retire: 없음. 기존 레일·길이 조절 시나리오는 최종 배치를 그대로 단언한다.
+
+Test delta 결과: **2 added / 0 extended / 0 removed**. 기본 Node **44/44 · 155.7ms**, `npm run build` 성공. UI plan 17 / today 8 **25/25** 통과. 변경 전 코드에 새 시나리오를 돌리면 ‘neighbours hold still while the block is moving’에서 실패해 결함을 검출함을 확인했다.
+
 ## 반응형 드래그 모션 Test delta brief (2026-10-11)
 
 - Unique risk: 본문 위에서 드래그 중인 복사본이 포인터 이동·방향 전환 뒤 두 프레임 안에 따라오지 않거나, 크기 조절 경계가 드래그 중에는 갱신되지 않아 사용자가 놓기 전 결과를 알 수 없음. 기존 최종 배치 단언은 이 상호작용 지연을 검출하지 못한다.

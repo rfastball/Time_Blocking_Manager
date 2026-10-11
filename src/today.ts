@@ -18,6 +18,11 @@ export function dayPlan(date:string,tasks:Task[],rule:WorkingDay,layouts:DayLayo
 }
 // Where the latest flow block running past working time ends, or null when everything fits.
 export const overrunEnd=(plan:DayPlan)=>plan.items.reduce<number|null>((end,i)=>i.over?Math.max(end??0,i.end):end,null);
+// Blocks a change would newly push past working time: over in `after`, not already over in `before`.
+export function newlyOver(before:DayPlan,after:DayPlan){
+  const was=new Set(before.items.filter(i=>i.over).map(i=>i.task.id));
+  return after.items.filter(i=>i.over&&!was.has(i.task.id)).map(i=>i.task.id);
+}
 // Time passing never changes a task's state: there is no current, late or missed block.
 // The next block is simply the first remaining flow block, whatever the clock says.
 export function nextFlowId(items:DayItem[],skip:string[]=[]){

@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {formatDuration,rangeTitle} from './format.ts';
-import {nextFlowId,dayPlan,calendarRefreshAllowed} from './today.ts';
+import {nextFlowId,dayPlan,newlyOver,calendarRefreshAllowed} from './today.ts';
 import {placementIssue,selectionRange,splitDuration} from './placement.ts';
 import {createTimeAxis,timeAxisForDays,expandTimeAxis,timeAxisLabelVisible} from './time-axis.ts';
 import type {Task,WorkingDay} from './types.ts';
@@ -57,6 +57,14 @@ test('a day plan keeps fixed reservations, lays out flow and moves completed flo
   assert.deepEqual(plan.items.map(i=>[i.task.id,i.start,i.fixed]),[['f1',600,false],['f2',660,false],['a',780,true],['done-fixed',960,true]]);
   assert.deepEqual(plan.completed.map(t=>t.id),['gone']);
   assert.equal(plan.anchor,600);
+});
+test('only blocks a change newly pushes past working time are counted',()=>{
+  const flow=(id:string,order:number):Task=>({...task,id,starts_at:null,duration:60,flow_order:order});
+  const short={...rule,end:900},flows=['f1','f2','f3','f4','f5'].map((id,i)=>flow(id,i+1));
+  const at=(start:string)=>dayPlan(date,[{...task,starts_at:date+'T'+start,duration:120},...flows],short,[{date,anchor:600}]);
+  // Work ends at 15:00. Moving a two-hour reservation from 15:00 into 13:00 takes the last working hours.
+  assert.deepEqual(newlyOver(at('15:00'),at('13:00')),['f3','f4'],'f5 was already past working time');
+  assert.deepEqual(newlyOver(at('13:00'),at('15:00')),[]);
 });
 test('the next block is the first remaining flow block, never a fixed one and never decided by the clock',()=>{
   const flow=(id:string,order:number):Task=>({...task,id,starts_at:null,flow_order:order});

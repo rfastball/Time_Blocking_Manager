@@ -2,11 +2,11 @@ import {createContext,useCallback,useContext,useEffect,useMemo,useRef,useState,t
 import {DndContext,DragOverlay,PointerSensor,TouchSensor,useSensor,useSensors,defaultDropAnimationSideEffects,type DragEndEvent,type DragMoveEvent,type DragStartEvent,type DropAnimation,type Modifier,type Active} from '@dnd-kit/core';
 import {motion} from 'motion/react';
 import {applyIntent,noIntent,type Intent} from '../../intent.ts';
-import {dayPlan,overrunEnd} from '../../today.ts';
+import {dayPlan,newlyOver,overrunEnd} from '../../today.ts';
 import {insertionBefore} from '../../flow.ts';
 import {placementIssue} from '../../placement.ts';
 import {createTimeAxis,timeAxisForDays,type TimeAxis} from '../../time-axis.ts';
-import type {Task} from '../../types.ts';
+import type {DayLayout,Task} from '../../types.ts';
 import {formatDuration} from '../../format.ts';
 import {time} from '../../dates.ts';
 import {getState,setUi,useApp} from '../store/state.ts';
@@ -30,8 +30,9 @@ type Region={key:string;kind:'space'|'date'|'tray';date:string|null;el:HTMLEleme
 // The hollow marks the body slot; the held copy follows the hand until it latches onto a rail tick.
 type Slot={start:number;end:number;over:boolean};
 export type Held={task:Task;intent:Intent;slot:Slot|null;column:boolean;startRect:{left:number;top:number;width:number;height:number};grabX:number;grabY:number;width:number;height:number;dropping?:boolean};
-type Ctx={held:Held|null;pending:Intent|null;tasks:Task[];register:(r:Region)=>()=>void};
-const DragCtx=createContext<Ctx>({held:null,pending:null,tasks:[],register:()=>()=>{}});
+// `pushed`: blocks the shown change would newly put past working time.
+type Ctx={held:Held|null;pending:Intent|null;tasks:Task[];pushed:string[];register:(r:Region)=>()=>void};
+const DragCtx=createContext<Ctx>({held:null,pending:null,tasks:[],pushed:[],register:()=>()=>{}});
 export const useDrag=()=>useContext(DragCtx);
 
 // Registers an element as a landing region while mounted.
@@ -77,12 +78,20 @@ export function DragProvider({children}:{children:ReactNode}){
   const accessibility=useMemo(()=>({screenReaderInstructions:{draggable:''},announcements:{
     onDragStart:({active}:{active:Active})=>{const id=String(active.data.current?.taskId??active.id),t=getState().snapshot?.tasks.find(x=>x.id===id);return t?`‘${t.title}’을 들었어요`:undefined;},
     onDragOver:()=>undefined,onDragMove:()=>undefined,onDragCancel:()=>'',
-    onDragEnd:()=>{const i=heldRef.current?.intent;return i&&!i.ok&&i.reason?i.reason:'';}
+    onDragEnd:()=>{
+      const i=heldRef.current?.intent,s=getState().snapshot;if(i&&!i.ok&&i.reason)return i.reason;
+      const n=s&&i?pushedBy(s.tasks,s.layouts??[],i).length:0;return n?`${n}개가 근무 외로 밀렸어요`:'';
+    }
   }}),[]);
   const register=useCallback((r:Region)=>{regions.current.set(r.key,r);return ()=>{regions.current.delete(r.key);};},[]);
   const base=snapshot?.tasks??[];
-  // A rejected place is never previewed: the days stay as they are while the copy shows why.
-  const tasks=useMemo(()=>{const i=held&&!held.dropping?held.intent:pending??held?.intent??null;return applyIntent(base,i?.ok?i:null);},[base,held,pending]);
+  // A time on the rail is passed over, not chosen, until the hand rests on it: only then do the days make way for it.
+  // Anything else, and the drop itself, shows at once. A rejected place is never previewed: the days stay as they are while the copy shows why.
+  const live=held&&!held.dropping?held.intent:null;
+  const resting=useDwell(live,live?`${live.zone}|${live.date}|${live.before}|${live.start}|${live.ok}`:'',live?.zone==='rail');
+  const shown=held&&!held.dropping?resting:pending??held?.intent??null;
+  const tasks=useMemo(()=>applyIntent(base,shown?.ok?shown:null),[base,shown]);
+  const pushed=useMemo(()=>held&&!held.dropping?pushedBy(base,snapshot?.layouts??[],shown):[],[held,shown,base,snapshot]);
 
   // `grab` is where along its width the block was taken; `prev` is the last intent, for the latch's hysteresis.
   // `near` is how far the block has been pushed toward biting (or, latched, pulled toward letting go), 0–1.
@@ -164,10 +173,10 @@ export function DragProvider({children}:{children:ReactNode}){
     keyframes:({transform})=>[{transform:`translate3d(${transform.initial.x}px,${transform.initial.y}px,0)`},{transform:`translate3d(${transform.final.x}px,${transform.final.y}px,0)`}],
     sideEffects:defaultDropAnimationSideEffects({styles:{active:{opacity:'0'}}})
   };
-  return <DragCtx.Provider value={{held,pending,tasks,register}}>
+  return <DragCtx.Provider value={{held,pending,tasks,pushed,register}}>
     <DndContext sensors={sensors} accessibility={accessibility} onDragStart={onDragStart} onDragMove={onDragMove} onDragEnd={onDragEnd} onDragCancel={()=>{if(dropTimer.current)clearTimeout(dropTimer.current);setHeld(null);snap.current=null;setGesture(false);}} autoScroll={false}>
       {children}
-      <DragOverlay modifiers={[snapModifier]} dropAnimation={dropAnimation}>{held&&<HeldBlock held={held}/>}</DragOverlay>
+      <DragOverlay modifiers={[snapModifier]} dropAnimation={dropAnimation}>{held&&<HeldBlock held={held} out={pushed.length}/>}</DragOverlay>
     </DndContext>
   </DragCtx.Provider>;
 }
@@ -181,7 +190,7 @@ function steadiness(m:{x:number;y:number;px:number;py:number;t:number},px:number
   return 1+(STRETCH-1)*m.y/(m.x+m.y+REST);
 }
 
-function HeldBlock({held}:{held:Held}){
+function HeldBlock({held,out}:{held:Held;out:number}){
   const {task,intent,slot,width,height}=held,rail=intent.zone==='rail',fixedLook=rail||(!!task.starts_at&&intent.zone==='none'),bad=!intent.ok;
   const at=rail?{start:intent.start!,end:intent.start!+task.duration}:intent.zone==='body'?slot:null;
   // Keep the same point under the pointer as the copy changes width or height between surfaces.
@@ -195,6 +204,28 @@ function HeldBlock({held}:{held:Held}){
       <span className="main"><span className="ttl-row"><span className="ttl">{task.title}</span></span><span className="meta">{at?`${time(at.start)}–${time(at.end)}`:formatDuration(task.duration)}</span></span>
     </div>
     {bad&&!held.dropping&&<span className="held-why">{intent.reason}</span>}
+    {!bad&&out>0&&!held.dropping&&<span className="held-why out">근무 외 {out}개</span>}
   </motion.div>;
 }
 export const isGestureActive=()=>getState().gesture;
+
+// Blocks that dropping `intent` would newly push past working time on its day.
+function pushedBy(tasks:Task[],layouts:DayLayout[],intent:Intent|null){
+  if(!intent?.ok||!intent.date)return [];
+  const date=intent.date,plan=(list:Task[])=>dayPlan(date,list,dayRule(date),layouts);
+  return newlyOver(plan(tasks),plan(applyIntent(tasks,intent)));
+}
+
+// How long a held change must stay put before the blocks around it move.
+const DWELL_MS=200;
+// `value` while `dwell` is off; while it is on, the last value that held still (same `key`) for DWELL_MS.
+export function useDwell<T>(value:T,key:string,dwell:boolean):T{
+  const settled=useRef(value),latest=useRef(value),[,bump]=useState(0);
+  latest.current=value;if(!dwell)settled.current=value;
+  useEffect(()=>{
+    if(!dwell)return;
+    const t=setTimeout(()=>{settled.current=latest.current;bump(n=>n+1);},DWELL_MS);
+    return ()=>clearTimeout(t);
+  },[key,dwell]);
+  return dwell?settled.current:value;
+}

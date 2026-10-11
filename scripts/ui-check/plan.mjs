@@ -130,6 +130,27 @@ export default [
     await page.drag({x:g.x+40,y:g.y+6},{x:g.x+72,y:g.y+6});
     assert.match((await page.blocks(sp(today))).find(b=>b.startsWith('회의록 정리')),/예상/,'pulled clear, it joins the order again');
   }},
+  {name:'a fixed block passing over the order moves nothing until it rests; work it pushes past working time is counted',run:async page=>{
+    await toPlan(page);
+    const {today}=await days(page),y16=await hourY(page,16),w=await block(page,today,'설계 워크숍');
+    const range=async title=>(await page.blocks(sp(today))).find(b=>b.startsWith(title));
+    // Sliding the workshop from 14:00 to 16:00 crosses 신규 입사자 교육 자료's ticks without a pause.
+    const from={x:w.x+40,y:w.y+6};
+    await page.mouse('mouseMoved',from.x,from.y,0);await page.mouse('mousePressed',from.x,from.y);
+    for(let i=1;i<=14;i++){await page.mouse('mouseMoved',from.x,from.y+(y16+6-from.y)*i/14);await page.sleep(16);}
+    assert.equal(await range('신규 입사자 교육 자료'),'신규 입사자 교육 자료, 예상 15:00–16:30','neighbours hold still while the block is moving');
+    await page.sleep(300);
+    assert.equal(await range('신규 입사자 교육 자료'),'신규 입사자 교육 자료, 예상 14:00–15:30','resting at 16:00, they make way');
+    await page.mouse('mouseReleased',from.x,y16+6,0);await page.sleep(700);
+    assert.ok((await page.blocks(sp(today))).includes('설계 워크숍, 시각 고정 16:00–17:00'));
+    // With the workshop at 16:00, latching 회의록 정리 at 14:15 leaves 신규 입사자 교육 자료 no 90-minute gap before 18:00.
+    const c=await block(page,today,'회의록 정리'),rail=await page.rect(`${sp(today)} .rail`),y14=await hourY(page,14),y1415=y14+(y16-y14)/8;
+    const during=await page.drag({x:c.x+40,y:c.y+6},{x:rail.cx,y:y1415+6},{hold:400,before:async()=>{await page.shot('plan-held-pushed');
+      return page.js(`({held:document.querySelector('.held').textContent,pushed:[...document.querySelectorAll('${sp(today)} .blk.over.pushed')].map(b=>b.textContent)})`);}});
+    assert.match(during.held,/근무 외 1개/,'the held copy counts the work it would push past working time');
+    assert.equal(during.pushed.length,1);assert.match(during.pushed[0],/신규 입사자 교육 자료/);
+    assert.ok((await page.blocks(sp(today))).includes('신규 입사자 교육 자료, 예상 18:00–19:30'),'the drop is still allowed');
+  }},
   {name:'the rail of a column fixes the time it is dropped at',run:async page=>{
     await toPlan(page);
     const {today,other}=await days(page),rail=await page.rect(`${sp(other)} .rail`),y16=await hourY(page,16);
