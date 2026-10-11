@@ -34,20 +34,13 @@ const scenarios=[
     assert.match(await page.text('.inbox-head'),/배치를 기다리는 일\s*3/);
     await page.shot('inbox-captured');
   }},
-  {name:'completing moves the row into the collapsed 완료 list; unchecking returns it',run:async page=>{
+  {name:'completing records the row as today’s completion; 미계획 has no 완료 list',run:async page=>{
     await open(page);
     await check(page,'회의록 템플릿 업데이트');await page.sleep(500);
     assert.deepEqual(await titles(page),['SQLite 백업 방식 조사']);
-    assert.match(await page.text('.inbox-done > summary'),/완료 1/);
-    assert.equal(await page.js('document.querySelector(".inbox-done").open'),false);
-    assert.equal(await page.js(`document.querySelectorAll(${JSON.stringify(done)}).length`),0,'closed completed disclosure does not mount rows');
-    await page.click('.inbox-done > summary');await page.sleep(400);
-    assert.deepEqual(await titles(page,done),['회의록 템플릿 업데이트']);
-    assert.equal(await page.js(`document.querySelector('.inbox-done input[type=checkbox]').checked`),true);
-    await page.shot('inbox-done-open');
-    await check(page,'회의록 템플릿 업데이트');await page.sleep(500);
-    assert.deepEqual((await titles(page)).sort(),['SQLite 백업 방식 조사','회의록 템플릿 업데이트'].sort());
-    assert.equal(await page.js('!!document.querySelector(".inbox-done")'),false);
+    assert.equal(await page.js('!!document.querySelector(".inbox-done:not(.inbox-trash)")'),false,'no 완료 or archive section');
+    await page.click('.rail-nav .nav-button','오늘');await page.sleep(500);
+    assert.ok(await page.js(`!!document.querySelector('.today-day .bin')?.textContent.includes('회의록 템플릿 업데이트')`),'recorded on today');
   }},
   {name:'the title opens the editor; the size button opens it at the duration',run:async page=>{
     await open(page);

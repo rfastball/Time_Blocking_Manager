@@ -21,7 +21,7 @@ export type Action = {type:'create';id:string;title:string}
  | {type:'place_unplanned';items:TaskRevision[];pile:string|null;create_at?:number|null;index:number}
  | {type:'move_pile';pile:string;position:number}
  | {type:'ship_flow';date:string;items:TaskRevision[]}
- | {type:'set_completed';id:string;expected_revision:number;completed:boolean}
+ | {type:'set_completed';id:string;expected_revision:number;completed:boolean;date?:string}
  | {type:'complete_flow';date:string;items:TaskRevision[];at:string|null}
  | {type:'reflow';date:string;at:string}
  | {type:'reorder_flow';date:string;expected:TaskRevision[]}

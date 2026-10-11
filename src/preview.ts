@@ -42,7 +42,8 @@ export function previewMutation(snapshot:Snapshot,command:Command,occurrences:Se
     if(tasks.length!==a.expected_tasks.length||tasks.some(t=>!a.expected_tasks.some(expected=>expected.id===t.id&&expected.revision===t.revision)))throw Error('일정이 변경됐습니다. 다시 확인하세요.');
     // The day's open work goes on top of the 투입구 in the order it was planned.
     const open=tasks.filter(t=>!t.completed).sort((x,y)=>(x.flow_order==null?1:0)-(y.flow_order==null?1:0)||(x.flow_order??0)-(y.flow_order??0)||(x.starts_at??'').localeCompare(y.starts_at??'')||(x.id<y.id?-1:1)).map(t=>t.id);
-    for(const task of tasks){task.starts_at=null;task.plan_date=null;task.flow_order=null;task.revision++;}
+    // Completed work stays as that day's record; only open work goes back to 미계획.
+    for(const task of tasks)if(!task.completed){task.starts_at=null;task.plan_date=null;task.flow_order=null;task.revision++;}
     s.layouts=s.layouts.filter(l=>l.date!==a.date);
     put(open,null,0);
   }
@@ -96,7 +97,13 @@ export function previewMutation(snapshot:Snapshot,command:Command,occurrences:Se
   }
   else {const t=s.tasks.find(t=>t.id===a.id)!;
     if(a.type==='delete'){if(!t)throw Error('항목이 이미 삭제됐습니다.');s.tasks=s.tasks.filter(x=>x!==t);s.trash.unshift({...t,deleted_at:new Date().toISOString().slice(0,19)+'Z'});}
-    else if(a.type==='set_completed'){t.completed=a.completed;t.revision++;}
+    else if(a.type==='set_completed'){
+      // No completion without a date: 미계획 work done now is that day's completion. Undoing an old dateless one returns it to the 투입구.
+      if(a.completed&&!t.completed&&!t.plan_date){if(!a.date)throw Error('완료한 날짜를 확인하세요.');toFlow(t,a.date);t.proto=false;}
+      const dateless=!a.completed&&t.completed&&!t.plan_date;
+      t.completed=a.completed;t.revision++;
+      if(dateless)put([t.id],null,0);
+    }
     else if(a.type==='split'){
       if(t.completed||a.first_duration<15||a.first_duration%15||a.first_duration>t.duration-15)throw Error('각 블록은 15분 이상이어야 해요.');
       s.tasks.push({...t,id:a.new_id,starts_at:null,plan_date:null,flow_order:null,duration:t.duration-a.first_duration,revision:1,pile_id:null,pile_order:null});
@@ -106,6 +113,7 @@ export function previewMutation(snapshot:Snapshot,command:Command,occurrences:Se
       if(a.starts_at&&fixedIssue(a.id,a.starts_at,a.duration))throw Error('다른 항목 또는 작업 불가 시간과 겹칩니다.');
       const wasFlowOn=!t.starts_at?t.plan_date:null,wasDated=!!t.plan_date,wasDone=t.completed;
       const date=a.starts_at?.slice(0,10)??a.plan_date;
+      if(!date&&wasDone&&wasDated)throw Error('완료한 작업은 미계획으로 옮길 수 없어요. 완료를 취소한 뒤 옮겨 주세요.');
       // A length chosen or a date given makes a proto block a sized one, for good.
       t.proto=!!t.proto&&!date&&a.duration===t.duration&&a.sized!==true;
       Object.assign(t,{title:a.title,body:a.body,duration:a.duration,starts_at:a.starts_at,revision:t.revision+1});

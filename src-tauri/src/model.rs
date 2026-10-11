@@ -103,7 +103,9 @@ pub enum Action {
         #[serde(default, skip_serializing_if="Option::is_none")] before: Option<String>,
         // The length was chosen explicitly, even if it equals the stored one: a proto block becomes a sized one.
         #[serde(default, skip_serializing_if="Option::is_none")] sized: Option<bool> },
-    SetCompleted { id: String, expected_revision: i64, completed: bool },
+    // `date`: the day a 미계획 task is completed on (today); dated work keeps its own date.
+    SetCompleted { id: String, expected_revision: i64, completed: bool,
+        #[serde(default, skip_serializing_if="Option::is_none")] date: Option<String> },
     // Delete sets the task aside in the trash; only purge removes it for good.
     Delete { id: String, expected_revision: i64 },
     RestoreTrashed { id: String },

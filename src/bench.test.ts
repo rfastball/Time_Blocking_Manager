@@ -60,3 +60,16 @@ test('the preview store follows the bench rules of the Rust store',()=>{
   run({type:'update',id:'b',expected_revision:b.revision,title:'b',body:'',starts_at:null,duration:30,plan_date:null});
   assert.deepEqual(view(s.tasks,s.piles!),[[null,['b','c']]]);
 });
+
+test('the preview store records 미계획 completion on the given day and returns old dateless ones to the 투입구',()=>{
+  let s:Snapshot={epoch:'e',tasks:[card('a',null,1,{proto:true}),card('old',null,0,{completed:true,pile_order:null})],settings:{revision:1,days:[]},layouts:[],trash:[],piles:[]};
+  const run=(action:Action)=>{s=previewMutation(s,{request_id:crypto.randomUUID(),epoch:'e',action},new Set());return s;};
+  assert.throws(()=>run({type:'set_completed',id:'a',expected_revision:1,completed:true}),/날짜/);
+  run({type:'set_completed',id:'a',expected_revision:1,completed:true,date:'2026-10-11'});
+  const a=s.tasks.find(t=>t.id==='a')!;
+  assert.deepEqual([a.completed,a.plan_date,a.flow_order,a.proto,a.pile_order],[true,'2026-10-11',1,false,null]);
+  assert.deepEqual(s.layouts,[]);
+  assert.throws(()=>run({type:'update',id:'a',expected_revision:a.revision,title:'a',body:'',starts_at:null,duration:30,plan_date:null}),/완료한 작업/);
+  run({type:'set_completed',id:'old',expected_revision:1,completed:false});
+  assert.deepEqual(view(s.tasks,s.piles!),[[null,['old']]]);
+});

@@ -4,19 +4,20 @@ import {isCompositionKey} from '../../capture.ts';
 import {formatDuration} from '../../format.ts';
 import type {Task,Trashed} from '../../types.ts';
 import {setNav,useApp} from '../store/state.ts';
-import {closeComposer,deleteTask,editCapture,purgeTrashed,restoreTrashed,submitCapture,toggleComplete} from '../store/tasks.ts';
+import {clearArchive,closeComposer,deleteTask,editCapture,purgeTrashed,restoreTrashed,submitCapture,toggleComplete,uncomplete} from '../store/tasks.ts';
 import {openEditor} from '../store/editor.ts';
 import {settle} from '../ui/motion.ts';
 import {Icon} from '../ui/icons.tsx';
 import './inbox.css';
 
-// The 완료 and 휴지통 disclosures keep the user's choice while they visit other views.
-let doneOpenMemory=false,trashOpenMemory=false;
+// The archive and 휴지통 disclosures keep the user's choice while they visit other views.
+let archiveOpenMemory=false,trashOpenMemory=false;
 
 export function InboxPage(){
   const {snapshot,drafts,ready,draftLoaded,quitSaving,nav}=useApp();
-  const [doneOpen,setDoneOpen]=useState(doneOpenMemory),[trashOpen,setTrashOpen]=useState(trashOpenMemory),trash=snapshot!.trash??[];
-  const unplanned=snapshot!.tasks.filter(t=>!t.plan_date),open=unplanned.filter(t=>!t.completed),done=unplanned.filter(t=>t.completed);
+  const [archiveOpen,setArchiveOpen]=useState(archiveOpenMemory),[trashOpen,setTrashOpen]=useState(trashOpenMemory),trash=snapshot!.trash??[];
+  // Completions kept from before every completion had a date; nothing new arrives here.
+  const unplanned=snapshot!.tasks.filter(t=>!t.plan_date),open=unplanned.filter(t=>!t.completed),archived=unplanned.filter(t=>t.completed);
   const total=open.reduce((n,t)=>n+t.duration,0);
   return <section className="inbox-page" aria-label="미계획 목록">
     <div className="inbox-entry">
@@ -32,11 +33,14 @@ export function InboxPage(){
       <button type="button" className="btn" onClick={()=>setNav({view:'plan',planAnchor:nav.selected,inboxOpen:true})}>계획에 배치하기<Icon name="right" size={15}/></button>
     </div>}
     <Rows tasks={open}/>
-    {done.length>0&&<details className="inbox-done" open={doneOpen} onToggle={e=>{const o=e.currentTarget.open;doneOpenMemory=o;setDoneOpen(o);}}>
-      <summary>완료 {done.length}</summary>
-      {doneOpen&&(
-        <Rows tasks={done}/>
-      )}
+    {archived.length>0&&<details className="inbox-done inbox-archive" open={archiveOpen} onToggle={e=>{const o=e.currentTarget.open;archiveOpenMemory=o;setArchiveOpen(o);}}>
+      <summary>날짜 없는 완료 {archived.length}</summary>
+      {archiveOpen&&<>
+        <ul className="inbox-rows">
+          <AnimatePresence initial={false} mode="popLayout">{archived.map(t=><ArchiveRow key={t.id} task={t}/>)}</AnimatePresence>
+        </ul>
+        <div className="inbox-trash-foot"><button type="button" className="btn text" onClick={()=>void clearArchive(archived)}>보관 목록 비우기</button></div>
+      </>}
     </details>}
     {trash.length>0&&<details className="inbox-done inbox-trash" open={trashOpen} onToggle={e=>{const o=e.currentTarget.open;trashOpenMemory=o;setTrashOpen(o);}}>
       <summary>휴지통 {trash.length}</summary>
@@ -61,6 +65,14 @@ function TrashRow({item:t,next}:{item:Trashed;next:Trashed|undefined}){
     <div className="irow-main"><strong>{t.title}</strong><small><time dateTime={t.deleted_at}>{day}</time> 삭제</small></div>
     <button type="button" className="ibtn irow-restore" aria-label={`${t.title} 복원`} title="복원" onClick={async()=>{if(await restoreTrashed(t))refocus(next,'restore');}}><Icon name="undo" size={17}/></button>
     <button type="button" className="ibtn irow-purge" aria-label={`${t.title} 영구 삭제`} title="영구 삭제" onClick={async()=>{if(await purgeTrashed([t]))refocus(next,'purge');}}><Icon name="delete" size={17}/></button>
+  </motion.li>;
+}
+
+function ArchiveRow({task:t}:{task:Task}){
+  return <motion.li layout data-task={t.id} className="irow trashed" initial={{opacity:0,y:-18}} animate={{opacity:1,y:0}} exit={{opacity:0,scale:.98,transition:{duration:.12}}} transition={settle}>
+    <div className="irow-main"><strong>{t.title}</strong></div>
+    <button type="button" className="ibtn irow-restore" aria-label={`${t.title} 미완료로 되돌리기`} title="미완료로 되돌리기" onClick={()=>void uncomplete(t)}><Icon name="undo" size={17}/></button>
+    <button type="button" className="ibtn irow-purge" aria-label={`${t.title} 삭제`} title="삭제" onClick={()=>void deleteTask(t)}><Icon name="delete" size={17}/></button>
   </motion.li>;
 }
 

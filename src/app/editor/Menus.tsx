@@ -48,7 +48,7 @@ function ContextMenu({m}:{m:NonNullable<Ui['contextMenu']>}){
       ...(flow?[{label:'앞으로',disabled:at<=0,run:()=>void reorder(t,-1)},{label:'뒤로',disabled:at<0||at===order.length-1,run:()=>void reorder(t,1)},{label:'시각 고정…',run:()=>openEditor(t.id,mode,'fix')}]:[]),
       ...(t.starts_at?[{label:'고정 해제',run:()=>void unfix(t)}]:[]),
       ...(!t.completed&&t.duration>=30?[{label:'나누기 위치 정하기',run:()=>requestSplit(t.id,mode)}]:[]),
-      ...(t.plan_date?[{label:'미계획으로 옮기기',run:()=>void unplan(t)}]:[]),
+      ...(t.plan_date&&!t.completed?[{label:'미계획으로 옮기기',run:()=>void unplan(t)}]:[]),
       {label:'삭제',danger:true,run:()=>void deleteTask(t)},
     ];
   }else items=[

@@ -1,5 +1,14 @@
 # 검증 범위
 
+## 완료 정책 Test delta brief (2026-10-11)
+
+- Unique risk: 미계획 완료가 날짜 없는 기록으로 남거나 다른 날짜로 새고, 하루 비우기·미계획 이동이 완료 기록을 날짜 없이 만듦. 이전 날짜 없는 완료를 되돌릴 수 없음.
+- Existing owner / Selected layer: Rust storage owner에 완료 정책 사례 1개를 추가하고 하루 비우기 사례를 새 기대값으로 확장한다. 미리보기 일치는 `src/bench.test.ts`에 1개. 화면 경계는 기존 `scripts/ui-check/inbox.mjs` 완료 시나리오를 교체한다.
+- Expected cost delta: Rust +1 / 확장 2, Node +1, UI 시나리오 교체 1. 새 파일·dependency·CI lane 없음.
+- Evidence to retire: ‘완료하면 접힌 완료 목록으로 간다’는 UI 기대값을 ‘오늘 완료 칸에 기록된다’로 교체.
+
+Test delta 결과: Rust storage **22/22**, Node **52/52**, UI inbox **8/8**(완료 시나리오 3.68초), `npm run build` 통과.
+
 ## 작업대 저장소 v6 Test delta brief (2026-10-11)
 
 - Unique risk: 더미·프로토 관계가 저장·재시작·백업 복원·v5 이관에서 깨지거나, 빈 더미·고아 위치가 남아 미계획 일이 화면에서 사라짐. 미리보기 저장소가 Rust 규칙과 달라 브라우저 확인이 실제 앱과 다른 결과를 보임.

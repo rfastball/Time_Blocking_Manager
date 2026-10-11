@@ -41,7 +41,7 @@ fn clearing_a_day_checks_the_complete_revision_set_atomically() {
         let c=command(&s,Action::Reflow{date:date.into(),at:at.into()});s.apply(&c).unwrap();
     }
     let a=s.snapshot().unwrap().tasks.into_iter().find(|task|task.id=="a").unwrap();
-    let c=command(&s,Action::SetCompleted{id:a.id,expected_revision:a.revision,completed:true});s.apply(&c).unwrap();
+    let c=command(&s,Action::SetCompleted{id:a.id,expected_revision:a.revision,completed:true,date:None});s.apply(&c).unwrap();
     let before=s.snapshot().unwrap();
     let expected:Vec<_>=before.tasks.iter().filter(|t|t.id!="other").map(|t|TaskRevision{id:t.id.clone(),revision:t.revision}).collect();
     for bad in [vec![],vec![expected[0].clone()],vec![TaskRevision{revision:1,..expected[0].clone()},expected[1].clone()]] {
@@ -52,12 +52,13 @@ fn clearing_a_day_checks_the_complete_revision_set_atomically() {
     assert_eq!(s.apply(&invalid).unwrap_err().code,"validation");assert_eq!(s.snapshot().unwrap().tasks,before.tasks);
     let c=command(&s,Action::ClearDay{date:"2026-10-08".into(),expected_tasks:expected});
     let result=s.apply(&c).unwrap();assert_eq!(s.apply(&c).unwrap().tasks,result.tasks);
+    // Completed work stays on the cleared date as its record; open work goes back to 미계획.
     for old in before.tasks {
-        let task=result.tasks.iter().find(|t|t.id==old.id).unwrap();
+        let task=result.tasks.iter().find(|t|t.id==old.id).unwrap();let kept=old.id=="other"||old.completed;
         assert_eq!((task.title.clone(),task.body.clone(),task.completed),(old.title,old.body,old.completed));
-        assert_eq!(task.starts_at,if old.id=="other" {old.starts_at}else {None});
-        assert_eq!((task.plan_date.clone(),task.flow_order),if old.id=="other" {(old.plan_date,None)}else {(None,None)});
-        assert_eq!(task.revision,old.revision+i64::from(old.id!="other"));
+        assert_eq!(task.starts_at,if kept {old.starts_at}else {None});
+        assert_eq!((task.plan_date.clone(),task.flow_order),if kept {(old.plan_date,old.flow_order)}else {(None,None)});
+        assert_eq!(task.revision,old.revision+i64::from(!kept));
     }
     // Only the cleared date loses its layout anchor.
     assert_eq!(result.layouts,vec![DayLayout{date:"2026-10-09".into(),anchor:580}]);
@@ -254,7 +255,7 @@ fn verified_restore_preserves_original_and_rejects_old_queue() {
     let dir = tempdir().unwrap(); let mut s = Store::open(&dir.path().join("app.db")).unwrap();
     let a=create(&mut s,"a");let managed=s.create_backup(dir.path()).unwrap();
     let backup=managed_backup_path(dir.path(),&managed.id).unwrap();
-    let old = command(&s, Action::SetCompleted { id:a.id.clone(), expected_revision:a.revision, completed:true });
+    let old = command(&s, Action::SetCompleted { id:a.id.clone(), expected_revision:a.revision, completed:true,date:Some("2026-10-11".into()) });
     s.apply(&old).unwrap();
     let safety=backup.parent().unwrap().join(format!("before-restore-{}.sqlite",uuid::Uuid::new_v4()));
     let epoch=s.snapshot().unwrap().epoch;
@@ -306,7 +307,7 @@ fn backup_inspection_reports_validated_contents_without_changing_files() {
     let dir=tempdir().unwrap();let mut s=Store::open(&dir.path().join("app.db")).unwrap();
     let a=create(&mut s,"a");let c=command(&s,update(&a,"2026-10-08T10:00",30));
     let a=s.apply(&c).unwrap().tasks[0].clone();
-    let c=command(&s,Action::SetCompleted{id:a.id,expected_revision:a.revision,completed:true});s.apply(&c).unwrap();
+    let c=command(&s,Action::SetCompleted{id:a.id,expected_revision:a.revision,completed:true,date:None});s.apply(&c).unwrap();
     create(&mut s,"b");
     let source=dir.path().join("backup.db");s.backup(&source).unwrap();
     create(&mut s,"live-only");s.save_draft("main",1,"보존할 초안").unwrap();
@@ -524,7 +525,7 @@ fn completing_flow_moves_the_anchor_forward_atomically_and_survives_restore() {
     let cmd=complete(&s,vec![revision(&z)],None);let snap=s.apply(&cmd).unwrap();assert_eq!(snap.layouts[0].anchor,620);assert!(ordered(&snap,day).is_empty());
     // Completing twice conflicts; undo returns the same task to its preserved order.
     let cmd=complete(&s,vec![revision(&find(&snap,"x"))],None);assert_eq!(s.apply(&cmd).unwrap_err().code,"conflict");
-    let x=find(&snap,"x");let cmd=command(&s,Action::SetCompleted{id:x.id.clone(),expected_revision:x.revision,completed:false});
+    let x=find(&snap,"x");let cmd=command(&s,Action::SetCompleted{id:x.id.clone(),expected_revision:x.revision,completed:false,date:None});
     let undone=s.apply(&cmd).unwrap();assert_eq!(ordered(&undone,day),["x"]);assert_eq!(find(&undone,"x").flow_order,Some(1));
     let backup=dir.path().join("backup.db");s.backup(&backup).unwrap();
     assert_eq!(Store::inspect_backup(&backup).unwrap().scheduled,5);
@@ -548,7 +549,7 @@ fn trash_sets_work_aside_restores_it_in_place_and_purges_after_retention() {
     assert_eq!(trashed.trash.len(),1);assert_eq!(trashed.trash[0].task,b);
     let at=chrono::DateTime::parse_from_rfc3339(&trashed.trash[0].deleted_at).unwrap();assert!((chrono::Utc::now()-at.with_timezone(&chrono::Utc)).num_seconds().abs()<60);
     assert_eq!(s.apply(&cmd).unwrap().trash,trashed.trash);
-    for action in [Action::Delete{id:"b".into(),expected_revision:b.revision},Action::SetCompleted{id:"b".into(),expected_revision:b.revision,completed:true}] {
+    for action in [Action::Delete{id:"b".into(),expected_revision:b.revision},Action::SetCompleted{id:"b".into(),expected_revision:b.revision,completed:true,date:None}] {
         let cmd=command(&s,action);assert_eq!(s.apply(&cmd).unwrap_err().code,"conflict");
     }
     // Restoring puts it back at its old place in the day's order without duplicating order numbers.
@@ -562,7 +563,7 @@ fn trash_sets_work_aside_restores_it_in_place_and_purges_after_retention() {
     let again=restore(&s,"b");assert_eq!(s.apply(&again).unwrap_err().code,"conflict");
     // A fixed task whose time was taken meanwhile comes back as flow work on its date (D8/D9); completion is kept.
     let cmd=command(&s,Action::CreateScheduled{id:"fixed".into(),title:"고정".into(),starts_at:Some("2026-10-05T10:00".into()),duration:60});let fixed=find(&s.apply(&cmd).unwrap(),"fixed");
-    let cmd=command(&s,Action::SetCompleted{id:"fixed".into(),expected_revision:fixed.revision,completed:true});let fixed=find(&s.apply(&cmd).unwrap(),"fixed");
+    let cmd=command(&s,Action::SetCompleted{id:"fixed".into(),expected_revision:fixed.revision,completed:true,date:None});let fixed=find(&s.apply(&cmd).unwrap(),"fixed");
     let cmd=delete(&s,&fixed);s.apply(&cmd).unwrap();
     let cmd=command(&s,Action::CreateScheduled{id:"taker".into(),title:"새 예약".into(),starts_at:Some("2026-10-05T10:30".into()),duration:30});s.apply(&cmd).unwrap();
     let cmd=restore(&s,"fixed");let snap=s.apply(&cmd).unwrap();let back=find(&snap,"fixed");
@@ -688,4 +689,30 @@ fn v5_unplanned_work_becomes_the_inbox_pile_in_list_order() {
     let s=Store::open(&path).unwrap();let snap=s.snapshot().unwrap();
     assert_eq!(bench(&snap),vec![(None,ids(&["k","m","z"]))]);assert!(snap.tasks.iter().all(|t|!t.proto));
     assert_eq!(Store::list_backups(dir.path()).unwrap().iter().filter(|b|b.kind=="migration").count(),1);
+}
+
+#[test]
+fn completion_always_has_a_date_and_old_dateless_completions_can_return() {
+    let dir=tempdir().unwrap();let path=dir.path().join("app.db");let mut s=Store::open(&path).unwrap();let today="2026-10-11";
+    flow(&mut s,"before",today,60);
+    let c=command(&s,Action::Reflow{date:today.into(),at:"2026-10-11T10:00".into()});s.apply(&c).unwrap();
+    let a=create(&mut s,"a");create(&mut s,"b");
+    // 미계획 work is completed onto a day: the day's completion, after its order, with nothing laid out again.
+    let done=|s:&Store,t:&Task,date:Option<&str>|command(s,Action::SetCompleted{id:t.id.clone(),expected_revision:t.revision,completed:true,date:date.map(Into::into)});
+    for date in [None,Some("2026-13-01")] {let c=done(&s,&a,date);assert_eq!(s.apply(&c).unwrap_err().code,"validation");}
+    let c=done(&s,&a,Some(today));let snap=s.apply(&c).unwrap();let a=find(&snap,"a");
+    assert_eq!((a.completed,a.plan_date.as_deref(),a.flow_order,a.proto,a.pile_id.clone(),a.pile_order),(true,Some(today),Some(2),false,None,None));
+    assert_eq!(snap.layouts,vec![DayLayout{date:today.into(),anchor:600}]);
+    assert_eq!(bench(&snap),vec![(None,ids(&["b"]))]);
+    // Dated work keeps its own date whatever the request says.
+    let before=find(&snap,"before");let c=done(&s,&before,Some("2026-10-20"));assert_eq!(find(&s.apply(&c).unwrap(),"before").plan_date.as_deref(),Some(today));
+    // Undone, it is that day's open work; done work cannot be sent back to 미계획 without undoing it.
+    let c=command(&s,place(&a,None,None));assert_eq!(s.apply(&c).unwrap_err().code,"validation");
+    let c=command(&s,Action::SetCompleted{id:"a".into(),expected_revision:a.revision,completed:false,date:None});let snap=s.apply(&c).unwrap();
+    assert_eq!(ordered(&snap,today),["a"]);
+    // A completion stored before this rule has no date; it stays valid and, undone, goes on top of the 투입구.
+    {rusqlite::Connection::open(&path).unwrap().execute("UPDATE tasks SET completed=1,proto=0,pile_order=NULL WHERE id='b'",[]).unwrap();}
+    drop(s);let mut s=Store::open(&path).unwrap();let b=find(&s.snapshot().unwrap(),"b");assert!(b.completed&&b.plan_date.is_none());
+    let c=command(&s,Action::SetCompleted{id:"b".into(),expected_revision:b.revision,completed:false,date:None});
+    assert_eq!(bench(&s.apply(&c).unwrap()),vec![(None,ids(&["b"]))]);
 }

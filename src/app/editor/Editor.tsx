@@ -86,7 +86,7 @@ export function Editor({mode,closer}:{mode:'panel'|'dialog';closer?:MutableRefOb
   }
   const more=[
     ...(saved&&!saved.completed&&saved.duration>=30?[{label:'블록 나누기',run:()=>requestSplit(e.id,mode)}]:[]),
-    ...(e.plan_date?[{label:'미계획으로 돌리기',run:()=>{setFix({on:false,at:''});edit({plan_date:null,starts_at:null});}}]:[]),
+    ...(e.plan_date&&!e.completed?[{label:'미계획으로 돌리기',run:()=>{setFix({on:false,at:''});edit({plan_date:null,starts_at:null});}}]:[]),
     ...(saved?[{label:'삭제',danger:true,run:()=>void deleteTask(saved)}]:[]),
   ];
 

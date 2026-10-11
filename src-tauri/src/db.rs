@@ -514,7 +514,8 @@ impl Store {
                 let expected=unique_revisions(expected_tasks,"하루 초기화 항목 정보를 확인하세요.")?;
                 let scheduled:Vec<_>=snapshot.tasks.iter().filter(|task|task.plan_date.as_deref()==Some(date.as_str())).collect();
                 if scheduled.len()!=expected.len() || scheduled.iter().any(|task|expected.get(&task.id)!=Some(&task.revision)) {return Err(error("conflict","다른 창에서 하루 일정이 변경됐습니다. 다시 확인하세요."));}
-                for task in &scheduled {tx.execute("UPDATE tasks SET starts_at=NULL,plan_date=NULL,flow_order=NULL,revision=revision+1 WHERE id=?1",[&task.id])?;}
+                // Completed work stays as that day's record; only open work goes back to 미계획.
+                for task in scheduled.iter().filter(|t|!t.completed) {tx.execute("UPDATE tasks SET starts_at=NULL,plan_date=NULL,flow_order=NULL,revision=revision+1 WHERE id=?1",[&task.id])?;}
                 // The day's open work goes on top of the 투입구 in the order it was planned.
                 let mut open:Vec<_>=scheduled.iter().filter(|t|!t.completed).collect();
                 open.sort_by(|a,b|a.flow_order.is_none().cmp(&b.flow_order.is_none()).then(a.flow_order.cmp(&b.flow_order)).then(a.starts_at.cmp(&b.starts_at)).then(a.id.cmp(&b.id)));
@@ -619,6 +620,7 @@ impl Store {
                         if derived.is_some() && plan_date.is_some() && derived!=*plan_date {return Err(error("validation","시각을 고정한 날짜와 계획 날짜가 다릅니다."));}
                         let date=derived.or_else(||plan_date.clone());
                         if let Some(date)=&date {parse_date(date)?;}
+                        if date.is_none() && current.completed && current.plan_date.is_some() {return Err(error("validation","완료한 작업은 미계획으로 옮길 수 없어요. 완료를 취소한 뒤 옮겨 주세요."));}
                         let mut shift=None;
                         let flow_order=match (starts_at,&date,before) {
                             (None,Some(date),Some(before)) => {
@@ -641,7 +643,18 @@ impl Store {
                         // Sent back to 미계획 by a button: on top of the 투입구.
                         if task.plan_date.is_none()&&current.plan_date.is_some()&&!current.completed {place(&tx,std::slice::from_ref(id),None,0)?;}
                     }
-                    Action::SetCompleted { completed, .. } => { tx.execute("UPDATE tasks SET completed=?1,revision=revision+1 WHERE id=?2 AND revision=?3", params![completed,id,revision])?; }
+                    Action::SetCompleted { completed, date, .. } => {
+                        if *completed && !current.completed && current.plan_date.is_none() {
+                            // There is no completion without a date: 미계획 work done now is that day's completion. Nothing is laid out again.
+                            let date=date.as_deref().ok_or_else(||error("validation","완료한 날짜를 확인하세요."))?;
+                            parse_date(date)?;
+                            tx.execute("UPDATE tasks SET completed=1,plan_date=?1,flow_order=?2,proto=0,revision=revision+1 WHERE id=?3 AND revision=?4",params![date,next_flow_order(&snapshot.tasks,date),id,revision])?;
+                        } else {
+                            tx.execute("UPDATE tasks SET completed=?1,revision=revision+1 WHERE id=?2 AND revision=?3", params![completed,id,revision])?;
+                            // A completion kept from before that rule has no date; undone, the work goes back on top of the 투입구.
+                            if !*completed && current.completed && current.plan_date.is_none() {place(&tx,std::slice::from_ref(id),None,0)?;}
+                        }
+                    }
                     Action::Delete { .. } => { tx.execute("UPDATE tasks SET deleted_at=?1 WHERE id=?2 AND revision=?3", params![trash_stamp(chrono::Utc::now()),id,revision])?; }
                     _ => unreachable!(),
                 }

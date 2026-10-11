@@ -27,7 +27,7 @@ export function Plan(){
   const {nav,snapshot,drafts}=useApp();
   const drawerToggle=useRef<HTMLButtonElement>(null);
   const settings=drafts.settingsDraft??snapshot!.settings,week=weekCapacity(settings,nav.selected);
-  const inbox=inboxTasks(),dated=snapshot!.tasks.some(t=>t.plan_date===nav.selected);
+  const inbox=inboxTasks(),dated=snapshot!.tasks.some(t=>t.plan_date===nav.selected&&!t.completed);
   const dates=periodDates(nav.period,nav.planAnchor),open=nav.inboxOpen;
   return <div className="plan">
     <div className="plan-bar">
