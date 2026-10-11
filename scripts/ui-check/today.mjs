@@ -58,9 +58,11 @@ export default [
   }},
   {name:'the grip resizes and the following blocks are laid out again',run:async page=>{
     await page.js(`document.querySelector('.today-day .blk.next')?.dispatchEvent(new MouseEvent('mouseover',{bubbles:true}))`);
-    const grip=await page.rect('.today-day .blk.next .grip');
+    const grip=await page.rect('.today-day .blk.next .grip'),before=await page.rect('.today-day .blk.next');
     await page.mouse('mouseMoved',grip.cx,grip.cy,0);await page.mouse('mousePressed',grip.cx,grip.cy);
-    for(let i=1;i<=6;i++){await page.mouse('mouseMoved',grip.cx,grip.cy+i*6);await page.sleep(16);}
+    await page.mouse('mouseMoved',grip.cx,grip.cy+36);
+    const resized=await page.js(`new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve(document.querySelector('.today-day .blk.next').getBoundingClientRect().bottom))))`);
+    assert.ok(Math.abs(resized-(before.y+before.h)-36)<=2,`the snapped resize boundary follows the 36px drag within two frames (${resized-(before.y+before.h)}px)`);
     await page.mouse('mouseReleased',grip.cx,grip.cy+36,0);await page.sleep(700);
     // Each scenario starts from the preview data: 60 → 90 minutes pushes the next block to 10:30.
     assert.deepEqual((await page.blocks(space)).slice(0,2),['설계 문서 자료 조사, 예상 09:00–10:30','설계 문서 초안 작성, 예상 10:30–11:15']);

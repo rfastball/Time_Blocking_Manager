@@ -81,18 +81,28 @@ export default [
     assert.deepEqual(await titles(page,sp(other)),['회의록 정리','설계 문서 초안 작성']);
   }},
   // Kept on today's column: the neighbouring column is a past day on every weekday but Monday.
-  {name:'held over a body the copy settles on its slot and shows the time it will get',run:async page=>{
+  {name:'held over a body follows the pointer through a reversal while its hollow shows the eventual slot',run:async page=>{
     await toPlan(page);
     const {today}=await days(page),y16=await hourY(page,16),c=await block(page,today,'회의록 정리');
     assert.ok(await page.js(`(()=>{const s=document.querySelector('${sp(today)}'),shoe=s.querySelector('.blk.flow .runner .shoe').getBoundingClientRect(),rail=s.querySelector('.rail').getBoundingClientRect();return Math.abs((shoe.left+shoe.right)/2-(rail.left+rail.right)/2)<=1.5;})()`),'flow blocks ride the rail groove on a runner');
-    // The hollow springs into its slot; measure once it has come to rest.
-    const during=await page.drag({x:c.x+40,y:c.y+6},{x:c.x+40,y:y16+6},{hold:900,before:async()=>{await page.shot('plan-held-slot');return page.js(`(()=>{
+    const from={x:c.x+40,y:c.y+6},moves=[{x:c.x+40,y:y16+6},{x:c.x+48,y:y16-36},{x:c.x+40,y:y16+6}];
+    await page.mouse('mouseMoved',from.x,from.y,0);await page.mouse('mousePressed',from.x,from.y);
+    await page.mouse('mouseMoved',from.x,from.y+6);
+    assert.ok(await page.js(`new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve(!!document.querySelector('.held')))))`),'the held copy is ready before measuring motion');
+    for(const move of moves){
+      await page.mouse('mouseMoved',move.x,move.y);
+      const held=await page.js(`new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>{const r=document.querySelector('.held')?.getBoundingClientRect();resolve({left:r?.left,top:r?.top});})))`);
+      assert.ok(Math.abs(held.top-(move.y-6))<=3,`the held copy follows the pointer vertically within two frames (${held.top}px for ${move.y}px)`);
+      assert.ok(Math.abs(held.left-(c.x+move.x-from.x))<=3,`the held copy follows the pointer horizontally within two frames (${held.left}px for ${move.x}px)`);
+    }
+    const during=await page.js(`(()=>{
       const hollow=document.querySelector('${sp(today)} .blk.hollow'),held=document.querySelector('.held');
-      return {gap:Math.abs(held.getBoundingClientRect().top-hollow.getBoundingClientRect().top),fixed:held.classList.contains('fixed'),
-        range:hollow.querySelector('.main').getAttribute('aria-label').match(/\\d\\d:\\d\\d–\\d\\d:\\d\\d/)[0],held:held.textContent};})()`);}});
-    assert.ok(during.gap<=3,`the copy sits on the hollow, not under the pointer (${during.gap}px off)`);
-    assert.ok(during.held.includes(during.range),'the copy shows the time it will get');
+      return {fixed:held.classList.contains('fixed'),range:hollow.querySelector('.main').getAttribute('aria-label').match(/\\d\\d:\\d\\d–\\d\\d:\\d\\d/)[0],held:held.textContent};})()`);
+    await page.shot('plan-held-slot');
+    assert.ok(during.held.includes(during.range),'the held copy shows the hollow’s eventual time');
     assert.equal(during.fixed,false,'the body only orders');
+    await page.mouse('mouseReleased',moves.at(-1).x,moves.at(-1).y,0);await page.sleep(700);
+    assert.ok((await page.blocks(sp(today))).includes(`회의록 정리, 예상 ${during.range}`),'drop keeps the intended hollow position');
   }},
   {name:'pushed into the rail a block latches to that time; a fixed block slides along and lets go when pulled away',run:async page=>{
     await toPlan(page);

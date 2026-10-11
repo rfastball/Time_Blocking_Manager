@@ -10,7 +10,7 @@ import {setUi,useApp} from '../store/state.ts';
 import {completeTasks,dayRule,issueAt,reorder,resize,setGesture,taskMinute,uncomplete} from '../store/tasks.ts';
 import {blockButton} from '../editor/actions.ts';
 import {openAvailability} from '../store/schedule.ts';
-import {bump,rise,settle,sink,reduced} from '../ui/motion.ts';
+import {reflow,reduced} from '../ui/motion.ts';
 import {Icon,Lock} from '../ui/icons.tsx';
 import {COLUMN_GEOMETRY,DAY_GEOMETRY,runnerReach,isGestureActive,useDrag,useRegion,type Geometry} from './drag.tsx';
 import './space.css';
@@ -86,14 +86,14 @@ export function DaySpace({date,axis,variant,bin,selected,multi=[],onOpen,onMulti
       onContextMenu={e=>{if(e.target!==e.currentTarget)return;e.preventDefault();const r=e.currentTarget.getBoundingClientRect();menu(e,null,Math.round(axis.minute(e.clientY-r.top)/15)*15);}}>
       <Ground axis={axis} rule={rule} geometry={geometry} date={date}/>
       <motion.div className="shutter" aria-hidden="true" style={{left:geometry.railLeft+1,width:geometry.railWidth-2,top:axis.position(rule.start),visibility:anchor>rule.start?'visible':'hidden'}}
-        animate={{height:Math.max(0,axis.position(anchor)-axis.position(rule.start))}} transition={{type:'spring',visualDuration:.55,bounce:0}}/>
+        animate={{height:Math.max(0,axis.position(anchor)-axis.position(rule.start))}} transition={reduced()?{duration:0}:reflow}/>
       {/* The ceiling flow work is drawn up against: the shutter's edge carried across the body. */}
       {plan.items.some(i=>!i.fixed)&&<motion.div className="ceiling" aria-hidden="true" style={{left:geometry.railLeft+geometry.railWidth}}
-        initial={false} animate={{top:axis.position(anchor)}} transition={{type:'spring',visualDuration:.55,bounce:0}}/>}
+        initial={false} animate={{top:axis.position(anchor)}} transition={reduced()?{duration:0}:reflow}/>}
       {date===today&&<AnchorFlash top={axis.position(anchor)} left={geometry.railLeft} anchor={anchor}/>}
       <AnimatePresence initial={false} custom={doneIds}>
         {plan.items.map(item=><Block key={item.task.id} item={item} axis={axis} geometry={geometry} variant={variant} next={item.task.id===nextId}
-          hollow={holding?.task.id===item.task.id} selected={selected===item.task.id&&!multi.length} multi={multi.includes(item.task.id)} squash={squash.includes(item.task.id)}
+          hollow={holding?.task.id===item.task.id} resizing={sizing?.id===item.task.id} selected={selected===item.task.id&&!multi.length} multi={multi.includes(item.task.id)} squash={squash.includes(item.task.id)}
           landed={ui.landed?.id===item.task.id?ui.landed:null}
           onCheck={()=>void check(byId(item.task.id))} onGrip={e=>grip(e,byId(item.task.id))} onNudge={(d,order,el)=>void nudge(item.task.id,d,order,el)}
           onOpen={e=>{if((e.shiftKey||e.ctrlKey||e.metaKey)&&onMulti){onMulti(byId(item.task.id));return;}onOpen(byId(item.task.id));}}
@@ -148,11 +148,11 @@ function Bin({tasks,onOpen}:{tasks:Task[];onOpen:(t:Task)=>void}){
   </>;
 }
 
-type BlockProps={item:DayItem;axis:TimeAxis;geometry:Geometry;variant:'day'|'column';next:boolean;hollow:boolean;selected:boolean;multi:boolean;squash:boolean;landed:{clack:boolean}|null;
+type BlockProps={item:DayItem;axis:TimeAxis;geometry:Geometry;variant:'day'|'column';next:boolean;hollow:boolean;resizing:boolean;selected:boolean;multi:boolean;squash:boolean;landed:{clack:boolean}|null;
   onCheck:()=>void;onOpen:(e:ReactMouseEvent)=>void;onMenu:(e:{clientX:number;clientY:number})=>void;onGrip:(e:ReactPointerEvent<HTMLButtonElement>)=>void;onNudge:(delta:number,order:boolean,el:HTMLElement)=>void};
 // Blocks are placed with `top`, never a transform: dnd-kit measures boxes without transforms.
 // Only completion pulls a block up into the intake; any other departure just fades.
-function Block({item,axis,geometry:g,variant,next,hollow,selected,multi,squash,landed,onCheck,onOpen,onMenu,onGrip,onNudge}:BlockProps){
+function Block({item,axis,geometry:g,variant,next,hollow,resizing,selected,multi,squash,landed,onCheck,onOpen,onMenu,onGrip,onNudge}:BlockProps){
   const t=item.task,{listeners,setNodeRef}=useDraggable({id:`${variant}:${t.id}`,data:{taskId:t.id},disabled:item.fixed&&t.completed});
   const top=axis.position(item.start)+1,h=Math.max(10,axis.position(item.end)-axis.position(item.start)-2);
   const range=`${time(item.start)}–${time(item.end)}`;
@@ -165,25 +165,17 @@ function Block({item,axis,geometry:g,variant,next,hollow,selected,multi,squash,l
     e.preventDefault();onNudge(e.key==='ArrowUp'?-1:1,e.altKey,e.currentTarget);
   };
   const keys=t.completed?'Shift+F10':(orderable?'Alt+ArrowUp Alt+ArrowDown ':'')+'ArrowUp ArrowDown Shift+F10';
-  // Which way the block last moved. Kept until `top` changes again, so unrelated renders do not forget it.
-  const move=useRef<{to:number;dir:'up'|'down'|null;knock:boolean}>({to:top,dir:null,knock:false});
-  if(move.current.to!==top)move.current={to:top,dir:top<move.current.to?'up':'down',knock:top<move.current.to};
-  const drawn=!item.fixed&&!reduced(),[tileRef,animateTile]=useAnimate();
-  // A flow block drawn up knocks against the ceiling or the block above once it gets there.
-  function arrived(){
-    if(!drawn||!move.current.knock||squash||landed||hollow||!tileRef.current)return;
-    move.current.knock=false;void animateTile(tileRef.current,bump,{duration:.22,ease:'easeOut'});
-  }
+  const immediate=hollow||reduced();
   return <motion.div ref={setNodeRef} data-block="true" className={cls} style={{left:item.fixed?g.fixedLeft:g.flowLeft,right:g.right}}
-    initial={{top,height:h,opacity:0}} animate={{top,height:h,opacity:1}} onAnimationComplete={arrived}
+    initial={{top,height:h,opacity:0}} animate={{top,height:h,opacity:1}}
     variants={{leave:(done:Set<string>)=>done?.has(t.id)
       ?{y:-(top+h+40),scaleX:.5,scaleY:1.4,opacity:0,transition:{duration:reduced()?0:.3,ease:[.6,0,.9,.35]}}
       :{opacity:0,transition:{duration:.12}}}}
-    exit="leave" transition={drawn&&move.current.dir?{...settle,top:move.current.dir==='up'?rise:sink}:settle} {...listeners} tabIndex={-1} role="presentation" onContextMenu={e=>{e.preventDefault();if(!isGestureActive())onMenu(e);}}>
+    exit="leave" transition={{...reflow,duration:immediate?0:reflow.duration,height:{...reflow,duration:immediate||resizing?0:reflow.duration}}} {...listeners} tabIndex={-1} role="presentation" onContextMenu={e=>{e.preventDefault();if(!isGestureActive())onMenu(e);}}>
     {/* A flow block rides the rail on a runner in its groove: free to slide, and pushed further it latches to a time. */}
     {orderable&&<span className="runner" aria-hidden="true" style={{width:runnerReach(g)}}><i className="stem"/><i className="shoe"/></span>}
-    <motion.div ref={tileRef} className="tile" animate={squash?{scaleX:1.05,scaleY:.86}:landed&&!landed.clack?{scaleX:[1.03,1.025,.99,1],scaleY:[1.03,.93,1.025,1]}:{scaleX:1,scaleY:1}}
-      transition={squash?{duration:.1}:landed&&!landed.clack?{duration:.45}:{duration:.15}} style={{transformOrigin:'50% 100%'}}>
+    <motion.div className="tile" animate={squash?{scaleX:1.05,scaleY:.86}:{scaleX:1,scaleY:1}}
+      transition={{duration:reduced()?0:.1}} style={{transformOrigin:'50% 100%'}}>
       {item.fixed&&<Latch clack={!!landed?.clack}/>}
       <button type="button" className="chk" aria-label={t.title+(t.completed?' 완료 취소':' 완료')} aria-pressed={t.completed} onPointerDown={e=>e.stopPropagation()} onTouchStart={e=>e.stopPropagation()} onClick={onCheck}><Icon name="check" size={12} stroke={3}/></button>
       <button type="button" className="main" aria-label={`${t.title}, ${item.fixed?'시각 고정':'예상'} ${range}, ${formatDuration(t.duration)}${item.over?', 근무 외':''}${next?', 다음':''}${t.completed?', 완료':''}`} onClick={onOpen} onKeyDown={key} aria-keyshortcuts={keys} data-task={t.id}>

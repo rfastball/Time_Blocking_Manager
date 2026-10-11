@@ -1,5 +1,14 @@
 # 검증 범위
 
+## 반응형 드래그 모션 Test delta brief (2026-10-11)
+
+- Unique risk: 본문 위에서 드래그 중인 복사본이 포인터 이동·방향 전환 뒤 두 프레임 안에 따라오지 않거나, 크기 조절 경계가 드래그 중에는 갱신되지 않아 사용자가 놓기 전 결과를 알 수 없음. 기존 최종 배치 단언은 이 상호작용 지연을 검출하지 못한다.
+- Existing owner / Selected layer: 명시적 `scripts/ui-check/{plan,today}.mjs`의 실제 DOM·포인터 Edge 경계. 같은 시나리오에서 held/hollow, 드롭 결과, grip 배치까지 확인하므로 새 사례나 순수 소스 검사는 중복이다.
+- Expected cost delta: 기존 시나리오 2개를 확장하고 900ms 정착 대기를 두 rAF 관찰로 교체한다. 시나리오·파일·worker·브라우저 launch·CI lane·coverage floor 증가 0.
+- Evidence to retire: 본문 드래그 중 held와 hollow가 같은 좌표에서 정착한다는 구 기대값. hollow의 최종 범위·held 텍스트·드롭 결과와 포인터 추종 관찰로 대체한다.
+
+Test delta 결과: **0 added / 2 extended / 0 removed**, 기존 today 8 / plan 16 수집 유지. 가로·세로 방향 전환과 크기 조절 중의 두 rAF 관찰을 추가하고 최종 배치 단언을 유지했다. 기본 Node **43/43 · 153.9613ms**, worker·CI lane·coverage floor 변화 0. 첫 editor/plan/today 묶음 33/34 뒤 센서 활성화와 추종 측정을 분리했으며, 계획 재검증 **16/16 · 시나리오 합계 70.542초**와 변경 없는 editor/today **18/18**로 대상 34개를 확인했다. 짧은 블록 표시 통합 보완 뒤 같은 포인터 시나리오를 별도로 재확인했다. 정규 UI lane의 브라우저 launch delta 0이며, 이번 계측·재확인용 실행은 기본 suite에 추가하지 않았다. 전체 UI runtime delta는 동일 조건 baseline 부재로 미측정이다.
+
 ## 대시보드 감사 후속 Test delta brief (2026-10-11)
 
 - Unique risk: 대기열 완료·상세/드로어 닫기 후 포커스가 사라짐, 최소 창에서 미계획 입력이 긴 시간표 아래로 밀림, 지난 날짜 텍스트의 대비 부족, 접힌 완료·휴지통 목록의 불필요한 DOM 생성.
