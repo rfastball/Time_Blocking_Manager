@@ -29,5 +29,8 @@
 .q-row.next .chk{color:var(--color-action)}
 .q-row.over .q-time{color:color-mix(in srgb,var(--color-overdue) 70%,var(--color-text-muted))}
 .q-row.sel .q-main{background:var(--color-selection)}
-@media (max-width:1100px){.today-cols{grid-template-columns:280px minmax(0,1fr)}.today-side{grid-column:2}}
-@media (max-width:760px){.today-cols{grid-template-columns:minmax(0,1fr)}.today-side{grid-column:auto}}
+@media (max-width:1100px){
+  .today-cols{grid-template-columns:280px minmax(0,1fr);grid-template-rows:auto 1fr;grid-template-areas:"day main" "day side"}
+  .today-day{grid-area:day}.today-main{grid-area:main}.today-side{grid-area:side}
+}
+@media (max-width:760px){.today-cols{grid-template-columns:minmax(0,1fr);grid-template-rows:none;grid-template-areas:"day" "main" "side"}}

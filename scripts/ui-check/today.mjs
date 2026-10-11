@@ -70,4 +70,15 @@ export default [
     assert.equal(await page.js('document.querySelector(".today-day .blk.sel")?.textContent.includes("설계 문서 초안")'),true);
     assert.ok(await page.js('!!document.querySelector(".today-main [aria-label=\'블록 상세\']")'));
   }},
+  {name:'at 960px 미계획 follows the main cards without waiting for the timeline',viewport:{width:960,height:640},run:async page=>{
+    const main=await page.rect('.today-main'),side=await page.rect('.today-side'),day=await page.rect('.today-day');
+    assert.ok(Math.abs(side.y-main.y-main.h-18)<=2,'the side starts directly below the main cards');
+    assert.ok(side.y<day.y+day.h,'the tall timeline does not push capture below the whole day');
+    assert.ok(await page.js(`document.documentElement.scrollWidth<=innerWidth`),'the page fits the viewport');
+    await page.js(`document.querySelector('.today-side #tray-capture').focus()`);
+    const capture=await page.rect('.today-side #tray-capture');
+    assert.equal(await page.js(`document.activeElement?.id`),'tray-capture');
+    assert.ok(capture.y>=0&&capture.y+capture.h<=640,'focusing capture scrolls it into view');
+    await page.shot('today-960');
+  }},
 ];
