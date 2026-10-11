@@ -88,10 +88,10 @@ export function CutBoard({mode}:{mode:'inline'|'dialog'}){
       <div ref={block} className={'cut-block'+(knife?' knifing':'')} style={{height:y}} onPointerMove={hover} onPointerLeave={()=>{if(knife)setKnife(null);}} onClick={press}>
         {segs.map((s,i)=>{const last=i===n-1,label=s.name||c.title||task.title;return <Fragment key={s.key}>
           <div className={'cut-seg'+(s.sized?'':' proto')+(s.done?' done':'')+(i===0?' first':'')+(last?' last':'')+(grab===i?' grabbed':'')} style={{top:tops[i],height:heightOf(s)}}>
-            {many&&<button type="button" className="cut-grip" aria-label={`${label} 조각 순서 옮기기`} onPointerDown={e=>grip(e,i)}><Icon name="more" size={12} stroke={3}/></button>}
+            {many&&<button type="button" className="cut-grip" tabIndex={-1} aria-hidden="true" onPointerDown={e=>grip(e,i)}><Icon name="more" size={12} stroke={3}/></button>}
             {many&&<button type="button" className="cut-check" aria-label={`${label} 조각 완료`} aria-pressed={s.done} onClick={()=>set(segs.map((x,j)=>j===i?{...x,done:!x.done}:x))}><Icon name="check" size={10} stroke={3.5}/></button>}
             <label className="sr-only" htmlFor={'seg-'+s.key}>{i+1}번째 조각 이름</label>
-            <input id={'seg-'+s.key} className="cut-name" autoComplete="off" maxLength={650} placeholder={c.title||task.title} value={s.name}
+            <input id={'seg-'+s.key} className="cut-name" aria-keyshortcuts="Enter Control+ArrowUp Control+ArrowDown Alt+ArrowUp Alt+ArrowDown" autoComplete="off" maxLength={650} placeholder={c.title||task.title} value={s.name}
               onChange={e=>editCut({segs:segs.map((x,j)=>j===i?{...x,name:e.target.value}:x)})} onKeyDown={e=>nameKeys(e,i)}/>
             <span className="cut-len">{s.sized?formatDuration(s.duration):''}</span>
           </div>
@@ -108,16 +108,17 @@ export function CutBoard({mode}:{mode:'inline'|'dialog'}){
           onKeyDown={e=>{if(e.key!=='Enter'||isCompositionKey(e.nativeEvent))return;e.preventDefault();const v=add.trim();if(!v)return;set(addPiece(segs,v));setAdd('');}}/>
       </div>
       {failure&&<p className="cut-error error" role="alert">{failure}</p>}
-      <div className="cut-foot">
-        <button type="button" className="btn" onClick={cancelCut}>취소</button>
-        <button type="button" className="btn primary" disabled={busy} onClick={()=>void commitCut()}>{many?`${n}개로 나누기`:'닫기'}</button>
-      </div>
     </div>
     <div className="cut-side">
       <span className="cut-where">{cutPlace(task.id)}</span>
       <label className="sr-only" htmlFor="cut-memo">메모</label>
       <textarea id="cut-memo" className="cut-memo" placeholder="메모" rows={8} value={c.body} onChange={e=>editCut({body:e.target.value})}/>
       {items.length>1&&!many&&<button type="button" className="btn" onClick={()=>{const r=fromChecklist(c.body,segs);if(r){editCut({segs:r.segs,body:r.body});focusSeg(r.segs[0].key);}}}>체크 항목으로 나누기</button>}
+    </div>
+    {/* After the memo, so a stacked board still ends with its commit. */}
+    <div className="cut-foot">
+      <button type="button" className="btn" onClick={cancelCut}>취소</button>
+      <button type="button" className="btn primary" disabled={busy} onClick={()=>void commitCut()}>{many?`${n}개로 나누기`:'닫기'}</button>
     </div>
   </div>;
 }

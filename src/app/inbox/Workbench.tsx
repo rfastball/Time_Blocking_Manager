@@ -90,7 +90,7 @@ function PileColumn({pile:p,visual,piles,holding,onOpen}:{pile:PileView;visual:n
   }
   return <>
     <div className={'wb-pile'+(inbox?' inbox':'')+(merge?' hot':'')+(carryingThis&&!holding?.dropping?' lifted':'')} data-pile={p.id??''}>
-      <button ref={el=>{handle.current=el;setNodeRef(el);}} type="button" className={'wb-handle'+(all?' sel':'')} data-pile-handle data-block="true" aria-label={pileName(p)+(all?', 선택됨':'')} aria-haspopup="menu"
+      <button ref={el=>{handle.current=el;setNodeRef(el);}} type="button" className={'wb-handle'+(all?' sel':'')} data-pile-handle data-block="true" aria-label={pileName(p)} aria-pressed={all} aria-keyshortcuts="Shift+F10 Alt+ArrowLeft Alt+ArrowRight"
         {...listeners} onClick={(e:MouseEvent)=>selectPile(p,e.shiftKey||e.ctrlKey||e.metaKey)} onKeyDown={keys}
         onContextMenu={e=>{e.preventDefault();setMenu({x:e.clientX,y:e.clientY});}}>
         <Dots/>{inbox&&<strong>투입구</strong>}{p.cards.length>0&&<span>{p.cards.length} · {formatDuration(p.total)}</span>}

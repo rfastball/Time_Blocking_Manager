@@ -97,5 +97,7 @@ function FoundRing(){
     return ()=>{cancelAnimationFrame(raf);clearTimeout(done);removeEventListener('scroll',place,true);removeEventListener('resize',place);};
   },[]);
   if(!box)return null;
-  return <motion.div className="found-ring" aria-hidden="true" style={box} initial={{opacity:0}} animate={{opacity:[0,1,1,0]}} transition={{duration:reduced()?0:1.6,times:[0,.1,.75,1]}}/>;
+  // Without motion the ring simply stands, then goes with the found state.
+  if(reduced())return <div className="found-ring" aria-hidden="true" style={box}/>;
+  return <motion.div className="found-ring" aria-hidden="true" style={box} initial={{opacity:0}} animate={{opacity:[0,1,1,0]}} transition={{duration:1.6,times:[0,.1,.75,1]}}/>;
 }
