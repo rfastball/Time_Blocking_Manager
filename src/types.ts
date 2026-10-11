@@ -1,6 +1,8 @@
 // plan_date only: flow plan ordered by flow_order. starts_at: fixed at that time. Neither: unplanned.
 // proto: captured with no chosen length yet. pile_id/pile_order: open unplanned work's place on the bench (pile_id null: the 투입구).
 export interface Task { id:string; title:string; body:string; starts_at:string|null; duration:number; completed:boolean; revision:number; plan_date:string|null; flow_order:number|null; proto?:boolean; pile_id?:string|null; pile_order?:number|null }
+// One piece from the cutting board; the first keeps the original id.
+export interface Piece {id:string;title:string;body:string;duration:number;proto:boolean;completed:boolean}
 // A user pile on the 미계획 bench, left to right by position. The 투입구 has no entry and always comes first.
 export interface Pile {id:string;position:number}
 export interface Break {start:number;end:number;label:string}
@@ -28,7 +30,7 @@ export type Action = {type:'create';id:string;title:string}
  | {type:'delete';id:string;expected_revision:number}
  | {type:'restore_trashed';id:string}
  | {type:'purge_trashed';ids:string[]}
- | {type:'split';id:string;expected_revision:number;new_id:string;first_duration:number}
+ | {type:'split_pieces';id:string;expected_revision:number;pieces:Piece[];date?:string}
  | {type:'set_settings';expected_revision:number;days:WorkingDay[]}
  | {type:'set_routines';expected_revision:number;routines:Routine[]}
  | {type:'ensure_routines';from:string;to:string}

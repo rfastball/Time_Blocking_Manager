@@ -12,7 +12,9 @@ import {Plan} from '../plan/Plan.tsx';
 import {InboxPage} from '../inbox/InboxPage.tsx';
 import {Settings} from '../settings/Settings.tsx';
 import {AvailabilityPopover} from '../settings/AvailabilityPopover.tsx';
-import {EditorHost,ContextMenuHost,SplitHost} from '../editor/hosts.tsx';
+import {EditorHost,ContextMenuHost} from '../editor/hosts.tsx';
+import {CutHost} from '../cut/CutBoard.tsx';
+import {openCut} from '../store/cut.ts';
 import {BackupManager} from '../backups/BackupManager.tsx';
 import './shell.css';
 
@@ -58,7 +60,7 @@ export function Shell(){
         <StatusBar/>
       </main>
     </div>
-    {ready&&snapshot&&s.draftLoaded&&<><EditorHost/><ContextMenuHost/><SplitHost/><AvailabilityPopover/></>}
+    {ready&&snapshot&&s.draftLoaded&&<><EditorHost/><ContextMenuHost/><CutHost/><AvailabilityPopover/></>}
     <div className="sr-only" role="status" aria-live="polite">{s.message}</div>
   </DragProvider>;
 }
@@ -89,13 +91,14 @@ function StatusBar(){
   const s=useApp(),dialogOpen=s.ui.editorMode==='dialog',saving=useLasting(s.busy,400);
   const issue=s.error||(s.draftLoadFailed?'보관 중인 초안을 불러오지 못했습니다. 저장된 작업은 그대로입니다.':'')||(s.info.failed?'일부 운영 설정을 불러오지 못했습니다. 다시 불러와 주세요.':'')||(s.failed?'저장하지 못했어요. 입력한 내용은 그대로 있어요.':'');
   const state=!s.ready?'기록 불러오는 중 · 편집 잠시 중지':!s.draftLoaded?'초안 불러오는 중 · 편집 잠시 중지':saving?'저장 중…':s.quitSaving?'종료 전 저장 중…':'';
-  const resume=s.drafts.editorDirty&&s.drafts.editor&&!s.ui.editorMode;
-  if(!issue&&!state&&!resume)return null;
+  const resume=s.drafts.editorDirty&&s.drafts.editor&&!s.ui.editorMode,cutting=s.drafts.cut&&!s.ui.split?s.snapshot?.tasks.find(t=>t.id===s.drafts.cut!.taskId):null;
+  if(!issue&&!state&&!resume&&!cutting)return null;
   return <footer className="status">
     <span className={issue&&!dialogOpen?'error':''} role={issue&&!dialogOpen?'alert':undefined}>{issue&&!dialogOpen?issue:state}</span>
     {s.failed&&!dialogOpen&&<><button type="button" className="btn" onClick={()=>void retry()}>{s.failed.code==='conflict'||s.failed.code==='epoch'?'저장된 내용 확인':'다시 시도'}</button><button type="button" className="btn" onClick={release}>입력 유지하고 수정</button></>}
     {s.ready&&!dialogOpen&&(s.draftLoadFailed||s.info.failed)&&<button type="button" className="btn" onClick={()=>{if(!queue.busy)void reload();}}>다시 불러오기</button>}
     {s.ready&&s.draftLoadFailed&&s.draftSequenceKnown&&!dialogOpen&&<button type="button" className="btn" onClick={()=>void discardStoredDraft()}>보관 초안 버리기</button>}
     {resume&&<button type="button" className="btn" onClick={()=>openEditor(s.drafts.editor!.id,'dialog')}>‘{s.drafts.editor!.title}’ 이어서 편집</button>}
+    {cutting&&<button type="button" className="btn" onClick={()=>openCut(cutting.id)}>‘{cutting.title}’ 이어서 쪼개기</button>}
   </footer>;
 }

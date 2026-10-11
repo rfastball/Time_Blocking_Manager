@@ -3,6 +3,7 @@ import {isTauri} from '@tauri-apps/api/core';
 import type {AppError,Command,Settings,Snapshot,Task} from '../../types.ts';
 import type {AvailabilityTarget} from '../../availability-band.ts';
 import {minutes,today} from '../../dates.ts';
+import type {Seg} from '../../cut.ts';
 
 export type View='today'|'plan'|'inbox'|'settings';
 // 일 is one day's editor with its week as a strip above it, so it spans the same seven dates as 주.
@@ -10,6 +11,8 @@ export type Period='day'|'week'|'two'|'month';
 // The task as typed in the editor. epoch/revision are the saved state it started from.
 export type EditorDraft=Task&{epoch:string};
 export type Composer={date:string;start:number;duration:number;fixed?:boolean};
+// The cutting board in progress: the task it started from and the pieces as laid out so far.
+export type CutDraft={taskId:string;epoch:string;revision:number;title:string;body:string;segs:Seg[]};
 export type RoutineDraft={id:string;title:string;body:string;weekdays:number[];start:string;duration:string;epoch:string;revision:number};
 // Raw schedule inputs kept while they are invalid, keyed by date or 'weekly'. `settings` is the last valid draft behind them.
 export type RawSchedule={values:{value:string;checked:boolean}[];invalid:boolean;settings?:Settings};
@@ -18,12 +21,14 @@ export type Drafts={
   capture:string;captureCommand:Command|null;composer:Composer|null;
   editor:EditorDraft|null;editorDirty:boolean;editorSequence:number;pendingEditorId:string|null;
   rawSchedules:Record<string,RawSchedule>;settingsBase:{epoch:string;revision:number}|null;settingsDraft:Settings|null;routineDraft:RoutineDraft|null;
+  cut:CutDraft|null;
 };
 // Cross-area UI requests: a block asks, the owning area draws.
 export type Ui={
   editorMode:'panel'|'dialog'|null;editorFocus:'fix'|'duration'|null;
   contextMenu:{taskId:string|null;date:string;minute:number;x:number;y:number}|null;
   availability:{date:string;target:AvailabilityTarget;x:number;y:number}|null;
+  // The task the cutting board is open for (inline on 미계획, a dialog elsewhere).
   split:string|null;
   pendingShortcut:string|null;
   landed:{id:string;clack:boolean}|null;
@@ -51,7 +56,7 @@ export const clockMinute=()=>{if(mockNow&&/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(moc
 export const pinnedClock=!!mockNow;
 
 const day=today();
-export const emptyDrafts=():Drafts=>({capture:'',captureCommand:null,composer:null,editor:null,editorDirty:false,editorSequence:0,pendingEditorId:null,rawSchedules:{},settingsBase:null,settingsDraft:null,routineDraft:null});
+export const emptyDrafts=():Drafts=>({capture:'',captureCommand:null,composer:null,editor:null,editorDirty:false,editorSequence:0,pendingEditorId:null,rawSchedules:{},settingsBase:null,settingsDraft:null,routineDraft:null,cut:null});
 let state:AppState={
   native,captureWindow:params.has('capture'),
   ready:false,loadError:'',snapshot:null,

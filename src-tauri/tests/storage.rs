@@ -140,27 +140,6 @@ fn legacy_databases_and_backups_migrate_without_losing_work() {
 }
 
 #[test]
-fn splitting_preserves_total_time_notes_and_atomic_retry() {
-    let dir=tempdir().unwrap(); let path=dir.path().join("app.db"); let mut s=Store::open(&path).unwrap();
-    let a=create(&mut s,"a"); let c=command(&s,update(&a,"2026-10-08T10:00",90));
-    let a=s.apply(&c).unwrap().tasks[0].clone();
-    for (new_id,first_duration) in [("a",45),("b",0),("b",20),("b",90)] {
-        let c=command(&s,Action::Split{id:a.id.clone(),expected_revision:a.revision,new_id:new_id.into(),first_duration});
-        assert!(s.apply(&c).is_err());
-        let tasks=s.snapshot().unwrap().tasks;assert_eq!(tasks.len(),1);assert_eq!(tasks[0].duration,90);assert_eq!(tasks[0].revision,a.revision);
-    }
-    let c=command(&s,Action::Split{id:a.id.clone(),expected_revision:a.revision,new_id:"b".into(),first_duration:45});
-    s.apply(&c).unwrap();assert_eq!(s.apply(&c).unwrap().tasks.len(),2);
-    let stale=command(&s,Action::Split{id:a.id.clone(),expected_revision:a.revision,new_id:"c".into(),first_duration:15});
-    assert_eq!(s.apply(&stale).unwrap_err().code,"conflict");
-    drop(s);let s=Store::open(&path).unwrap();let tasks=s.snapshot().unwrap().tasks;
-    assert_eq!(tasks.iter().map(|t|t.duration).sum::<i64>(),90);
-    assert!(tasks.iter().all(|t|t.body==a.body&&t.title==a.title));
-    assert_eq!(tasks.iter().find(|t|t.id=="a").unwrap().starts_at,a.starts_at);
-    assert!(tasks.iter().find(|t|t.id=="b").unwrap().starts_at.is_none());
-}
-
-#[test]
 fn persistence_revisions_and_retry_receipts() {
     let dir = tempdir().unwrap(); let path = dir.path().join("app.db");
     let mut store = Store::open(&path).unwrap();
@@ -715,4 +694,51 @@ fn completion_always_has_a_date_and_old_dateless_completions_can_return() {
     drop(s);let mut s=Store::open(&path).unwrap();let b=find(&s.snapshot().unwrap(),"b");assert!(b.completed&&b.plan_date.is_none());
     let c=command(&s,Action::SetCompleted{id:"b".into(),expected_revision:b.revision,completed:false,date:None});
     assert_eq!(bench(&s.apply(&c).unwrap()),vec![(None,ids(&["b"]))]);
+}
+
+fn piece(id:&str,title:&str,duration:i64) -> Piece {Piece{id:id.into(),title:title.into(),body:String::new(),duration,proto:false,completed:false}}
+fn cut(s:&mut Store,t:&Task,pieces:Vec<Piece>,date:Option<&str>) -> Result<Snapshot> {
+    let c=command(s,Action::SplitPieces{id:t.id.clone(),expected_revision:t.revision,pieces,date:date.map(Into::into)});s.apply(&c)
+}
+
+#[test]
+fn cutting_board_pieces_take_the_original_place_on_the_bench_a_day_or_a_fixed_time() {
+    let dir=tempdir().unwrap();let path=dir.path().join("app.db");let mut s=Store::open(&path).unwrap();let day="2026-10-14";let today="2026-10-11";
+    // On the bench: in the same pile, right where the original was; a done piece is today's completion.
+    for id in ["y","t","x"] {create(&mut s,id);}
+    let t=find(&s.snapshot().unwrap(),"t");
+    let mut done=piece("n3","끝난 부분",15);done.completed=true;
+    let mut open=piece("n2","",30);open.proto=true;open.title="한글 업무".into();
+    let mut first=piece("t","설계",45);first.body="메모".into();
+    let pieces=vec![first,piece("n1","초안",30),open,done];
+    assert_eq!(cut(&mut s,&t,pieces.clone(),None).unwrap_err().code,"validation","a done piece of 미계획 work needs its day");
+    let snap=cut(&mut s,&t,pieces.clone(),Some(today)).unwrap();
+    assert_eq!(bench(&snap),vec![(None,ids(&["x","t","n1","n2","y"]))]);
+    let (t2,n2,n3)=(find(&snap,"t"),find(&snap,"n2"),find(&snap,"n3"));
+    assert_eq!((t2.title.as_str(),t2.body.as_str(),t2.duration,t2.proto,t2.revision),("설계","메모",45,false,t.revision+1));
+    assert!(n2.proto);assert_eq!((n3.completed,n3.plan_date.as_deref()),(true,Some(today)));
+    // A retry is a no-op; a stale or reused request changes nothing.
+    let retry=command(&s,Action::SplitPieces{id:"x".into(),expected_revision:find(&snap,"x").revision,pieces:vec![piece("x","가",15),piece("k","나",15)],date:None});
+    let once=s.apply(&retry).unwrap();assert_eq!(s.apply(&retry).unwrap().tasks,once.tasks);
+    let before=s.snapshot().unwrap();
+    for (pieces,code) in [(vec![piece("t","가",15),piece("n1","나",15)],"validation"),(vec![piece("other","가",15)],"validation"),(vec![piece("t","가",15),piece("z","나",15),piece("z","다",15)],"validation"),(vec![piece("t","가",10)],"validation")] {
+        assert_eq!(cut(&mut s,&find(&before,"t"),pieces,None).unwrap_err().code,code);
+    }
+    assert_eq!(cut(&mut s,&t,vec![piece("t","가",15)],None).unwrap_err().code,"conflict");
+    assert_eq!(s.snapshot().unwrap().tasks,before.tasks);
+    // On a day: consecutive in its order, later work moves down; a proto length is not kept there.
+    let (a,f,b)=(flow(&mut s,"a",day,30),flow(&mut s,"f",day,90),flow(&mut s,"b",day,30));let _=(a,b);
+    let snap=cut(&mut s,&f,vec![piece("f","앞",45),piece("f2","뒤",45)],None).unwrap();
+    assert_eq!(ordered(&snap,day),["a","f","f2","b"]);assert!(snap.tasks.iter().all(|t|t.plan_date.as_deref()!=Some(day)||!t.proto));
+    // Fixed: the pieces stay fixed one after another from the original time; growing into another reservation is refused.
+    let c=command(&s,Action::CreateScheduled{id:"w".into(),title:"워크숍".into(),starts_at:Some(format!("{day}T10:00")),duration:60});let w=find(&s.apply(&c).unwrap(),"w");
+    let c=command(&s,Action::CreateScheduled{id:"m".into(),title:"회의".into(),starts_at:Some(format!("{day}T11:00")),duration:30});s.apply(&c).unwrap();
+    let kept=s.snapshot().unwrap();
+    assert_eq!(cut(&mut s,&w,vec![piece("w","준비",60),piece("w2","정리",30)],None).unwrap_err().code,"overlap");assert_eq!(s.snapshot().unwrap().tasks,kept.tasks);
+    let mut w2=piece("w2","정리",30);w2.completed=true;
+    let snap=cut(&mut s,&w,vec![piece("w","준비",30),w2],None).unwrap();
+    assert_eq!((find(&snap,"w").starts_at.as_deref(),find(&snap,"w2").starts_at.as_deref(),find(&snap,"w2").completed),(Some("2026-10-14T10:00"),Some("2026-10-14T10:30"),true));
+    // Completed work is not cut, and everything survives a restart.
+    let done=find(&snap,"w2");assert_eq!(cut(&mut s,&done,vec![piece("w2","가",15)],None).unwrap_err().code,"validation");
+    let last=s.snapshot().unwrap();drop(s);assert_eq!(Store::open(&path).unwrap().snapshot().unwrap().tasks,last.tasks);
 }

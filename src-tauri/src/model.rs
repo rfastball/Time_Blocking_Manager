@@ -20,6 +20,10 @@ pub struct Task {
     #[serde(default)] pub pile_order: Option<i64>,
 }
 
+// One piece from the cutting board. The first keeps the original task's id; the others are new tasks.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct Piece { pub id: String, pub title: String, pub body: String, pub duration: i64, #[serde(default)] pub proto: bool, #[serde(default)] pub completed: bool }
+
 // A user pile on the 미계획 bench. The 투입구 has no row and always comes first.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Pile { pub id: String, pub position: i64 }
@@ -110,7 +114,9 @@ pub enum Action {
     Delete { id: String, expected_revision: i64 },
     RestoreTrashed { id: String },
     PurgeTrashed { ids: Vec<String> },
-    Split { id:String, expected_revision:i64, new_id:String, first_duration:i64 },
+    // The cutting board's result: each piece becomes its own task where the original stood, in order.
+    // `date`: the day a completed piece of 미계획 work is recorded on (today).
+    SplitPieces { id:String, expected_revision:i64, pieces:Vec<Piece>, #[serde(default, skip_serializing_if="Option::is_none")] date:Option<String> },
     SetSettings { expected_revision: i64, days: Vec<WorkingDay> },
     SetSchedule { expected_revision:i64,days:Vec<WorkingDay>,exceptions:Vec<DayException>,weekly_target:i64,work_days:i64,move_conflicts:bool },
     SetRoutines { expected_revision:i64, routines:Vec<Routine> },

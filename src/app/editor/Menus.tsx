@@ -1,13 +1,11 @@
 import {useEffect,useLayoutEffect,useRef,useState} from 'react';
 import {motion} from 'motion/react';
-import {formatDuration} from '../../format.ts';
 import {dateLabel,time} from '../../dates.ts';
-import {splitDuration} from '../../placement.ts';
 import type {Task} from '../../types.ts';
 import {setUi,useApp,type Ui} from '../store/state.ts';
 import {openEditor} from '../store/editor.ts';
 import {openAvailability} from '../store/schedule.ts';
-import {deleteTask,flowOrderOn,openComposer,reorder,split,toggleComplete,unfix,unplan} from '../store/tasks.ts';
+import {deleteTask,flowOrderOn,openComposer,reorder,toggleComplete,unfix,unplan} from '../store/tasks.ts';
 import {blockButton,clamp,menuKeys,requestSplit} from './actions.ts';
 
 type Item={label:string;run:()=>void;danger?:boolean;disabled?:boolean};
@@ -47,7 +45,7 @@ function ContextMenu({m}:{m:NonNullable<Ui['contextMenu']>}){
       {label:t.completed?'미완료로 되돌리기':'완료로 표시',run:()=>void toggleComplete(t)},
       ...(flow?[{label:'앞으로',disabled:at<=0,run:()=>void reorder(t,-1)},{label:'뒤로',disabled:at<0||at===order.length-1,run:()=>void reorder(t,1)},{label:'시각 고정…',run:()=>openEditor(t.id,mode,'fix')}]:[]),
       ...(t.starts_at?[{label:'고정 해제',run:()=>void unfix(t)}]:[]),
-      ...(!t.completed&&t.duration>=30?[{label:'나누기 위치 정하기',run:()=>requestSplit(t.id,mode)}]:[]),
+      ...(!t.completed?[{label:'나누기',run:()=>requestSplit(t.id)}]:[]),
       ...(t.plan_date&&!t.completed?[{label:'미계획으로 옮기기',run:()=>void unplan(t)}]:[]),
       {label:'삭제',danger:true,run:()=>void deleteTask(t)},
     ];
@@ -63,39 +61,4 @@ function ContextMenu({m}:{m:NonNullable<Ui['contextMenu']>}){
     {items.map(i=><button key={i.label} type="button" role="menuitem" tabIndex={-1} disabled={i.disabled} className={i.danger?'danger':''}
       onClick={()=>{close(true);i.run();}}>{i.label}</button>)}
   </motion.div>;
-}
-
-export function SplitHost(){
-  const {ui,snapshot}=useApp(),t=ui.split?snapshot?.tasks.find(x=>x.id===ui.split)??null:null;
-  const usable=!!t&&!t.completed&&t.duration>=30;
-  useEffect(()=>{if(ui.split&&!usable)setUi({split:null});},[ui.split,usable]);
-  if(!usable)return null;
-  return <SplitChooser key={t!.id} task={t!}/>;
-}
-
-// Where the cut goes, picked on a range; the total is kept and the later part goes to 미계획.
-function SplitChooser({task}:{task:Task}){
-  const [value,setValue]=useState(()=>splitDuration(task.duration,task.duration/2)),[busy,setBusy]=useState(false);
-  const ref=useRef<HTMLElement>(null),range=useRef<HTMLInputElement>(null),[pos,setPos]=useState<{left:number;top:number}|null>(null);
-  const [opener]=useState(()=>document.activeElement);
-  const close=(refocus:boolean)=>{setUi({split:null});if(refocus)blockButton(task.id,opener)?.focus({preventScroll:true});};
-  useLayoutEffect(()=>{
-    const r=ref.current!.getBoundingClientRect(),b=blockButton(task.id)?.getBoundingClientRect();
-    // Beside the block when it is on screen, otherwise in the middle of the window.
-    setPos(b?clamp(b.right+10>innerWidth-r.width-8?b.left-r.width-10:b.right+10,b.top,r.width,r.height):clamp((innerWidth-r.width)/2,innerHeight*.28,r.width,r.height));
-    range.current!.focus({preventScroll:true});
-  },[]);
-  useDismiss(ref,()=>close(false));
-  const second=task.duration-value;
-  async function go(){if(busy)return;setBusy(true);const ok=await split(task,value);setBusy(false);if(ok)blockButton(task.id,opener)?.focus({preventScroll:true});}
-  return <motion.section ref={ref} role="dialog" aria-label={`${task.title} 나누기`} className="menu split-pop" style={pos??{left:-9999,top:0}}
-    initial={{opacity:0,scale:.96}} animate={{opacity:1,scale:1}} transition={{type:'spring',visualDuration:.16,bounce:.12}}
-    onKeyDown={e=>{if(e.key==='Escape'){e.preventDefault();e.stopPropagation();close(true);}}}>
-    <h3>{task.title}</h3>
-    <div className="split-bar" aria-hidden="true"><motion.i animate={{flexGrow:value}} transition={{type:'spring',visualDuration:.2,bounce:.1}}/><motion.i animate={{flexGrow:second}} transition={{type:'spring',visualDuration:.2,bounce:.1}}/></div>
-    <output htmlFor="split-range">{formatDuration(value)} + {formatDuration(second)}</output>
-    <input ref={range} id="split-range" type="range" min={15} max={task.duration-15} step={15} value={value} aria-label="나누기 위치" aria-valuetext={`${formatDuration(value)} + ${formatDuration(second)}`}
-      onChange={e=>setValue(splitDuration(task.duration,Number(e.target.value)))} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();void go();}}}/>
-    <button type="button" className="btn primary" disabled={busy} onClick={()=>void go()}>나누기</button>
-  </motion.section>;
 }

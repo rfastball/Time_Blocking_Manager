@@ -1,5 +1,14 @@
 # 검증 범위
 
+## 도마(쪼개기) Test delta brief (2026-10-11)
+
+- Unique risk: 확정한 조각이 원래 자리(더미 안·그날 순서·고정 시각)를 벗어나거나, 완료 조각이 날짜 없이 남거나, 고정 블록 조각이 다른 예약과 겹침. 솔기·칼선·키보드 글줄 조작의 길이 계산이 15분 단위와 합계 규칙을 어김. 취소가 저장하거나 닫기가 버림.
+- Existing owner / Selected layer: 저장 규칙은 Rust storage owner(기존 분할 사례를 도마 사례로 교체). 조각 계산은 새 순수 모듈 `cut.ts`의 owner `src/cut.test.ts`(미리보기 일치 포함). 대화상자·포인터·포커스는 기존 `scripts/ui-check/editor.mjs` 분할 시나리오 교체와 `inbox.mjs` 흐름 2개.
+- Expected cost delta: Rust 1 교체, Node +5, UI editor 1 교체·inbox +2. 새 dependency·CI lane 없음.
+- Evidence to retire: ‘뒤 블록은 미계획으로 간다’는 분할 기대값과 범위 슬라이더 조작. 같은 자리 연달아 놓임·취소 단언으로 대체.
+
+Test delta 결과: Rust storage **22/22**, Node **58/58**, UI inbox **12/12**·editor **10/10**·today·plan·settings·backups·capture **41/41**, `npm run build` 통과.
+
 ## 미계획 작업대 Test delta brief (2026-10-11)
 
 - Unique risk: 카드가 더미 안·사이·날짜 기둥에 놓일 때 저장 관계와 미리 보인 자리가 다름, 더미 통째 이동·합치기가 다른 더미를 흔듦, 키보드만으로 길이·순서·더미 이동·싣기를 할 수 없음, 최소 창에서 날짜 기둥이 밀려남, 공용 드래그 확장으로 오늘·계획 드래그가 회귀.

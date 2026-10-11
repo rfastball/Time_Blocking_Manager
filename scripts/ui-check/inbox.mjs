@@ -127,6 +127,45 @@ const scenarios=[
     assert.equal(await page.js('!!document.querySelector(".inbox-trash")'),false);
     assert.deepEqual(await page.js('window.__asked'),[],'no dialog');
   }},
+  {name:'flow: capture → 투입구 → a pile → the cutting board → shipped to a day in order',run:async page=>{
+    await open(page);
+    await page.click('#inbox-capture');await page.type('설계 문서 작성');await page.key('Enter');await page.sleep(500);
+    // Into the errands pile's handle: its top.
+    const from=await card(page,'설계 문서 작성'),handle=await page.rect('.wb-pile[data-pile="pile-errands"] .wb-handle');
+    await page.drag({x:from.x+60,y:from.cy},{x:handle.cx,y:handle.cy});
+    assert.equal((await bench(page))[1],'P:설계 문서 작성|메일 답장|결재 처리');
+    // The board: a proto gets a length by its bottom edge, then a knife cut and a name.
+    await page.click('.wb-card .main','설계 문서 작성');await page.sleep(400);
+    assert.ok(await page.js(`document.querySelector('.wb-card.onboard')?.textContent.includes('설계 문서 작성')`),'its place stays as an outline');
+    assert.ok(await page.js(`!!document.querySelector('.wb-layer.wb-dim')`),'the rest of the bench waits');
+    const edge=await page.rect('.cut-edge.open');
+    await page.drag({x:edge.cx,y:edge.cy},{x:edge.cx,y:edge.cy+60},{steps:6,hold:80});
+    assert.deepEqual(await page.js(`[...document.querySelectorAll('.cut-len')].map(e=>e.textContent)`),['1시간']);
+    const b=await page.rect('.cut-block');
+    await page.mouse('mouseMoved',b.x+150,b.y+60,0);await page.sleep(150);
+    assert.match(await page.text('.cut-knife'),/30분 │ 30분/);
+    await page.mouse('mousePressed',b.x+150,b.y+60);await page.mouse('mouseReleased',b.x+150,b.y+60,0);await page.sleep(250);
+    assert.equal(await page.js('document.activeElement?.className'),'cut-name','the new piece is named next');
+    await page.type('검토');await page.shot('inbox-cut');
+    await page.click('.cut-foot .btn','2개로 나누기');await page.sleep(600);
+    assert.equal((await bench(page))[1],'P:설계 문서 작성|검토|메일 답장|결재 처리');
+    // The whole pile to tomorrow's column: in order, to the end of that day.
+    const h=await page.rect('.wb-pile[data-pile="pile-errands"] .wb-handle'),col=await page.rect('.wb-day:nth-child(2) .wb-dbody');
+    await page.drag({x:h.x+20,y:h.cy},{x:col.cx,y:col.y+40});
+    assert.equal(await page.js('document.querySelectorAll(".wb-pile").length'),1,'the shipped pile is gone; the 투입구 stays');
+    assert.match(await page.text('.wb-day:nth-child(2) .wb-dload'),/^1\.5 \/ /,'30 + 30 + 15 + 15 minutes');
+  }},
+  {name:'part of a 지난 미완료 is done: the done piece stays on its date, the rest waits on the shelf',run:async page=>{
+    await open(page);
+    await page.click('.wb-card .main','경쟁사 동향 정리');await page.sleep(400);
+    assert.match(await page.text('.cut-where'),/\d+월 \d+일 미완료/);
+    await page.js(`document.querySelector('.cut-name').focus()`);await page.key('Enter',{text:'\r'});await page.sleep(200);
+    await page.click('.cut-check');
+    await page.key('Escape');await page.sleep(600);
+    assert.match(await page.text('[role=status]'),/2개로 나눴어요\. 1개는 \d+월 \d+일 완료로 남겼어요/);
+    assert.equal(await page.js(`document.querySelectorAll('.wb-sec[aria-label="지난 미완료"] .wb-card').length`),1);
+    assert.match(await page.text('.wb-sec[aria-label="지난 미완료"] .meta'),/30분/);
+  }},
   {name:'960×640 keeps the date columns beside the bench; 760px and below stacks them under it',viewport:{width:960,height:640},run:async page=>{
     await open(page);
     const [b,d]=[await page.rect('.wb-bench'),await page.rect('.wb-dock')];

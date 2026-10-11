@@ -42,14 +42,14 @@ export const enqueue=(run:()=>Promise<void>)=>queue.add(run);
 // ── 초안 ──
 export function unsaved(){
   const {ready,draftLoaded,drafts:d}=getState();
-  return !!(ready&&!draftLoaded||d.capture||d.editorDirty||Object.keys(d.rawSchedules).length||d.settingsDraft||d.routineDraft||queue.busy||draftTimer);
+  return !!(ready&&!draftLoaded||d.capture||d.editorDirty||Object.keys(d.rawSchedules).length||d.settingsDraft||d.routineDraft||d.cut||queue.busy||draftTimer);
 }
 // The stored JSON keeps the shape written by the earlier app so existing drafts survive the update.
 function draftContent(){
   const {drafts:d,snapshot}=getState();
-  return d.capture||d.editorDirty||Object.keys(d.rawSchedules).length||d.settingsDraft||d.routineDraft?JSON.stringify({
+  return d.capture||d.editorDirty||Object.keys(d.rawSchedules).length||d.settingsDraft||d.routineDraft||d.cut?JSON.stringify({
     capture:d.capture,captureCommand:d.captureCommand,calendarComposer:d.capture?d.composer:null,editor:d.editorDirty?d.editor:null,
-    rawSchedules:d.rawSchedules,settingsBase:d.settingsBase,settingsDraft:d.settingsDraft,routineDraft:d.routineDraft,epoch:snapshot?.epoch
+    rawSchedules:d.rawSchedules,settingsBase:d.settingsBase,settingsDraft:d.settingsDraft,routineDraft:d.routineDraft,cut:d.cut,epoch:snapshot?.epoch
   }):'';
 }
 export function persistDraft():Promise<void>|undefined{
@@ -68,10 +68,10 @@ export async function loadStoredDraft(allowBusy=false){
   try{
     const [sequence,content]=await invoke<[number,string]>('load_draft');
     const d=getState().drafts;
-    if(d.capture||d.editorDirty||Object.keys(d.rawSchedules).length||d.settingsDraft||d.routineDraft||(!allowBusy&&queue.busy)||draftTimer)return;
+    if(d.capture||d.editorDirty||Object.keys(d.rawSchedules).length||d.settingsDraft||d.routineDraft||d.cut||(!allowBusy&&queue.busy)||draftTimer)return;
     const draft=storedDraft.read(sequence,content);
     if(draft)setDrafts({capture:draft.capture||'',captureCommand:draft.captureCommand||null,composer:draft.calendarComposer||null,editor:draft.editor||null,editorDirty:!!draft.editor,
-      rawSchedules:draft.rawSchedules||{},settingsBase:draft.settingsBase||null,settingsDraft:draft.settingsDraft||null,routineDraft:draft.routineDraft||null});
+      rawSchedules:draft.rawSchedules||{},settingsBase:draft.settingsBase||null,settingsDraft:draft.settingsDraft||null,routineDraft:draft.routineDraft||null,cut:draft.cut||null});
     setState({draftLoaded:true,draftLoadFailed:false,draftSequenceKnown:true,message:''});
   }catch{setState({draftLoaded:storedDraft.loaded,draftLoadFailed:true,draftSequenceKnown:storedDraft.sequenceKnown});}
   void invoke('set_dirty',{dirty:unsaved()});

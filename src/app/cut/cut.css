@@ -1,0 +1,58 @@
+/* The cutting board. Pieces stack as one block; seams are dashed lines only here, never on the timetable.
+   A proto piece is an outline with no length; a done piece is quiet and struck through. */
+.cut{display:flex;flex-wrap:wrap;align-items:flex-start;gap:20px;padding:16px;border-radius:var(--radius-panel);background:var(--sp-well)}
+.cut-inline{animation:cut-rise .18s cubic-bezier(.2,.8,.2,1)}
+@keyframes cut-rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.cut-board{flex:0 1 360px;min-width:260px;display:flex;flex-direction:column;gap:10px}
+.cut-title{display:flex;align-items:center;gap:8px}
+.cut .cut-title input{flex:1;min-width:0;height:38px;padding:0 10px;border:1px solid var(--color-control-border);border-radius:var(--radius-control);background:var(--color-input);font:inherit;font-size:var(--font-size-title);font-weight:600;color:var(--color-text)}
+.cut-sum{flex:none;font-size:var(--font-size-label);color:var(--color-text-muted);font-variant-numeric:tabular-nums}
+.cut-block{position:relative;user-select:none}
+.cut-block.knifing{cursor:crosshair}
+.cut-seg{position:absolute;left:0;right:0;display:flex;align-items:flex-start;gap:6px;padding:3px 10px 3px 6px;border:1px solid var(--sp-flow-edge);border-top-width:0;background:var(--sp-flow);color:var(--sp-flow-ink);transition:top .14s cubic-bezier(.2,.8,.2,1),height .1s}
+.cut-seg.first{border-top-width:1px;border-radius:8px 8px 0 0}
+.cut-seg.last{border-radius:0 0 8px 8px}
+.cut-seg.first.last{border-radius:8px}
+.cut-seg.proto{background:var(--color-surface);border-color:var(--sp-fixed-edge);color:var(--color-text-muted)}
+.cut-seg.done{background:var(--color-canvas);border-color:var(--color-divider);color:var(--color-text-muted)}
+.cut .cut-seg.done .cut-name{text-decoration:line-through;color:var(--color-text-muted)}
+.cut-seg.grabbed{opacity:.4}
+.cut .cut-grip{flex:none;width:18px;height:24px;padding:0;border:0;border-radius:4px;background:transparent;color:inherit;display:grid;place-items:center;cursor:grab;touch-action:none;rotate:90deg}
+.cut-grip:hover,.cut-grip:focus-visible{background:var(--color-surface)}
+.cut .cut-check{flex:none;width:17px;height:17px;margin-top:3.5px;padding:0;border:1.5px solid currentColor;border-radius:50%;background:transparent;color:inherit;display:grid;place-items:center;cursor:pointer}
+.cut-check .ic{opacity:0}
+.cut-check:hover .ic,.cut-check:focus-visible .ic{opacity:.6}
+.cut-seg.done .cut-check{background:var(--color-text-muted);border-color:var(--color-text-muted);color:var(--color-surface)}
+.cut-seg.done .cut-check .ic{opacity:1}
+.cut .cut-name{flex:1;min-width:0;height:24px;padding:0 2px;border:0;border-bottom:1px solid transparent;border-radius:0;background:transparent;font:inherit;font-size:13px;font-weight:600;color:var(--color-text);outline:0}
+.cut .cut-name::placeholder{color:currentColor;opacity:.55;font-weight:500}
+.cut .cut-name:focus{border-bottom-color:var(--color-focus)}
+.cut-len{flex:none;margin-left:auto;font-size:12px;line-height:24px;font-variant-numeric:tabular-nums}
+/* Inner seams are dashed; the bottom edge is a solid lip; an unsized piece's lip is grey. */
+.cut-edge{position:absolute;left:0;right:0;z-index:3;height:12px;cursor:ns-resize;touch-action:none}
+.cut-edge i{position:absolute;left:10px;right:10px;top:5px;border-top:1px dashed var(--sp-flow-ink)}
+.cut-edge:hover i{border-top:1.5px solid var(--color-action)}
+.cut-edge.last i,.cut-edge.open i{left:50%;right:auto;width:40px;margin-left:-20px;top:4px;border-top:3px solid var(--sp-flow-ink);border-radius:2px;opacity:.45}
+.cut-edge.open i{border-top-color:var(--sp-fixed-edge);opacity:1}
+.cut-edge.last:hover i{opacity:1;border-top-color:var(--color-action)}
+.cut-knife{position:absolute;left:-8px;right:-8px;z-index:2;height:0;border-top:1.5px dashed var(--color-action);pointer-events:none}
+.cut-knife span{position:absolute;right:10px;top:-11px;padding:0 8px;border-radius:10px;background:var(--color-action);color:var(--color-on-action);font-size:11px;line-height:20px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.cut-knife b{font-weight:400;opacity:.6}
+.cut-drop{position:absolute;left:-6px;right:-6px;z-index:4;height:0;border-top:2px solid var(--color-action);pointer-events:none}
+.cut-add{display:flex;align-items:center;gap:8px;height:36px;padding:0 10px;border:1px dashed var(--sp-fixed-edge);border-radius:8px;color:var(--color-text-muted)}
+.cut-add:focus-within{border-style:solid;border-color:var(--color-focus);color:var(--color-action)}
+.cut .cut-add input{flex:1;min-width:0;height:100%;border:0;background:transparent;font:inherit;font-size:13px;color:var(--color-text);outline:0}
+.cut-error{margin:0;font-size:var(--font-size-label)}
+.cut-foot{display:flex;justify-content:flex-end;gap:8px}
+.cut-side{flex:1 1 200px;min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:8px}
+.cut-where{font-size:var(--font-size-label);color:var(--color-text-muted)}
+.cut .cut-memo{width:100%;min-height:140px;padding:10px 12px;border:1px solid var(--color-control-border);border-radius:var(--radius-control);background:var(--color-input);font:inherit;font-size:13px;color:var(--color-text);resize:vertical}
+.cut-dialog{width:min(720px,calc(100vw - 32px));max-width:none;max-height:92vh;padding:0;border:0;border-radius:var(--radius-dialog);background:var(--color-surface);color:var(--color-text);box-shadow:var(--shadow-dialog);overflow:auto}
+.cut-dialog::backdrop{background:var(--color-backdrop)}
+.cut-dialog .cut{border-radius:0;background:var(--color-surface)}
+/* The rest of the bench waits, dimmed, while the board is up; the block's place stays as an outline. */
+.wb-dim{opacity:.35;pointer-events:none;transition:opacity .15s}
+.wb-card.onboard>.tile{background:transparent;border:1.5px dashed var(--sp-fixed-edge)}
+.wb-card.onboard>.tile>*{visibility:hidden}
+@media (max-width:760px){.cut{flex-direction:column;align-items:stretch;padding:12px}.cut-board{flex-basis:auto}}
+@media (prefers-reduced-motion:reduce){.cut-inline{animation:none}.cut-seg,.wb-dim{transition:none}}

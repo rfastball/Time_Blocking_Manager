@@ -136,7 +136,7 @@ function Card({task:t,past,onOpen}:{task:Task;past?:boolean;onOpen:Open}){
   }
   const label=`${t.title}, ${proto?'길이 미정':formatDuration(minutes)}${past?`, ${from} 미완료`:''}${sel?', 선택됨':''}`;
   return <motion.div ref={setNodeRef} data-card={t.id} data-block="true" layout="position" role="presentation" tabIndex={-1} {...listeners}
-    className={'tblk wb-card'+(proto?' proto':'')+(past?' past':'')+(sel?' sel':'')+(lifted?' lifted':'')+(compact?' compact':'')+(ui.landed?.id===t.id?' landed':'')} style={{height:h}}
+    className={'tblk wb-card'+(proto?' proto':'')+(past?' past':'')+(sel?' sel':'')+(lifted?' lifted':'')+(compact?' compact':'')+(ui.landed?.id===t.id?' landed':'')+(ui.split===t.id?' onboard':'')} style={{height:h}}
     initial={{opacity:0,y:-12}} animate={{opacity:1,y:0}} exit={{opacity:0,transition:{duration:0}}} transition={reflow}>
     <div className="tile">
       <button type="button" className="chk" aria-label={t.title+' 완료'} onClick={()=>void completeTasks([t])}><Icon name="check" size={12} stroke={3}/></button>
@@ -203,8 +203,8 @@ function FloatingMenu({label,items,at,onClose}:{label:string;items:Item[];at:{x:
 }
 
 // The next working days as columns on the bench's scale: what is already on them, where working time ends, and what runs past it.
-export function DateDock(){
-  return <section className="card wb-dock" aria-label="다음 근무일">{shipDates().map(d=><DateColumn key={d} date={d}/>)}</section>;
+export function DateDock({frozen}:{frozen?:boolean}){
+  return <section className={'card wb-dock'+(frozen?' wb-dim':'')} inert={frozen||undefined} aria-label="다음 근무일">{shipDates().map(d=><DateColumn key={d} date={d}/>)}</section>;
 }
 
 function DateColumn({date}:{date:string}){

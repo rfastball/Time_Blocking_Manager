@@ -4,7 +4,8 @@ import {isCompositionKey} from '../../capture.ts';
 import type {Task,Trashed} from '../../types.ts';
 import {useApp} from '../store/state.ts';
 import {clearArchive,closeComposer,deleteTask,editCapture,purgeTrashed,restoreTrashed,submitCapture,uncomplete} from '../store/tasks.ts';
-import {openEditor} from '../store/editor.ts';
+import {openCut} from '../store/cut.ts';
+import {CutBoard} from '../cut/CutBoard.tsx';
 import {setSelection} from '../store/bench.ts';
 import {settle} from '../ui/motion.ts';
 import {Icon} from '../ui/icons.tsx';
@@ -34,7 +35,9 @@ export function InboxPage(){
     </div>
     <div className="wb-work">
       <div className="card wb-bench">
-        <Bench onOpen={t=>openEditor(t.id,'dialog')}/>
+        {ui.split&&drafts.cut&&<CutBoard mode="inline"/>}
+        <div className={'wb-layer'+(ui.split&&drafts.cut?' wb-dim':'')} inert={ui.split&&drafts.cut?true:undefined}>
+        <Bench onOpen={t=>openCut(t.id)}/>
         {archived.length>0&&<details className="inbox-done inbox-archive" open={archiveOpen} onToggle={e=>{const o=e.currentTarget.open;archiveOpenMemory=o;setArchiveOpen(o);}}>
           <summary>날짜 없는 완료 {archived.length}</summary>
           {archiveOpen&&<>
@@ -53,8 +56,9 @@ export function InboxPage(){
             <EmptyTrash items={trash}/>
           </>}
         </details>}
+        </div>
       </div>
-      <DateDock/>
+      <DateDock frozen={!!(ui.split&&drafts.cut)}/>
     </div>
   </section>;
 }

@@ -11,7 +11,7 @@ import {reduced} from '../ui/motion.ts';
 import {Editor} from './Editor.tsx';
 import './editor.css';
 
-export {ContextMenuHost,SplitHost} from './Menus.tsx';
+export {ContextMenuHost} from './Menus.tsx';
 
 // Today's side: the open task when the editor is in panel mode, otherwise a glance at the next block.
 export function EditorPanel({nextId}:{nextId:string|null}){

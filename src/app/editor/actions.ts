@@ -1,7 +1,4 @@
 import type {KeyboardEvent as ReactKeyboardEvent} from 'react';
-import {getState,setUi} from '../store/state.ts';
-import {closeEditor,openEditor} from '../store/editor.ts';
-import {showError} from '../store/session.ts';
 
 // Menu keys shared by the block menu and the editor's 더보기: arrows wrap, Home/End jump, Esc/Tab leave.
 export function menuKeys(e:ReactKeyboardEvent<HTMLElement>,close:()=>void){
@@ -13,14 +10,8 @@ export function menuKeys(e:ReactKeyboardEvent<HTMLElement>,close:()=>void){
   else if(e.key==='End')go(items.length-1);
   else if(e.key==='Escape'||e.key==='Tab'){e.preventDefault();e.stopPropagation();close();}
 }
-// Splitting works on the stored task, so typed changes to it must be saved first.
-export function requestSplit(id:string,mode:'panel'|'dialog'){
-  const d=getState().drafts;
-  if(d.editorDirty&&d.editor?.id===id){openEditor(id,mode);showError(Error('변경을 저장한 뒤 블록을 나눠 주세요.'));return;}
-  // The chooser floats over the page; a modal editor would sit above it.
-  if(getState().ui.editorMode==='dialog'&&d.editor?.id===id)closeEditor();
-  setUi({split:id,contextMenu:null});
-}
+// Splitting opens the cutting board on the stored task (store/cut.ts saves typed changes first).
+export {openCut as requestSplit} from '../store/cut.ts';
 // The block's own button, where focus returns after a menu or chooser closes.
 export const blockButton=(id:string,prefer?:Element|null)=>prefer instanceof HTMLElement&&prefer.isConnected&&prefer.dataset.task===id?prefer:document.querySelector<HTMLElement>(`[data-task="${CSS.escape(id)}"]`);
 // Keeps a floating box inside the viewport with an 8px margin.

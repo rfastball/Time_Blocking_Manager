@@ -5,6 +5,7 @@ import {calendarRefreshAllowed} from '../../today.ts';
 import {getState,setDrafts,setState} from './state.ts';
 import {flushDraftTimer,loadStoredDraft,persistDraft,previewSnapshot,queue,refreshAppInfo,reload,requestRefresh,showError,storedDraft,tick,unsaved,dispatch} from './session.ts';
 import {saveEditor} from './editor.ts';
+import {commitCut} from './cut.ts';
 import {submitCapture,submitComposer,ensureVisibleRoutines} from './tasks.ts';
 
 export function syncTheme(){
@@ -41,6 +42,12 @@ export async function saveBeforeQuit(requestId:string){
     if(!current())return;
     if(getState().drafts.editorDirty){
       if(!await saveEditor())throw Error(getState().error||'항목을 저장하지 못했습니다. 입력을 확인해 주세요.');
+      await queue.whenIdle();
+    }
+    if(!current())return;
+    // An open cutting board closes the way its close button does: committed.
+    if(getState().drafts.cut){
+      if(!await commitCut())throw Error(getState().error||'도마의 조각을 저장하지 못했습니다. 확인해 주세요.');
       await queue.whenIdle();
     }
     if(!current())return;

@@ -2,7 +2,7 @@ import {invoke} from '@tauri-apps/api/core';
 import {dayPlan} from '../../today.ts';
 import {effectiveDay} from '../../settings.ts';
 import {byFlowOrder,moveInOrder} from '../../flow.ts';
-import {placementIssue,splitDuration} from '../../placement.ts';
+import {placementIssue} from '../../placement.ts';
 import {dateKey,dateLabel,dateOf,plusDays,time} from '../../dates.ts';
 import {intentAction,updateAction,type Intent} from '../../intent.ts';
 import type {Action,Task,Trashed,WorkingDay} from '../../types.ts';
@@ -105,10 +105,6 @@ export function restoreTrashed(t:Trashed){
 export function purgeTrashed(items:Trashed[]){
   if(!items.length)return Promise.resolve(false);
   return dispatch({type:'purge_trashed',ids:items.map(t=>t.id)},{done:()=>announce(items.length>1?'휴지통을 비웠어요':`‘${items[0].title}’을 영구 삭제했어요`)});
-}
-export function split(t:Task,first:number){
-  const duration=splitDuration(t.duration,first);
-  return dispatch({type:'split',id:t.id,expected_revision:t.revision,new_id:crypto.randomUUID(),first_duration:duration},{done:()=>{setUi({split:null});announce(`‘${t.title}’을 나눴어요. 뒤 블록은 미계획에 있어요`);}});
 }
 export async function clearDay(date:string){
   const s=getState(),d=s.drafts;

@@ -598,22 +598,61 @@ impl Store {
             }
             action => {
                 let (id, revision) = match action {
-                    Action::Update { id, expected_revision, .. } | Action::SetCompleted { id, expected_revision, .. } | Action::Delete { id, expected_revision } | Action::Split {id,expected_revision,..} => (id, expected_revision),
+                    Action::Update { id, expected_revision, .. } | Action::SetCompleted { id, expected_revision, .. } | Action::Delete { id, expected_revision }
+                        | Action::SplitPieces {id,expected_revision,..} => (id, expected_revision),
                     _ => unreachable!(),
                 };
                 let Some(current) = snapshot.tasks.iter().find(|t| &t.id == id) else { return Err(error("conflict", "항목이 이미 삭제됐습니다. 작성 내용을 보존했습니다.")); };
                 if current.revision != *revision { return Err(error("conflict", "다른 창에서 항목이 변경됐습니다. 작성 내용을 보존했습니다.")); }
                 match action {
-                    Action::Split {new_id,first_duration,..} => {
-                        if current.completed || *first_duration < 15 || *first_duration % 15 != 0 || *first_duration > current.duration-15 {
-                            return Err(error("validation","미완료 블록을 각각 15분 이상으로 나눠 주세요."));
+                    Action::SplitPieces {pieces,date,..} => {
+                        if current.completed {return Err(error("validation","완료한 블록은 나눌 수 없어요."));}
+                        if pieces.is_empty() || pieces.len()>100 || pieces[0].id!=*id {return Err(error("validation","조각 정보를 확인하세요."));}
+                        let mut seen=std::collections::HashSet::new();
+                        for piece in pieces {
+                            let taken=piece.id!=*id && snapshot.tasks.iter().chain(snapshot.trash.iter().map(|t|&t.task)).any(|t|t.id==piece.id);
+                            if piece.id.is_empty() || piece.id.len()>100 || !seen.insert(piece.id.as_str()) || taken {return Err(error("validation","이미 사용 중인 블록 식별자입니다."));}
                         }
-                        if snapshot.tasks.iter().chain(snapshot.trash.iter().map(|t|&t.task)).any(|t| &t.id == new_id) { return Err(error("validation","이미 사용 중인 블록 식별자입니다.")); }
-                        let remainder=Task{id:new_id.clone(),starts_at:None,plan_date:None,flow_order:None,duration:current.duration-first_duration,revision:1,..current.clone()};
-                        validate_task(&remainder,&snapshot.tasks)?;
-                        tx.execute("UPDATE tasks SET duration=?1,proto=0,revision=revision+1 WHERE id=?2 AND revision=?3",params![first_duration,id,revision])?;
-                        tx.execute("INSERT INTO tasks(id,title,body,duration) VALUES(?1,?2,?3,?4)",params![remainder.id,remainder.title,remainder.body,remainder.duration])?;
-                        place(&tx,std::slice::from_ref(new_id),None,0)?;
+                        let bench=current.plan_date.is_none();
+                        // Done pieces of 미계획 work are that day's completion, like any completion there.
+                        let done_on=if bench && pieces.iter().any(|p|p.completed) {
+                            let date=date.as_deref().ok_or_else(||error("validation","완료한 날짜를 확인하세요."))?;parse_date(date)?;Some(date.to_string())
+                        } else {None};
+                        let mut tasks:Vec<Task>=snapshot.tasks.iter().filter(|t|t.id!=*id).cloned().collect();
+                        let start=current.starts_at.as_deref().map(parse_start).transpose()?;
+                        let mut minute=start.map(|s|{use chrono::Timelike;i64::from(s.hour()*60+s.minute())});
+                        let order=current.flow_order;
+                        // Later work of the day moves down to make room for the pieces after the first.
+                        if let (Some(date),None,Some(order))=(&current.plan_date,&current.starts_at,order) {
+                            tx.execute("UPDATE tasks SET flow_order=flow_order+?1 WHERE plan_date=?2 AND starts_at IS NULL AND flow_order>?3 AND id<>?4 AND deleted_at IS NULL",params![pieces.len() as i64-1,date,order,id])?;
+                        }
+                        let mut open=Vec::new();
+                        for (n,piece) in pieces.iter().enumerate() {
+                            let mut task=Task{id:piece.id.clone(),title:piece.title.trim().into(),body:piece.body.clone(),duration:piece.duration,completed:piece.completed,
+                                revision:if n==0 {current.revision+1} else {1},plan_date:current.plan_date.clone(),..Task::default()};
+                            if let Some(m)=minute {
+                                // A fixed block's pieces stay fixed, one after another from its time.
+                                task.starts_at=Some(format!("{}T{:02}:{:02}",current.plan_date.as_deref().unwrap_or_default(),m/60,m%60));minute=Some(m+piece.duration);
+                            } else if let Some(order)=order {
+                                task.flow_order=Some(order+n as i64);
+                            } else if piece.completed {
+                                let date=done_on.clone().unwrap();task.flow_order=Some(next_flow_order(&tasks,&date));task.plan_date=Some(date);
+                            } else {
+                                task.proto=piece.proto;open.push(task.id.clone());
+                            }
+                            validate_task(&task,&tasks)?;
+                            if n==0 {
+                                tx.execute("UPDATE tasks SET title=?1,body=?2,duration=?3,completed=?4,starts_at=?5,plan_date=?6,flow_order=?7,proto=?8,pile_id=NULL,pile_order=NULL,revision=?9 WHERE id=?10 AND revision=?11",
+                                    params![task.title,task.body,task.duration,task.completed,task.starts_at,task.plan_date,task.flow_order,task.proto,task.revision,id,revision])?;
+                            } else {insert_task(&tx,&task,None)?;}
+                            tasks.push(task);
+                        }
+                        // On the bench the open pieces take the original's place in its pile, in order.
+                        if bench {
+                            let pile=current.pile_id.as_deref();
+                            let index=snapshot.tasks.iter().filter(|t|t.plan_date.is_none()&&!t.completed&&t.pile_id.as_deref()==pile&&t.pile_order<current.pile_order).count();
+                            place(&tx,&open,pile,index)?;
+                        }
                     }
                     Action::Update { title, body, starts_at, duration, plan_date, before, sized, .. } => {
                         let derived=starts_at.as_deref().map(|start|start.get(..10).unwrap_or_default().to_string());

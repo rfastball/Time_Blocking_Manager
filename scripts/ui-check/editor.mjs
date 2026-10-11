@@ -91,7 +91,7 @@ const scenarios=[
   {name:'the block menu releases a fixed block and moves another to 미계획',run:async page=>{
     await rightClick(page,space+' .blk.fixed','설계 워크숍');await page.sleep(200);
     assert.match(await page.text('.ctx-menu .menu-head'),/설계 워크숍/);
-    assert.deepEqual(await menuItems(page),['메모 열기','완료로 표시','고정 해제','나누기 위치 정하기','미계획으로 옮기기','삭제']);
+    assert.deepEqual(await menuItems(page),['메모 열기','완료로 표시','고정 해제','나누기','미계획으로 옮기기','삭제']);
     await page.shot('editor-context-menu');
     await page.click('.ctx-menu [role=menuitem]','고정 해제');await page.sleep(500);
     assert.ok((await page.blocks(space)).some(b=>b.startsWith('설계 워크숍, 예상')),'released into the flow');
@@ -142,24 +142,28 @@ const scenarios=[
     const a=await active(page);
     assert.equal(a.label,'고정 시각');assert.equal(a.value,'10:45');
   }},
-  {name:'a 60-minute block splits into 30 + 30 and the second part goes to 미계획',run:async page=>{
+  {name:'나누기 opens the cutting board as a dialog: Enter halves, Esc commits the pieces in place, 취소 keeps the block',run:async page=>{
     await focusBlock(page,'설계 문서 자료 조사');
     await page.key('F10',{modifiers:SHIFT});await page.sleep(200);
-    await page.click('.ctx-menu [role=menuitem]','나누기 위치 정하기');await page.sleep(250);
-    assert.match(await page.text('.split-pop output'),/30분 \+ 30분/);
-    assert.equal((await active(page)).type,'range');
-    await page.key('ArrowRight');assert.match(await page.text('.split-pop output'),/45분 \+ 15분/);
-    await page.key('ArrowLeft');
+    await page.click('.ctx-menu [role=menuitem]','나누기');await page.sleep(300);
+    assert.ok(await page.js(`!!document.querySelector('dialog.cut-dialog[open]')`),'board dialog');
+    assert.equal((await active(page)).label,null);assert.equal(await page.js('document.activeElement?.id'),'cut-title');
+    await page.js(`document.querySelector('.cut-name').focus()`);await page.key('Enter',{text:'\r'});await page.sleep(200);
+    assert.deepEqual(await page.js(`[...document.querySelectorAll('.cut-len')].map(e=>e.textContent)`),['30분','30분']);
+    await page.type('자료 정리');
     await page.shot('editor-split');
-    await page.click('.split-pop .btn','나누기');await page.sleep(600);
-    assert.equal(await page.rect('.split-pop'),null);
-    assert.ok((await page.blocks(space)).includes('설계 문서 자료 조사, 예상 09:00–09:30'));
-    assert.match(await page.text('.today-side .tray'),/설계 문서 자료 조사/);
-    // Esc closes the chooser without splitting.
+    await page.key('Escape');await page.sleep(600);
+    assert.equal(await page.js(`!!document.querySelector('dialog.cut-dialog[open]')`),false);
+    const blocks=await page.blocks(space);
+    assert.ok(blocks.includes('설계 문서 자료 조사, 예상 09:00–09:30'),blocks.join(' / '));
+    assert.ok(blocks.includes('자료 정리, 예상 09:30–10:00'),'the second piece follows in the day, not in 미계획');
+    // 취소 throws the edit away; focus returns to the block.
     await focusBlock(page,'분리망 배포');await page.key('F10',{modifiers:SHIFT});await page.sleep(200);
-    await page.click('.ctx-menu [role=menuitem]','나누기 위치 정하기');await page.sleep(200);
-    await page.key('Escape');await page.sleep(100);
-    assert.equal(await page.rect('.split-pop'),null);
+    await page.click('.ctx-menu [role=menuitem]','나누기');await page.sleep(300);
+    await page.js(`document.querySelector('.cut-name').focus()`);await page.key('Enter',{text:'\r'});await page.sleep(150);
+    await page.click('.cut-foot .btn','취소');await page.sleep(300);
+    assert.equal(await page.js(`!!document.querySelector('dialog.cut-dialog[open]')`),false);
+    assert.equal((await page.blocks(space)).filter(b=>b.startsWith('분리망 배포')).length,1);
     assert.equal((await active(page)).task,'sample-d');
   }},
   {name:'the more menu refuses to split unsaved changes and moves the draft to 미계획',run:async page=>{
@@ -168,7 +172,7 @@ const scenarios=[
     await page.click(panel+' .ed-more>.btn');
     assert.equal((await active(page)).text,'블록 나누기');
     await page.key('Enter',{text:'\r'});await page.sleep(150);
-    assert.equal(await page.rect('.split-pop'),null,'no chooser while dirty');
+    assert.equal(await page.rect('.cut'),null,'no board while dirty');
     assert.match(await page.text('.status'),/변경을 저장한 뒤 블록을 나눠 주세요/);
     await page.click(panel+' .ed-more>.btn');await page.key('ArrowDown');
     assert.equal((await active(page)).text,'미계획으로 돌리기');
