@@ -25,6 +25,7 @@ function goRoutines(){
 
 export function Plan(){
   const {nav,snapshot,drafts}=useApp();
+  const drawerToggle=useRef<HTMLButtonElement>(null);
   const settings=drafts.settingsDraft??snapshot!.settings,week=weekCapacity(settings,nav.selected);
   const inbox=inboxTasks(),dated=snapshot!.tasks.some(t=>t.plan_date===nav.selected);
   const dates=periodDates(nav.period,nav.planAnchor),open=nav.inboxOpen;
@@ -35,7 +36,7 @@ export function Plan(){
       <span className="grow"/>
       <button type="button" className="btn" onClick={goRoutines}>정기 업무</button>
       <button type="button" className="btn text" disabled={!dated} aria-label={`${dateLabel(nav.selected)} 일정 비우기`} onClick={()=>void clearDay(nav.selected)}>{dateOf(nav.selected).getDate()}일 비우기</button>
-      <button type="button" className={'btn drawer-toggle'+(open?' on':'')} aria-expanded={open} aria-controls="plan-drawer" aria-label={inbox.length?`미계획 ${inbox.length}건`:'미계획'}
+      <button ref={drawerToggle} type="button" className={'btn drawer-toggle'+(open?' on':'')} aria-expanded={open} aria-controls="plan-drawer" aria-label={inbox.length?`미계획 ${inbox.length}건`:'미계획'}
         onClick={()=>setNav({inboxOpen:!open})}><Icon name="inbox" size={16}/>미계획{inbox.length>0&&<span className="cnt">{inbox.length}</span>}</button>
     </div>
     <div className={'plan-desk '+nav.period+(nav.period==='day'?' week':'')+(open?' with-drawer':'')}>
@@ -43,7 +44,7 @@ export function Plan(){
       <aside id="plan-drawer" className="plan-drawer" hidden={!open} aria-label="미계획 드로어">
         {open&&<>
           <InboxTray scale={WEEK_SCALE} overdue={overdueTasks()} onOpen={t=>openEditor(t.id,'dialog')}/>
-          <button type="button" className="ibtn drawer-close" aria-label="미계획 패널 닫기" onClick={()=>setNav({inboxOpen:false})}><Icon name="close" size={16}/></button>
+          <button type="button" className="ibtn drawer-close" aria-label="미계획 패널 닫기" onClick={()=>{setNav({inboxOpen:false});drawerToggle.current?.focus({preventScroll:true});}}><Icon name="close" size={16}/></button>
         </>}
       </aside>
     </div>

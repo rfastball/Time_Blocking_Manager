@@ -65,6 +65,7 @@ const scenarios=[
     await page.shot('editor-confirm');
     await page.click(panel+' .ed-confirm button','초안으로 남기고 닫기');
     assert.equal(await page.rect(panel),null);
+    assert.match((await active(page)).label,/회의록 정리, 예상/,'panel close returns to the block that opened it');
     assert.match(await page.text('.status'),/‘회의록 정리’ 이어서 편집/);
     await page.click('.status button','이어서 편집');
     assert.ok(await page.js(`document.querySelector('dialog.ed-dialog')?.open`),'dialog open');
@@ -184,7 +185,11 @@ const scenarios=[
       await page.shot('editor-theme-'+theme);
       assert.equal(await page.js(`getComputedStyle(document.querySelector(${JSON.stringify(panel)})).backgroundColor`),await page.js(`getComputedStyle(document.querySelector('.today-side .tray')).backgroundColor`),'panel sits on the panel surface');
       await page.click(panel+' .ed-close');
+      assert.match((await active(page)).label,/설계 문서 초안 작성, 예상/,'closing restores the opening block');
     }
+    await page.js(`document.querySelector('.ed-next-open').focus()`);await page.key('Enter',{text:'\r'});await page.sleep(200);
+    await page.key('Escape');await page.sleep(200);
+    assert.equal(await page.js(`document.activeElement?.classList.contains('ed-next-open')`),true,'the remounted Next card takes focus again');
   }},
 ];
 export default scenarios.map((s,i)=>({...s,run:async page=>{

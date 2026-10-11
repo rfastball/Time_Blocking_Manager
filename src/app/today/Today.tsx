@@ -1,4 +1,4 @@
-import {useState} from 'react';
+import {useState,type MouseEvent} from 'react';
 import {motion} from 'motion/react';
 import {nextFlowId,type DayItem} from '../../today.ts';
 import {time} from '../../dates.ts';
@@ -65,10 +65,24 @@ export function Today(){
 
 // What is left today, in the order it will be done. Each row completes or opens its block.
 function Queue({items,nextId,selected}:{items:DayItem[];nextId:string|null;selected:string|null}){
+  async function complete(e:MouseEvent<HTMLButtonElement>,t:Task,index:number){
+    const button=e.currentTarget,neighbours=[...items.slice(index+1),...items.slice(0,index).reverse()];
+    let moved=document.activeElement!==button;
+    const notice=(event:FocusEvent)=>{if(event.target!==button)moved=true;};
+    document.addEventListener('focusin',notice);
+    try{
+      if(!await completeTasks([t]))return;
+      requestAnimationFrame(()=>{
+        if(moved||(document.activeElement!==document.body&&document.activeElement!==button))return;
+        const next=neighbours.map(({task})=>document.querySelector<HTMLButtonElement>(`.queue [data-task="${CSS.escape(task.id)}"] .chk`)).find(el=>el);
+        (next??document.querySelector<HTMLInputElement>('.today-side #tray-capture'))?.focus({preventScroll:true});
+      });
+    }finally{document.removeEventListener('focusin',notice);}
+  }
   return <section className="card queue" aria-label="남은 블록">
     <h2>남은 블록 <b>{items.length}</b></h2>
-    <ol>{items.map(({task:t,start,end,fixed,over})=><li key={t.id} className={'q-row'+(t.id===nextId?' next':'')+(fixed?' fixed':'')+(over?' over':'')+(t.id===selected?' sel':'')}>
-      <button type="button" className="chk" aria-label={t.title+' 완료'} onClick={()=>void completeTasks([t])}><Icon name="check" size={12} stroke={3}/></button>
+    <ol>{items.map(({task:t,start,end,fixed,over},index)=><li key={t.id} data-task={t.id} className={'q-row'+(t.id===nextId?' next':'')+(fixed?' fixed':'')+(over?' over':'')+(t.id===selected?' sel':'')}>
+      <button type="button" className="chk" aria-label={t.title+' 완료'} onClick={e=>void complete(e,t,index)}><Icon name="check" size={12} stroke={3}/></button>
       <button type="button" className="q-main" onClick={()=>open(t)} aria-label={`${t.title}, ${fixed?'시각 고정':'예상'} ${time(start)}–${time(end)}, ${formatDuration(t.duration)}${over?', 근무 외':''}`}>
         <span className="q-time">{time(start)}</span>
         <span className="q-title">{fixed&&<Lock size={12}/>}{t.title}</span>

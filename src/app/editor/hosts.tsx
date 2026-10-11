@@ -16,14 +16,31 @@ export {ContextMenuHost,SplitHost} from './Menus.tsx';
 // Today's side: the open task when the editor is in panel mode, otherwise a glance at the next block.
 export function EditorPanel({nextId}:{nextId:string|null}){
   const {drafts,ui,snapshot}=useApp(),e=ui.editorMode==='panel'?drafts.editor:null;
-  if(e)return <motion.section key="detail" className="card ed-panel" aria-label="블록 상세" initial={{opacity:0,y:6}} animate={{opacity:1,y:0}} transition={{type:'spring',visualDuration:.22,bounce:.15}}>
+  const nextButton=useRef<HTMLButtonElement|null>(null);
+  const opening=useRef<{panel:HTMLElement;opener:Element|null}|null>(null);
+  const attach=useCallback((panel:HTMLElement|null)=>{
+    if(!panel)return;
+    // StrictMode reattaches the same node after the editor has already taken focus.
+    if(opening.current?.panel!==panel)opening.current={panel,opener:nextButton.current??document.activeElement};
+    const opener=opening.current.opener,nextOpener=opener instanceof HTMLElement&&opener.matches('.ed-next-open');
+    nextButton.current=null;
+    return ()=>{
+      if(!panel.contains(document.activeElement))return;
+      requestAnimationFrame(()=>{
+        if(document.activeElement!==document.body)return;
+        const target=opener instanceof HTMLElement&&opener.isConnected?opener:nextOpener?document.querySelector<HTMLElement>('.ed-next-open'):null;
+        target?.focus({preventScroll:true});
+      });
+    };
+  },[]);
+  if(e)return <motion.section key={e.id} ref={attach} className="card ed-panel" aria-label="블록 상세" initial={{opacity:0,y:6}} animate={{opacity:1,y:0}} transition={{type:'spring',visualDuration:.22,bounce:.15}}>
     <Editor key={e.id} mode="panel"/>
   </motion.section>;
   const next=nextId?snapshot!.tasks.find(t=>t.id===nextId):null;
   if(!next)return null;
   const item=next.plan_date?planOf(next.plan_date).items.find(i=>i.task.id===next.id):null;
   return <section className="card ed-next" aria-label="다음 블록">
-    <button type="button" className="ed-next-open" onClick={()=>openEditor(next.id,'panel')}>
+    <button type="button" className="ed-next-open" onClick={event=>{nextButton.current=event.currentTarget;openEditor(next.id,'panel');}}>
       <span className="pill">다음</span>
       <span className="ed-next-title">{next.title}</span>
       {next.body.trim()&&<span className="ed-next-memo">{memoPreview(next.body)}</span>}

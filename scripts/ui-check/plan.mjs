@@ -11,6 +11,25 @@ async function days(page){
 }
 const hourY=async(page,h,scope='.wk-hours')=>(await page.rect(scope+' span',String(h).padStart(2,'0'))).cy;
 const block=(page,date,text)=>page.rect(`${sp(date)} .blk`,text);
+const readable=page=>page.js(`(()=>{
+  const canvas=document.createElement('canvas');canvas.width=canvas.height=1;const ctx=canvas.getContext('2d');
+  const rgba=color=>{ctx.clearRect(0,0,1,1);ctx.fillStyle=color;ctx.fillRect(0,0,1,1);return [...ctx.getImageData(0,0,1,1).data].map((v,i)=>i===3?v/255:v);};
+  const blend=(top,bottom)=>top.slice(0,3).map((v,i)=>v*top[3]+bottom[i]*(1-top[3]));
+  const lum=rgb=>rgb.map(v=>v/255).map(v=>v<=.04045?v/12.92:((v+.055)/1.055)**2.4).reduce((n,v,i)=>n+v*[.2126,.7152,.0722][i],0);
+  const selectors='.wk-day small,.wk-day strong,.wk-alloc>span,.cal-date strong,.cal-sum>span,.cal-more,.mini button,.mini small,.cal .tag-chip';
+  return [...document.querySelectorAll(selectors)].filter(el=>el.textContent.trim()).map(el=>{
+    let opacity=1;const backgrounds=[];
+    for(let node=el;node;node=node.parentElement){const css=getComputedStyle(node);opacity*=Number(css.opacity);backgrounds.push(rgba(css.backgroundColor));}
+    const bg=backgrounds.reverse().reduce((base,color)=>blend(color,base),[255,255,255]);
+    const fg=rgba(getComputedStyle(el).color);fg[3]*=opacity;
+    const a=lum(blend(fg,bg)),b=lum(bg);
+    return {text:el.textContent.trim(),ratio:(Math.max(a,b)+.05)/(Math.min(a,b)+.05)};
+  });
+})()`);
+async function assertReadable(page,theme){
+  const results=await readable(page);assert.ok(results.length,'date content is present');
+  for(const result of results)assert.ok(result.ratio>=4.5,`${theme}: ${result.text} contrast ${result.ratio.toFixed(2)}`);
+}
 async function press(page,x,y,moves=[]){
   await page.mouse('mouseMoved',x,y,0);await page.mouse('mousePressed',x,y);
   for(const m of moves){await page.mouse('mouseMoved',m.x,m.y);await page.sleep(16);}
@@ -29,6 +48,9 @@ export default [
     assert.match(await page.text('.plan-bar .week-summary'),/선택한 주 근무 .+ \/ .+ · \d \/ \d일/);
     assert.equal(await page.js(`document.querySelector('.drawer-toggle').getAttribute('aria-expanded')`),'true');
     await page.shot('plan-week');
+    await page.js(`document.querySelector('.drawer-close').focus()`);await page.key('Enter',{text:'\r'});await page.sleep(150);
+    assert.equal(await page.js(`document.activeElement?.classList.contains('drawer-toggle')`),true,'drawer close returns to its toggle');
+    assert.equal(await page.js(`document.querySelector('.drawer-toggle').getAttribute('aria-expanded')`),'false');
   }},
   {name:'at 960px the week scrolls sideways inside its card',viewport:{width:960,height:900},run:async page=>{
     await toPlan(page);
@@ -140,7 +162,27 @@ export default [
   }},
   {name:'the week reads in the other themes',run:async page=>{
     await toPlan(page);
-    for(const theme of ['g1','g3','g4']){await page.js(`document.documentElement.dataset.theme='${theme}'`);await page.sleep(200);await page.shot('plan-week-'+theme);}
+    for(const theme of ['default','g1','g3','g4']){
+      await page.js(`document.documentElement.dataset.theme='${theme}'`);await page.sleep(200);await page.shot('plan-week-'+theme);
+      await page.js(`document.querySelector('.wk-head.sel').classList.add('past')`);
+      await assertReadable(page,theme+' selected past week');
+    }
+    await page.click('.segmented [role=radio]','2주');
+    // Exercise the color states on the populated date so the task titles and fixed-time labels are included.
+    await page.js(`document.querySelector('.cal-cell.today').classList.add('past','outside')`);
+    for(const theme of ['default','g1','g3','g4']){
+      await page.js(`document.documentElement.dataset.theme='${theme}';document.querySelector('.cal-cell.today').classList.add('sel')`);
+      await assertReadable(page,theme+' selected past outside calendar');
+      await page.js(`document.querySelector('.cal-cell.today').classList.remove('sel')`);
+      await assertReadable(page,theme+' past outside calendar');
+      assert.equal(await page.js(`getComputedStyle(document.querySelector('.cal-cell.outside')).borderTopStyle`),'dashed','outside dates keep a boundary cue');
+    }
+    await page.click('.segmented [role=radio]','월');
+    await page.js(`document.querySelector('.cal-cell.today').classList.add('past','outside')`);
+    for(const theme of ['default','g1','g3','g4']){
+      await page.js(`document.documentElement.dataset.theme='${theme}'`);
+      await assertReadable(page,theme+' selected past outside monthly load');
+    }
   }},
   {name:'2주 titles open the task and carry it to another date',run:async page=>{
     await toPlan(page);
