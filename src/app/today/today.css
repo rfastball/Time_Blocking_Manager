@@ -1,4 +1,4 @@
-.today{display:flex;flex-direction:column;gap:12px;max-width:1180px}
+.today{display:flex;flex-direction:column;gap:var(--space-control)}
 .today-bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px}
 .today-bar .grow{flex:1}
 .cap{display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--color-text-muted);font-variant-numeric:tabular-nums}
@@ -8,29 +8,35 @@
 .anchor{font-size:12.5px;color:var(--color-text-muted);font-variant-numeric:tabular-nums}
 .multi-bar{display:flex;align-items:center;gap:8px;font-weight:600}
 /* A paper timetable strip beside what to do next and the queue; 미계획 at the edge. */
-.today-cols{display:grid;grid-template-columns:300px minmax(0,1fr) 280px;gap:18px;align-items:start}
+.today-cols{display:grid;grid-template-columns:minmax(260px,300px) minmax(0,1fr) minmax(240px,280px);gap:var(--space-section-loose);align-items:start}
 .today-day{min-width:0;padding:0;overflow:hidden}
-.today-main{min-width:0;display:flex;flex-direction:column;gap:16px}
-.today-side{min-width:0;display:flex;flex-direction:column;gap:16px}
-.queue{padding:14px 14px 8px}
-.queue h2{margin:0 0 8px;font-size:13px;font-weight:600;color:var(--color-text-muted)}
+.today-main{min-width:0;display:flex;flex-direction:column;gap:var(--space-section)}
+.today-main:empty{display:none}
+.today-side{min-width:0;display:flex;flex-direction:column;gap:var(--space-section)}
+.queue{padding:var(--space-section) var(--space-section) var(--space-related)}
+.queue h2{margin:0 0 var(--space-related);font-size:13px;font-weight:600;color:var(--color-text-muted)}
 .queue h2 b{color:var(--color-text);font-variant-numeric:tabular-nums}
 .queue ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
-.q-row{display:flex;align-items:center;gap:8px;border-top:1px solid var(--color-divider);padding:2px 0}
+.q-row{display:flex;align-items:center;gap:var(--space-related);border-top:1px solid var(--color-divider);padding:2px 0}
 .q-row:first-child{border-top:0}
 .q-row .chk{width:18px;height:18px;color:var(--color-text-muted)}
-.q-main{flex:1;min-width:0;display:grid;grid-template-columns:44px minmax(0,1fr) auto;align-items:center;gap:10px;border:0;background:none;text-align:left;padding:8px 6px;border-radius:var(--radius-control);cursor:pointer;color:inherit;font:inherit}
+.q-main{flex:1;min-width:0;display:grid;grid-template-columns:44px minmax(0,1fr) auto;align-items:center;gap:var(--space-row);border:0;background:none;text-align:left;padding:var(--space-related) var(--space-small);border-radius:var(--radius-control);cursor:pointer;color:inherit;font:inherit}
 .q-main:hover{background:var(--color-control-hover)}
 .q-time{font-size:12px;color:var(--color-text-muted);font-variant-numeric:tabular-nums}
-.q-title{display:flex;align-items:center;gap:6px;min-width:0;font-weight:600;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.q-title{display:flex;align-items:center;gap:var(--space-small);min-width:0;font-weight:600;font-size:13.5px}
+.q-title-text{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .q-title .lock{flex:0 0 auto;color:var(--color-text-muted)}
-.q-dur{font-size:12px;color:var(--color-text-muted);font-variant-numeric:tabular-nums}
+.q-dur{font-size:12px;color:var(--color-text-muted);font-variant-numeric:tabular-nums;white-space:nowrap}
 .q-row.next .q-title{color:var(--color-action)}
 .q-row.next .chk{color:var(--color-action)}
 .q-row.over .q-time{color:color-mix(in srgb,var(--color-overdue) 70%,var(--color-text-muted))}
 .q-row.sel .q-main{background:var(--color-selection)}
-@media (max-width:1100px){
+@media (min-width:1241px){
+  .today-cols:has(.today-main:empty){grid-template-columns:minmax(260px,300px) minmax(240px,280px)}
+}
+@media (max-width:1240px){
   .today-cols{grid-template-columns:280px minmax(0,1fr);grid-template-rows:auto 1fr;grid-template-areas:"day main" "day side"}
+  .today-cols:has(.today-main:empty){grid-template-columns:280px minmax(240px,280px);grid-template-rows:none;grid-template-areas:"day side"}
   .today-day{grid-area:day}.today-main{grid-area:main}.today-side{grid-area:side}
 }
-@media (max-width:760px){.today-cols{grid-template-columns:minmax(0,1fr);grid-template-rows:none;grid-template-areas:"day" "main" "side"}}
+@media (max-width:760px){.today-cols{grid-template-columns:minmax(0,1fr);grid-template-rows:none;grid-template-areas:"day" "main" "side"}.today-cols:has(.today-main:empty){grid-template-columns:minmax(0,1fr);grid-template-areas:"day" "side"}}
