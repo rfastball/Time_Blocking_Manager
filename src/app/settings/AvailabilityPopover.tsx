@@ -6,10 +6,9 @@ import type {AvailabilityTarget} from '../../availability-band.ts';
 import {dateLabel} from '../../dates.ts';
 import type {DayException} from '../../types.ts';
 import {getState,setUi,useApp} from '../store/state.ts';
-import {saveSchedule,scheduleConflicts,setSettingsDraft,stashRawSchedule} from '../store/schedule.ts';
+import {saveSchedule,setSettingsDraft,stashRawSchedule} from '../store/schedule.ts';
 import {Icon} from '../ui/icons.tsx';
 import {BandEditor} from './BandEditor.tsx';
-import {Conflicts,useConsent} from './Conflicts.tsx';
 import {dateDraft,publishDate} from './drafts.ts';
 import './settings.css';
 
@@ -24,7 +23,6 @@ function DatePopover({date,target,x,y}:{date:string;target:AvailabilityTarget;x:
   const s=useApp(),{draft,kind}=dateDraft(date,s),day=effectiveDay(draft,date),exception=draft.exceptions?.find(e=>e.date===date);
   const ref=useRef<HTMLElement>(null),opener=useRef(document.activeElement as HTMLElement|null),heading=useId();
   const [pos,setPos]=useState({left:x,top:y}),[error,setError]=useState(''),[saving,setSaving]=useState(false);
-  const conflicts=scheduleConflicts(draft),[agreed,agree,agreedTo]=useConsent(conflicts);
   const initial=target==='work'||day.breaks[target]?target:'work';
 
   const close=(refocus:boolean)=>{setUi({availability:null});if(refocus&&opener.current?.isConnected)opener.current.focus({preventScroll:true});};
@@ -40,10 +38,8 @@ function DatePopover({date,target,x,y}:{date:string;target:AvailabilityTarget;x:
   },[]);
 
   async function store(settings:typeof draft){
-    const list=scheduleConflicts(settings);
-    if(list.length&&!agreedTo(list)){setError('겹치는 고정 작업을 같은 날짜의 유동 작업으로 옮기는 데 동의한 뒤 다시 적용하세요.');return;}
     setSaving(true);
-    const ok=await saveSchedule(settings,list.length>0,date);
+    const ok=await saveSchedule(settings,date);
     setSaving(false);
     if(ok)close(true);else setError(getState().error||'저장하지 못했습니다. 다시 시도해 주세요.');
   }
@@ -74,7 +70,6 @@ function DatePopover({date,target,x,y}:{date:string;target:AvailabilityTarget;x:
     </label>
     {kind!=='leave'&&<BandEditor compact days={[day]} names={['이 날짜']} initial={{day:0,target:initial}} autoFocus
       onChange={(_,next)=>{setError('');publishDate(date,dateDraft(date).kind,next);}} onError={setError}/>}
-    <Conflicts tasks={conflicts} agreed={agreed} onAgree={agree}/>
     {(error||problem)&&<p className="error st-error" role="alert">{error||problem}</p>}
     <div className="ap-actions">
       {exception&&<button type="button" className="btn" onClick={restore}>반복 일정으로 복원</button>}

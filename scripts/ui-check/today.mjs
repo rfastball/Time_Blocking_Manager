@@ -46,15 +46,14 @@ export default [
     const order=(await page.blocks(space)).map(b=>b.split(',')[0]);
     assert.equal(order.indexOf('회의록 템플릿 업데이트'),order.indexOf('회의록 정리')-1);
   }},
-  {name:'held on the rail it snaps to a slot and drops as fixed; lunch refuses',run:async page=>{
+  {name:'held on the rail it snaps to a slot and permits explicit lunch placement',run:async page=>{
     const c=await find(page,'회의록 정리'),rail=await page.rect(space+' .rail'),lunch=await page.rect(space+' .brk');
     const work=await find(page,'설계 워크숍');
     await page.drag({x:c.x+80,y:c.y+6},{x:rail.cx,y:work.y+work.h+40},{before:()=>page.shot('today-held-rail')});
     assert.ok((await page.blocks(space)).includes('회의록 정리, 시각 고정 15:30–16:00'),'fixed at 15:30');
     const d=await find(page,'분리망 배포');
-    const before=await page.blocks(space);
-    await page.drag({x:d.x+80,y:d.y+6},{x:rail.cx,y:lunch.y+10},{before:async()=>{await page.shot('today-held-lunch');assert.match(await page.text('.held'),/점심/);}});
-    assert.deepEqual(await page.blocks(space),before);
+    await page.drag({x:d.x+80,y:d.y+6},{x:rail.cx,y:lunch.y+10},{before:async()=>{await page.shot('today-held-lunch');assert.equal(await page.js(`document.querySelector('.held .off-part')?.style.height`),'100%');}});
+    assert.ok((await page.blocks(space)).includes('분리망 배포 의존성 검토, 시각 고정 12:00–13:00'));
   }},
   {name:'the grip resizes and the following blocks are laid out again',run:async page=>{
     await page.js(`document.querySelector('.today-day .blk.next')?.dispatchEvent(new MouseEvent('mouseover',{bubbles:true}))`);

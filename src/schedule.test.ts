@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {formatDuration,rangeTitle} from './format.ts';
 import {nextFlowId,dayPlan,newlyOver,calendarRefreshAllowed} from './today.ts';
-import {placementIssue,selectionRange,splitDuration} from './placement.ts';
+import {placementIssue,selectionRange,splitDuration,unavailableParts,resistWorkingBoundary} from './placement.ts';
 import {createTimeAxis,timeAxisForDays,expandTimeAxis,timeAxisLabelVisible} from './time-axis.ts';
 import type {Task,WorkingDay} from './types.ts';
 
@@ -74,14 +74,41 @@ test('the next block is the first remaining flow block, never a fixed one and ne
   assert.equal(nextFlowId(plan.items,['f']),'g');
   assert.equal(nextFlowId([]),null);
 });
-test('placement explains each refusal and permits touching boundaries and self moves',()=>{
+test('explicit placement permits unavailable time but rejects invalid times and other reservations',()=>{
   const cases:[number,number,WorkingDay,string][]=[
-    [780,30,rule,'overlap'],[720,30,rule,'unavailable'],[525,15,rule,'outside'],[780,30,{...rule,enabled:false},'dayOff'],[781,30,rule,'grid']
+    [780,30,rule,'overlap'],[-15,15,rule,'outside'],[1425,30,rule,'outside'],[781,30,rule,'grid']
   ];
   for(const [start,length,day,kind] of cases)assert.equal(placementIssue('new',date,start,length,day,[task])?.kind,kind);
   assert.equal(placementIssue('new',date,780,30,rule,[task])?.label,'‘초안’과 겹침');
   assert.equal(placementIssue('new',date,870,30,rule,[task]),null);
   assert.equal(placementIssue('a',date,780,90,rule,[task]),null);
+  for(const [start,day] of [[720,rule],[525,rule],[1080,rule],[780,{...rule,enabled:false}]] as const)
+    assert.equal(placementIssue('new',date,start,30,day,[]),null);
+});
+
+test('unavailable masks clip to exact partial intersections and count fixed off-hours once',()=>{
+  assert.deepEqual(unavailableParts(510,570,rule),[{start:510,end:540}]);
+  assert.deepEqual(unavailableParts(690,810,rule),[{start:720,end:780}]);
+  assert.deepEqual(unavailableParts(1050,1110,rule),[{start:1080,end:1110}]);
+  assert.deepEqual(unavailableParts(540,720,rule),[]);
+  assert.deepEqual(unavailableParts(690,810,{...rule,enabled:false}),[{start:690,end:810}]);
+  const partial=dayPlan(date,[{...task,starts_at:date+'T17:30',duration:60}],rule,[]).items[0];
+  assert.equal(partial.over,true);assert.equal(partial.outside,30);
+  assert.deepEqual(unavailableParts(690,810,{...rule,breaks:[{start:720,end:780,label:'a'},{start:750,end:795,label:'b'}]}),[{start:720,end:795}]);
+});
+
+test('working boundaries resist slight pushes, release deliberate pushes and allow returning',()=>{
+  for(const scale of [1,1.2]){
+    const position=(m:number)=>m*scale;
+    assert.equal(resistWorkingBoundary(1020,1035,60,rule,position),1020);
+    assert.equal(resistWorkingBoundary(1020,1050,60,rule,position),1050);
+    assert.equal(resistWorkingBoundary(1050,1035,60,rule,position),1035);
+    assert.equal(resistWorkingBoundary(540,525,60,rule,position),540);
+    assert.equal(resistWorkingBoundary(540,510,60,rule,position),510);
+    assert.equal(resistWorkingBoundary(660,675,60,rule,position),660);
+    assert.equal(resistWorkingBoundary(660,690,60,rule,position),690);
+    assert.equal(resistWorkingBoundary(540,525,60,{...rule,enabled:false},position),525);
+  }
 });
 
 test('split boundaries snap and preserve two nonempty blocks at both edges',()=>{

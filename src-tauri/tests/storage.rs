@@ -179,20 +179,25 @@ fn scheduling_rejects_overlap_and_preserves_identity_on_move() {
     let a = create(&mut s, "a"); let b = create(&mut s, "b");
     let c = command(&s, update(&a, "2026-10-08T10:00", 45)); s.apply(&c).unwrap();
     for (date, duration, code) in [
-        ("2026-10-08T10:30",30,"overlap"), ("2026-10-08T12:00",30,"unavailable"),
-        ("2026-10-10T10:00",30,"unavailable"), ("2026-10-08T23:45",30,"unavailable"),
+        ("2026-10-08T10:30",30,"overlap"), ("2026-10-08T23:45",30,"validation"),
         ("2026-10-08T10:01",30,"validation"), ("2026-02-30T10:00",30,"validation"),
         ("2026-10-08T11:00",5,"validation")
     ] {
         let c = command(&s, update(&b,date,duration)); assert_eq!(s.apply(&c).unwrap_err().code,code);
     }
     let c = command(&s, update(&b,"2026-10-08T10:45",30)); s.apply(&c).unwrap();
+    // Explicit placement can cross either work boundary, a break, or a day off.
+    for (start,duration) in [("2026-10-08T12:00",30),("2026-10-08T08:45",30),("2026-10-08T17:45",30),("2026-10-10T10:00",30),("2026-10-08T23:45",15)] {
+        let b=find(&s.snapshot().unwrap(),"b");
+        let c=command(&s,update(&b,start,duration));let moved=s.apply(&c).unwrap();
+        assert_eq!(find(&moved,"b").starts_at.as_deref(),Some(start));
+    }
     let a = s.snapshot().unwrap().tasks.into_iter().find(|t| t.id=="a").unwrap();
     let c = command(&s, update(&a,"2026-10-09T10:00",45)); let after = s.apply(&c).unwrap();
     assert_eq!(after.tasks.len(),2); assert_eq!(after.tasks.iter().filter(|t| t.starts_at.as_deref()==Some("2026-10-08T10:00")).count(),0);
     let mut days = after.settings.days.clone(); days[4].enabled=false;
     let c = command(&s, Action::SetSettings { expected_revision: after.settings.revision, days });
-    assert_eq!(s.apply(&c).unwrap_err().code,"unavailable");
+    assert_eq!(s.apply(&c).unwrap().tasks,after.tasks);
 }
 
 #[test]
@@ -205,21 +210,22 @@ fn date_exceptions_are_atomic_persistent_and_restorable() {
     let c=command(&s,set(&settings,false));settings=s.apply(&c).unwrap().settings;
     let c=command(&s,Action::CreateScheduled{id:"lunch".into(),title:"급한 일".into(),starts_at:Some("2026-10-08T12:00".into()),duration:30});
     assert_eq!(s.apply(&c).unwrap().tasks.len(),1);assert_eq!(s.apply(&c).unwrap().tasks.len(),1);
-    let invalid=command(&s,Action::CreateScheduled{id:"next".into(),title:"다음 주".into(),starts_at:Some("2026-10-15T12:00".into()),duration:30});
-    assert_eq!(s.apply(&invalid).unwrap_err().code,"unavailable");
+    let c=command(&s,Action::CreateScheduled{id:"next".into(),title:"다음 주".into(),starts_at:Some("2026-10-15T12:00".into()),duration:30});
+    let placed=s.apply(&c).unwrap();
+    assert_eq!(placed.settings.day(chrono::NaiveDate::from_ymd_opt(2026,10,15).unwrap()).breaks.len(),1);
     settings.exceptions[0].kind="leave".into();settings.exceptions[0].day.enabled=false;
-    let c=command(&s,set(&settings,false));assert_eq!(s.apply(&c).unwrap_err().code,"unavailable");
-    assert_eq!(s.snapshot().unwrap().settings.exceptions[0].kind,"custom");
+    let c=command(&s,set(&settings,false));let snapshot=s.apply(&c).unwrap();
+    assert_eq!(snapshot.tasks,placed.tasks);settings=snapshot.settings;
     let c=command(&s,set(&settings,true));let snapshot=s.apply(&c).unwrap();
-    assert_eq!(snapshot.tasks[0].id,"lunch");assert_eq!(snapshot.tasks[0].starts_at,None);assert_eq!(snapshot.tasks[0].revision,2);
-    // Leave releases the exact time but keeps the work assigned to its date.
-    assert_eq!((snapshot.tasks[0].plan_date.as_deref(),snapshot.tasks[0].flow_order),(Some("2026-10-08"),Some(1)));
-    assert_eq!(s.apply(&c).unwrap().tasks[0].revision,2);
+    // Both legacy move_conflicts values preserve explicit times, identity and revisions.
+    assert_eq!(snapshot.tasks,placed.tasks);assert_eq!(s.apply(&c).unwrap().tasks,placed.tasks);
     let backup=dir.path().join("backup.db");s.backup(&backup).unwrap();drop(s);
     let mut s=Store::open(&path).unwrap();let restored=s.snapshot().unwrap();assert_eq!(restored.settings.exceptions[0].kind,"leave");
     assert_eq!(restored.settings.weekly_target,2400);assert_eq!(restored.settings.work_days,5);
+    assert_eq!(restored.tasks,placed.tasks);
     s.restore(&backup,&restored.epoch,&dir.path().join("safety.db")).unwrap();
     assert_eq!(s.snapshot().unwrap().settings,restored.settings);
+    assert_eq!(s.snapshot().unwrap().tasks,placed.tasks);
 }
 
 #[test]
@@ -559,8 +565,8 @@ fn trash_sets_work_aside_restores_it_in_place_and_purges_after_retention() {
     let cmd=command(&s,Action::CreateScheduled{id:"taker".into(),title:"새 예약".into(),starts_at:Some("2026-10-05T10:30".into()),duration:30});s.apply(&cmd).unwrap();
     let cmd=restore(&s,"fixed");let snap=s.apply(&cmd).unwrap();let back=find(&snap,"fixed");
     assert_eq!((back.starts_at.as_deref(),back.plan_date.as_deref(),back.flow_order,back.completed),(None,Some(day),Some(4),true));
-    // Without a conflict the exact time returns.
-    let cmd=command(&s,Action::CreateScheduled{id:"free".into(),title:"오후".into(),starts_at:Some("2026-10-05T15:00".into()),duration:30});let free=find(&s.apply(&cmd).unwrap(),"free");
+    // Without a task conflict the exact time returns, including off-hours placements.
+    let cmd=command(&s,Action::CreateScheduled{id:"free".into(),title:"저녁".into(),starts_at:Some("2026-10-05T20:00".into()),duration:30});let free=find(&s.apply(&cmd).unwrap(),"free");
     let cmd=delete(&s,&free);s.apply(&cmd).unwrap();let cmd=restore(&s,"free");assert_eq!(find(&s.apply(&cmd).unwrap(),"free").starts_at,free.starts_at);
     // Permanent removal names the items seen; anything else conflicts or is invalid.
     let (x,y)=(create(&mut s,"x"),create(&mut s,"y"));

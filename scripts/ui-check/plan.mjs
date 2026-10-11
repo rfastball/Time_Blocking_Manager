@@ -37,6 +37,34 @@ async function press(page,x,y,moves=[]){
 }
 
 export default [
+  {name:'working lips yield to deliberate rail drags and only unavailable slices are hatched',run:async page=>{
+    await toPlan(page);
+    const {today}=await days(page),scope=sp(today),workshop=await block(page,today,'설계 워크숍');
+    const y11=await hourY(page,11),y12=await hourY(page,12),minute=(y12-y11)/60;
+    const x=workshop.x+60,grab=22;
+    await page.drag({x,y:workshop.y+grab},{x,y:y11+grab});
+    const moved=await block(page,today,'설계 워크숍');
+    await page.mouse('mouseMoved',x,moved.y+grab,0);await page.mouse('mousePressed',x,moved.y+grab);
+    await page.mouse('mouseMoved',x,moved.y+grab+8);
+    await page.js(`new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))`);
+    await page.mouse('mouseMoved',x,y11+grab+15*minute);await page.sleep(100);
+    const heldTime=await page.text('.held .meta');
+    assert.match(heldTime??'',/11:00–12:00/,`a light push rests against lunch: ${heldTime}`);
+    assert.equal(await page.text('.held-why.boundary'),'근무시간 경계');
+    await page.mouse('mouseMoved',x,y11+grab+30*minute);await page.sleep(250);
+    assert.match(await page.text('.held .meta'),/11:30–12:30/,'an extra push clears the boundary');
+    const mask=await page.js(`(()=>{const p=document.querySelector('.held .off-part');return {top:p?.style.top,height:p?.style.height};})()`);
+    assert.deepEqual(mask,{top:'50%',height:'50%'});
+    await page.shot('plan-partial-lunch-held');
+    await page.mouse('mouseReleased',x,y11+grab+30*minute,0);await page.sleep(600);
+    const label=await page.js(`[...document.querySelectorAll('${scope} .main')].find(e=>e.textContent.includes('설계 워크숍')).getAttribute('aria-label')`);
+    assert.match(label,/시각 고정 11:30–12:30.*근무 외 30분/);
+    for(const theme of ['default','g1','g3','g4']){
+      await page.js(`document.documentElement.dataset.theme='${theme}'`);
+      assert.ok(await page.js(`(()=>{const s=document.querySelector('${scope}');return getComputedStyle(s.querySelector('.off')).backgroundImage!==getComputedStyle(s.querySelector('.brk')).backgroundImage;})()`),'break and off-hours retain different textures');
+      await page.shot('plan-partial-'+theme);
+    }
+  }},
   {name:'week shows seven day spaces on one shared axis with date heads',run:async page=>{
     await toPlan(page);
     assert.equal(await page.js(`document.querySelectorAll('.wk .dayspace').length`),7);
@@ -258,15 +286,17 @@ export default [
     await page.key('Escape');await page.sleep(200);
     assert.equal(await page.js(`!!document.querySelector('.composer')`),false);
   }},
-  {name:'a range over lunch is marked and cannot be placed',run:async page=>{
+  {name:'a range over lunch can be explicitly placed with a partial unavailable mask',run:async page=>{
     await toPlan(page);
     const {other}=await days(page),col=await page.rect(sp(other)),y11=await hourY(page,11),y13=await hourY(page,13);
     await page.mouse('mouseMoved',col.x+70,y11+2,0);await page.mouse('mousePressed',col.x+70,y11+2);
     for(let i=1;i<=10;i++){await page.mouse('mouseMoved',col.x+70,y11+2+(y13-y11-4)*i/10);await page.sleep(16);}
-    assert.equal(await page.js(`document.querySelector('${sp(other)} .range').classList.contains('bad')`),true);
+    assert.equal(await page.js(`document.querySelector('${sp(other)} .range').classList.contains('bad')`),false);
     await page.mouse('mouseReleased',col.x+70,y13-2,0);await page.sleep(250);
-    assert.equal(await page.js(`!!document.querySelector('.composer')`),false);
-    assert.match(await page.text('.status'),/점심/);
+    assert.equal(await page.js(`!!document.querySelector('.composer')`),true);
+    await page.type('점심을 걸친 작업');await page.key('Enter',{text:'\r'});await page.sleep(400);
+    assert.ok((await page.blocks(sp(other))).includes('점심을 걸친 작업, 시각 고정 11:00–13:00'));
+    assert.equal(await page.js(`document.querySelector('${sp(other)} .blk .off-part')?.style.height`),'50%');
   }},
   {name:'a week date head opens its 일 view, where empty time takes a new block that runs past the end of work',run:async page=>{
     await toPlan(page);

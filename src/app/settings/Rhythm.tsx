@@ -5,9 +5,8 @@ import {formatDuration} from '../../format.ts';
 import {dateLabel,time} from '../../dates.ts';
 import {getState,setNav,useApp} from '../store/state.ts';
 import {ask} from '../store/session.ts';
-import {resetSettingsDraft,saveSchedule,scheduleConflicts,setSettingsDraft,stashRawSchedule} from '../store/schedule.ts';
+import {resetSettingsDraft,saveSchedule,setSettingsDraft,stashRawSchedule} from '../store/schedule.ts';
 import {BandEditor} from './BandEditor.tsx';
-import {Conflicts,useConsent} from './Conflicts.tsx';
 import {publishWeekly,weeklyDraft,weeklyProblem} from './drafts.ts';
 
 const kindLabel={custom:'시간 변경',early:'조퇴',leave:'휴가'};
@@ -16,18 +15,16 @@ const kindLabel={custom:'시간 변경',early:'조퇴',leave:'휴가'};
 export function Rhythm(){
   const s=useApp(),{draft,hours,count}=weeklyDraft(s);
   const [error,setError]=useState(''),[saving,setSaving]=useState(false);
-  const conflicts=scheduleConflicts(draft),[agreed,agree,agreedTo]=useConsent(conflicts);
   const problem=weeklyProblem(draft,hours,count),total=rhythmTotal(draft.days);
   const dirty=!!s.drafts.settingsDraft||!!s.drafts.rawSchedules.weekly;
   const exceptions=[...(draft.exceptions??[])].sort((a,b)=>a.date.localeCompare(b.date));
 
   async function save(e:FormEvent){
     e.preventDefault();
-    const now=weeklyDraft(),issue=weeklyProblem(now.draft,now.hours,now.count),list=scheduleConflicts(now.draft);
+    const now=weeklyDraft(),issue=weeklyProblem(now.draft,now.hours,now.count);
     if(issue){setError(issue);return;}
-    if(list.length&&!agreedTo(list)){setError('겹치는 고정 작업을 같은 날짜의 유동 작업으로 옮기는 데 동의하거나 밴드를 조정하세요.');return;}
     setSaving(true);
-    const ok=await saveSchedule(now.draft,list.length>0,'weekly');
+    const ok=await saveSchedule(now.draft,'weekly');
     setSaving(false);setError(ok?'':getState().error||'저장하지 못했습니다. 다시 시도해 주세요.');
   }
   async function revert(){if(await ask('저장하지 않은 근무시간 변경을 버릴까요?')){resetSettingsDraft();setError('');}}
@@ -49,9 +46,8 @@ export function Rhythm(){
         <button type="button" className="btn" onClick={()=>restore(x.date)}>반복 일정으로 복원</button>
       </li>)}</ul>}
     </section>
-    {/* Consent and errors travel with the save buttons so they are in view whenever saving is possible. */}
+    {/* Errors travel with the save buttons so they are in view whenever saving is possible. */}
     <div className={'st-savebar'+(dirty?' st-dirty':'')}>
-      <Conflicts tasks={conflicts} agreed={agreed} onAgree={agree}/>
       {(error||problem)&&<p className="error st-error" role="alert">{error||problem}</p>}
       <div className="st-savebar-row">
         <span>{saving?'저장 중…':dirty?'저장하지 않은 변경':''}</span>

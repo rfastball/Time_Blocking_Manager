@@ -90,14 +90,8 @@
 .st-exceptions li{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px solid var(--color-divider);font-size:var(--font-size-summary)}
 .st-exceptions li strong{font-weight:var(--font-weight-emphasis);margin-right:6px}
 .st-exceptions li .btn{font-size:var(--font-size-label);min-height:30px}
-.st-conflicts{display:flex;flex-direction:column;gap:8px;margin-top:14px;padding:12px 14px;border:1px solid color-mix(in srgb,var(--color-warning) 30%,var(--color-warning-surface));border-radius:var(--radius-panel);background:var(--color-warning-surface);font-size:var(--font-size-summary)}
-.st-conflicts>strong{color:var(--color-warning)}
-.st-conflicts ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
-.st-conflicts li{display:flex;flex-wrap:wrap;gap:4px 10px}
-.st-conflicts small{color:var(--color-text-muted);font-variant-numeric:tabular-nums}
 .st-savebar{position:sticky;bottom:0;z-index:9;display:flex;flex-direction:column;gap:10px;margin:16px -20px 0;padding:12px 20px;background:var(--color-panel);border-top:1px solid var(--color-divider)}
-.st-savebar .st-conflicts,.st-savebar .st-error{margin:0}
-.st-savebar .st-conflicts ul{max-height:96px;overflow:auto}
+.st-savebar .st-error{margin:0}
 .st-savebar-row{display:flex;align-items:center;gap:8px}
 .st-savebar-row span{flex:1;font-size:var(--font-size-summary);color:var(--color-text-muted)}
 .st-savebar.st-dirty .st-savebar-row span{color:var(--color-text);font-weight:var(--font-weight-emphasis)}
@@ -166,7 +160,7 @@
 .ap-head .ibtn:hover{background:var(--color-control-hover)}
 .ap-kind{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:var(--font-size-label);color:var(--color-text-muted)}
 .ap-kind select{color:var(--color-text);background:var(--color-control);padding:6px 8px}
-.ap .st-conflicts,.ap .st-error{margin:0}
+.ap .st-error{margin:0}
 .ap-actions{display:flex;justify-content:flex-end;gap:8px}
 
 @media (max-width:1100px){.st-page{grid-template-columns:minmax(0,1.5fr) minmax(260px,1fr)}}

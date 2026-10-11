@@ -191,7 +191,7 @@ pub fn parse_start(value: &str) -> Result<NaiveDateTime> {
     Ok(parsed)
 }
 
-pub fn validate_task(task: &Task, tasks: &[Task], settings: &Settings) -> Result<()> {
+pub fn validate_task(task: &Task, tasks: &[Task]) -> Result<()> {
     if task.id.is_empty() || task.id.len() > 100 || task.title.trim().is_empty() || task.title.len() > 2000 || task.body.len() > 200_000
         || task.duration < 15 || task.duration > 1440 || task.duration % 15 != 0 {
         return Err(error("validation", "제목(최대 2,000바이트), 본문(최대 200KB), 소요시간을 확인하세요."));
@@ -207,9 +207,8 @@ pub fn validate_task(task: &Task, tasks: &[Task], settings: &Settings) -> Result
     let minute = (dt.hour() * 60 + dt.minute()) as i64;
     if minute % 15 != 0 { return Err(error("validation", "시작시각은 15분 단위로 지정하세요.")); }
     let end = minute + task.duration;
-    let day = settings.day(dt.date());
-    if !day.enabled || minute < day.start || end > day.end || day.breaks.iter().any(|b| minute < b.end && end > b.start) {
-        return Err(error("unavailable", "작업 불가 시간입니다. 빈 작업 가능 시간에 배치하세요."));
+    if end > 1440 {
+        return Err(error("validation", "블록은 같은 날짜 안에 배치하세요."));
     }
     for other in tasks.iter().filter(|t| t.id != task.id) {
         if let Some(other_start) = &other.starts_at {

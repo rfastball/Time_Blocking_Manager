@@ -4,6 +4,7 @@ import {AnimatePresence,motion,useAnimate} from 'motion/react';
 import {dayPlan,nextFlowId,type DayItem} from '../../today.ts';
 import {formatDuration} from '../../format.ts';
 import {time} from '../../dates.ts';
+import {unavailableParts,resistWorkingBoundary} from '../../placement.ts';
 import type {TimeAxis} from '../../time-axis.ts';
 import type {Task} from '../../types.ts';
 import {setUi,useApp} from '../store/state.ts';
@@ -14,6 +15,7 @@ import {reflow,reduced} from '../ui/motion.ts';
 import {Icon,Lock} from '../ui/icons.tsx';
 import {COLUMN_GEOMETRY,DAY_GEOMETRY,runnerReach,isGestureActive,useDrag,useDwell,useRegion,type Geometry} from './drag.tsx';
 import './space.css';
+import {OffHours} from './OffHours.tsx';
 
 type Props={
   date:string;axis:TimeAxis;variant:'day'|'column';
@@ -40,7 +42,11 @@ export function DaySpace({date,axis,variant,bin,selected,multi=[],onOpen,onMulti
   const settled=useDwell(sizing,sizing?`${sizing.id}:${sizing.dur}`:'',!!sizing&&!sizing.done);
   const shown=settled?tasks.map(t=>t.id===settled.id?{...t,duration:settled.dur}:t):tasks;
   const plan=dayPlan(date,shown,rule,snapshot?.layouts??[]);
-  const sized=(item:DayItem)=>sizing?.id===item.task.id?{...item,end:item.start+sizing.dur}:item;
+  const sized=(item:DayItem)=>{
+    if(sizing?.id!==item.task.id)return item;
+    const end=item.start+sizing.dur,outside=unavailableParts(item.start,end,rule).reduce((n,p)=>n+p.end-p.start,0);
+    return {...item,end,outside,over:outside>0};
+  };
   const nextId=date===today?nextFlowId(plan.items,squash):null;
   const doneIds=new Set((snapshot?.tasks??[]).filter(t=>t.completed).map(t=>t.id));
   const holding=held&&!held.dropping?held:null;
@@ -58,7 +64,11 @@ export function DaySpace({date,axis,variant,bin,selected,multi=[],onOpen,onMulti
     const el=e.currentTarget,y0=e.clientY,d0=t.duration;let dur=d0;
     el.setPointerCapture(e.pointerId);setGesture(true);
     const move=(ev:PointerEvent)=>{
-      const next=Math.max(15,Math.min(480,Math.round((d0+(ev.clientY-y0)/axis.scale)/15)*15));
+      let next=Math.max(15,Math.min(480,Math.round((d0+(ev.clientY-y0)/axis.scale)/15)*15));
+      if(t.starts_at&&next>dur){
+        const end=taskMinute(t)+dur;
+        next=resistWorkingBoundary(end-15,taskMinute(t)+next-15,15,rule,axis.position)+15-taskMinute(t);
+      }
       if(next===dur||t.starts_at&&issueAt(t.id,date,taskMinute(t),next))return;
       dur=next;setSizing({id:t.id,dur});
     };
@@ -124,7 +134,7 @@ function Ground({axis,rule,geometry:g,date}:{axis:TimeAxis;rule:ReturnType<typeo
     {hours.map(m=><div key={m} className="hl" style={{top:axis.position(m),left:g.bodyLeft}}/>)}
     {g.ruler>0&&<div className="ruler" aria-hidden="true" style={{width:g.ruler}}>{hours.map(m=><span key={m} style={{top:axis.position(m)}}>{String(m/60).padStart(2,'0')}</span>)}</div>}
     <div className="rail" data-surface="true" aria-hidden="true" style={{left:g.railLeft,width:g.railWidth}}/>
-    {rule.enabled&&rule.breaks.map((b,i)=><button type="button" key={b.start} className="brk" style={{left:g.railLeft+g.railWidth,...band(b.start,b.end)}}
+    {rule.enabled&&rule.breaks.map((b,i)=><button type="button" key={i} className="brk" style={{left:g.railLeft+g.railWidth,...band(b.start,b.end)}}
       aria-label={`${b.label} ${time(b.start)}–${time(b.end)} 조정`} onClick={e=>openAvailability(date,i,e.clientX,e.clientY)}><span>{b.label}</span></button>)}
     {rule.enabled&&<div className="floor" style={{left:g.railLeft,top:axis.position(rule.end)}}/>}
   </>;
@@ -181,9 +191,10 @@ function Block({item,pushed,axis,geometry:g,variant,next,hollow,resizing,selecte
     {orderable&&<span className="runner" aria-hidden="true" style={{width:runnerReach(g)}}><i className="stem"/><i className="shoe"/></span>}
     <motion.div className="tile" animate={squash?{scaleX:1.05,scaleY:.86}:{scaleX:1,scaleY:1}}
       transition={{duration:reduced()?0:.1}} style={{transformOrigin:'50% 100%'}}>
+      <OffHours start={item.start} end={item.end} rule={dayRule(t.plan_date!)} position={axis.position}/>
       {item.fixed&&<Latch clack={!!landed?.clack}/>}
       <button type="button" className="chk" aria-label={t.title+(t.completed?' 완료 취소':' 완료')} aria-pressed={t.completed} onPointerDown={e=>e.stopPropagation()} onTouchStart={e=>e.stopPropagation()} onClick={onCheck}><Icon name="check" size={12} stroke={3}/></button>
-      <button type="button" className="main" aria-label={`${t.title}, ${item.fixed?'시각 고정':'예상'} ${range}, ${formatDuration(t.duration)}${item.over?', 근무 외':''}${next?', 다음':''}${t.completed?', 완료':''}`} onClick={onOpen} onKeyDown={key} aria-keyshortcuts={keys} data-task={t.id}>
+      <button type="button" className="main" aria-label={`${t.title}, ${item.fixed?'시각 고정':'예상'} ${range}, ${formatDuration(t.duration)}${item.over?', 근무 외 '+formatDuration(item.outside):''}${next?', 다음':''}${t.completed?', 완료':''}`} onClick={onOpen} onKeyDown={key} aria-keyshortcuts={keys} data-task={t.id}>
         <span className="ttl-row">{next&&<span className="tag">다음</span>}<span className="ttl">{t.title}</span></span>
         <span className="meta"><span className="tm">{item.fixed?range:'예상 '+range}</span><span>{formatDuration(t.duration)}</span></span>
       </button>

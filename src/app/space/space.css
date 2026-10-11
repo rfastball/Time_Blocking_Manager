@@ -47,9 +47,10 @@
 .column .ceiling{height:2px;margin-top:-2px}
 .hl{position:absolute;right:0;height:1px;background:var(--color-divider);opacity:.6;pointer-events:none}
 /* Scoped to the space: `.off` also marks days off on week columns and calendar cells. */
-.space>.off{position:absolute;right:0;border:0;padding:0;background:var(--color-unavailable-soft);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--color-text-muted);font-size:12px}
+.space>.off{position:absolute;right:0;border:0;padding:0;background:radial-gradient(circle,color-mix(in srgb,var(--color-text-muted) 28%,transparent) .8px,transparent 1px) 0 0/7px 7px,var(--color-unavailable-soft);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--color-text-muted);font-size:12px}
 .space>.off:hover{background:color-mix(in srgb,var(--color-unavailable) 70%,var(--color-surface))}
-.brk{position:absolute;right:0;z-index:1;border:0;border-top:1px solid var(--color-border);border-bottom:1px solid var(--color-border);background:repeating-linear-gradient(135deg,var(--color-unavailable) 0 6px,var(--color-unavailable-soft) 6px 12px);display:flex;align-items:center;padding:0 0 0 14px;font-size:12px;font-weight:600;color:var(--color-text-muted);cursor:pointer;text-align:left}
+.brk{position:absolute;right:0;z-index:1;border:0;border-top:1px solid var(--color-text-muted);border-bottom:1px solid var(--color-text-muted);background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--color-text-muted) 24%,transparent) 0 1px,transparent 1px 7px),var(--color-unavailable-soft);display:flex;align-items:center;padding:0 0 0 14px;font-size:12px;font-weight:600;color:var(--color-text);cursor:pointer;text-align:left}
+.brk>span{background:var(--color-unavailable-soft);padding:1px 4px}
 .column .brk{padding-left:6px;font-size:11px}
 .floor{position:absolute;right:0;height:2px;margin-top:-1px;background:var(--color-border);z-index:1;pointer-events:none}
 .flash{position:absolute;right:0;border-top:2px dashed var(--color-structure);z-index:6;pointer-events:none}
@@ -79,7 +80,7 @@
 .blk:hover>.tile,.tblk:hover>.tile{translate:0 -1px;box-shadow:0 3px 8px color-mix(in srgb,var(--color-text) 10%,transparent)}
 .flow>.tile{background:var(--sp-flow);border:1px solid var(--sp-flow-edge);color:var(--sp-flow-ink)}
 .next>.tile{background:var(--color-action);border:1px solid var(--color-action);color:var(--color-on-action)}
-.fixed>.tile{background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--color-text-muted) 12%,transparent) 0 1px,transparent 1px 7px),var(--sp-fixed);border:1px solid var(--sp-fixed-edge);color:var(--color-text);padding-left:34px}
+.fixed>.tile{background:var(--sp-fixed);border:1px solid var(--sp-fixed-edge);color:var(--color-text);padding-left:34px}
 .column .fixed>.tile{padding-left:19px}
 .done .ttl{text-decoration:line-through;opacity:.6}
 .sel>.tile{outline:2px solid var(--color-selection-border);outline-offset:2px}
@@ -109,7 +110,7 @@
 .chk:hover .ic{opacity:.55}
 .done .chk{background:var(--color-structure);border-color:var(--color-structure);opacity:1}
 .done .chk .ic{opacity:1;color:var(--color-surface)}
-.main{flex:1;min-width:0;border:0;background:none;padding:2px 0 0;text-align:left;cursor:inherit;display:flex;flex-direction:column;gap:2px;color:inherit;font:inherit}
+.main{position:relative;flex:1;min-width:0;border:0;background:none;padding:2px 0 0;text-align:left;cursor:inherit;display:flex;flex-direction:column;gap:2px;color:inherit;font:inherit}
 .ttl-row{display:flex;align-items:center;gap:6px;min-width:0}
 .ttl{font-weight:600;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .column .ttl{font-size:12px}
@@ -134,8 +135,8 @@
 .held-why{position:absolute;left:0;bottom:calc(100% + 6px);white-space:nowrap;font-size:11.5px;font-weight:700;color:var(--color-surface);background:var(--color-error);border-radius:4px;padding:1px 6px}
 .held-why.out{background:var(--color-overdue)}
 
-/* Flow work that ran past working time: same block, dashed edge, on the off-hours band. */
-.over>.tile{border-style:dashed;border-width:1.5px}
+/* The hatch and dashed seam stop exactly at the unavailable portion, even across a lunch break. */
+.off-part{position:absolute;left:0;right:0;pointer-events:none;border:1px dashed var(--color-overdue);background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--color-overdue) 24%,transparent) 0 3px,transparent 3px 9px)}
 /* Pushed there by the change being held: the overdue colour ties it to the count on the held copy. */
 .over.pushed>.tile{border-color:var(--color-overdue)}
 

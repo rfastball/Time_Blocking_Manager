@@ -225,3 +225,18 @@ Test delta 결과: added/replaced/removed **17/1/1**(추가: intent 1, backup-fo
 - Evidence to retire: ‘delete asks first and keeps the row when declined’ ui 사례(확인 창 자체가 제거됨) — 확인 창이 없음을 단언하는 휴지통 사례로 교체.
 
 Test delta 결과: storage added/extended/removed **1/2/0**, 수집 **18→19**, `cargo test --locked` storage **19/19 · 본체 4.25초**, desktop 단위 2/2. Node `npm test` **43/43**(변화 0), `npm run build` 성공. ui-check `--only inbox,editor` **18/18**(inbox 7→8: 교체 1·추가 1·빈 목록 사례 확장, editor 9→10). 단일 실행 시간은 성능 추정이 아니다. heavy-resource 자동 launch 0, coverage-floor 영향 0. 네이티브 앱에서의 확인 창 부재·시간별 정리 실행은 이 시험으로 합격 처리하지 않는다.
+
+## 근무 외 배치 정책 Test delta brief (2026-10-11)
+
+- Unique risk: 수동 고정 배치만 근무 외에서 거부되거나 설정 변경·복원 때 고정 시각을 잃음. 경계 저항이 통과 불가능한 장벽이 되거나 일부 겹침을 전체 블록으로 표시·집계함.
+- Existing owner / Selected layer: `src/schedule.test.ts`의 순수 배치 owner에 경계 저항·부분 구간 2개 추가, 기존 거부 정책 사례 교체. `src-tauri/tests/storage.rs`의 기존 SQLite 사례 3개 확장. `scripts/ui-check/plan.mjs`에 실제 포인터·부분 마스크 연결 사례 1개 추가하고 settings의 동의 시나리오를 고정 보존 시나리오로 교체.
+- Expected cost delta: Node 동기 사례 +2, Rust 사례 수 유지, 명시적 UI 사례 +1. 새 테스트 파일·의존성·worker·CI lane·coverage floor·기본 suite의 heavy-resource launch 변화 0.
+- Evidence to retire: 근무 외 배치 거부 및 근무 설정 변경 시 고정 해제 동의 기대값. 새 정책의 허용·고정 보존 기대값으로 대체.
+
+Test delta 결과:
+- Node: added / extended / removed **2 / 1 / 0**, 수집 **44→46**, `npm test` **46/46 · 146.918ms**.
+- Rust: **0 / 3 / 0**, storage **19/19 · 4.79초**, desktop `cargo check --locked` 성공. 설정 변경·백업·재시작·휴지통 복원에서 근무 외 고정을 보존한다.
+- UI: 기존 plan/today/settings owner에서 **1 추가 / 3 교체**, 최종 관련 시나리오 **36개 통과**. settings 10개와 plan/today 25개를 묶음 실행했고, 드래그 활성화 거리를 바로잡은 새 경계 사례는 `--match 'working lips'`로 1개만 재실행해 통과했다. 이 필터는 실패한 사례만 다시 실행해 전체 브라우저 묶음 반복을 줄인다.
+- 경계 UI 사례 본체는 5.844초. 신뢰할 동일 환경 변경 전 통과 baseline이 없어 runtime delta는 **not measured**. 기본 suite의 heavy-resource launch·worker·coverage floor 변화 **0**.
+- `npm run build` 성공, `git diff --check` 성공. 실제 포인터와 네 테마 스크린샷으로 부분 마스크·배경 차이를 확인했다. Impeccable detector의 경고는 기존 레일 width transition 및 기존 반경·글자 크기에 한정되었다.
+- Windows 네이티브 앱의 수동 조작은 별도 미실시. Rust 저장 경계와 브라우저 UI 검증 결과를 구분한다.

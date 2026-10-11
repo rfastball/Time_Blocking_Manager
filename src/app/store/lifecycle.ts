@@ -5,7 +5,6 @@ import {calendarRefreshAllowed} from '../../today.ts';
 import {getState,setDrafts,setState} from './state.ts';
 import {flushDraftTimer,loadStoredDraft,persistDraft,previewSnapshot,queue,refreshAppInfo,reload,requestRefresh,showError,storedDraft,tick,unsaved,dispatch} from './session.ts';
 import {saveEditor} from './editor.ts';
-import {scheduleConflicts} from './schedule.ts';
 import {submitCapture,submitComposer,ensureVisibleRoutines} from './tasks.ts';
 
 export function syncTheme(){
@@ -46,8 +45,7 @@ export async function saveBeforeQuit(requestId:string){
     }
     if(!current())return;
     const d=getState().drafts;
-    // Conflicting schedules remain durable drafts until the user agrees to move tasks.
-    if(d.settingsDraft&&!Object.values(d.rawSchedules).some(raw=>raw.invalid)&&!scheduleConflicts(d.settingsDraft).length){
+    if(d.settingsDraft&&!Object.values(d.rawSchedules).some(raw=>raw.invalid)){
       const draft=d.settingsDraft,base=d.settingsBase??{epoch:s.snapshot!.epoch,revision:s.snapshot!.settings.revision};
       await dispatch({type:'set_schedule',expected_revision:base.revision,days:draft.days,exceptions:draft.exceptions??[],weekly_target:draft.weekly_target??2400,work_days:draft.work_days??5,move_conflicts:false},{epoch:base.epoch,done:()=>setDrafts({settingsDraft:null,settingsBase:null,rawSchedules:{}})});
       await queue.whenIdle();

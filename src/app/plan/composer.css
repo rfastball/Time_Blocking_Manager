@@ -1,9 +1,9 @@
 /* New block: the chosen range as a flat dashed outline, the title form beside it. */
 .range,.ghost{position:absolute;z-index:8;pointer-events:none;border:1.5px dashed var(--color-action);border-radius:var(--radius-block);background:color-mix(in srgb,var(--color-action) 7%,transparent)}
 .range{z-index:9}
-.range span{position:absolute;left:5px;top:2px;font-size:11px;font-weight:700;color:var(--color-action);font-variant-numeric:tabular-nums;white-space:nowrap}
+.range-label{position:absolute;left:5px;top:2px;font-size:11px;font-weight:700;color:var(--color-action);font-variant-numeric:tabular-nums;white-space:nowrap}
 .range.bad{border-color:var(--color-error);background:color-mix(in srgb,var(--color-error) 7%,transparent)}
-.range.bad span{color:var(--color-error)}
+.range.bad .range-label{color:var(--color-error)}
 .composer{position:absolute;z-index:22;width:236px;max-width:calc(100vw - 32px);display:flex;flex-direction:column;gap:8px;padding:8px 10px 10px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-control);box-shadow:var(--sp-lift)}
 .cm-head{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12px;font-weight:600;color:var(--color-text-muted);font-variant-numeric:tabular-nums}
 .cm-over{font-style:normal;color:var(--color-warning)}

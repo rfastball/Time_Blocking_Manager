@@ -190,7 +190,7 @@ fn validate_snapshot(s: &Snapshot) -> Result<()> {
     }
     for t in &s.tasks {
         if t.revision < 1 { return Err(error("schema", "항목 버전이 올바르지 않습니다.")); }
-        validate_task(t, &[], &s.settings)?;
+        validate_task(t, &[])?;
     }
     for t in &s.trash {
         let bad=||error("schema","휴지통 항목 정보가 올바르지 않습니다.");
@@ -203,7 +203,7 @@ fn validate_snapshot(s: &Snapshot) -> Result<()> {
             (None,None,None) => {},
             _ => return Err(bad()),
         }
-        validate_task(&Task{starts_at:None,plan_date:None,flow_order:None,..t.task.clone()},&[],&s.settings)?;
+        validate_task(&Task{starts_at:None,plan_date:None,flow_order:None,..t.task.clone()},&[])?;
     }
     let mut dates=std::collections::HashSet::new();
     for layout in &s.layouts {
@@ -336,26 +336,25 @@ impl Store {
         match &command.action {
             Action::Create { id, title } => {
                 let task = Task { id: id.clone(), title: title.trim().into(), body: String::new(), starts_at: None, duration: 30, completed: false, revision: 1, plan_date: None, flow_order: None };
-                validate_task(&task, &snapshot.tasks, &snapshot.settings)?;
+                validate_task(&task, &snapshot.tasks)?;
                 tx.execute("INSERT INTO tasks(id,title) VALUES(?1,?2)", params![task.id, task.title])?;
             }
             Action::SetSettings { expected_revision, days } => {
                 if *expected_revision != snapshot.settings.revision { return Err(error("conflict", "다른 창에서 시간 설정이 변경됐습니다. 작성 내용을 보존했습니다.")); }
                 let settings = Settings { days: days.clone(), revision: expected_revision + 1, ..snapshot.settings.clone() };
                 validate_settings(&settings)?;
-                for t in &snapshot.tasks { validate_task(t, &snapshot.tasks, &settings)?; }
                 tx.execute("UPDATE meta SET value=?1 WHERE key='settings'", [serde_json::to_string(&settings)?])?;
             }
             Action::CreateScheduled { id,title,starts_at,duration } => {
                 let plan_date=starts_at.as_deref().map(|start|start.get(..10).unwrap_or_default().to_string());
                 let task=Task{id:id.clone(),title:title.trim().into(),body:String::new(),starts_at:starts_at.clone(),duration:*duration,completed:false,revision:1,plan_date,flow_order:None};
-                validate_task(&task,&snapshot.tasks,&snapshot.settings)?;
+                validate_task(&task,&snapshot.tasks)?;
                 insert_task(&tx,&task,None)?;
             }
             Action::CreateFlow { id,title,date,duration } => {
                 parse_date(date)?;
                 let task=Task{id:id.clone(),title:title.trim().into(),body:String::new(),starts_at:None,duration:*duration,completed:false,revision:1,plan_date:Some(date.clone()),flow_order:Some(next_flow_order(&snapshot.tasks,date))};
-                validate_task(&task,&snapshot.tasks,&snapshot.settings)?;
+                validate_task(&task,&snapshot.tasks)?;
                 insert_task(&tx,&task,None)?;
             }
             Action::ReorderFlow { date,expected } => {
@@ -381,20 +380,10 @@ impl Store {
                 parse_date(date)?;
                 let minute=minute_on(at,date)?;advance_anchor(&tx,date,minute)?;
             }
-            Action::SetSchedule {expected_revision,days,exceptions,weekly_target,work_days,move_conflicts} => {
+            Action::SetSchedule {expected_revision,days,exceptions,weekly_target,work_days,move_conflicts:_} => {
                 if *expected_revision!=snapshot.settings.revision {return Err(error("conflict","다른 창에서 시간 설정이 변경됐습니다. 다시 확인하세요."));}
                 let settings=Settings{days:days.clone(),exceptions:exceptions.clone(),weekly_target:*weekly_target,work_days:*work_days,revision:expected_revision+1,routines:snapshot.settings.routines.clone()};
                 validate_settings(&settings)?;
-                let mut tasks=snapshot.tasks.clone();
-                for t in &snapshot.tasks {
-                    if let Err(e)=validate_task(t,&snapshot.tasks,&settings) {
-                        if e.code!="unavailable"||!*move_conflicts{return Err(e);}
-                        // A conflicting reservation keeps its date and becomes flow work there.
-                        let date=t.plan_date.clone().unwrap_or_default();let order=next_flow_order(&tasks,&date);
-                        tx.execute("UPDATE tasks SET starts_at=NULL,flow_order=?1,revision=revision+1 WHERE id=?2",params![order,t.id])?;
-                        if let Some(task)=tasks.iter_mut().find(|task|task.id==t.id) {task.starts_at=None;task.flow_order=Some(order);}
-                    }
-                }
                 tx.execute("UPDATE meta SET value=?1 WHERE key='settings'",[serde_json::to_string(&settings)?])?;
             }
             Action::SetRoutines {expected_revision,routines} => {
@@ -416,8 +405,12 @@ impl Store {
                         let generated=tx.execute("INSERT OR IGNORE INTO routine_occurrences(routine_id,date) VALUES(?1,?2)",params![routine.id,key])?;
                         if generated==0 {continue;}
                         let mut task=Task{id:uuid::Uuid::new_v4().to_string(),title:routine.title.clone(),body:routine.body.clone(),starts_at:Some(format!("{key}T{:02}:{:02}",routine.start/60,routine.start%60)),duration:routine.duration,completed:false,revision:1,plan_date:Some(key.clone()),flow_order:None};
-                        if let Err(e)=validate_task(&task,&tasks,&snapshot.settings) {
-                            if e.code!="unavailable" && e.code!="overlap" {return Err(e);}
+                        let validation=validate_task(&task,&tasks);
+                        if let Err(e)=&validation {if e.code!="overlap" {return Err(e.clone());}}
+                        let day=snapshot.settings.day(date);
+                        // Automatic routines prefer working time; explicit placements are unrestricted.
+                        if validation.is_err() || !day.enabled || routine.start<day.start || routine.start+routine.duration>day.end
+                            || day.breaks.iter().any(|b|routine.start<b.end && routine.start+routine.duration>b.start) {
                             // The routine still belongs to this date; only its exact time is released.
                             task.starts_at=None;task.flow_order=Some(next_flow_order(&tasks,&key));
                         }
@@ -438,8 +431,8 @@ impl Store {
                 let Some(item)=snapshot.trash.iter().find(|t|&t.task.id==id) else {return Err(error("conflict","휴지통에서 이미 복원했거나 지운 항목입니다. 다시 확인하세요."));};
                 let mut task=Task{revision:item.task.revision+1,..item.task.clone()};
                 if task.starts_at.is_some() {
-                    if let Err(e)=validate_task(&task,&snapshot.tasks,&snapshot.settings) {
-                        if e.code!="unavailable" && e.code!="overlap" {return Err(e);}
+                    if let Err(e)=validate_task(&task,&snapshot.tasks) {
+                        if e.code!="overlap" {return Err(e);}
                         // As in D8/D9 the task keeps its date as flow work; only the taken time is released.
                         task.starts_at=None;task.flow_order=Some(next_flow_order(&snapshot.tasks,task.plan_date.as_deref().unwrap_or_default()));
                     }
@@ -447,7 +440,7 @@ impl Store {
                     // Back into its old place in the day's order; later work moves one step down.
                     tx.execute("UPDATE tasks SET flow_order=flow_order+1 WHERE plan_date=?1 AND starts_at IS NULL AND flow_order>=?2 AND deleted_at IS NULL",params![date,order])?;
                 }
-                validate_task(&task,&snapshot.tasks,&snapshot.settings)?;
+                validate_task(&task,&snapshot.tasks)?;
                 tx.execute("UPDATE tasks SET starts_at=?1,flow_order=?2,revision=?3,deleted_at=NULL WHERE id=?4",params![task.starts_at,task.flow_order,task.revision,id])?;
             }
             Action::PurgeTrashed {ids} => {
@@ -470,7 +463,7 @@ impl Store {
                         }
                         if snapshot.tasks.iter().chain(snapshot.trash.iter().map(|t|&t.task)).any(|t| &t.id == new_id) { return Err(error("validation","이미 사용 중인 블록 식별자입니다.")); }
                         let remainder=Task{id:new_id.clone(),starts_at:None,plan_date:None,flow_order:None,duration:current.duration-first_duration,revision:1,..current.clone()};
-                        validate_task(&remainder,&snapshot.tasks,&snapshot.settings)?;
+                        validate_task(&remainder,&snapshot.tasks)?;
                         tx.execute("UPDATE tasks SET duration=?1,revision=revision+1 WHERE id=?2 AND revision=?3",params![first_duration,id,revision])?;
                         tx.execute("INSERT INTO tasks(id,title,body,duration) VALUES(?1,?2,?3,?4)",params![remainder.id,remainder.title,remainder.body,remainder.duration])?;
                     }
@@ -492,7 +485,7 @@ impl Store {
                             _ => None,
                         };
                         let task = Task { title: title.trim().into(), body: body.clone(), starts_at: starts_at.clone(), duration: *duration, plan_date: date, flow_order, ..current.clone() };
-                        validate_task(&task, &snapshot.tasks, &snapshot.settings)?;
+                        validate_task(&task, &snapshot.tasks)?;
                         // Inserting before another task moves only the later order numbers of that day.
                         if let Some((date,order))=shift {tx.execute("UPDATE tasks SET flow_order=flow_order+1 WHERE plan_date=?1 AND starts_at IS NULL AND flow_order>=?2 AND id<>?3 AND deleted_at IS NULL",params![date,order,id])?;}
                         tx.execute("UPDATE tasks SET title=?1,body=?2,starts_at=?3,duration=?4,plan_date=?5,flow_order=?6,revision=revision+1 WHERE id=?7 AND revision=?8", params![task.title,task.body,task.starts_at,task.duration,task.plan_date,task.flow_order,id,revision])?;

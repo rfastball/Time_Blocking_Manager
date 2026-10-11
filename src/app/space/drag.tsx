@@ -4,7 +4,7 @@ import {motion} from 'motion/react';
 import {applyIntent,noIntent,type Intent} from '../../intent.ts';
 import {dayPlan,newlyOver,overrunEnd} from '../../today.ts';
 import {insertionBefore} from '../../flow.ts';
-import {placementIssue} from '../../placement.ts';
+import {placementIssue,resistWorkingBoundary} from '../../placement.ts';
 import {createTimeAxis,timeAxisForDays,type TimeAxis} from '../../time-axis.ts';
 import type {DayLayout,Task} from '../../types.ts';
 import {formatDuration} from '../../format.ts';
@@ -13,6 +13,7 @@ import {getState,setUi,useApp} from '../store/state.ts';
 import {dayRule,drop,setGesture} from '../store/tasks.ts';
 import {reduced} from '../ui/motion.ts';
 import {Lock} from '../ui/icons.tsx';
+import {OffHours} from './OffHours.tsx';
 
 // Horizontal geometry of a day space. `bodyLeft` is where the rail ends and order space begins.
 // A held block bites into the rail once its left edge is pushed `bite` px left of where flow blocks stand, and lets go
@@ -29,7 +30,7 @@ export const runnerReach=(g:Geometry)=>g.flowLeft-(g.railLeft+g.railWidth/2);
 type Region={key:string;kind:'space'|'date'|'tray';date:string|null;el:HTMLElement;axis?:TimeAxis;geometry?:Geometry};
 // The hollow marks the body slot; the held copy follows the hand until it latches onto a rail tick.
 type Slot={start:number;end:number;over:boolean};
-export type Held={task:Task;intent:Intent;slot:Slot|null;column:boolean;startRect:{left:number;top:number;width:number;height:number};grabX:number;grabY:number;width:number;height:number;dropping?:boolean};
+export type Held={task:Task;intent:Intent;slot:Slot|null;column:boolean;boundary?:boolean;axis?:TimeAxis;startRect:{left:number;top:number;width:number;height:number};grabX:number;grabY:number;width:number;height:number;dropping?:boolean};
 // `pushed`: blocks the shown change would newly put past working time.
 type Ctx={held:Held|null;pending:Intent|null;tasks:Task[];pushed:string[];register:(r:Region)=>()=>void};
 const DragCtx=createContext<Ctx>({held:null,pending:null,tasks:[],pushed:[],register:()=>()=>{}});
@@ -52,7 +53,9 @@ export function useDaysAxis(dates:string[],scale:number){
   const axis=timeAxisForDays(dates.map(dayRule),scale);
   const ends=[snapshot?.tasks??[],tasks].flatMap(list=>dates.map(d=>overrunEnd(dayPlan(d,list,dayRule(d),snapshot?.layouts??[]))??0));
   const end=Math.max(...ends);
-  return end>axis.end-30?createTimeAxis(axis.start,Math.max(Math.min(1440,end+30),end),scale):axis;
+  const starts=dates.flatMap(d=>dayPlan(d,snapshot?.tasks??[],dayRule(d),snapshot?.layouts??[]).items.map(i=>i.start));
+  const start=Math.max(0,Math.min(axis.start,...starts.map(m=>m-30)));
+  return createTimeAxis(start,Math.max(axis.end,Math.min(1440,end+30),end),scale);
 }
 
 // A mouse or pen lifts a block after a short pull. A finger must rest on it first (TouchSensor), so a swipe still scrolls.
@@ -96,7 +99,7 @@ export function DragProvider({children}:{children:ReactNode}){
   // `grab` is where along its width the block was taken; `prev` is the last intent, for the latch's hysteresis.
   // `near` is how far the block has been pushed toward biting (or, latched, pulled toward letting go), 0–1.
   // `stretch` scales both distances: 1 when the hand is still or moving sideways, up to STRETCH while it travels up or down.
-  function zoneAt(task:Task,px:number,py:number,grabY:number,grab:number,prev:Intent,stretch=1):{intent:Intent;region?:Region;slot?:Slot;near?:number}{
+  function zoneAt(task:Task,px:number,py:number,grabY:number,grab:number,prev:Intent,stretch=1):{intent:Intent;region?:Region;slot?:Slot;near?:number;boundary?:boolean}{
     const intent=noIntent(task.id);
     const inside=(el:HTMLElement)=>{const r=el.getBoundingClientRect();return px>=r.left&&px<=r.right&&py>=r.top&&py<=r.bottom?r:null;};
     const all=[...regions.current.values()];
@@ -108,9 +111,12 @@ export function DragProvider({children}:{children:ReactNode}){
       const edge=px-r.left-grab*(r.width-(was?g.fixedLeft:g.flowLeft)-g.right);
       const bite=g.bite*stretch,pull=g.pull*stretch;
       if(px-r.left<g.bodyLeft||(was?edge<g.fixedLeft+pull:edge<=g.flowLeft-bite)){
-        const minute=Math.round(axis.minute(Math.max(0,topIn))/15)*15;
+        const raw=Math.max(0,Math.min(1440-task.duration,axis.minute(py-r.top)-grabY*task.duration));
+        const from=prev.date===date&&prev.zone==='rail'?prev.start!:dayPlan(date,base,rule,layouts).items.find(i=>i.task.id===task.id)?.start??rule.start;
+        const resisted=resistWorkingBoundary(from,raw,task.duration,rule,axis.position);
+        const minute=Math.round(resisted/15)*15;
         const reason=placementIssue(task.id,date,minute,task.duration,rule,base)?.label??null;
-        return {intent:{...intent,zone:'rail',date,start:minute,ok:!reason,reason},region,near:was?Math.max(0,Math.min(1,(edge-g.fixedLeft)/pull)):0};
+        return {intent:{...intent,zone:'rail',date,start:minute,ok:!reason,reason},region,boundary:resisted!==raw,near:was?Math.max(0,Math.min(1,(edge-g.fixedLeft)/pull)):0};
       }
       const rest=dayPlan(date,base.filter(t=>t.id!==task.id),rule,layouts);
       const centre=axis.minute(topIn+task.duration*axis.scale/2),flows=rest.items.filter(i=>!i.fixed);
@@ -142,16 +148,17 @@ export function DragProvider({children}:{children:ReactNode}){
   function onDragMove(e:DragMoveEvent){
     const h=held,s=start.current;if(!h||!s||h.dropping)return;
     const a=point(e.activatorEvent!),px=a.x+e.delta.x,py=a.y+e.delta.y;
-    const {intent,region,slot=null,near=0}=zoneAt(h.task,px,py,h.grabY/s.height,h.grabX/s.width,h.intent,steadiness(travel.current,px,py));
+    const {intent,region,slot=null,near=0,boundary=false}=zoneAt(h.task,px,py,h.grabY/s.height,h.grabX/s.width,h.intent,steadiness(travel.current,px,py));
     const rect=region?.el.getBoundingClientRect(),g=region?.geometry,axis=region?.axis;
     // Only the rail constrains the hand to a 15-minute tick; the hollow carries the projected order slot.
     snap.current=rect&&g&&axis&&intent.zone==='rail'?{left:rect.left+g.fixedLeft+near*g.give,top:rect.top+axis.position(intent.start!)+1}:null;
     const width=rect&&g?(intent.zone==='rail'?rect.width-g.fixedLeft-g.right:intent.zone==='body'?rect.width-g.flowLeft-g.right:s.width):s.width;
-    const height=axis?Math.max(10,h.task.duration*axis.scale-2):s.height;
+    const at=intent.zone==='rail'?intent.start:null;
+    const height=axis?Math.max(10,at!==null?axis.position(at+h.task.duration)-axis.position(at)-2:h.task.duration*axis.scale-2):s.height;
     const column=g?.ruler===0;
     const i=h.intent;
-    if(h.column!==column||i.zone!==intent.zone||i.date!==intent.date||i.before!==intent.before||i.start!==intent.start||i.ok!==intent.ok||width!==h.width||height!==h.height
-      ||h.slot?.start!==slot?.start||h.slot?.end!==slot?.end)setHeld({...h,intent,slot,column,width,height});
+    if(h.column!==column||i.zone!==intent.zone||i.date!==intent.date||i.before!==intent.before||i.start!==intent.start||i.ok!==intent.ok||width!==h.width||height!==h.height||h.boundary!==boundary
+      ||h.slot?.start!==slot?.start||h.slot?.end!==slot?.end)setHeld({...h,intent,slot,column,width,height,boundary,axis});
   }
   async function onDragEnd(_:DragEndEvent){
     const h=held;snap.current=null;setGesture(false);
@@ -198,13 +205,15 @@ function HeldBlock({held,out}:{held:Held;out:number}){
   return <motion.div className={'blk held '+(held.column?'column ':'')+(fixedLook?'fixed':'flow')+(height<(held.column?47:56)?' compact':'')+(bad?' bad':'')+(!rail&&slot?.over&&intent.zone==='body'?' over':'')} style={{width,height,marginLeft:shiftX,marginTop:shiftY}}
     initial={false} animate={{x:bad?[0,-4,3,-2,0]:0}} transition={{x:{duration:reduced()?0:.18}}}>
     <div className="tile">
+      {at&&intent.date&&<OffHours start={at.start} end={at.end} rule={dayRule(intent.date)} position={rail?held.axis?.position:undefined}/>}
       {/* Latching, the clasp shoots out of the runner and seats on the rail: fast, no overshoot. */}
       {fixedLook&&<motion.span className="latch" style={{transformOrigin:'0 50%'}} initial={rail?{scaleX:.15}:false} animate={{scaleX:1}} transition={{duration:.09,ease:[.2,.9,.3,1]}}><Lock open/></motion.span>}
       <span className="chk"/>
       <span className="main"><span className="ttl-row"><span className="ttl">{task.title}</span></span><span className="meta">{at?`${time(at.start)}–${time(at.end)}`:formatDuration(task.duration)}</span></span>
     </div>
     {bad&&!held.dropping&&<span className="held-why">{intent.reason}</span>}
-    {!bad&&out>0&&!held.dropping&&<span className="held-why out">근무 외 {out}개</span>}
+    {!bad&&held.boundary&&!held.dropping&&<span className="held-why boundary">근무시간 경계</span>}
+    {!bad&&!held.boundary&&out>0&&!held.dropping&&<span className="held-why out">근무 외 {out}개</span>}
   </motion.div>;
 }
 export const isGestureActive=()=>getState().gesture;

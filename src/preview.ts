@@ -1,28 +1,24 @@
 import type {Command,Snapshot,Task} from './types.ts';
-import {placementIssue as checkPlacement} from './placement.ts';
+import {placementIssue as checkPlacement,unavailableParts} from './placement.ts';
 import {effectiveDay} from './settings.ts';
 import {dateOf,minutes,plusDays,time} from './dates.ts';
 
 // Browser preview stand-in for the Rust store: the same transitions on a cloned snapshot.
 export function previewMutation(snapshot:Snapshot,command:Command,occurrences:Set<string>):Snapshot {
   const s=structuredClone(snapshot),a=command.action;s.layouts??=[];s.trash??=[];
-  const taskMinute=(t:Task)=>minutes(t.starts_at!.slice(11));
   const nextOrder=(date:string)=>Math.max(0,...s.tasks.filter(t=>t.plan_date===date&&!t.starts_at).map(t=>t.flow_order??0))+1;
   const toFlow=(t:Task,date:string)=>{t.starts_at=null;t.plan_date=date;t.flow_order=nextOrder(date);};
   const raise=(date:string,at:string)=>{if(at.slice(0,10)!==date)throw Error('완료 확인 날짜가 계획 날짜와 다릅니다.');const minute=minutes(at.slice(11)),row=s.layouts.find(l=>l.date===date);if(row)row.anchor=Math.max(row.anchor,minute);else s.layouts.push({date,anchor:minute});};
   const fixedIssue=(id:string,startsAt:string,duration:number)=>checkPlacement(id,startsAt.slice(0,10),minutes(startsAt.slice(11)),duration,effectiveDay(s.settings,startsAt.slice(0,10)),s.tasks);
   if(a.type==='create'||a.type==='create_scheduled'||a.type==='create_flow'){
     const start=a.type==='create_scheduled'?a.starts_at:null,duration=a.type==='create'?30:a.duration;
-    if(start&&fixedIssue(a.id,start,duration))throw Error('다른 작업 또는 금지시간과 겹칩니다.');
+    const issue=start&&fixedIssue(a.id,start,duration);if(issue)throw Error(issue.label);
     const task:Task={id:a.id,title:a.title,body:'',starts_at:start,duration,completed:false,revision:1,plan_date:start?.slice(0,10)??null,flow_order:null};
     if(a.type==='create_flow')toFlow(task,a.date);
     s.tasks.push(task);
   }
   else if(a.type==='set_settings'||a.type==='set_schedule'){
     s.settings={...s.settings,...a,revision:s.settings.revision+1};
-    for(const t of s.tasks){if(t.starts_at&&checkPlacement(t.id,t.starts_at.slice(0,10),taskMinute(t),t.duration,effectiveDay(s.settings,t.starts_at.slice(0,10)),[])){
-      if(a.type==='set_schedule'&&a.move_conflicts){toFlow(t,t.plan_date!);t.revision++;}else throw Error('배치된 작업과 겹칩니다.');
-    }}
   }
   else if(a.type==='set_routines'){
     if(a.expected_revision!==s.settings.revision)throw Error('정기 업무 설정이 변경됐습니다. 다시 확인하세요.');
@@ -33,7 +29,7 @@ export function previewMutation(snapshot:Snapshot,command:Command,occurrences:Se
       const key=routine.id+':'+date;
       if(occurrences.has(key)||!routine.weekdays.includes((dateOf(date).getDay()+6)%7))continue;
       const id=crypto.randomUUID(),task:Task={id,title:routine.title,body:routine.body,starts_at:date+'T'+time(routine.start),duration:routine.duration,completed:false,revision:1,plan_date:date,flow_order:null};
-      if(checkPlacement(id,date,routine.start,routine.duration,effectiveDay(s.settings,date),s.tasks))toFlow(task,date);
+      if(unavailableParts(routine.start,routine.start+routine.duration,effectiveDay(s.settings,date)).length||checkPlacement(id,date,routine.start,routine.duration,effectiveDay(s.settings,date),s.tasks))toFlow(task,date);
       s.tasks.push(task);occurrences.add(key);
     }
   }

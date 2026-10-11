@@ -73,7 +73,7 @@ export default [
     await page.key('Enter',{text:'\r'});await page.sleep(300);
     assert.equal(await page.js(`${col(1)}.querySelectorAll('.rh-band.rh-rest').length`),1);
   }},
-  {name:'a break over the fixed workshop blocks saving until the move is agreed',run:async page=>{
+  {name:'a break over the fixed workshop saves and preserves its explicit time',run:async page=>{
     await open(page);
     const day=todayIndex();
     await page.click('.rh-tools .btn','휴식 그리기');
@@ -81,18 +81,13 @@ export default [
     const x=lunch.x-20,y=lunch.y+120*perMinute+5*perMinute;
     await page.drag({x,y},{x,y:y+45*perMinute});
     assert.match(await label(page,`${col(day)}.querySelector('[data-select="${day}:1"]')`),/14:00–15:00/);
-    assert.match(await page.text('.st-conflicts'),/설계 워크숍/);
-    assert.equal(await page.js(`document.querySelector('.st-conflicts input').checked`),false,'consent starts unchecked');
-    await page.click('.st-savebar .btn.primary');await page.sleep(300);
-    assert.match(await page.text('.st-rhythm .st-error'),/동의/);
-    assert.ok(await page.js(`!!document.querySelector('.st-savebar.st-dirty')`),'still unsaved');
-    await page.shot('settings-conflict');
-    await page.click('.st-conflicts label');
+    assert.equal(await page.js(`!!document.querySelector('.st-conflicts')`),false,'fixed times need no move consent');
     await page.click('.st-savebar .btn.primary');await page.sleep(500);
     assert.equal(await page.js(`!!document.querySelector('.st-savebar.st-dirty')`),false);
     await page.click('.nav-button','오늘');await page.sleep(500);
     const workshop=await page.js(`[...document.querySelectorAll('.today-day .main')].map(b=>b.getAttribute('aria-label')).find(l=>l.startsWith('설계 워크숍'))`);
-    assert.ok(workshop&&!workshop.includes('시각 고정'),'the workshop is flow work on the same date: '+workshop);
+    assert.match(workshop,/시각 고정 14:00–15:00/,'the workshop keeps its fixed time');
+    await page.shot('settings-preserved-fixed-time');
   }},
   {name:'the date popover opens from off-hours, applies an early leave and restores the rhythm',run:async page=>{
     await guard(page);

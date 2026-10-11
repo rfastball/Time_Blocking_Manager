@@ -23,8 +23,8 @@ export function dayTag(date:string){
 }
 
 export type Allocation={done:number;flow:number;fixed:number;used:number;avail:number;over:number;outside:number;count:number;tasks:Task[]};
-// Minutes of flow work laid out after working time.
-export const outsideOf=(items:DayItem[])=>items.reduce((n,i)=>i.over?n+i.end-i.start:n,0);
+// Count only the parts outside available work, including explicit fixed reservations.
+export const outsideOf=(items:DayItem[])=>items.reduce((n,i)=>n+i.outside,0);
 // What the day holds against what it can hold. `tasks` may include a held block's preview.
 export function allocation(date:string,tasks:Task[]):Allocation{
   const plan=dayPlan(date,tasks,dayRule(date),getState().snapshot!.layouts??[]);

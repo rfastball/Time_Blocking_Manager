@@ -11,6 +11,7 @@ import {useApp,type Composer} from '../store/state.ts';
 import {closeComposer,dayRule,editCapture,issueAt,openComposer,setComposerFixed,setGesture,submitComposer} from '../store/tasks.ts';
 import {Icon,Lock} from '../ui/icons.tsx';
 import {COLUMN_GEOMETRY,DAY_GEOMETRY,useDrag} from '../space/drag.tsx';
+import {OffHours} from '../space/OffHours.tsx';
 import './composer.css';
 
 type Range={start:number;duration:number;fixed:boolean;issue:string|null};
@@ -56,7 +57,8 @@ export function useNewBlock(date:string,axis:TimeAxis,variant:'day'|'column',ali
     onBackgroundPointerDown,
     children:<>
       {range&&<div className={'range'+(range.issue?' bad':'')} aria-hidden="true" style={{left:g.fixedLeft,right:g.right,...band(range.start,range.duration)}}>
-        <span>{time(range.start)}–{time(range.start+range.duration)}{range.issue?' · '+range.issue:''}</span></div>}
+        <OffHours start={range.start} end={range.start+range.duration} rule={dayRule(date)} position={axis.position}/>
+        <span className="range-label">{time(range.start)}–{time(range.start+range.duration)}{range.issue?' · '+range.issue:''}</span></div>}
       {c&&!range&&<Ghost c={c} axis={axis} left={c.fixed?g.fixedLeft:g.flowLeft} right={g.right}/>}
     </>,
     overlay:c&&!range?<ComposerForm c={c} axis={axis} style={variant==='day'?{left:g.bodyLeft+8,right:g.right,width:'auto',maxWidth:300}:align==='left'?{left:0}:{right:0}}/>:null
@@ -77,7 +79,9 @@ function Ghost({c,axis,left,right}:{c:Composer;axis:TimeAxis;left:number;right:n
   if(!c.fixed&&!slot)return null;
   const start=slot?.start??c.start,end=slot?.end??c.start+c.duration;
   return <motion.div className={'ghost'+(c.fixed?' fixed':'')} aria-hidden="true" style={{left,right}}
-    initial={false} animate={{top:axis.position(start)+1,height:Math.max(8,axis.position(end)-axis.position(start)-2)}} transition={{type:'spring',visualDuration:.25,bounce:.2}}/>;
+    initial={false} animate={{top:axis.position(start)+1,height:Math.max(8,axis.position(end)-axis.position(start)-2)}} transition={{type:'spring',visualDuration:.25,bounce:.2}}>
+      <OffHours start={start} end={end} rule={dayRule(c.date)} position={axis.position}/>
+    </motion.div>;
 }
 
 function ComposerForm({c,axis,style}:{c:Composer;axis:TimeAxis;style:CSSProperties}){

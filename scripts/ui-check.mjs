@@ -1,5 +1,5 @@
 // Explicit UI check: drives headless Edge over CDP with real mouse/keyboard input against a running dev server.
-// Not part of `npm test`. Usage: node scripts/ui-check.mjs [--base http://127.0.0.1:1420] [--only today,plan] [--out dir] [--port 9333]
+// Not part of `npm test`. Usage: node scripts/ui-check.mjs [--base http://127.0.0.1:1420] [--only today,plan] [--match "scenario name"] [--out dir] [--port 9333]
 // Scenarios live in scripts/ui-check/*.mjs and export an array of {name, path, run(page)}.
 import {spawn} from 'node:child_process';
 import {existsSync,mkdirSync,readdirSync,writeFileSync,rmSync} from 'node:fs';
@@ -8,7 +8,7 @@ import {fileURLToPath,pathToFileURL} from 'node:url';
 import {tmpdir} from 'node:os';
 
 const arg=(name,fallback)=>{const i=process.argv.indexOf('--'+name);return i>0?process.argv[i+1]:fallback;};
-const base=arg('base','http://127.0.0.1:1420'),only=arg('only',''),port=Number(arg('port','9333'));
+const base=arg('base','http://127.0.0.1:1420'),only=arg('only',''),match=arg('match',''),port=Number(arg('port','9333'));
 const out=arg('out',join(tmpdir(),'blokky-ui-check'));
 const edge=[process.env.EDGE_PATH,'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe','C:/Program Files/Microsoft/Edge/Application/msedge.exe'].find(p=>p&&existsSync(p));
 if(!edge){console.error('Microsoft Edge not found. Set EDGE_PATH.');process.exit(2);}
@@ -58,6 +58,7 @@ const page=new Page(),results=[];
 for(const file of files){
   const scenarios=(await import(pathToFileURL(join(dir,file)).href)).default;
   for(const s of scenarios){
+    if(match&&!s.name.includes(match))continue;
     consoleLog=[];const started=Date.now();
     try{await page.goto(s.path??'/?now=10:20',s.viewport);await s.run(page);if(consoleLog.length)throw Error('console: '+consoleLog.join(' | '));results.push({area:file,name:s.name,ok:true,ms:Date.now()-started});}
     catch(e){await page.shot(`FAIL-${file}-${s.name}`.replace(/[^\w가-힣-]+/g,'_')).catch(()=>{});results.push({area:file,name:s.name,ok:false,error:String(e.message||e)});}
@@ -67,4 +68,4 @@ ws.close();proc.kill();
 for(const r of results)console.log(`${r.ok?'PASS':'FAIL'} ${r.area} › ${r.name}${r.ok?` (${r.ms}ms)`:'\n     '+r.error}`);
 writeFileSync(join(out,'results.json'),JSON.stringify(results,null,2));
 console.log(`${results.filter(r=>r.ok).length}/${results.length} passed · screenshots: ${out}`);
-process.exit(results.every(r=>r.ok)?0:1);
+process.exit(results.length>0&&results.every(r=>r.ok)?0:1);

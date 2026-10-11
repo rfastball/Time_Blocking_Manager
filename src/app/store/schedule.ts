@@ -1,18 +1,12 @@
 import {invoke} from '@tauri-apps/api/core';
 import {effectiveDay} from '../../settings.ts';
-import {placementIssue} from '../../placement.ts';
 import {changeAvailabilityBand,type AvailabilityEdge,type AvailabilityTarget} from '../../availability-band.ts';
 import {minutes,time} from '../../dates.ts';
-import type {Routine,Settings,Task} from '../../types.ts';
+import type {Routine,Settings} from '../../types.ts';
 import {getState,setDrafts,setState,setUi,type RawSchedule,type RoutineDraft} from './state.ts';
 import {ask,dispatch,draftChanged,persistDraft,queue,showError} from './session.ts';
-import {taskMinute} from './tasks.ts';
 
 const snap=()=>getState().snapshot!;
-// Fixed tasks that the given schedule would leave outside working time or inside a break.
-export function scheduleConflicts(settings:Settings):Task[]{
-  return snap().tasks.filter(t=>t.starts_at&&placementIssue(t.id,t.starts_at.slice(0,10),taskMinute(t),t.duration,effectiveDay(settings,t.starts_at.slice(0,10)),[]));
-}
 // The working draft of all schedule settings; the base remembers which stored revision it started from.
 export function setSettingsDraft(settings:Settings|null){
   const s=getState();
@@ -23,21 +17,20 @@ export function stashRawSchedule(key:string,raw:RawSchedule|null){
   setDrafts({rawSchedules:next});draftChanged();
 }
 export function resetSettingsDraft(){setDrafts({settingsDraft:null,settingsBase:null,rawSchedules:{}});void persistDraft();}
-// Stores a schedule. `move` is the user's explicit consent to turn conflicting fixed tasks into flow work on the same date.
-export async function saveSchedule(settings:Settings,move:boolean,rawKey?:string){
+// Schedule changes preserve explicitly fixed task times.
+export async function saveSchedule(settings:Settings,rawKey?:string){
   const d=getState().drafts;
   if(Object.entries(d.rawSchedules).some(([key,raw])=>raw.invalid&&key!==rawKey)){showError(Error('다른 날짜 또는 기본 일정에 입력 중인 시간이 있습니다. 먼저 수정하거나 설정에서 되돌리세요.'));return false;}
   if(queue.failed){showError(Error('이전 저장 오류를 먼저 해결하세요.'));return false;}
-  if(!move&&scheduleConflicts(settings).length){showError(Error('근무시간과 겹치는 고정 작업이 있습니다. 같은 날짜의 유동 작업으로 옮기는 데 동의한 뒤 저장하세요.'));return false;}
   const savedDraft=d.settingsDraft,savedRaw=d.rawSchedules,base=d.settingsBase??{epoch:snap().epoch,revision:snap().settings.revision};
-  return dispatch({type:'set_schedule',expected_revision:base.revision,days:settings.days,exceptions:settings.exceptions??[],weekly_target:settings.weekly_target??2400,work_days:settings.work_days??5,move_conflicts:move},{epoch:base.epoch,done:()=>{
+  return dispatch({type:'set_schedule',expected_revision:base.revision,days:settings.days,exceptions:settings.exceptions??[],weekly_target:settings.weekly_target??2400,work_days:settings.work_days??5,move_conflicts:false},{epoch:base.epoch,done:()=>{
     const now=getState().drafts;
     if(now.settingsDraft===savedDraft)setDrafts({settingsDraft:null,settingsBase:null,rawSchedules:now.rawSchedules===savedRaw?{}:now.rawSchedules});
     else setDrafts({settingsBase:{epoch:snap().epoch,revision:snap().settings.revision}});
     void persistDraft();
   }});
 }
-// Dragging a band edge on a calendar date: stored at once when nothing else is pending and nothing conflicts.
+// Dragging a band edge on a calendar date: stored at once when nothing else is pending.
 export function changeDayAvailability(date:string,target:AvailabilityTarget,edge:AvailabilityEdge,value:number){
   try{
     const d=getState().drafts;
@@ -47,9 +40,7 @@ export function changeDayAvailability(date:string,target:AvailabilityTarget,edge
     draft.exceptions=[...(draft.exceptions??[]).filter(e=>e.date!==date),{date,kind:'custom',day}];
     setSettingsDraft(draft);stashRawSchedule(date,null);
     if(hadDraft)return;
-    const conflicts=scheduleConflicts(draft);
-    if(conflicts.length){showError(Error(`‘${conflicts.map(t=>t.title).join(', ')}’과 시간이 충돌합니다. 시간 변경 검토에서 확인하세요.`));return;}
-    void saveSchedule(draft,false);
+    void saveSchedule(draft);
   }catch(e){showError(e);}
 }
 export const openAvailability=(date:string,target:AvailabilityTarget='work',x=innerWidth/2,y=150)=>setUi({availability:{date,target,x,y}});
