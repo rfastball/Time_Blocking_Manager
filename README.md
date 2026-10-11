@@ -203,3 +203,9 @@ node scripts/ui-check.mjs --base http://127.0.0.1:1420
 [검증 기록](docs/validation.md)은 브라우저 UI, 실제 SQLite, 네이티브 앱, 설치 파일의 확인 범위를 구분합니다. 최근 변경에 대해 프런트 테스트·배포 빌드와 일부 Edge 시나리오가 확인되어 있지만, 모든 Windows 환경·물리 입력·스크린리더·최신 설치본 전체의 검증 완료를 의미하지는 않습니다.
 
 처음 수정한다면 [제품 정의](PRODUCT.md)로 동작 범위를 확인하고, [구현 결정](docs/decisions.md)과 [테스트 정책](docs/test-policy.md)을 함께 읽어 주세요.
+
+## 라이선스
+
+BLOKKY의 소스 코드는 [MIT License](LICENSE)로 공개합니다. Copyright © 2026 rfastball.
+
+함께 배포하는 글꼴은 각 폴더의 SIL Open Font License를 따릅니다: [고운바탕](public/fonts/gowunbatang/OFL.txt), [고운돋움](public/fonts/gowundodum/OFL.txt), [IBM Plex Sans KR](public/fonts/ibmplexsanskr/OFL.txt), [Noto Sans KR](public/fonts/notosanskr/OFL.txt).
