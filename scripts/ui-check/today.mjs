@@ -59,6 +59,6 @@ export default [
   {name:'clicking a block opens it beside the space with title and memo first',run:async page=>{
     await page.click('.today-day .blk .main','설계 문서 초안');
     assert.equal(await page.js('document.querySelector(".today-day .blk.sel")?.textContent.includes("설계 문서 초안")'),true);
-    assert.ok(await page.js('!!document.querySelector(".today-side [aria-label=\'블록 상세\']")'));
+    assert.ok(await page.js('!!document.querySelector(".today-main [aria-label=\'블록 상세\']")'));
   }},
 ];

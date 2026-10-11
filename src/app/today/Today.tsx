@@ -1,26 +1,27 @@
 import {useState} from 'react';
 import {motion} from 'motion/react';
-import {nextFlowId} from '../../today.ts';
+import {nextFlowId,type DayItem} from '../../today.ts';
 import {time} from '../../dates.ts';
+import {formatDuration} from '../../format.ts';
 import type {Task} from '../../types.ts';
 import {useApp} from '../store/state.ts';
-import {available,clearDay,completeTasks,dayRule,overdueTasks,planOf,reflowToday} from '../store/tasks.ts';
+import {available,completeTasks,dayRule,overdueTasks,planOf,reflowToday} from '../store/tasks.ts';
 import {openEditor} from '../store/editor.ts';
 import {settle} from '../ui/motion.ts';
-import {Icon} from '../ui/icons.tsx';
+import {Icon,Lock} from '../ui/icons.tsx';
 import {DaySpace} from '../space/DaySpace.tsx';
 import {useDaysAxis} from '../space/drag.tsx';
 import {allocationLabel,allocationShort,Outside,outsideOf} from '../plan/day.tsx';
 import {InboxTray} from '../space/InboxTray.tsx';
 import {EditorPanel} from '../editor/hosts.tsx';
-import {useNewBlock} from '../plan/Composer.tsx';
 import './today.css';
 
 const SCALE=1.2;
 // One column at this width puts the panel below the whole day, so the editor opens over it instead.
 const open=(t:Task)=>openEditor(t.id,matchMedia('(max-width:960px)').matches?'dialog':'panel');
 
-// The day as one block space. Selecting a block opens it beside the space; the list is the space itself.
+// 오늘 is for doing the day, not planning it: a slim timetable strip, what comes next, and the queue of what is left.
+// Planning a day in full (new blocks, clearing it) is the plan tab's 일 view.
 export function Today(){
   const {snapshot,nav,today,drafts,ui}=useApp();
   const [multi,setMulti]=useState<string[]>([]);
@@ -33,7 +34,7 @@ export function Today(){
   const editing=ui.editorMode==='panel'?drafts.editor?.id??null:null;
   const toggleMulti=(t:Task)=>{if(!t.completed)setMulti(m=>m.includes(t.id)?m.filter(x=>x!==t.id):[...m,t.id]);};
   const load={used:aDone+aFlow+aFixed,avail,outside:outsideOf(plan.items)};
-  const newBlock=useNewBlock(date,axis,'day');
+  const nextId=nextFlowId(plan.items),queue=plan.items.filter(i=>!i.task.completed);
   return <div className="today">
     <div className="today-bar">
       <div className="cap" aria-label={allocationLabel(load)}>
@@ -44,20 +45,35 @@ export function Today(){
       {multi.length>0?<div className="multi-bar"><span>{multi.length}개 선택</span>
         <button type="button" className="btn primary" onClick={()=>{const tasks=snapshot!.tasks.filter(t=>multi.includes(t.id));setMulti([]);void completeTasks(tasks);}}>완료</button>
         <button type="button" className="btn" onClick={()=>setMulti([])}>취소</button></div>
-      :<>
-        {date===today&&plan.items.some(i=>!i.fixed)&&<><span className="anchor">{time(anchor)} 기준</span>
-          <button type="button" className="btn" onClick={()=>void reflowToday()}><Icon name="reflow" size={15}/>지금 기준으로 다시 배치</button></>}
-        <button type="button" className="btn text" disabled={!dayTasks.length} aria-label={`${date} 일정 비우기`} onClick={()=>void clearDay(date)}>하루 비우기</button>
-      </>}
+      :date===today&&plan.items.some(i=>!i.fixed)&&<><span className="anchor">{time(anchor)} 기준</span>
+        <button type="button" className="btn" onClick={()=>void reflowToday()}><Icon name="reflow" size={15}/>재배치</button></>}
     </div>
     <div className="today-cols">
-      <section className="card today-day" aria-label="블록 공간">
-        <DaySpace date={date} axis={axis} variant="day" bin selected={editing} multi={multi} onOpen={open} onMulti={toggleMulti} {...newBlock}/>
+      <section className="card today-day" aria-label="시간표">
+        <DaySpace date={date} axis={axis} variant="day" bin selected={editing} multi={multi} onOpen={open} onMulti={toggleMulti}/>
       </section>
+      <div className="today-main">
+        <EditorPanel nextId={nextId}/>
+        {queue.length>0&&<Queue items={queue} nextId={nextId} selected={editing}/>}
+      </div>
       <aside className="today-side">
-        <EditorPanel nextId={nextFlowId(plan.items)}/>
         <InboxTray scale={SCALE} overdue={overdueTasks()} selected={editing} onOpen={open}/>
       </aside>
     </div>
   </div>;
+}
+
+// What is left today, in the order it will be done. Each row completes or opens its block.
+function Queue({items,nextId,selected}:{items:DayItem[];nextId:string|null;selected:string|null}){
+  return <section className="card queue" aria-label="남은 블록">
+    <h2>남은 블록 <b>{items.length}</b></h2>
+    <ol>{items.map(({task:t,start,end,fixed,over})=><li key={t.id} className={'q-row'+(t.id===nextId?' next':'')+(fixed?' fixed':'')+(over?' over':'')+(t.id===selected?' sel':'')}>
+      <button type="button" className="chk" aria-label={t.title+' 완료'} onClick={()=>void completeTasks([t])}><Icon name="check" size={12} stroke={3}/></button>
+      <button type="button" className="q-main" onClick={()=>open(t)} aria-label={`${t.title}, ${fixed?'시각 고정':'예상'} ${time(start)}–${time(end)}, ${formatDuration(t.duration)}${over?', 근무 외':''}`}>
+        <span className="q-time">{time(start)}</span>
+        <span className="q-title">{fixed&&<Lock size={12}/>}{t.title}</span>
+        <span className="q-dur">{formatDuration(t.duration)}</span>
+      </button>
+    </li>)}</ol>
+  </section>;
 }

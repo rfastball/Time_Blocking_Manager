@@ -2,6 +2,7 @@ export const formatDuration=(minutes:number)=>minutes<60?`${minutes}분`: `${Mat
 export function rangeTitle(mode:string,anchor:string){
   const start=new Date(anchor+'T12:00:00');
   if(mode==='month')return `${start.getFullYear()}년 ${start.getMonth()+1}월`;
+  if(mode==='day')return `${start.getMonth()+1}월 ${start.getDate()}일 ${start.toLocaleDateString('ko-KR',{weekday:'long'})}`;
   start.setDate(start.getDate()-(start.getDay()+6)%7);
   const end=new Date(start);end.setDate(end.getDate()+(mode==='week'?6:mode==='two'?13:27));
   const crossYear=start.getFullYear()!==end.getFullYear();

@@ -172,7 +172,7 @@ export function visibleRange():[string,string]{
   const first=dateOf(planAnchor);if(period==='month')first.setDate(1);first.setDate(first.getDate()-(first.getDay()+6)%7);
   const from=dateKey(first),last=dateOf(planAnchor);last.setMonth(last.getMonth()+1,0);
   const monthStart=dateOf(planAnchor);monthStart.setDate(1);
-  return [from,plusDays(from,period==='week'?6:period==='two'?13:Math.ceil(((monthStart.getDay()+6)%7+last.getDate())/7)*7-1)];
+  return [from,plusDays(from,period==='week'||period==='day'?6:period==='two'?13:Math.ceil(((monthStart.getDay()+6)%7+last.getDate())/7)*7-1)];
 }
 export const setGesture=(gesture:boolean)=>setState({gesture});
 export {find as findTask};

@@ -57,6 +57,16 @@
 /* The time tag rides above the snapped block. */
 .wk .railtag{margin-top:-24px}
 
+/* 일: the week as a strip of date heads, the chosen day's space below. */
+.dv{display:flex;flex-direction:column;gap:12px}
+.card.dv-strip{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));padding:0;overflow:hidden}
+.dv-strip .wk-head{position:static;border-bottom:0}
+.dv-strip .wk-head:first-child{border-left:0}
+.card.dv-day{padding:0;overflow:hidden;min-width:0}
+.dv-day .plan-day-head .anchor{margin-left:6px}
+.plan-day-link{border:0;background:none;padding:0;font:inherit;color:inherit;cursor:pointer;border-radius:4px}
+.plan-day-link:hover{color:var(--color-action);text-decoration:underline;text-underline-offset:3px}
+
 /* 2주·월 */
 /* The calendar takes the larger share; titles in 2주 cells need the width more than the date panel does. */
 .cal-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(260px,.5fr);gap:16px;align-items:start}

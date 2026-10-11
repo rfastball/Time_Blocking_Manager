@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 
 // Preview data at 10:20: A 60 (checklist), B 45 (memo + checklist), C 30, D 60 flow; workshop fixed 14:00; E 90; F 120 unplaced.
-const space='.today-day .space',panel=".today-side [aria-label='블록 상세']";
+const space='.today-day .space',panel=".today-main [aria-label='블록 상세']";
 const CTRL=2,SHIFT=8;
 const value=(page,selector)=>page.js(`document.querySelector(${JSON.stringify(selector)})?.value??null`);
 const active=page=>page.js(`(()=>{const a=document.activeElement;return a?{tag:a.tagName,text:a.textContent.trim(),label:a.getAttribute('aria-label'),task:a.dataset.task??null,value:a.value??null,type:a.type??null}:null;})()`);

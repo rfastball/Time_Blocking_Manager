@@ -195,12 +195,28 @@ export default [
     assert.equal(await page.js(`!!document.querySelector('.composer')`),false);
     assert.match(await page.text('.status'),/점심/);
   }},
-  {name:'today: clicking empty time opens the composer and an unfitting block runs past the end of work',run:async page=>{
-    const box=await page.rect('.today-day .space'),last=await page.rect('.today-day .blk','신규 입사자 교육');
+  {name:'a week date head opens its 일 view, where empty time takes a new block that runs past the end of work',run:async page=>{
+    await toPlan(page);
+    const {today}=await days(page);
+    await page.click(`.wk-head[data-date="${today}"] .wk-date`);await page.sleep(500);
+    assert.equal(await page.js(`document.querySelector('.segmented [aria-checked=true]').textContent`),'일');
+    assert.equal(await page.js(`document.querySelectorAll('.dv-strip .wk-head').length`),7,'the week stays as a strip of date heads');
+    const box=await page.rect('.dv-day .space'),last=await page.rect('.dv-day .blk','신규 입사자 교육');
     await press(page,box.x+box.w-60,last.y+last.h+20);
     assert.match(await page.text('.composer .cm-head'),/순서 끝 · \d\d:\d\d–\d\d:\d\d/);
-    await page.shot('today-composer');
+    await page.shot('day-composer');
     await page.type('오늘 추가');await page.key('Enter',{text:'\r'});await page.sleep(700);
-    assert.ok((await page.blocks('.today-day .space')).includes('오늘 추가, 예상 20:00–20:30'));
+    assert.ok((await page.blocks('.dv-day .space')).includes('오늘 추가, 예상 20:00–20:30'));
+  }},
+  {name:'2주 date panel title opens the 일 view; 오늘 has no composer and no 하루 비우기',run:async page=>{
+    const box=await page.rect('.today-day .space');
+    await press(page,box.x+box.w-30,box.y+box.h-30);
+    assert.equal(await page.js(`!!document.querySelector('.composer')`),false,'empty time on 오늘 does not compose');
+    assert.equal(await page.js(`[...document.querySelectorAll('.today-bar button')].some(b=>b.textContent.includes('비우기'))`),false);
+    assert.match(await page.text('.today-bar'),/재배치/);
+    await toPlan(page);
+    await page.click('.segmented [role=radio]','2주');await page.sleep(400);
+    await page.click('.plan-day-link');await page.sleep(400);
+    assert.equal(await page.js(`document.querySelector('.segmented [aria-checked=true]').textContent`),'일');
   }},
 ];

@@ -8,13 +8,14 @@ import {openEditor} from '../store/editor.ts';
 import {DaySpace} from '../space/DaySpace.tsx';
 import {useDaysAxis,useDrag,useRegion} from '../space/drag.tsx';
 import {useNewBlock} from './Composer.tsx';
+import {openDay} from './Week.tsx';
 import {allocation,allocationLabel,allocationShort,dayTag,Meter,Outside} from './day.tsx';
 
 const DAY_SCALE=1.05;
 const weekdays=['월','화','수','목','금','토','일'];
 
 // 2주 shows titles, 월 shows load. The grid keeps its rows while a date is chosen; the chosen date opens beside it.
-export function Calendar({dates,period}:{dates:string[];period:Exclude<Period,'week'>}){
+export function Calendar({dates,period}:{dates:string[];period:Exclude<Period,'week'|'day'>}){
   const {nav}=useApp();
   return <div className="cal-layout">
     <section className="card cal" aria-label={period==='two'?'2주 작업 목록':'월간 작업량'}>
@@ -69,7 +70,7 @@ function DatePanel({date}:{date:string}){
   const a=allocation(date,tasks),tag=dayTag(date);
   return <section className="card plan-day" aria-label={`${dateLabel(date)} 블록 공간`}>
     <header className="plan-day-head">
-      <h2>{dateLabel(date)}</h2>{tag&&<span className="tag-chip">{tag}</span>}
+      <h2><button type="button" className="plan-day-link" onClick={()=>openDay(date)}>{dateLabel(date)}</button></h2>{tag&&<span className="tag-chip">{tag}</span>}
       <span className="plan-day-alloc" aria-label={allocationLabel(a)}><Meter a={a}/><span aria-hidden="true">{allocationShort(a)}</span><Outside a={a}/></span>
     </header>
     <DaySpace date={date} axis={axis} variant="day" bin onOpen={t=>openEditor(t.id,'dialog')} {...nb}/>

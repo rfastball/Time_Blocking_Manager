@@ -11,6 +11,7 @@ import {useNewBlock} from './Composer.tsx';
 import {allocation,allocationLabel,allocationShort,dayTag,Meter,Outside} from './day.tsx';
 
 export const WEEK_SCALE=1;
+export const openDay=(date:string)=>setNav({view:'plan',period:'day',selected:date,planAnchor:date});
 const open=(t:Task)=>openEditor(t.id,'dialog');
 
 // Seven day spaces on one time axis. The hour ruler is shared; each date head is also a place to drop work.
@@ -41,14 +42,15 @@ export function Week({dates}:{dates:string[]}){
   </section>;
 }
 
-function Head({date}:{date:string}){
+// A date head: its allocation at a glance, a place to drop work, and the way into that day's 일 view.
+export function Head({date}:{date:string}){
   const {today,nav}=useApp(),{held,tasks}=useDrag();
   const ref=useRegion('date',date);
   const a=allocation(date,tasks),tag=dayTag(date),off=!dayRule(date).enabled;
   const hot=!!held&&!held.dropping&&held.intent.zone==='date'&&held.intent.ok&&held.intent.date===date;
   const d=dateOf(date),past=date<today;
   return <div ref={ref} data-date={date} className={'wk-head'+(date===today?' today':'')+(past?' past':'')+(date===nav.selected?' sel':'')+(off?' off':'')+(hot?' hot':'')}>
-    <button type="button" className="wk-date" onClick={()=>setNav({view:'today',selected:date})}
+    <button type="button" className="wk-date" onClick={()=>openDay(date)}
       aria-label={`${dateLabel(date)}${date===today?', 오늘':''}${past?', 지난 날짜':''}${tag?', '+tag:''}, ${allocationLabel(a)}`}>
       <span className="wk-day"><small>{d.toLocaleDateString('ko-KR',{weekday:'short'})}</small><strong>{d.getDate()}</strong>{date===today&&<span className="pill">오늘</span>}{tag&&<span className="tag-chip">{tag}</span>}</span>
       <Meter a={a}/>

@@ -9,10 +9,11 @@ import {Icon} from '../ui/icons.tsx';
 import {InboxTray} from '../space/InboxTray.tsx';
 import {Week,WEEK_SCALE} from './Week.tsx';
 import {Calendar} from './Calendar.tsx';
+import {DayView} from './DayView.tsx';
 import {periodDates} from './day.tsx';
 import './plan.css';
 
-const periods:{id:Period;label:string}[]=[{id:'week',label:'주'},{id:'two',label:'2주'},{id:'month',label:'월'}];
+const periods:{id:Period;label:string}[]=[{id:'day',label:'일'},{id:'week',label:'주'},{id:'two',label:'2주'},{id:'month',label:'월'}];
 
 // The routine form lives in settings; follow the button there and land in its first field once it is drawn.
 function goRoutines(){
@@ -37,8 +38,8 @@ export function Plan(){
       <button type="button" className={'btn drawer-toggle'+(open?' on':'')} aria-expanded={open} aria-controls="plan-drawer" aria-label={inbox.length?`미계획 ${inbox.length}건`:'미계획'}
         onClick={()=>setNav({inboxOpen:!open})}><Icon name="inbox" size={16}/>미계획{inbox.length>0&&<span className="cnt">{inbox.length}</span>}</button>
     </div>
-    <div className={'plan-desk '+nav.period+(open?' with-drawer':'')}>
-      <div className="plan-main">{nav.period==='week'?<Week dates={dates}/>:<Calendar dates={dates} period={nav.period}/>}</div>
+    <div className={'plan-desk '+nav.period+(nav.period==='day'?' week':'')+(open?' with-drawer':'')}>
+      <div className="plan-main">{nav.period==='day'?<DayView dates={dates}/>:nav.period==='week'?<Week dates={dates}/>:<Calendar dates={dates} period={nav.period}/>}</div>
       <aside id="plan-drawer" className="plan-drawer" hidden={!open} aria-label="미계획 드로어">
         {open&&<>
           <InboxTray scale={WEEK_SCALE} overdue={overdueTasks()} onOpen={t=>openEditor(t.id,'dialog')}/>

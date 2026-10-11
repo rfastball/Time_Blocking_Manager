@@ -10,7 +10,7 @@ import {settle} from '../ui/motion.ts';
 export function periodDates(period:Period,anchor:string){
   const first=dateOf(anchor);if(period==='month')first.setDate(1);first.setDate(first.getDate()-(first.getDay()+6)%7);
   const monthStart=dateOf(anchor),monthEnd=dateOf(anchor);monthStart.setDate(1);monthEnd.setMonth(monthEnd.getMonth()+1,0);
-  const count=period==='week'?7:period==='two'?14:Math.ceil(((monthStart.getDay()+6)%7+monthEnd.getDate())/7)*7;
+  const count=period==='week'||period==='day'?7:period==='two'?14:Math.ceil(((monthStart.getDay()+6)%7+monthEnd.getDate())/7)*7;
   return Array.from({length:count},(_,i)=>plusDays(dateKey(first),i));
 }
 

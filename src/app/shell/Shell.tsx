@@ -28,11 +28,11 @@ export function Shell(){
   };
   function step(direction:number){
     if(nav.view==='plan'&&nav.period==='month'){const d=dateOf(nav.planAnchor);d.setDate(1);d.setMonth(d.getMonth()+direction);const key=dateKey(d);setNav({selected:key,planAnchor:key});return;}
-    const base=nav.view==='plan'?nav.planAnchor:nav.selected,key=plusDays(base,direction*(nav.view==='plan'?(nav.period==='week'?7:14):1));
+    const base=nav.view==='plan'?nav.planAnchor:nav.selected,key=plusDays(base,direction*(nav.view==='plan'?(nav.period==='day'?1:nav.period==='week'?7:14):1));
     setNav(nav.view==='plan'?{selected:key,planAnchor:key}:{selected:key});
   }
   const heading=nav.view==='settings'?'설정':nav.view==='inbox'?'미계획':nav.view==='plan'?rangeTitle(nav.period,nav.planAnchor):dateLabel(nav.selected);
-  const unit=nav.view==='today'?'날':nav.period==='month'?'달':nav.period==='two'?'2주':'주';
+  const unit=nav.view==='today'||nav.period==='day'?'날':nav.period==='month'?'달':nav.period==='two'?'2주':'주';
   return <DragProvider>
     <div className="app-shell" inert={quitSaving||undefined}>
       <nav className="rail-nav" aria-label="주 메뉴">

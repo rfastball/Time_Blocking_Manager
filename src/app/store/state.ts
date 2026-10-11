@@ -5,7 +5,8 @@ import type {AvailabilityTarget} from '../../availability-band.ts';
 import {minutes,today} from '../../dates.ts';
 
 export type View='today'|'plan'|'inbox'|'settings';
-export type Period='week'|'two'|'month';
+// 일 is one day's editor with its week as a strip above it, so it spans the same seven dates as 주.
+export type Period='day'|'week'|'two'|'month';
 // The task as typed in the editor. epoch/revision are the saved state it started from.
 export type EditorDraft=Task&{epoch:string};
 export type Composer={date:string;start:number;duration:number;fixed?:boolean};
