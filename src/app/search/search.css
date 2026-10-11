@@ -1,0 +1,14 @@
+/* Global search: one input and its results, floating at the top centre over whatever screen is open. */
+.search-layer{position:fixed;inset:0;z-index:70;pointer-events:none}
+.search-panel{pointer-events:auto;position:absolute;left:50%;top:56px;translate:-50% 0;width:min(560px,calc(100vw - 32px));max-height:min(70vh,560px);display:flex;flex-direction:column;
+  background:var(--color-surface);color:var(--color-text);border:1px solid var(--color-border);border-radius:var(--radius-panel);box-shadow:var(--shadow-dialog);overflow:hidden}
+.search-box{flex:none;display:flex;align-items:center;gap:10px;height:52px;padding:0 14px;color:var(--color-text-muted)}
+.search-panel .search-box input{flex:1;min-width:0;height:100%;padding:0;border:0;border-radius:0;background:transparent;font-size:var(--font-size-title);color:var(--color-text);outline:0;caret-color:var(--color-caret)}
+.search-results{list-style:none;margin:0;padding:4px;overflow:auto;border-top:1px solid var(--color-divider)}
+.search-hit{display:flex;align-items:baseline;gap:12px;padding:8px 10px;border-radius:var(--radius-control);cursor:pointer}
+.search-hit.active{background:var(--color-selection)}
+.hit-title{flex:1;min-width:0;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hit-where{flex:none;font-size:var(--font-size-label);color:var(--color-text-muted);font-variant-numeric:tabular-nums}
+.search-hit.active .hit-where{color:var(--color-text)}
+.search-none{margin:0;padding:12px 16px 14px;border-top:1px solid var(--color-divider);font-size:var(--font-size-summary);color:var(--color-text-muted)}
+.found-ring{position:fixed;z-index:65;pointer-events:none;border-radius:calc(var(--radius-block) + 4px);outline:2.5px solid var(--color-focus);outline-offset:0}

@@ -14,6 +14,7 @@ import {Settings} from '../settings/Settings.tsx';
 import {AvailabilityPopover} from '../settings/AvailabilityPopover.tsx';
 import {EditorHost,ContextMenuHost} from '../editor/hosts.tsx';
 import {CutHost} from '../cut/CutBoard.tsx';
+import {SearchHost,openSearch} from '../search/Search.tsx';
 import {openCut} from '../store/cut.ts';
 import {BackupManager} from '../backups/BackupManager.tsx';
 import './shell.css';
@@ -35,12 +36,16 @@ export function Shell(){
   }
   const heading=nav.view==='settings'?'설정':nav.view==='inbox'?'미계획':nav.view==='plan'?rangeTitle(nav.period,nav.planAnchor):dateLabel(nav.selected);
   const unit=nav.view==='today'||nav.period==='day'?'날':nav.period==='month'?'달':nav.period==='two'?'2주':'주';
+  const navButton=(v:{id:View;label:string})=><button key={v.id} type="button" className={'nav-button'+(nav.view===v.id?' active':'')} aria-current={nav.view===v.id?'page':undefined}
+    aria-label={v.id==='inbox'&&inboxCount?`미계획 ${inboxCount}건`:v.label} onClick={()=>go(v.id)}><Icon name={v.id} size={20} stroke={1.7}/><span>{v.label}{v.id==='inbox'&&inboxCount?' '+inboxCount:''}</span></button>;
   return <DragProvider>
     <div className="app-shell" inert={quitSaving||undefined}>
       <nav className="rail-nav" aria-label="주 메뉴">
         <button type="button" className="brand" aria-label="BLOKKY 오늘로 이동" title="오늘로 이동" onClick={()=>setNav({view:'today',selected:s.today})}><Logo/></button>
-        {views.map(v=><button key={v.id} type="button" className={'nav-button'+(nav.view===v.id?' active':'')} aria-current={nav.view===v.id?'page':undefined}
-          aria-label={v.id==='inbox'&&inboxCount?`미계획 ${inboxCount}건`:v.label} onClick={()=>go(v.id)}><Icon name={v.id} size={20} stroke={1.7}/><span>{v.label}{v.id==='inbox'&&inboxCount?' '+inboxCount:''}</span></button>)}
+        {views.slice(0,3).map(navButton)}
+        {/* Search sits outside any one tab: it finds work everywhere, so it is not beside the 미계획 capture. */}
+        <button type="button" className={'nav-button'+(s.ui.search?' active':'')} aria-label="검색" aria-keyshortcuts="Control+K" aria-expanded={s.ui.search} onClick={openSearch}><Icon name="search" size={20} stroke={1.7}/><span>검색</span></button>
+        {views.slice(3).map(navButton)}
       </nav>
       <main className="workspace">
         <header className="topbar">
@@ -60,7 +65,7 @@ export function Shell(){
         <StatusBar/>
       </main>
     </div>
-    {ready&&snapshot&&s.draftLoaded&&<><EditorHost/><ContextMenuHost/><CutHost/><AvailabilityPopover/></>}
+    {ready&&snapshot&&s.draftLoaded&&<><EditorHost/><ContextMenuHost/><CutHost/><AvailabilityPopover/><SearchHost/></>}
     <div className="sr-only" role="status" aria-live="polite">{s.message}</div>
   </DragProvider>;
 }

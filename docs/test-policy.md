@@ -1,5 +1,14 @@
 # 검증 범위
 
+## 전역 검색 Test delta brief (2026-10-11)
+
+- Unique risk: 결과의 현재 위치 표기가 화면과 다름, 미계획·날짜·완료·휴지통 중 일부를 못 찾음, 이동 뒤 블록이 보이지 않거나 포커스를 잃음, Esc가 원래 포커스로 돌아가지 않음, 한글 조합 중 결과가 멈추거나 Enter가 이동을 실행함.
+- Existing owner / Selected layer: 일치·정렬·위치 표기는 새 순수 모듈 `search.ts`의 owner `src/search.test.ts`. 패널·키보드·이동·강조는 새 명시적 `scripts/ui-check/search.mjs`(새 화면 영역이라 기존 owner 없음).
+- Expected cost delta: Node +2, UI +4(약 13초). 새 dependency·CI lane 없음.
+- Evidence to retire: 없음.
+
+Test delta 결과: Node **60/60**, `npm run build` 통과. UI는 실행 시간 제한 때문에 두 묶음으로 나눠 전용 개발 서버에서 돌렸다: inbox·search·editor·today **34/34**, plan·settings·backups·capture **33/33**.
+
 ## 도마(쪼개기) Test delta brief (2026-10-11)
 
 - Unique risk: 확정한 조각이 원래 자리(더미 안·그날 순서·고정 시각)를 벗어나거나, 완료 조각이 날짜 없이 남거나, 고정 블록 조각이 다른 예약과 겹침. 솔기·칼선·키보드 글줄 조작의 길이 계산이 15분 단위와 합계 규칙을 어김. 취소가 저장하거나 닫기가 버림.

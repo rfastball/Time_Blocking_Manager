@@ -154,7 +154,7 @@ function Bin({tasks,onOpen}:{tasks:Task[];onOpen:(t:Task)=>void}){
       {tasks.length>0&&<span className="bin-label">완료 <b>{tasks.length}</b></span>}
       <AnimatePresence initial={false}>
         {tasks.map(t=><motion.span key={t.id} className="chip" layout initial={{opacity:0,y:18,scaleX:.8,scaleY:1.15}} animate={{opacity:1,y:0,scaleX:1,scaleY:1}} exit={{opacity:0,y:14}} transition={{type:'spring',visualDuration:.4,bounce:.35}}>
-          <button type="button" className="chip-title" onClick={()=>onOpen(t)}><Icon name="check" size={13} stroke={2.6}/>{t.title}<small>{formatDuration(t.duration)}</small></button>
+          <button type="button" className="chip-title" data-task={t.id} onClick={()=>onOpen(t)}><Icon name="check" size={13} stroke={2.6}/>{t.title}<small>{formatDuration(t.duration)}</small></button>
           <button type="button" className="chip-undo" aria-label={t.title+' 완료 취소'} title="완료 취소" onClick={()=>void uncomplete(t)}><Icon name="undo" size={14}/></button>
         </motion.span>)}
       </AnimatePresence>

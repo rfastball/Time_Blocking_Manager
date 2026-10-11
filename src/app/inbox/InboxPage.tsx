@@ -22,6 +22,8 @@ export function InboxPage(){
   const [archiveOpen,setArchiveOpen]=useState(archiveOpenMemory),[trashOpen,setTrashOpen]=useState(trashOpenMemory),trash=snapshot!.trash??[];
   // Completions kept from before every completion had a date; nothing new arrives here.
   const archived=snapshot!.tasks.filter(t=>!t.plan_date&&t.completed);
+  // A search result in the trash or the archive unfolds its list.
+  useEffect(()=>{const f=ui.found;if(f?.kind==='trash'){trashOpenMemory=true;setTrashOpen(true);}if(f?.kind==='archive'){archiveOpenMemory=true;setArchiveOpen(true);}},[ui.found]);
   // A selection belongs to this page and to work still on it.
   useEffect(()=>()=>setSelection([]),[]);
   useEffect(()=>{const live=ui.benchSelection.filter(id=>snapshot!.tasks.some(t=>t.id===id&&!t.completed));if(live.length!==ui.benchSelection.length)setSelection(live);},[snapshot,ui.benchSelection]);

@@ -9,7 +9,7 @@ const paths:Record<string,string>={
   delete:'M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v5M14 11v5',
   check:'M5 12.5l4.5 4.5L19 7.5',undo:'M9 14L4 9l5-5M4 9h10a6 6 0 0 1 0 12h-3',
   reflow:'M4 12a8 8 0 0 1 13.7-5.7L20 8.6M20 4v4.6h-4.6M20 12a8 8 0 0 1-13.7 5.7L4 15.4M4 20v-4.6h4.6',
-  up:'M12 19V5M6 11l6-6 6 6',down:'M12 5v14M6 13l6 6 6-6',more:'M5 12h.01M12 12h.01M19 12h.01',
+  up:'M12 19V5M6 11l6-6 6 6',search:'M16 16l4.5 4.5M11 18a7 7 0 1 1 0-14 7 7 0 0 1 0 14z',down:'M12 5v14M6 13l6 6 6-6',more:'M5 12h.01M12 12h.01M19 12h.01',
 };
 export function Icon({name,size=18,stroke=1.8}:{name:keyof typeof paths|string;size?:number;stroke?:number}){
   return <svg className="ic" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
