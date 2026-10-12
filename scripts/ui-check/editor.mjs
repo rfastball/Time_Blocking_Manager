@@ -106,6 +106,15 @@ const scenarios=[
     assert.match(empty[0],/^\d\d:\d\d에 블록 만들기$/);assert.equal(empty[1],'이 날짜의 근무시간 조정');
     await page.mouse('mouseMoved',5,5,0);await page.mouse('mousePressed',5,5);await page.mouse('mouseReleased',5,5,0);await page.sleep(150);
     assert.equal(await page.rect('.ctx-menu'),null,'outside press closes');
+    await page.js(`(()=>{const s=document.querySelector('${space}'),r=s.getBoundingClientRect();s.dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,clientX:r.left+r.width-40,clientY:r.top+20}));})()`);await page.sleep(150);
+    const create=(await menuItems(page))[0];
+    await page.click('.ctx-menu [role=menuitem]',create);await page.sleep(200);
+    assert.equal(await page.js(`document.querySelector('.content').dataset.view`),'plan');
+    assert.equal(await page.js(`document.querySelector('.plan-desk').classList.contains('day')`),true);
+    assert.equal(await page.js('document.activeElement?.id'),'composer-title','creation takes focus in the plan day');
+    await page.shot('today-menu-create-plan');
+    await page.type('메뉴에서 만든 블록');await page.click('.composer button[type=submit]');await page.sleep(400);
+    assert.ok((await page.blocks('.dv-day .space')).some(b=>b.startsWith('메뉴에서 만든 블록, 시각 고정')),'the creation route stores a usable block');
   }},
   {name:'삭제 in the block menu and the detail goes to 휴지통 without a dialog; restore returns the block to its place',run:async page=>{
     await page.js('window.__asked=[];window.confirm=t=>{window.__asked.push(t);return false;}');
@@ -167,6 +176,40 @@ const scenarios=[
     assert.equal(await page.js(`!!document.querySelector('dialog.cut-dialog[open]')`),false);
     assert.equal((await page.blocks(space)).filter(b=>b.startsWith('분리망 배포')).length,1);
     assert.equal((await active(page)).task,'sample-d');
+    await page.key('F10',{modifiers:SHIFT});await page.sleep(150);
+    await page.click('.ctx-menu [role=menuitem]','나누기');await page.sleep(200);
+    await page.click('.cut-name');await page.type('한 조각 이름 수정');
+    await page.click('.cut-foot .primary');await page.sleep(300);
+    assert.ok((await page.blocks(space)).some(b=>b.startsWith('한 조각 이름 수정, 예상')),'a single name-only edit persists');
+  }},
+  {name:'a failed narrow cutting board retries or releases inside its dialog without losing the input',viewport:{width:720,height:900},run:async page=>{
+    await focusBlock(page,'설계 문서 자료 조사');await page.key('F10',{modifiers:SHIFT});await page.sleep(150);
+    await page.click('.ctx-menu [role=menuitem]','나누기');await page.sleep(200);
+    await page.js(`(async()=>{const [{getState,setState},{previewMutation}]=await Promise.all([import('/src/app/store/state.ts'),import('/src/preview.ts')]);window.cutPriorIPC=window.__TAURI_INTERNALS__;window.cutFailure='storage';window.cutStored=new Set();window.__TAURI_INTERNALS__={invoke:async(cmd,args)=>{if(cmd==='mutate'){if(window.cutFailure)throw {code:window.cutFailure,message:'도마 저장 실패',retryable:true};return previewMutation(getState().snapshot,args.command,window.cutStored);}if(cmd==='save_draft'||cmd==='set_dirty')return;throw Error('Unexpected mock IPC '+cmd);}};setState({native:true});})()`);
+    try{
+      await page.click('.cut-name');await page.type('도마 복구 입력');
+      await page.click('.cut-foot .primary');await page.sleep(250);
+      assert.match(await page.text('.cut-error'),/도마 저장 실패/);
+      assert.equal(await page.js(`[...document.querySelectorAll('.cut .ed-row button')].every(b=>!b.disabled)`),true,'recovery stays enabled with a failed queue');
+      assert.equal(await value(page,'.cut-name'),'도마 복구 입력');
+      await page.js(`document.querySelector('.cut .ed-row button').focus()`);await page.key('Escape');
+      assert.ok(await page.rect('.cut'),'Escape on recovery keeps the board');
+      await page.shot('cut-recovery-narrow');
+      await page.js(`window.cutFailure=null`);await page.key('Enter',{text:'\r'});await page.sleep(400);
+      assert.equal(await page.rect('.cut'),null,'keyboard retry closes after storing');
+      assert.ok((await page.blocks(space)).some(b=>b.startsWith('도마 복구 입력, 예상')));
+      await focusBlock(page,'도마 복구 입력');await page.key('F10',{modifiers:SHIFT});await page.sleep(150);
+      await page.click('.ctx-menu [role=menuitem]','나누기');await page.sleep(200);
+      await page.click('.cut-name');await page.type('도마 수정 유지');
+      await page.js(`window.cutFailure='validation'`);await page.click('.cut-foot .primary');await page.sleep(250);
+      await page.click('.cut .ed-row button','입력 유지하고 수정');await page.sleep(200);
+      assert.equal(await value(page,'.cut-name'),'도마 수정 유지');
+      assert.equal(await page.js(`(async()=>{const {getState}=await import('/src/app/store/state.ts');return !!getState().failed;})()`),false);
+      await page.js(`window.cutFailure=null`);await page.click('.cut-foot .primary');await page.sleep(300);
+      assert.ok((await page.blocks(space)).some(b=>b.startsWith('도마 수정 유지, 예상')));
+    }finally{
+      await page.js(`(async()=>{const [{setState},{queue}]=await Promise.all([import('/src/app/store/state.ts'),import('/src/app/store/session.ts')]);queue.discardFailed();setState({native:false,error:''});if(window.cutPriorIPC)window.__TAURI_INTERNALS__=window.cutPriorIPC;else delete window.__TAURI_INTERNALS__;})()`);
+    }
   }},
   {name:'the detail exposes deletion directly; the block menu still guards splitting unsaved changes',run:async page=>{
     await openBlock(page,'분리망 배포');

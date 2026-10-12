@@ -1,13 +1,14 @@
 // The cutting board (도마): the block at twice the scale, cut into pieces by a knife line, seams and names.
 // It doubles as the title and memo editor. Closing (닫기·Esc) commits; 취소 throws this edit away.
 import {Fragment,useCallback,useEffect,useRef,useState,type KeyboardEvent,type PointerEvent as ReactPointerEvent} from 'react';
-import {isCompositionKey} from '../../capture.ts';
+import {isCompositionKey,needsSavedReview} from '../../capture.ts';
 import {addPiece,canCut,cut,fromChecklist,halve,join,knifeAt,move,sizedTotal,trade,type Seg} from '../../cut.ts';
 import {checklist} from '../../detail.ts';
 import {formatDuration} from '../../format.ts';
 import {getState,useApp} from '../store/state.ts';
 import {cancelCut,commitCut,cutPlace,editCut} from '../store/cut.ts';
 import {setGesture} from '../store/tasks.ts';
+import {release,retry} from '../store/session.ts';
 import {reduced} from '../ui/motion.ts';
 import {Icon} from '../ui/icons.tsx';
 import './cut.css';
@@ -18,7 +19,7 @@ const heightOf=(s:Seg)=>s.sized?Math.round(s.duration*BS):PROTO_H;
 type Knife={i:number;off:number;top:number};
 
 export function CutBoard({mode}:{mode:'inline'|'dialog'}){
-  const {drafts,snapshot,error,busy}=useApp(),c=drafts.cut!,task=snapshot!.tasks.find(t=>t.id===c.taskId);
+  const {drafts,snapshot,error,busy,failed}=useApp(),c=drafts.cut!,task=snapshot!.tasks.find(t=>t.id===c.taskId);
   const [knife,setKnife]=useState<Knife|null>(null),[drop,setDrop]=useState<number|null>(null),[grab,setGrab]=useState(-1),[add,setAdd]=useState('');
   const block=useRef<HTMLDivElement>(null),gesture=useRef(false),root=useRef<HTMLDivElement>(null);
   const segs=c.segs,n=segs.length,many=n>1;
@@ -76,7 +77,7 @@ export function CutBoard({mode}:{mode:'inline'|'dialog'}){
   function keys(e:KeyboardEvent<HTMLDivElement>){
     if(e.key==='Escape'&&!isCompositionKey(e.nativeEvent)){e.preventDefault();e.stopPropagation();void commitCut();}
   }
-  const failure=error||'';
+  const failure=error||(failed?'저장하지 못했어요. 입력한 내용은 그대로 있어요.':'');
   return <div ref={root} className={'cut '+(mode==='inline'?'cut-inline':'cut-modal')} role="group" aria-label={`‘${c.title||task.title}’ 쪼개기`} onKeyDown={keys}>
     <div className="cut-board">
       <div className="cut-title">
@@ -108,6 +109,10 @@ export function CutBoard({mode}:{mode:'inline'|'dialog'}){
           onKeyDown={e=>{if(e.key!=='Enter'||isCompositionKey(e.nativeEvent))return;e.preventDefault();const v=add.trim();if(!v)return;set(addPiece(segs,v));setAdd('');}}/>
       </div>
       {failure&&<p className="cut-error error" role="alert">{failure}</p>}
+      {failed&&<div className="ed-row" onKeyDown={e=>{if(e.key==='Enter'||e.key==='Escape'){e.stopPropagation();if(e.key==='Escape')e.preventDefault();}}}>
+        <button type="button" className="btn" onClick={()=>void retry()}>{needsSavedReview(failed.code)?'저장된 내용 확인':'다시 시도'}</button>
+        <button type="button" className="btn" onClick={()=>void release()}>입력 유지하고 수정</button>
+      </div>}
     </div>
     <div className="cut-side">
       <span className="cut-where">{cutPlace(task.id)}</span>

@@ -2,7 +2,7 @@ import {useEffect,useLayoutEffect,useRef,useState} from 'react';
 import {motion} from 'motion/react';
 import {dateLabel,time} from '../../dates.ts';
 import type {Task} from '../../types.ts';
-import {setUi,useApp,type Ui} from '../store/state.ts';
+import {setNav,setUi,useApp,type Ui} from '../store/state.ts';
 import {openEditor} from '../store/editor.ts';
 import {openAvailability} from '../store/schedule.ts';
 import {deleteTask,flowOrderOn,openComposer,reorder,toggleComplete,unfix,unplan} from '../store/tasks.ts';
@@ -50,7 +50,11 @@ function ContextMenu({m}:{m:NonNullable<Ui['contextMenu']>}){
       {label:'삭제',danger:true,run:()=>void deleteTask(t)},
     ];
   }else items=[
-    {label:`${time(m.minute)}에 블록 만들기`,run:()=>openComposer(m.date,m.minute,30,true)},
+    {label:`${time(m.minute)}에 블록 만들기`,run:()=>{
+      if(!openComposer(m.date,m.minute,30,true))return;
+      if(s.nav.view==='today')setNav({view:'plan',period:'day',selected:m.date,planAnchor:m.date});
+      requestAnimationFrame(()=>{const input=document.getElementById('composer-title');input?.focus({preventScroll:true});input?.scrollIntoView({block:'nearest'});});
+    }},
     {label:'이 날짜의 근무시간 조정',run:()=>openAvailability(m.date,'work',m.x,m.y)},
   ];
   const heading=t?t.title:`${dateLabel(m.date)} ${time(m.minute)}`;

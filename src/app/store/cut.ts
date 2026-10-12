@@ -46,9 +46,9 @@ export async function commitCut(){
   if(!c.title.trim()){showError(Error('제목을 입력해 주세요.'));return false;}
   const [first]=c.segs,single=c.segs.length===1&&!first.done;
   if(single){
-    const sized=first.sized&&(t.proto||first.duration!==t.duration);
-    if(c.title===t.title&&c.body===t.body&&!sized){close(t.id);return true;}
-    const ok=await dispatch({...updateAction({...t,revision:c.revision},t.plan_date,t.starts_at,null,first.sized?first.duration:t.duration),title:c.title.trim(),body:c.body,...(sized?{sized:true}:{})},{epoch:c.epoch,done:()=>close(t.id)});
+    const title=first.name.trim()||c.title.trim(),sized=first.sized&&(t.proto||first.duration!==t.duration);
+    if(title===t.title&&c.body===t.body&&!sized){close(t.id);return true;}
+    const ok=await dispatch({...updateAction({...t,revision:c.revision},t.plan_date,t.starts_at,null,first.sized?first.duration:t.duration),title,body:c.body,...(sized?{sized:true}:{})},{epoch:c.epoch,done:()=>close(t.id)});
     return ok;
   }
   const pieces=piecesOf(t,c.title,c.body,c.segs,()=>crypto.randomUUID()),done=pieces.filter(p=>p.completed).length;

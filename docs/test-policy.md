@@ -1,5 +1,12 @@
 # 검증 범위
 
+## 작업 생성·도마 저장 복구 Test delta (2026-10-12)
+
+- Unique risk / owner: 오늘 메뉴의 생성 입력이 보이지 않음, 단일 조각 이름 변경 유실, 모달 저장 실패 후 복구 경로 차단을 기존 `scripts/ui-check/editor.mjs`에서 검증한다. 순수 조각 계산 테스트로는 UI와 저장 연결의 결함을 잡을 수 없다.
+- Added / extended / removed: **1 / 2 / 0**, editor 수집 **11→12**. 기존 메뉴 표시만으로 생성 경로를 검증하던 단언을 실제 배치 완료까지 확장했다. 새 파일·의존성·lane·coverage floor·기본 suite heavy-resource launch 변화 **0**.
+- 검증: editor **12개 모두 통과**(첫 묶음 10개, 수정한 복구 사례 1개와 초기 로딩 실패 사례 1개만 재실행). 도마 복구 **5.721초**, 기존 편집 **2.778초**. 저장 큐 실패 시 대기 중에도 복구 버튼이 활성화되고, 키보드 재시도·입력 유지 후 저장·단일 이름 수정이 동작한다.
+- 최종 TypeScript·Vite 빌드 **1.87초**, 기존 Node **63/63 · 191.8664ms**. Runtime delta는 같은 조건의 변경 전 baseline 부재로 **not measured**. 720px 복구 화면과 생성 입력 화면을 육안 확인했다. IPC 대역으로 저장 실패를 검증했으며 실제 Windows 설치본 조작은 미실시했다.
+
 ## 카드·상세 삭제 버튼 Test delta (2026-10-12)
 
 - Unique risk / owner: 카드 삭제가 드래그·크기 조절을 시작하거나 포커스를 잃는 문제와 상세의 불필요한 메뉴를 기존 `scripts/ui-check/inbox.mjs`, `editor.mjs` 브라우저 owner에서 검증한다.
