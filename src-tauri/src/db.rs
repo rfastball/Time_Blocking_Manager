@@ -87,9 +87,11 @@ CREATE TABLE drafts (slot TEXT PRIMARY KEY, sequence INTEGER NOT NULL, content T
 CREATE TABLE routine_occurrences (routine_id TEXT NOT NULL, date TEXT NOT NULL, PRIMARY KEY(routine_id,date));
 CREATE TABLE day_layouts (date TEXT PRIMARY KEY, anchor INTEGER NOT NULL);
 CREATE TABLE piles (id TEXT PRIMARY KEY, position INTEGER NOT NULL);
-PRAGMA user_version = 8;";
+PRAGMA user_version = 9;";
 
-const SCHEMA_VERSION: i64 = 8;
+const SCHEMA_VERSION: i64 = 9;
+// The 준비 shelf: the one pile left once the free board went away (v9).
+const SHELF: &str = "shelf";
 const BASE_TASK_COLUMNS: &str = "id,title,body,starts_at,duration,completed,revision,plan_date,flow_order,proto,pile_id,pile_order";
 const TASK_COLUMNS: &str = "id,title,body,starts_at,duration,completed,revision,plan_date,flow_order,proto,pile_id,pile_order,board_x,board_y";
 // Open unplanned work: the only tasks that sit in a pile.
@@ -124,8 +126,44 @@ fn place(conn: &Connection, ids: &[String], pile: Option<&str>, index: usize) ->
     Ok(())
 }
 
+// The 준비 shelf is one reserved pile; it exists only while it holds work, like any pile.
+fn ensure_shelf(conn: &Connection) -> Result<()> {
+    conn.execute("INSERT OR IGNORE INTO piles(id,position) VALUES(?1,(SELECT COALESCE(MAX(position),0)+1 FROM piles))",[SHELF])?;
+    Ok(())
+}
+// Sized work coming back from a date goes on top of the shelf, in the order given.
+fn shelve(conn: &Connection, ids: &[String]) -> Result<()> {
+    if ids.is_empty() {return Ok(());}
+    ensure_shelf(conn)?;place(conn,ids,Some(SHELF),0)
+}
+
+// Before the 준비 tab, unplanned work sat on a free board: read it once top to bottom, left to right.
+// Sized work becomes the shelf in that order, protos the 들어옴; every older pile goes.
+fn shelve_legacy(conn: &Connection) -> Result<()> {
+    normalize_board(conn)?;
+    let snapshot=read(conn)?;
+    let mut open:Vec<&Task>=snapshot.tasks.iter().filter(|t|t.plan_date.is_none()&&!t.completed).collect();
+    open.sort_by(|a,b|a.board_y.cmp(&b.board_y).then(a.board_x.cmp(&b.board_x)).then(a.id.cmp(&b.id)));
+    let (sized,protos):(Vec<&Task>,Vec<&Task>)=open.into_iter().partition(|t|!t.proto);
+    conn.execute("DELETE FROM piles",[])?;
+    if !sized.is_empty() {conn.execute("INSERT INTO piles(id,position) VALUES(?1,1)",[SHELF])?;}
+    for (n,t) in sized.iter().enumerate() {conn.execute("UPDATE tasks SET pile_id=?1,pile_order=?2 WHERE id=?3",params![SHELF,n as i64+1,t.id])?;}
+    for (n,t) in protos.iter().enumerate() {conn.execute("UPDATE tasks SET pile_id=NULL,pile_order=?1 WHERE id=?2",params![n as i64+1,t.id])?;}
+    // Trashed work restores by the same rule: a pile that no longer exists means the shelf or the 들어옴.
+    conn.execute("UPDATE tasks SET pile_id=CASE WHEN proto=1 THEN NULL ELSE ?1 END,pile_order=NULL WHERE deleted_at IS NOT NULL AND pile_id IS NOT NULL AND pile_id<>?1",[SHELF])?;
+    Ok(())
+}
+
 // After every write: piles hold only open unplanned work, empty piles go, and orders and positions count from 1.
 fn normalize_piles(conn: &Connection) -> Result<()> {
+    // Sized work that lost its date without a chosen place goes on top of the shelf; a proto stays in the 들어옴.
+    let orphans:i64=conn.query_row(&format!("SELECT count(*) FROM tasks WHERE {BENCH} AND proto=0 AND pile_id IS NULL AND pile_order IS NULL"),[],|r|r.get(0))?;
+    if orphans>0 {
+        ensure_shelf(conn)?;
+        conn.execute(&format!("UPDATE tasks SET pile_id=?1 WHERE {BENCH} AND proto=0 AND pile_id IS NULL AND pile_order IS NULL"),[SHELF])?;
+    }
+    // The shelf holds sized work only: a proto put there takes its default length for good.
+    conn.execute(&format!("UPDATE tasks SET proto=0 WHERE {BENCH} AND proto=1 AND pile_id=?1"),[SHELF])?;
     conn.execute_batch(&format!("
         UPDATE tasks SET pile_id=NULL,pile_order=NULL WHERE deleted_at IS NULL AND NOT ({BENCH}) AND (pile_id IS NOT NULL OR pile_order IS NOT NULL);
         UPDATE tasks SET proto=0 WHERE deleted_at IS NULL AND proto=1 AND NOT ({BENCH});
@@ -466,6 +504,7 @@ impl Store {
             tx.execute_batch(&format!("CREATE INDEX IF NOT EXISTS receipt_accepted ON receipts(accepted_at);
                 INSERT OR IGNORE INTO meta VALUES('receipt_cutoff','0'); PRAGMA user_version={SCHEMA_VERSION};"))?;
             normalize_board(&tx)?;
+            if version<9 {shelve_legacy(&tx)?;}
             tx.commit()?;
             check_database(&conn)?;
         }
@@ -600,10 +639,10 @@ impl Store {
                 if scheduled.len()!=expected.len() || scheduled.iter().any(|task|expected.get(&task.id)!=Some(&task.revision)) {return Err(error("conflict","다른 창에서 하루 일정이 변경됐습니다. 다시 확인하세요."));}
                 // Completed work stays as that day's record; only open work goes back to 미계획.
                 for task in scheduled.iter().filter(|t|!t.completed) {tx.execute("UPDATE tasks SET starts_at=NULL,plan_date=NULL,flow_order=NULL,revision=revision+1 WHERE id=?1",[&task.id])?;}
-                // The day's open work goes on top of the 투입구 in the order it was planned.
+                // The day's open work goes on top of the shelf in the order it was planned.
                 let mut open:Vec<_>=scheduled.iter().filter(|t|!t.completed).collect();
                 open.sort_by(|a,b|a.flow_order.is_none().cmp(&b.flow_order.is_none()).then(a.flow_order.cmp(&b.flow_order)).then(a.starts_at.cmp(&b.starts_at)).then(a.id.cmp(&b.id)));
-                place(&tx,&open.iter().map(|t|t.id.clone()).collect::<Vec<_>>(),None,0)?;
+                shelve(&tx,&open.iter().map(|t|t.id.clone()).collect::<Vec<_>>())?;
                 tx.execute("DELETE FROM day_layouts WHERE date=?1",[date])?;
             }
             Action::RestoreTrashed {id} => {
@@ -621,10 +660,15 @@ impl Store {
                 }
                 validate_task(&task,&snapshot.tasks)?;
                 tx.execute("UPDATE tasks SET starts_at=?1,flow_order=?2,revision=?3,deleted_at=NULL WHERE id=?4",params![task.starts_at,task.flow_order,task.revision,id])?;
-                // Open unplanned work returns to its pile while that pile still exists, else to the top of the 투입구.
+                // Open unplanned work returns to its place on the shelf or the top of the 들어옴; sized work whose pile is gone goes on top of the shelf.
                 if task.plan_date.is_none()&&!task.completed {
-                    let pile=task.pile_id.as_deref().filter(|p|snapshot.piles.iter().any(|x|x.id==*p));
-                    let index=pile.and(task.pile_order).map_or(0,|order|(order-1).max(0) as usize);
+                    let pile=match task.pile_id.as_deref() {
+                        Some(p) if p==SHELF||snapshot.piles.iter().any(|x|x.id==p) => Some(p),
+                        Some(_) if !task.proto => Some(SHELF),
+                        _ => None,
+                    };
+                    let index=if pile.is_some()&&pile==task.pile_id.as_deref() {task.pile_order.map_or(0,|order|(order-1).max(0) as usize)} else {0};
+                    if pile==Some(SHELF) {ensure_shelf(&tx)?;}
                     tx.execute("UPDATE tasks SET pile_id=NULL,pile_order=NULL WHERE id=?1",[id])?;
                     place(&tx,std::slice::from_ref(id),pile,index)?;
                 }
@@ -802,7 +846,7 @@ impl Store {
                         let proto=current.proto&&task.plan_date.is_none()&&*duration==current.duration&&*sized!=Some(true);
                         tx.execute("UPDATE tasks SET title=?1,body=?2,starts_at=?3,duration=?4,plan_date=?5,flow_order=?6,proto=?7,revision=revision+1 WHERE id=?8 AND revision=?9", params![task.title,task.body,task.starts_at,task.duration,task.plan_date,task.flow_order,proto,id,revision])?;
                         // Sent back to 미계획 by a button: on top of the 투입구.
-                        if task.plan_date.is_none()&&current.plan_date.is_some()&&!current.completed {place(&tx,std::slice::from_ref(id),None,0)?;}
+                        if task.plan_date.is_none()&&current.plan_date.is_some()&&!current.completed {shelve(&tx,std::slice::from_ref(id))?;}
                     }
                     Action::SetCompleted { completed, date, .. } => {
                         if *completed && !current.completed && current.plan_date.is_none() {
@@ -812,8 +856,8 @@ impl Store {
                             tx.execute("UPDATE tasks SET completed=1,plan_date=?1,flow_order=?2,proto=0,revision=revision+1 WHERE id=?3 AND revision=?4",params![date,next_flow_order(&snapshot.tasks,date),id,revision])?;
                         } else {
                             tx.execute("UPDATE tasks SET completed=?1,revision=revision+1 WHERE id=?2 AND revision=?3", params![completed,id,revision])?;
-                            // A completion kept from before that rule has no date; undone, the work goes back on top of the 투입구.
-                            if !*completed && current.completed && current.plan_date.is_none() {place(&tx,std::slice::from_ref(id),None,0)?;}
+                            // A completion kept from before that rule has no date; undone, the work goes back on top of the shelf.
+                            if !*completed && current.completed && current.plan_date.is_none() {shelve(&tx,std::slice::from_ref(id))?;}
                         }
                     }
                     Action::Delete { .. } => { tx.execute("UPDATE tasks SET deleted_at=?1 WHERE id=?2 AND revision=?3", params![trash_stamp(chrono::Utc::now()),id,revision])?; }
@@ -921,7 +965,8 @@ impl Store {
     pub fn recover_from_backup(root: &Path, id: &str) -> Result<Self> {
         let source=managed_backup_path(root,id)?;
         let incoming=Connection::open_with_flags(&source,OpenFlags::SQLITE_OPEN_READ_ONLY)?;
-        let restored=check_database(&incoming)?;let generated=occurrences(&incoming)?;drop(incoming);
+        let restored=check_database(&incoming)?;let generated=occurrences(&incoming)?;
+        let legacy=incoming.query_row("PRAGMA user_version",[],|r|r.get::<_,i64>(0))?<9;drop(incoming);
         let path=root.join("blokky.sqlite");let marker=sidecar(&path,".recovering");
         let stage=root.join(format!("recovery-stage-{}.sqlite",uuid::Uuid::new_v4()));
         if !marker.exists() && path.exists() {
@@ -938,6 +983,7 @@ impl Store {
             let tx=staged.conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
             insert_all(&tx,&restored)?;
             insert_layouts(&tx,&restored.layouts)?;insert_piles(&tx,&restored.piles)?;normalize_board(&tx)?;
+            if legacy {shelve_legacy(&tx)?;}
             tx.execute("UPDATE meta SET value=?1 WHERE key='settings'",[serde_json::to_string(&restored.settings)?])?;
             for (id,date) in &generated {tx.execute("INSERT INTO routine_occurrences VALUES(?1,?2)",params![id,date])?;}
             tx.commit()?;
@@ -1005,6 +1051,7 @@ impl Store {
         let incoming = Connection::open_with_flags(source, OpenFlags::SQLITE_OPEN_READ_ONLY)?;
         let restored = check_database(&incoming)?;
         let generated=occurrences(&incoming)?;
+        let legacy=incoming.query_row("PRAGMA user_version",[],|r|r.get::<_,i64>(0))?<9;
         drop(incoming);
         if self.snapshot()?.epoch != expected_epoch { return Err(error("epoch", "복원 이후 데이터가 변경됐습니다. 화면을 다시 확인하세요.")); }
         self.backup(safety_path)?;
@@ -1019,6 +1066,7 @@ impl Store {
         tx.execute("DELETE FROM piles", [])?;
         insert_all(&tx,&restored)?;
         insert_layouts(&tx,&restored.layouts)?;insert_piles(&tx,&restored.piles)?;normalize_board(&tx)?;
+        if legacy {shelve_legacy(&tx)?;}
         tx.execute("UPDATE meta SET value=?1 WHERE key='settings'", [serde_json::to_string(&restored.settings)?])?;
         for (id,date) in &generated {tx.execute("INSERT INTO routine_occurrences VALUES(?1,?2)",params![id,date])?;}
         tx.execute("UPDATE meta SET value=?1 WHERE key='epoch'", [uuid::Uuid::new_v4().to_string()])?;
