@@ -106,7 +106,10 @@ const scenarios=[
   {name:'the cutting board opens over 준비 and pieces stay where the block stood',run:async page=>{
     await open(page);
     const sqlite=await card(page,'SQLite');await page.mouse('mouseMoved',sqlite.cx,sqlite.cy,0);await page.sleep(80);
-    await page.js(`[...document.querySelectorAll('.jb-shelf .jb-card')].find(e=>e.textContent.includes('SQLite')).querySelector('.jb-split').click()`);await page.sleep(400);
+    // No 나누기 label on the card: the block menu opens the board.
+    assert.equal(await page.js('document.querySelectorAll(".jb-split").length'),0);
+    await page.js(`(()=>{const c=[...document.querySelectorAll('.jb-shelf .jb-card')].find(e=>e.textContent.includes('SQLite')),r=c.getBoundingClientRect();c.dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,clientX:r.left+20,clientY:r.top+10}));})()`);await page.sleep(200);
+    await page.click('.ctx-menu [role=menuitem]','나누기');await page.sleep(400);
     assert.ok(await page.js('!!document.querySelector(".cut-inline")'));
     assert.ok(await page.js('document.querySelector(".jb-layer").inert'));
     await page.click('.cut .btn.primary');await page.sleep(400);
@@ -130,6 +133,28 @@ const scenarios=[
     const held=await page.drag({x:moved.cx,y:moved.y+10},{x:top.cx,y:top.y+2},{before:()=>page.js('!!document.querySelector(".held")')});
     assert.equal(held,true,'the block lifts again');
     assert.equal((await titles(page,'.jb-shelf'))[0],'새 일');
+  }},
+  {name:'the shelf ceiling picks or carries the whole shelf',run:async page=>{
+    await open(page);
+    await page.click('.jb-ceiling');await page.sleep(150);
+    assert.equal(await page.text('.jb-selinfo'),'선택 4 · 1시간 45분','pressing the ceiling picks every block on the shelf');
+    await page.key('Escape');await page.click('.jb-head h2','선반');await page.sleep(100);
+    const ceiling=await page.rect('.jb-ceiling'),thursday=await page.rect('.jb-day:nth-child(4) .jb-dbody');
+    const during=await page.drag({x:ceiling.cx,y:ceiling.cy},{x:thursday.cx,y:thursday.y+40},{before:()=>page.js('({shelf:document.querySelectorAll(".jb-shelf .jb-card").length,slots:document.querySelectorAll(".jb-day:nth-child(4) .jb-dblk.slot").length})')});
+    assert.deepEqual(during,{shelf:0,slots:4},'over a day the whole shelf previews there, in order');
+    assert.deepEqual(await titles(page,'.jb-shelf'),[]);
+    const day=await page.js('document.querySelector(".jb-day:nth-child(4)").dataset.date');
+    assert.deepEqual(await page.js(`(async()=>{const {getState}=await import('/src/app/store/state.ts');return getState().snapshot.tasks.filter(t=>t.plan_date===${JSON.stringify(day)}&&!t.completed).sort((a,b)=>a.flow_order-b.flow_order).map(t=>t.title);})()`),shelf,'shipped in shelf order');
+  }},
+  {name:'work completed on 준비 stays in sight and goes back to where it stood',run:async page=>{
+    await open(page);
+    await page.js(`[...document.querySelectorAll('.jb-shelf .jb-card')].find(e=>e.textContent.includes('SQLite')).querySelector('.chk').click()`);await page.sleep(500);
+    assert.deepEqual(await page.js('[...document.querySelectorAll(".jb-done .chip .ttl")].map(e=>e.textContent)'),['SQLite 백업 방식 조사']);
+    assert.ok(!(await titles(page,'.jb-shelf')).includes('SQLite 백업 방식 조사'));
+    await page.shot('junbi-done-here');
+    await page.click('.jb-done .chip-undo');await page.sleep(700);
+    assert.deepEqual(await titles(page,'.jb-shelf'),shelf,'back in its place on the shelf');
+    assert.equal(await page.js('document.querySelectorAll(".jb-done").length'),0);
   }},
   {name:'at 960px the date columns stay usable; at 720px everything stacks inside the page',viewport:{width:960,height:640},run:async page=>{
     await open(page);

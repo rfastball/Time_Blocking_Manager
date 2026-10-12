@@ -10,7 +10,7 @@ import {setSelection} from '../store/bench.ts';
 import {settle} from '../ui/motion.ts';
 import {Icon} from '../ui/icons.tsx';
 import {usePanelResize} from '../ui/PanelResize.tsx';
-import {DateDock,InboxList,SelectionBar,ShelfList} from './Workbench.tsx';
+import {DateDock,DoneHere,InboxList,SelectionBar,ShelfList} from './Workbench.tsx';
 import './inbox.css';
 import './workbench.css';
 
@@ -45,6 +45,7 @@ export function InboxPage(){
         {cutting&&<CutBoard mode="inline"/>}
         <div className={'jb-layer'+(cutting?' jb-dim':'')} inert={cutting?true:undefined}>
           <InboxList onOpen={open}>
+            <DoneHere/>
             {archived.length>0&&<details className="inbox-done inbox-archive" open={archiveOpen} onToggle={e=>{const o=e.currentTarget.open;archiveOpenMemory=o;setArchiveOpen(o);}}>
               <summary>날짜 없는 완료 {archived.length}</summary>
               {archiveOpen&&<>

@@ -9,9 +9,8 @@ import {dateLabel,dateOf} from '../../dates.ts';
 import {dayPlan} from '../../today.ts';
 import type {Task} from '../../types.ts';
 import {getState,setNav,setUi,useApp} from '../store/state.ts';
-import {completeTasks,dayRule,deleteTask,setGesture} from '../store/tasks.ts';
-import {mergeSelected,moveTo,placeOfCard,readingOrder,selectRange,selectedTasks,setLength,setSelection,shiftInPlace,shipDates,shipTo,shortDate,toggleSelected} from '../store/bench.ts';
-import {openCut} from '../store/cut.ts';
+import {dayRule,deleteTask,setGesture} from '../store/tasks.ts';
+import {completeHere,mergeSelected,moveTo,placeOfCard,readingOrder,selectRange,selectedTasks,setLength,setSelection,shiftInPlace,shipDates,shipTo,shortDate,toggleSelected,undoHere} from '../store/bench.ts';
 import {allocation,allocationLabel,allocationShort,dayTag} from '../plan/day.tsx';
 import {menuKeys,clamp} from '../editor/actions.ts';
 import {useDrag,useRegion,type Form} from '../space/drag.tsx';
@@ -20,7 +19,7 @@ import {Icon} from '../ui/icons.tsx';
 
 // One hour is 72px, as on 오늘, so a block on the shelf is the size it will be on a day.
 export const SCALE=1.2;
-const SHEET=34,INBOX_GAP=6,SHELF_GAP=2;
+const SHEET=34,INBOX_GAP=6,SHELF_GAP=2,CEILING=10;
 const blockHeight=(minutes:number)=>Math.max(16,Math.round(minutes*SCALE)-SHELF_GAP);
 // A proto in the 들어옴 is a sheet with no thickness; anywhere else it is drawn at its default length.
 const cardHeight=(t:Task,place:Place)=>t.proto&&place==='inbox'?SHEET:blockHeight(t.duration);
@@ -69,13 +68,24 @@ export function ShelfList({onOpen}:{onOpen:Open}){
     <header className="jb-head"><h2>선반</h2>{cards.length>0&&<><span className="cnt">{cards.length}</span><span className="jb-sum">{formatDuration(sum)}</span></>}</header>
     <div className="jb-scroll">
       <div className="jb-rack" style={{minHeight:hours.length*60*SCALE+24}}>
-        <div className="jb-ruler" aria-hidden="true">{hours.map(h=><span key={h} style={{top:h*60*SCALE}}>{h}h</span>)}</div>
-        <div ref={el=>{box.current=el;register(el);}} className="jb-hang">
-          <AnimatePresence initial={false}>{cards.map(t=><Card key={t.id} task={t} place="shelf" onOpen={onOpen}/>)}</AnimatePresence>
+        <div className="jb-ruler" aria-hidden="true">{hours.map(h=><span key={h} style={{top:CEILING+h*60*SCALE}}>{h}h</span>)}</div>
+        <div className="jb-stack" data-block="true">
+          <Ceiling cards={cards}/>
+          <div ref={el=>{box.current=el;register(el);}} className="jb-hang">
+            <AnimatePresence initial={false}>{cards.map(t=><Card key={t.id} task={t} place="shelf" onOpen={onOpen}/>)}</AnimatePresence>
+          </div>
         </div>
       </div>
     </div>
   </section>;
+}
+
+// The shelf's ceiling: drag it to carry every block on the shelf in order; press it to pick them all.
+function Ceiling({cards}:{cards:Task[]}){
+  const {ready}=useApp(),{held}=useDrag(),ids=cards.map(t=>t.id);
+  const {listeners,setNodeRef}=useDraggable({id:'shelf-all',data:{taskId:ids[0],ids},disabled:!ready||!ids.length||!!held?.dropping});
+  return <button ref={setNodeRef} type="button" className="jb-ceiling" disabled={!ids.length} {...listeners}
+    aria-label={`선반 전체 ${ids.length}개, ${formatDuration(total(cards))}`} title="선반 전체" onClick={()=>setSelection(ids)}/>;
 }
 
 // A card in 준비: a sheet (no length yet) or a block whose height is its length. Lengths save at once and never move the card.
@@ -148,14 +158,13 @@ function Card({task:t,place,past,onOpen}:{task:Task;place:Place;past?:boolean;on
     layout={pulling||reduced()?false:'position'} initial={{opacity:0,y:-8}} animate={{opacity:1,y:0}} exit={{opacity:0,transition:{duration:0}}} transition={reflow}
     onContextMenu={e=>{e.preventDefault();menu(e);}}>
     <div className="tile">
-      {!sheet&&<button type="button" className="chk" aria-label={t.title+' 완료'} onPointerDown={e=>e.stopPropagation()} onClick={()=>void completeTasks([t])}><Icon name="check" size={12} stroke={3}/></button>}
+      {!sheet&&<button type="button" className="chk" aria-label={t.title+' 완료'} onPointerDown={e=>e.stopPropagation()} onClick={()=>void completeHere([t])}><Icon name="check" size={12} stroke={3}/></button>}
       <button type="button" className="main" data-task={t.id} aria-label={label} title={memo?`${t.title}\n${memo}`:t.title} onClick={click} onKeyDown={keys}
         aria-keyshortcuts="ArrowUp ArrowDown Alt+ArrowUp Alt+ArrowDown Alt+ArrowRight Alt+ArrowLeft Delete Shift+F10">
         <span className="ttl">{t.title}</span>
         {!sheet&&<span className="meta">{past&&<b className="from">{shortDate(t.plan_date!)}</b>}<span>{formatDuration(minutes)}</span></span>}
       </button>
       <span className="jb-acts">
-        {!past&&!sheet&&height>=30&&<button type="button" className="btn text jb-split" aria-label={`${t.title} 나누기`} disabled={!ready} onPointerDown={e=>e.stopPropagation()} onClick={()=>openCut(t.id)}>나누기</button>}
         <button type="button" className="ibtn jb-delete" aria-label={`${t.title} 삭제`} title="삭제" disabled={!ready} onPointerDown={e=>e.stopPropagation()} onClick={()=>void remove([t])}><Icon name="delete" size={14}/></button>
       </span>
     </div>
@@ -166,6 +175,20 @@ function Card({task:t,place,past,onOpen}:{task:Task;place:Place;past?:boolean;on
 const focusCard=(id:string)=>requestAnimationFrame(()=>document.querySelector<HTMLElement>(`.jb [data-task="${CSS.escape(id)}"]`)?.focus({preventScroll:false}));
 
 // What the picked cards can do at once. Shipping is always to the end of a day's order.
+// What was completed here this session, newest first; each can go back to where it stood.
+export function DoneHere(){
+  const {ui,snapshot}=useApp(),done=ui.doneHere.map(d=>snapshot!.tasks.find(t=>t.id===d.id)).filter((t):t is Task=>!!t&&t.completed);
+  if(!done.length)return null;
+  return <section className="jb-done" aria-label="방금 완료">
+    <h3 className="jb-sub">방금 완료</h3>
+    <div className="jb-chips"><AnimatePresence initial={false}>{done.map(t=><motion.span key={t.id} data-flight={t.id} className="chip" layout
+      initial={{opacity:0,y:-6}} animate={{opacity:1,y:0}} exit={{opacity:0,transition:{duration:.1}}} transition={reflow}>
+      <span className="chip-title"><Icon name="check" size={13} stroke={2.6}/><span className="ttl">{t.title}</span><small>{formatDuration(t.duration)}</small></span>
+      <button type="button" className="chip-undo" aria-label={t.title+' 완료 취소'} title="완료 취소" onClick={()=>void undoHere(t.id)}><Icon name="undo" size={14}/></button>
+    </motion.span>)}</AnimatePresence></div>
+  </section>;
+}
+
 export function SelectionBar(){
   useApp();const picked=selectedTasks();
   if(!picked.length)return null;
@@ -176,7 +199,7 @@ export function SelectionBar(){
     <button type="button" className="btn" onClick={()=>void shipTo(today,ids)}><Icon name="right" size={15}/>오늘에 싣기</button>
     <MenuButton label="다른 날에 싣기" items={later.map(d=>({label:`${shortDate(d)} ${dateOf(d).toLocaleDateString('ko-KR',{weekday:'short'})}`,run:()=>void shipTo(d,ids)}))}>다른 날</MenuButton>
     {picked.length>=2&&!dated.length&&<button type="button" className="btn" onClick={()=>void mergeSelected()}>하나로 합치기</button>}
-    <button type="button" className="btn" onClick={()=>{setSelection([]);void completeTasks(picked);}}><Icon name="check" size={15}/>완료</button>
+    <button type="button" className="btn" onClick={()=>void completeHere(picked)}><Icon name="check" size={15}/>완료</button>
     <button type="button" className="ibtn danger" aria-label="선택한 블록 삭제" title="삭제" onClick={()=>{setSelection([]);for(const t of picked)void deleteTask(t);}}><Icon name="delete" size={16}/></button>
     <button type="button" className="ibtn" aria-label="선택 해제" title="선택 해제" onClick={()=>setSelection([])}><Icon name="close" size={15}/></button>
   </div>;

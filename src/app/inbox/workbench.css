@@ -16,12 +16,25 @@
 .jb-well{background:var(--sp-well);border-radius:var(--radius-panel);padding:8px;display:flex;flex-direction:column;gap:6px;min-height:52px;transition:background .2s}
 .jb-inbox.hot .jb-well:first-child{background:var(--color-text-selection)}
 .jb-well.past{min-height:0}
+/* 방금 완료: what was finished here this session, flat chips with a way back. */
+.jb-done{margin-top:4px}
+.jb-chips{display:flex;flex-wrap:wrap;gap:6px}
+.jb-chips .chip{max-width:100%}
+.jb-chips .chip-title{cursor:default}
+.jb-chips .chip-title .ttl{overflow:hidden;text-overflow:ellipsis;font-weight:500}
 
 /* 선반: blocks hang from a black ceiling in one order; the ruler counts what they hold. */
 .jb-rack{position:relative;display:grid;grid-template-columns:30px minmax(0,1fr)}
 .jb-ruler{position:relative}
 .jb-ruler span{position:absolute;left:0;margin-top:-4px;font-size:11px;font-weight:600;color:var(--color-text-muted);opacity:.85;font-variant-numeric:tabular-nums}
-.jb-hang{position:relative;display:flex;flex-direction:column;gap:2px;border-top:3px solid var(--color-structure);background:repeating-linear-gradient(to bottom,transparent 0 71px,var(--color-divider) 71px 72px);transition:background-color .2s}
+/* The ceiling is the shelf's handle: a black bar the blocks hang from; it thickens under the hand. */
+.jb-stack{position:relative;display:flex;flex-direction:column}
+.jb-ceiling{position:relative;height:10px;min-height:0;padding:0;border:0;background:transparent;cursor:grab;touch-action:manipulation}
+.jb-ceiling::after{content:"";position:absolute;left:0;right:0;bottom:0;height:3px;background:var(--color-structure);transition:height .1s}
+.jb-ceiling:hover::after,.jb-ceiling:focus-visible::after{height:6px}
+.jb-ceiling:disabled{cursor:default}
+.jb-ceiling:disabled::after{height:3px}
+.jb-hang{position:relative;display:flex;flex-direction:column;gap:2px;background:repeating-linear-gradient(to bottom,transparent 0 71px,var(--color-divider) 71px 72px);transition:background-color .2s}
 .jb-shelf.hot .jb-hang{background-color:var(--color-text-selection)}
 
 /* A card: a sheet with no thickness yet, or a block whose height is its length. */
@@ -49,7 +62,6 @@
 .jb-card.hollow>*{visibility:hidden}
 .jb-acts{flex:none;display:flex;align-items:center;gap:2px;opacity:0;transition:opacity .1s}
 .jb-card:hover .jb-acts,.jb-card:focus-within .jb-acts{opacity:1}
-.jb-acts .jb-split{min-height:22px;padding:0 4px;font-size:11px;color:var(--color-text-muted)}
 .jb-acts .jb-delete{width:22px;height:22px;min-height:22px;border:0;background:transparent;color:var(--color-text-muted)}
 .jb-acts .jb-delete:hover{color:var(--color-error);background:var(--color-error-surface)}
 
@@ -105,4 +117,4 @@
   .jb-date-panel{position:static}
   .jb-days{max-height:none}
 }
-@media (prefers-reduced-motion:reduce){.jb-card>.tile,.jb-lip::after,.jb-dblk,.jb-well,.jb-hang{transition:none}}
+@media (prefers-reduced-motion:reduce){.jb-card>.tile,.jb-lip::after,.jb-dblk,.jb-well,.jb-hang,.jb-ceiling::after{transition:none}}

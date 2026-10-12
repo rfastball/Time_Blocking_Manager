@@ -167,11 +167,11 @@ export function DragProvider({children}:{children:ReactNode}){
   }
 
   function onDragStart(e:DragStartEvent){
-    const data=e.active.data.current as {taskId?:string}|undefined;
+    const data=e.active.data.current as {taskId?:string;ids?:string[]}|undefined;
     const id=String(data?.taskId??e.active.id),task=base.find(t=>t.id===id);if(!task)return;
-    // A block inside a 준비 selection carries the selection, in screen order.
+    // The shelf's ceiling carries the whole shelf; a block inside a 준비 selection carries the selection, in screen order.
     const sel=getState().ui.benchSelection;
-    const ids=sel.length>1&&sel.includes(id)?selectedTasks().map(t=>t.id):[id];
+    const ids=data?.ids?.length?data.ids:sel.length>1&&sel.includes(id)?selectedTasks().map(t=>t.id):[id];
     if(!ids.length)return;
     if(landing.current)return;
     // dnd-kit measures after this callback; read the block's own box so the copy starts exactly on it.

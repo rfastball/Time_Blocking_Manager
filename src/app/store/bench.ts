@@ -6,7 +6,7 @@ import {dateLabel,dateOf,plusDays} from '../../dates.ts';
 import type {Task} from '../../types.ts';
 import {getState,setUi} from './state.ts';
 import {announce,dispatch} from './session.ts';
-import {dayRule,land,overdueTasks} from './tasks.ts';
+import {completeTasks,dayRule,land,overdueTasks,uncomplete} from './tasks.ts';
 import {openEditor} from './editor.ts';
 import {fly} from '../ui/flight.ts';
 
@@ -80,6 +80,30 @@ export function shipTo(date:string,ids:string[]){
     setSelection(getState().ui.benchSelection.filter(id=>!ids.includes(id)));
     announce(`${ids.length>1?ids.length+'개를':`‘${snap().tasks.find(t=>t.id===ids[0])?.title}’을`} ${dateLabel(date)} 순서 끝에 실었어요`);
   }}));
+}
+
+// ── 완료 ──
+// Completing on 준비 keeps the work in sight under 방금 완료 for the session, with the place it can go back to.
+export async function completeHere(tasks:Task[]){
+  const open=tasks.filter(t=>!t.completed);if(!open.length)return false;
+  const before=open.map(t=>{
+    if(t.plan_date)return {id:t.id,place:null,index:0};
+    const place=placeOf(t),list=(place==='shelf'?shelf():inbox()).map(x=>x.id);
+    return {id:t.id,place,index:list.indexOf(t.id)};
+  });
+  setSelection(getState().ui.benchSelection.filter(id=>!before.some(b=>b.id===id)));
+  const ok=await fly(open.map(t=>t.id),()=>completeTasks(open));
+  if(ok)setUi({doneHere:[...before.reverse(),...getState().ui.doneHere.filter(d=>!before.some(b=>b.id===d.id))]});
+  return ok;
+}
+// Back to where it stood: overdue work to its own date, 준비 work to its place in the 들어옴 or on the shelf.
+export async function undoHere(id:string){
+  const entry=getState().ui.doneHere.find(d=>d.id===id),t=snap().tasks.find(x=>x.id===id);
+  if(!entry||!t)return false;
+  const ok=t.completed?await uncomplete(t):true;
+  if(ok&&entry.place)await moveTo([id],entry.place,Math.max(0,entry.index));
+  if(ok)setUi({doneHere:getState().ui.doneHere.filter(d=>d.id!==id)});
+  return ok;
 }
 
 // ── 길이 ──

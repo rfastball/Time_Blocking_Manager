@@ -34,6 +34,8 @@ export type Ui={
   landed:{id:string;clack:boolean}|null;
   // Blocks picked on 준비 (Shift/Ctrl+click); a drag of one of them carries them all.
   benchSelection:string[];
+  // Work completed on 준비 this session, newest first, with where it stood (null: overdue work, which keeps its date).
+  doneHere:{id:string;place:'inbox'|'shelf'|null;index:number}[];
   // Global search: the panel, and the block a chosen result points at while it is briefly ringed.
   search:boolean;found:{id:string;kind:'bench'|'dated'|'done'|'archive'|'trash';at:number}|null;
 };
@@ -68,7 +70,7 @@ let state:AppState={
   now:clockMinute(),today:day,
   nav:{view:'today',selected:day,planAnchor:day,period:'week',inboxOpen:true},
   drafts:emptyDrafts(),
-  ui:{editorMode:null,editorFocus:null,contextMenu:null,availability:null,split:null,pendingShortcut:null,landed:null,benchSelection:[],search:false,found:null},
+  ui:{editorMode:null,editorFocus:null,contextMenu:null,availability:null,split:null,pendingShortcut:null,landed:null,benchSelection:[],doneHere:[],search:false,found:null},
   quitSaving:false,draftPending:false,gesture:false
 };
 const listeners=new Set<()=>void>();
