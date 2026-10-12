@@ -1,7 +1,7 @@
 // Global search: a plain partial match on titles and memos across the bench, every date, completions and the trash.
 // No filters or syntax. Each hit says where the work is now, in the words the screens use.
 import type {Pile,Task,Trashed} from './types.ts';
-import {benchPiles,pileLabel} from './bench.ts';
+import {benchPiles} from './bench.ts';
 import {byFlowOrder} from './flow.ts';
 import {dateOf} from './dates.ts';
 
@@ -18,7 +18,7 @@ export function search(source:{tasks:Task[];piles?:Pile[];trash?:Trashed[]},quer
   for(const date of new Set(source.tasks.filter(t=>t.plan_date&&!t.starts_at&&!t.completed).map(t=>t.plan_date!)))
     source.tasks.filter(t=>t.plan_date===date&&!t.starts_at&&!t.completed).sort(byFlowOrder).forEach((t,n)=>order.set(t.id,n+1));
   const where=(t:Task):[HitKind,string]=>{
-    if(!t.plan_date)return t.completed?['archive','날짜 없는 완료']:['bench',pileLabel(piles.find(p=>p.cards.some(c=>c.id===t.id))??piles[0])];
+    if(!t.plan_date)return t.completed?['archive','날짜 없는 완료']:['bench','작업대'];
     if(t.completed)return ['done',`${day(t.plan_date)} · 완료`];
     return ['dated',`${day(t.plan_date)} · ${t.starts_at?t.starts_at.slice(11,16):`순서 ${order.get(t.id)}`}`];
   };

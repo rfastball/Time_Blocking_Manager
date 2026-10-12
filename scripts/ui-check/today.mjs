@@ -7,6 +7,42 @@ const find=async(page,text)=>{
   return page.rect('.today-day .blk, .tray .tblk',text);
 };
 export default [
+  {name:'panel splitter captures pointer input, clamps widths, persists, resets and stacks narrowly',viewport:{width:1440,height:900},run:async page=>{
+    const storage='blokky.panel.today',saved=await page.js(`localStorage.getItem('${storage}')`);
+    const separator='.today-cols>.panel-separator',width=()=>page.js(`document.querySelector('.today-day').getBoundingClientRect().width`);
+    try{
+      await page.js(`localStorage.removeItem('${storage}')`);await page.goto('/?now=10:20',{width:1440,height:900});
+      const initial=await width(),blocks=await page.blocks(space);
+      await page.js(`document.querySelector('${separator}').focus()`);await page.key('ArrowRight');
+      assert.ok(await width()>initial+14,'keyboard resizing changes the panel by a visible step');
+      assert.equal(await page.js(`document.activeElement.getAttribute('role')`),'separator');
+      await page.js(`document.querySelector('${separator}').addEventListener('pointerdown',e=>e.currentTarget.dataset.testPointer=e.pointerId,{once:true})`);
+      const grip=await page.rect(separator),row=await page.rect('.today-cols');
+      await page.drag({x:grip.cx,y:grip.cy},{x:row.x-80,y:grip.cy},{hold:0,before:async()=>{
+        assert.equal(await page.js(`(()=>{const el=document.querySelector('${separator}');return el.hasPointerCapture(Number(el.dataset.testPointer));})()`),true,'capture retains the drag outside the separator');
+        assert.equal(await page.js(`!!document.querySelector('.held')`),false,'panel input never lifts a task');
+      }});
+      assert.ok(Math.abs(await width()-280)<=1,'the first panel clamps at 280px');
+      assert.ok((await page.rect('.today-flow')).w>=280,'the other panel keeps its minimum');
+      assert.deepEqual(await page.blocks(space),blocks,'resizing preserves timetable contents');
+      assert.equal(await page.js(`document.querySelector('.today-cols').hasAttribute('data-panel-dragging')`),false,'release removes the resizing state');
+      const stored=await page.js(`localStorage.getItem('${storage}')`);
+      await page.goto('/?now=10:20',{width:1440,height:900});
+      assert.ok(Math.abs(await width()-280)<=1,'a reload restores the device preference');
+      await page.goto('/?now=10:20',{width:720,height:900});
+      assert.equal(await page.js(`getComputedStyle(document.querySelector('${separator}')).display`),'none');
+      const day=await page.rect('.today-day'),flow=await page.rect('.today-flow');
+      assert.ok(flow.y>=day.y+day.h,'the narrow view stacks the content');
+      assert.equal(await page.js(`localStorage.getItem('${storage}')`),stored,'stacking does not overwrite the desktop ratio');
+      await page.goto('/?now=10:20',{width:1440,height:900});
+      await page.js(`document.querySelector('${separator}').dispatchEvent(new MouseEvent('dblclick',{bubbles:true}))`);
+      assert.ok(Math.abs(await width()-initial)<=1,'double click restores the default width');
+      assert.equal(await page.js(`localStorage.getItem('${storage}')`),null);
+      await page.js(`localStorage.setItem('${storage}','invalid')`);await page.goto('/?now=10:20',{width:1440,height:900});
+      assert.ok(Math.abs(await width()-initial)<=1,'invalid saved values fall back to the default');
+      await page.shot('today-panel-splitter');
+    }finally{await page.js(`(()=>{const stored=${JSON.stringify(saved)};if(stored===null)localStorage.removeItem('${storage}');else localStorage.setItem('${storage}',stored);})()`);}
+  }},
   {name:'many completed blocks keep a bounded intake and the last edit and undo accessible',viewport:{width:1440,height:900},run:async page=>{
     const sizes=[];
     for(const viewport of [{width:1440,height:900},{width:960,height:640},{width:760,height:640},{width:720,height:900}]){
@@ -47,7 +83,7 @@ export default [
     assert.ok(flow.x>day.x+day.w,'the execution flow sits beside the timetable');
     assert.ok(Math.abs(flow.y-day.y)<=1&&Math.abs(flow.h-day.h)<=1,'both columns share the available viewport height');
     assert.ok(day.y+day.h<=900&&flow.y+flow.h<=900,'the complete day is bounded by the viewport');
-    assert.equal(await page.js(`getComputedStyle(document.querySelector('.today-cols')).gridTemplateColumns.split(' ').length`),2);
+    assert.equal(await page.js(`getComputedStyle(document.querySelector('.today-cols')).gridTemplateColumns.split(' ').length`),3,'two panels share one separator track');
     assert.deepEqual(await page.js(`[...document.querySelectorAll('.today-flow .card')].map(e=>e.getAttribute('aria-label'))`),['다음 블록','남은 블록','미계획'],'DOM order follows the execution flow');
     assert.ok(await page.js(`document.querySelector('.today-day .space-wrap').scrollHeight>document.querySelector('.today-day .space-wrap').clientHeight`),'the day retains its complete scrollable axis');
     assert.ok(await page.js(`document.documentElement.scrollHeight<=innerHeight`),'the dashboard itself does not scroll');

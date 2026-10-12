@@ -36,7 +36,7 @@ const scenarios=[
   }},
   {name:'a bench card, the trash and a memo-only match are found; Korean being composed already updates the list',run:async page=>{
     await open(page);await page.type('결재');await page.sleep(100);
-    assert.deepEqual(await hits(page),['결재 처리 | ‘메일 답장’ 외 1 더미']);
+    assert.deepEqual(await hits(page),['결재 처리 | 작업대']);
     await page.key('Enter');await page.sleep(900);
     assert.equal(await page.js(`document.querySelector('.content').dataset.view`),'inbox');
     assert.equal(await active(page),'결재 처리, 15분');

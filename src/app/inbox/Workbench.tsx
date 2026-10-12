@@ -1,122 +1,162 @@
-// The 미계획 bench: 지난 미완료, the 투입구 and the user's piles, and the date columns to ship work to.
-import {useEffect,useId,useLayoutEffect,useRef,useState,type KeyboardEvent,type MouseEvent,type PointerEvent as ReactPointerEvent,type ReactNode} from 'react';
+// Free 미계획 workbench and the date dock.
+import {useEffect,useId,useLayoutEffect,useRef,useState,type KeyboardEvent,type PointerEvent as ReactPointerEvent,type ReactNode} from 'react';
 import {AnimatePresence,motion} from 'motion/react';
 import {useDraggable} from '@dnd-kit/core';
-import {benchPiles,pileName,type PileView} from '../../bench.ts';
+import {BOARD_CARD_WIDTH,BOARD_CARD_HEIGHT,onBench,seedBoardPositions} from '../../bench.ts';
 import {memoPreview} from '../../detail.ts';
 import {formatDuration} from '../../format.ts';
 import {dateLabel,dateOf} from '../../dates.ts';
 import type {Task} from '../../types.ts';
-import {getState,setUi,useApp} from '../store/state.ts';
+import {getState,useApp} from '../store/state.ts';
 import {completeTasks,deleteTask,overdueTasks,setGesture} from '../store/tasks.ts';
-import {movePileTo,newPileWith,nudge,placeCards,selectPile,selectedTasks,setLength,setSelection,shiftPile,shipDates,shipTo,shortDate,stackOnto,toggleSelected} from '../store/bench.ts';
+import {mergeSelected,nudgeBoard,placeCards,selectedTasks,setLength,setSelection,shipDates,shipTo,shortDate,toggleSelected} from '../store/bench.ts';
+import {openCut} from '../store/cut.ts';
 import {allocation,allocationLabel,allocationShort,dayTag} from '../plan/day.tsx';
 import {menuKeys,clamp} from '../editor/actions.ts';
-import {useDrag,useRegion} from '../space/drag.tsx';
+import {useDrag,useRegion,type BoardView} from '../space/drag.tsx';
 import {reflow} from '../ui/motion.ts';
-import {Dots,Icon} from '../ui/icons.tsx';
+import {Icon} from '../ui/icons.tsx';
 
-// Minutes to pixels on the bench and in the date columns: the same scale, so sizes read against free time.
 export const SCALE=1;
-const cardHeight=(minutes:number)=>Math.max(24,minutes*SCALE-2);
+const CARD_HEIGHT=BOARD_CARD_HEIGHT;
 const hours=(minutes:number)=>String(Math.round(minutes/60*100)/100);
-
-// The card a press opens: the cutting board once it exists; until then the detail editor.
 type Open=(t:Task)=>void;
+const viewKey='blokky.workbench.view';
+function initialView():BoardView{
+  try{const v=JSON.parse(localStorage.getItem(viewKey)??'null');if(v&&Number.isFinite(v.x)&&Number.isFinite(v.y)&&Number.isFinite(v.zoom)&&v.zoom>0&&v.zoom<=2)return v;}catch{}
+  return {x:0,y:0,zoom:1};
+}
 
 export function Bench({onOpen}:{onOpen:Open}){
-  const {snapshot}=useApp(),{held}=useDrag(),ref=useRegion('bench',null);
-  const piles=benchPiles(snapshot!.tasks,snapshot!.piles??[]),past=overdueTasks();
-  const holding=held&&!held.dropping?held:null;
-  const count=piles.reduce((n,p)=>n+p.cards.length,0),total=piles.reduce((n,p)=>n+p.total,0);
-  return <>
-    {past.length>0&&<section className="wb-sec" aria-label="지난 미완료">
-      <header className="wb-head"><h2>지난 미완료 <span className="cnt">{past.length}</span></h2></header>
-      <div className="wb-shelf">
-        <AnimatePresence initial={false}>{past.map(t=><Card key={t.id} task={t} past onOpen={onOpen}/>)}</AnimatePresence>
-      </div>
-    </section>}
+  const {snapshot,ui}=useApp(),{held}=useDrag();
+  const [view,setView]=useState(initialView),[hand,setHand]=useState(false),[space,setSpace]=useState(false);
+  const liveView=useRef(view);liveView.current=view;
+  const viewport=useRef<HTMLDivElement>(null),suppressClick=useRef(false);
+  const register=useRegion('canvas',null,{board:view});
+  const tasks=seedBoardPositions(snapshot!.tasks,snapshot!.piles??[]).filter(onBench).sort((a,b)=>a.board_y!-b.board_y!||a.board_x!-b.board_x!||a.id.localeCompare(b.id));
+  const past=overdueTasks(),total=tasks.reduce((n,t)=>n+t.duration,0);
+  type Gesture={kind:'box'|'pan';pointer:number;x:number;y:number;active:boolean;base:string[];view:BoardView};
+  const gesture=useRef<Gesture|null>(null),[box,setBox]=useState<{left:number;top:number;width:number;height:number}|null>(null);
+  const known=useRef(new Set(tasks.map(t=>t.id)));
+  function changeView(next:BoardView){
+    liveView.current=next;setView(next);
+    try{localStorage.setItem(viewKey,JSON.stringify(next));}catch{}
+  }
+  function zoomTo(value:number,at?:{x:number;y:number}){
+    const el=viewport.current;if(!el)return;
+    const v=liveView.current,r=el.getBoundingClientRect(),p=at??{x:r.width/2,y:r.height/2},zoom=Math.max(.05,Math.min(2,value));
+    changeView({zoom,x:p.x-(p.x-v.x)/v.zoom*zoom,y:p.y-(p.y-v.y)/v.zoom*zoom});
+  }
+  function fit(){
+    const r=viewport.current?.getBoundingClientRect();if(!r)return;
+    if(!tasks.length){changeView({x:0,y:0,zoom:1});return;}
+    const left=Math.min(...tasks.map(t=>t.board_x!)),top=Math.min(...tasks.map(t=>t.board_y!));
+    const width=Math.max(...tasks.map(t=>t.board_x!+BOARD_CARD_WIDTH))-left,height=Math.max(...tasks.map(t=>t.board_y!+CARD_HEIGHT))-top;
+    const zoom=Math.min(1,(r.width-48)/width,(r.height-48)/height);
+    changeView({zoom,x:(r.width-width*zoom)/2-left*zoom,y:(r.height-height*zoom)/2-top*zoom});
+  }
+  function reveal(id:string){
+    const t=tasks.find(t=>t.id===id),r=viewport.current?.getBoundingClientRect();if(!t||!r)return;
+    const v=liveView.current,left=t.board_x!*v.zoom+v.x,top=t.board_y!*v.zoom+v.y;
+    const x=left<16?v.x+16-left:left+BOARD_CARD_WIDTH*v.zoom>r.width-16?v.x+r.width-16-left-BOARD_CARD_WIDTH*v.zoom:v.x;
+    const y=top<16?v.y+16-top:top+CARD_HEIGHT*v.zoom>r.height-16?v.y+r.height-16-top-CARD_HEIGHT*v.zoom:v.y;
+    if(x!==v.x||y!==v.y)changeView({...v,x,y});
+  }
+  useLayoutEffect(()=>{
+    const added=tasks.find(t=>!known.current.has(t.id));known.current=new Set(tasks.map(t=>t.id));
+    if(added)reveal(added.id);
+  },[snapshot]);
+  useLayoutEffect(()=>{if(ui.found?.kind==='bench')reveal(ui.found.id);},[ui.found]);
+  function cancel(clear=false){
+    const g=gesture.current;gesture.current=null;suppressClick.current=false;setBox(null);
+    if(g){setGesture(false);if(g.kind==='box')setSelection(clear?[]:g.base);if(viewport.current?.hasPointerCapture(g.pointer))viewport.current.releasePointerCapture(g.pointer);}
+  }
+  useEffect(()=>{
+    const editable=(e:globalThis.KeyboardEvent)=>(e.target as HTMLElement)?.closest('button,input,textarea,select,[contenteditable=true],[role=button],[role=separator]');
+    const down=(e:globalThis.KeyboardEvent)=>{
+      if(e.code==='Space'&&!editable(e)&&viewport.current?.contains(e.target as Node)){e.preventDefault();setSpace(true);}
+      if(e.key==='Escape'&&!getState().ui.editorMode&&!getState().ui.split&&!held){cancel(true);setSelection([]);setHand(false);}
+    };
+    const up=(e:globalThis.KeyboardEvent)=>{if(e.code==='Space')setSpace(false);};
+    const blur=()=>{setSpace(false);cancel();};
+    document.addEventListener('keydown',down);document.addEventListener('keyup',up);window.addEventListener('blur',blur);
+    return ()=>{document.removeEventListener('keydown',down);document.removeEventListener('keyup',up);window.removeEventListener('blur',blur);if(gesture.current)setGesture(false);};
+  },[held]);
+  useEffect(()=>{
+    const el=viewport.current;if(!el)return;
+    const wheel=(e:WheelEvent)=>{
+      if(held||gesture.current)return;e.preventDefault();
+      const v=liveView.current,r=el.getBoundingClientRect();
+      if(e.ctrlKey)zoomTo(v.zoom*Math.exp(-e.deltaY*.002),{x:e.clientX-r.left,y:e.clientY-r.top});
+      else changeView({...v,x:v.x-e.deltaX,y:v.y-e.deltaY});
+    };
+    el.addEventListener('wheel',wheel,{passive:false});return ()=>el.removeEventListener('wheel',wheel);
+  },[held]);
+  function start(e:ReactPointerEvent<HTMLDivElement>){
+    const pan=e.button===1||e.button===0&&(space||hand);
+    if(e.button!==1&&!space&&(e.target as HTMLElement).closest('button,input,textarea,select,a,summary'))return;
+    if(held||gesture.current||!pan&&(e.button!==0||(e.target as HTMLElement).closest('button,input,textarea,[data-card],.wb-lip')))return;
+    if(pan)e.stopPropagation();e.preventDefault();suppressClick.current=false;
+    if(!(e.target as HTMLElement).closest('[data-card],button'))e.currentTarget.focus({preventScroll:true});
+    gesture.current={kind:pan?'pan':'box',pointer:e.pointerId,x:e.clientX,y:e.clientY,active:false,base:e.ctrlKey||e.metaKey||e.shiftKey?[...getState().ui.benchSelection]:[],view:liveView.current};
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }
+  function move(e:ReactPointerEvent<HTMLDivElement>){
+    const g=gesture.current;if(!g||g.pointer!==e.pointerId)return;
+    if(!g.active&&Math.hypot(e.clientX-g.x,e.clientY-g.y)<=6)return;
+    g.active=true;setGesture(true);
+    if(g.kind==='pan'){changeView({...g.view,x:g.view.x+e.clientX-g.x,y:g.view.y+e.clientY-g.y});return;}
+    const rect={left:Math.min(g.x,e.clientX),top:Math.min(g.y,e.clientY),width:Math.abs(e.clientX-g.x),height:Math.abs(e.clientY-g.y)};setBox(rect);
+    const vr=viewport.current!.getBoundingClientRect();
+    const hits=[...viewport.current!.querySelectorAll<HTMLElement>('[data-card]')].filter(el=>{
+      const r=el.getBoundingClientRect();return r.right>vr.left&&r.left<vr.right&&r.bottom>vr.top&&r.top<vr.bottom&&r.left<=rect.left+rect.width&&r.right>=rect.left&&r.top<=rect.top+rect.height&&r.bottom>=rect.top;
+    }).map(el=>el.dataset.card!);
+    setSelection([...new Set([...g.base,...hits])]);
+  }
+  function finish(e:ReactPointerEvent<HTMLDivElement>){
+    const g=gesture.current;if(!g||g.pointer!==e.pointerId)return;
+    gesture.current=null;suppressClick.current=g.active||g.kind==='pan';setBox(null);setGesture(false);
+    if(e.currentTarget.hasPointerCapture(e.pointerId))e.currentTarget.releasePointerCapture(e.pointerId);
+  }
+  const landing=held&&!held.dropping&&held.intent.zone==='canvas'?held.intent.positions:[];
+  return <div className="wb-surface">
     <section className="wb-sec" aria-label="미계획">
-      <header className="wb-head">
-        <h2>미계획 <span className="cnt">{count}</span></h2>
-        {total>0&&<span className="wb-sum">{formatDuration(total)}</span>}
+      <header className="wb-head"><h2>미계획 {tasks.length>0&&<span className="cnt">{tasks.length}</span>}</h2>{total>0&&<span className="wb-sum">{formatDuration(total)}</span>}</header>
+      <div className="wb-tools" role="toolbar" aria-label="작업대 도구">
+        <button className="btn" type="button" aria-pressed={!hand} onClick={()=>setHand(false)}>선택</button>
+        <button className="btn" type="button" aria-pressed={hand} onClick={()=>setHand(true)}>이동</button>
+        <span className="wb-zoom-tools">
+          <button className="ibtn" type="button" aria-label="축소" disabled={view.zoom<=.05} onClick={()=>zoomTo(view.zoom*.8)}><svg className="ic" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M5 12h14"/></svg></button>
+          <button className="btn text wb-zoom" type="button" aria-label="100%로 보기" onClick={()=>zoomTo(1)}>{Math.round(view.zoom*100)}%</button>
+          <button className="ibtn" type="button" aria-label="확대" disabled={view.zoom>=2} onClick={()=>zoomTo(view.zoom/.8)}><Icon name="plus" size={16}/></button>
+          <button className="btn" type="button" onClick={fit}>전체 보기</button>
+        </span>
+      </div>
+      <div ref={el=>{viewport.current=el;register(el);}} className={'wb-canvas'+(hand||space?' hand':'')} data-zoom={view.zoom} data-pan-x={view.x} data-pan-y={view.y} role="group" tabIndex={0} aria-label="자유 배치 작업대"
+        onPointerDownCapture={start} onPointerMove={move} onPointerUp={finish} onPointerCancel={()=>cancel()} onLostPointerCapture={()=>{if(gesture.current)cancel();}}
+        onClickCapture={e=>{if(suppressClick.current){suppressClick.current=false;e.preventDefault();e.stopPropagation();}}}>
+        <div className="wb-world" style={{transform:`translate(${view.x}px,${view.y}px) scale(${view.zoom})`}}>
+          <AnimatePresence initial={false}>{tasks.map(t=><Card key={t.id} task={t} board zoom={view.zoom} disabled={hand||space} onReveal={reveal} onOpen={onOpen}/>)}</AnimatePresence>
+          {landing?.map(p=><div key={p.id} className="wb-slot" style={{left:p.x,top:p.y,width:BOARD_CARD_WIDTH,height:CARD_HEIGHT}} aria-hidden="true"/>)}
+        </div>
         <SelectionBar/>
-      </header>
-      <div ref={ref} className="wb-piles">
-        {piles.map((p,i)=><PileColumn key={p.id??'inbox'} pile={p} visual={i} piles={piles} holding={holding} onOpen={onOpen}/>)}
-        <Gutter before={piles.length} piles={piles} holding={holding} end/>
+        {box&&<div className="wb-selection-box" style={box} aria-hidden="true"/>}
       </div>
     </section>
-  </>;
+    {past.length>0&&<details className="wb-past"><summary>지난 미완료 {past.length}</summary><div className="wb-shelf"><AnimatePresence initial={false}>{past.map(t=><Card key={t.id} task={t} past onOpen={onOpen}/>)}</AnimatePresence></div></details>}
+  </div>;
 }
-
-type Holding=ReturnType<typeof useDrag>['held'];
-// Which visual gap a held block would open a new pile in (the pile's position counting the 투입구 as 0).
-function hotGap(holding:Holding,piles:PileView[]){
-  const i=holding?.intent;if(i?.zone!=='pile'||i.create==null)return null;
-  if(!i.carry)return i.create;
-  const from=piles.findIndex(p=>p.id===i.carry!.pile);
-  return i.create>=from?i.create+1:i.create;
-}
-
-function Gutter({before,piles,holding,end}:{before:number;piles:PileView[];holding:Holding;end?:boolean}){
-  return <div className={'wb-gutter'+(end?' end':'')+(hotGap(holding,piles)===before?' hot':'')} aria-hidden="true"><i/></div>;
-}
-
-function PileColumn({pile:p,visual,piles,holding,onOpen}:{pile:PileView;visual:number;piles:PileView[];holding:Holding;onOpen:Open}){
-  const {ui}=useApp(),inbox=p.id===null,first=p.cards[0];
-  const {held}=useDrag();
-  const {listeners,setNodeRef}=useDraggable({id:`pile:${p.id??'inbox'}`,data:{taskId:first?.id,carry:{pile:p.id}},disabled:!first||!!held?.dropping});
-  const [menu,setMenu]=useState<{x:number;y:number}|null>(null),handle=useRef<HTMLButtonElement|null>(null);
-  const i=holding?.intent,carryingThis=!!holding?.carry&&holding.carry.pile===p.id;
-  const merge=i?.zone==='pile'&&!!i.carry&&i.create==null&&(i.pile??null)===p.id&&!carryingThis;
-  // The landing slot: before the index-th card that is not itself being carried.
-  const slotAt=i?.zone==='pile'&&!i.carry&&i.create==null&&(i.pile??null)===p.id?i.index??0:-1;
-  const moving=holding?.ids??[],slotHeight=cardHeight(moving.reduce((n,id)=>n+(p.cards.find(c=>c.id===id)?.duration??getState().snapshot!.tasks.find(t=>t.id===id)?.duration??30),0));
-  const all=p.cards.length>0&&p.cards.every(t=>ui.benchSelection.includes(t.id));
-  let others=0;const rows:ReactNode[]=[];
-  for(const t of p.cards){
-    if(!moving.includes(t.id)){if(others===slotAt)rows.push(<Slot key="slot" height={slotHeight}/>);others++;}
-    rows.push(<Card key={t.id} task={t} onOpen={onOpen}/>);
-  }
-  if(slotAt>=others)rows.push(<Slot key="slot" height={slotHeight}/>);
-  function keys(e:KeyboardEvent<HTMLButtonElement>){
-    if(e.altKey&&(e.key==='ArrowLeft'||e.key==='ArrowRight')&&!inbox){
-      e.preventDefault();const to=visual+(e.key==='ArrowLeft'?-1:1);
-      if(to>=1&&to<piles.length)void movePileTo(p.id!,to).then(ok=>{if(ok)requestAnimationFrame(()=>document.querySelector<HTMLElement>(`[data-pile="${CSS.escape(p.id!)}"] [data-pile-handle]`)?.focus());});
-      return;
-    }
-    if(e.key==='ContextMenu'||e.shiftKey&&e.key==='F10'){e.preventDefault();const r=e.currentTarget.getBoundingClientRect();setMenu({x:r.left,y:r.bottom+4});}
-    if(e.key==='Escape'&&getState().ui.benchSelection.length){e.preventDefault();setSelection([]);}
-  }
-  return <>
-    <div className={'wb-pile'+(inbox?' inbox':'')+(merge?' hot':'')+(carryingThis&&!holding?.dropping?' lifted':'')} data-pile={p.id??''} style={held?.dropping&&held.carry?.pile===p.id?{visibility:'hidden'}:undefined}>
-      <button ref={el=>{handle.current=el;setNodeRef(el);}} type="button" className={'wb-handle'+(all?' sel':'')} data-pile-handle data-block="true" aria-label={pileName(p)} aria-pressed={all} aria-keyshortcuts="Shift+F10 Alt+ArrowLeft Alt+ArrowRight"
-        {...listeners} onClick={(e:MouseEvent)=>selectPile(p,e.shiftKey||e.ctrlKey||e.metaKey)} onKeyDown={keys}
-        onContextMenu={e=>{e.preventDefault();setMenu({x:e.clientX,y:e.clientY});}}>
-        <Dots/>{inbox&&<strong>투입구</strong>}{p.cards.length>0&&<span>{p.cards.length} · {formatDuration(p.total)}</span>}
-      </button>
-      <div className="wb-rail" aria-hidden="true"/>
-      <AnimatePresence initial={false}>{rows}</AnimatePresence>
-      {!p.cards.length&&slotAt<0&&<div className="wb-empty" aria-hidden="true"/>}
-    </div>
-    {menu&&<PileMenu pile={p} visual={visual} piles={piles} at={menu} onClose={()=>{setMenu(null);handle.current?.focus();}}/>}
-    {visual<piles.length-1&&<Gutter before={visual+1} piles={piles} holding={holding}/>}
-  </>;
-}
-
-const Slot=({height}:{height:number})=><motion.div className="wb-slot" style={{height}} initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0,transition:{duration:0}}} transition={{duration:.1}}/>;
 
 // A card on the bench or the 지난 미완료 shelf. The bottom lip and ↑/↓ set its length; Alt moves it.
-function Card({task:t,past,onOpen}:{task:Task;past?:boolean;onOpen:Open}){
+function Card({task:t,past,board,zoom=1,disabled,onReveal,onOpen}:{task:Task;past?:boolean;board?:boolean;zoom?:number;disabled?:boolean;onReveal?:(id:string)=>void;onOpen:Open}){
   const {ui,ready}=useApp(),{held}=useDrag(),memoId=useId();
-  const {listeners,setNodeRef}=useDraggable({id:`bench:${t.id}`,data:{taskId:t.id},disabled:!ready||!!held?.dropping});
+  const {listeners,setNodeRef}=useDraggable({id:`bench:${t.id}`,data:{taskId:t.id},disabled:disabled||!ready||!!held?.dropping});
   const [live,setLive]=useState<number|null>(null);
-  const minutes=live??t.duration,h=cardHeight(minutes),compact=h<44,sel=ui.benchSelection.includes(t.id);
+  const minutes=live??t.duration,sel=ui.benchSelection.includes(t.id);
   const lifted=!!held&&!held.dropping&&held.ids.includes(t.id);
   const dropping=!!held?.dropping&&held.ids.includes(t.id);
-  const proto=t.proto&&live===null,size=proto?'':formatDuration(minutes),from=past?shortDate(t.plan_date!):'';
-  const memo=!compact&&t.body.trim()?memoPreview(t.body):'';
+  const proto=t.proto&&live===null,size=formatDuration(minutes)+(proto?' · 미정':''),from=past?shortDate(t.plan_date!):'';
+  const memo=t.body.trim()?memoPreview(t.body):'';
   async function remove(items:Task[],action:'main'|'wb-delete'){
     const ids=items.map(x=>x.id),cards=[...document.querySelectorAll<HTMLElement>('.wb-card')],at=cards.findIndex(c=>c.dataset.card===t.id);
     const next=cards.slice(at+1).find(c=>!ids.includes(c.dataset.card!))??cards.slice(0,at).reverse().find(c=>!ids.includes(c.dataset.card!));
@@ -126,25 +166,24 @@ function Card({task:t,past,onOpen}:{task:Task;past?:boolean;onOpen:Open}){
   function keys(e:KeyboardEvent<HTMLButtonElement>){
     const vertical=e.key==='ArrowUp'||e.key==='ArrowDown',up=e.key==='ArrowUp';
     if(vertical&&!e.altKey&&!e.ctrlKey&&!e.metaKey&&!e.shiftKey){e.preventDefault();void setLength(t,t.duration+(up?-15:15));return;}
-    if(vertical&&e.altKey&&!past){e.preventDefault();void nudge(t,up?-1:1);return;}
-    if(e.altKey&&(e.key==='ArrowLeft'||e.key==='ArrowRight')&&!past){e.preventDefault();void shiftPile(t,e.key==='ArrowLeft'?-1:1);return;}
+    if(e.altKey&&['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)&&!past){e.preventDefault();void nudgeBoard(t,e.key==='ArrowLeft'?-16:e.key==='ArrowRight'?16:0,e.key==='ArrowUp'?-16:e.key==='ArrowDown'?16:0);return;}
     if(e.key==='Delete'){e.preventDefault();const sel=getState().ui.benchSelection;void remove(sel.includes(t.id)?selectedTasks():[t],'main');return;}
     if(e.key==='Escape'&&getState().ui.benchSelection.length){e.preventDefault();e.stopPropagation();setSelection([]);}
   }
-  // The lip follows the hand in 15-minute steps and stores on release; the cards below simply follow.
+  // A 15px lip movement changes the numeric duration by 15 minutes.
   function resize(e:ReactPointerEvent<HTMLDivElement>){
     if(e.button!==0)return;
     e.stopPropagation();e.preventDefault();
     const el=e.currentTarget,y0=e.clientY;let value=t.duration;
     el.setPointerCapture(e.pointerId);setGesture(true);
-    const move=(ev:PointerEvent)=>{value=Math.max(15,Math.min(1440,Math.round((t.duration+(ev.clientY-y0)/SCALE)/15)*15));setLive(value);};
+    const move=(ev:PointerEvent)=>{value=Math.max(15,Math.min(1440,Math.round((t.duration+(ev.clientY-y0)/zoom/SCALE)/15)*15));setLive(value);};
     const up=()=>{el.removeEventListener('pointermove',move);el.removeEventListener('pointerup',up);el.removeEventListener('pointercancel',up);setGesture(false);
       void setLength(t,value).finally(()=>setLive(null));};
     el.addEventListener('pointermove',move);el.addEventListener('pointerup',up);el.addEventListener('pointercancel',up);
   }
-  const label=`${t.title}, ${proto?'길이 미정':formatDuration(minutes)}${past?`, ${from} 미완료`:''}${sel?', 선택됨':''}`;
-  return <motion.div ref={setNodeRef} data-card={t.id} data-block="true" layout={dropping?false:'position'} role="presentation" tabIndex={-1} {...listeners}
-    className={'tblk wb-card'+(proto?' proto':'')+(past?' past':'')+(sel?' sel':'')+(lifted?' lifted':'')+(compact?' compact':'')+(ui.landed?.id===t.id?' landed':'')+(ui.split===t.id?' onboard':'')} style={{height:h,visibility:dropping?'hidden':undefined}}
+  const label=`${t.title}, ${size}${past?`, ${from} 미완료`:''}${sel?', 선택됨':''}`;
+  return <motion.div ref={setNodeRef} data-card={t.id} data-block="true" layout={board||dropping?false:'position'} role="presentation" tabIndex={-1} onFocusCapture={()=>onReveal?.(t.id)} {...listeners}
+    className={'tblk wb-card'+(proto?' proto':'')+(past?' past':'')+(sel?' sel':'')+(lifted?' lifted':'')+(ui.landed?.id===t.id?' landed':'')+(ui.split===t.id?' onboard':'')} style={{width:BOARD_CARD_WIDTH,height:CARD_HEIGHT,left:board?t.board_x!:undefined,top:board?t.board_y!:undefined,zIndex:ui.landed?.id===t.id?4:sel?3:1,visibility:dropping?'hidden':undefined}}
     initial={dropping?false:{opacity:0,y:-12}} animate={{opacity:1,y:0}} exit={{opacity:0,transition:{duration:0}}} transition={reflow}>
     <div className="tile">
       <button type="button" className="chk" aria-label={t.title+' 완료'} onClick={()=>void completeTasks([t])}><Icon name="check" size={12} stroke={3}/></button>
@@ -152,9 +191,12 @@ function Card({task:t,past,onOpen}:{task:Task;past?:boolean;onOpen:Open}){
         onClick={e=>{if(e.shiftKey||e.ctrlKey||e.metaKey){toggleSelected(t.id);return;}onOpen(t);}} onKeyDown={keys}>
         <span className="ttl-row"><span className="ttl">{t.title}</span></span>
         {memo&&<span className="wb-memo" id={memoId}>{memo}</span>}
-        {(from||size)&&<span className="meta">{[from,size].filter(Boolean).join(' · ')}</span>}
+        <span className="meta" aria-live={live!==null?'polite':undefined}><span className="wb-ruler" aria-hidden="true"><i style={{width:`${Math.min(100,minutes/480*100)}%`}}/></span>{[from,size].filter(Boolean).join(' · ')}</span>
       </button>
-      <button type="button" className="ibtn wb-delete" aria-label={`${t.title} 삭제`} title="삭제" disabled={!ready} onPointerDown={e=>e.stopPropagation()} onClick={()=>void remove([t],'wb-delete')}><Icon name="delete" size={15}/></button>
+      <div className="wb-card-actions">
+        <button type="button" className="btn text wb-split" aria-label={`${t.title} 나누기`} disabled={!ready} onPointerDown={e=>e.stopPropagation()} onClick={()=>openCut(t.id)}>나누기</button>
+        <button type="button" className="ibtn wb-delete" aria-label={`${t.title} 삭제`} title="삭제" disabled={!ready} onPointerDown={e=>e.stopPropagation()} onClick={()=>void remove([t],'wb-delete')}><Icon name="delete" size={15}/></button>
+      </div>
     </div>
     <div className="wb-lip" aria-hidden="true" onPointerDown={resize}/>
   </motion.div>;
@@ -167,6 +209,7 @@ function SelectionBar(){
   const ids=picked.map(t=>t.id),dated=picked.filter(t=>t.plan_date),[today,...later]=shipDates();
   return <div className="wb-selbar" role="group" aria-label="선택한 블록">
     <span className="wb-selinfo">선택 {picked.length} · {formatDuration(picked.reduce((n,t)=>n+t.duration,0))}</span>
+    {picked.length>=2&&!dated.length&&<button type="button" className="btn" onClick={()=>void mergeSelected()}>하나로 합치기</button>}
     <button type="button" className="btn" onClick={()=>void shipTo(today,ids)}><Icon name="right" size={15}/>오늘에 싣기</button>
     <MenuButton label="다른 날에 싣기" items={later.map(d=>({label:`${shortDate(d)} ${dateOf(d).toLocaleDateString('ko-KR',{weekday:'short'})}`,run:()=>void shipTo(d,ids)}))}>다른 날</MenuButton>
     {dated.length>0&&<button type="button" className="btn" onClick={()=>void placeCards(dated.map(t=>t.id),null,0)}>미계획으로</button>}
@@ -184,17 +227,6 @@ function MenuButton({label,items,children}:{label:string;items:Item[];children:R
       onClick={e=>{const r=e.currentTarget.getBoundingClientRect();setAt(at?null:{x:r.left,y:r.bottom+4});}}>{children}<Icon name="down" size={14}/></button>
     {at&&<FloatingMenu label={label} items={items} at={at} onClose={()=>{setAt(null);button.current?.focus();}}/>}
   </>;
-}
-
-function PileMenu({pile:p,visual,piles,at,onClose}:{pile:PileView;visual:number;piles:PileView[];at:{x:number;y:number};onClose:()=>void}){
-  const left=piles[visual-1],right=piles[visual+1],ids=p.cards.map(t=>t.id);
-  const items:Item[]=[
-    ...(left?[{label:`${visual-1===0?'투입구':'왼쪽 더미'}에 합치기`,disabled:!ids.length,run:()=>void stackOnto(p,left)}]:[]),
-    ...(right?[{label:'오른쪽 더미에 합치기',disabled:!ids.length,run:()=>void stackOnto(p,right)}]:[]),
-    ...(p.id===null&&ids.length?[{label:'새 더미로 옮기기',run:()=>void newPileWith(ids,1)}]:[]),
-    ...shipDates().map((d,n)=>({label:n===0?'오늘에 싣기':`${shortDate(d)}에 싣기`,disabled:!ids.length,run:()=>void shipTo(d,ids)})),
-  ];
-  return <FloatingMenu label={`${pileName(p)} 메뉴`} items={items} at={at} onClose={onClose}/>;
 }
 
 function FloatingMenu({label,items,at,onClose}:{label:string;items:Item[];at:{x:number;y:number};onClose:()=>void}){

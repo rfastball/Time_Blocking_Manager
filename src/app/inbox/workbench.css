@@ -1,9 +1,13 @@
-/* 미계획 작업대: flat cards hanging from pile rails, and date columns on the same minute scale. Form, not colour alone,
-   tells a proto (no fill), a pile rail, a landing slot (dashed) and time past working hours (hatched) apart in every theme. */
+/* Free workbench positions are independent from the date dock minute scale. */
 .inbox-page.wb{max-width:none}
-.wb-work{display:flex;flex-wrap:wrap;align-items:flex-start;gap:16px;margin-top:4px}
-.wb-bench{flex:999 1 400px;min-width:0;padding:16px;display:flex;flex-direction:column;gap:12px}
+.wb-work{display:grid;grid-template-columns:minmax(280px,var(--panel-first)) 16px minmax(280px,var(--panel-second));align-items:start;margin-top:4px}
+.wb-bench{min-width:0;padding:16px;display:flex;flex-direction:column;gap:12px}
+.wb-date-panel{min-width:0;position:sticky;top:0}
+.wb-work[data-panel-stacked=true]{grid-template-columns:minmax(0,1fr);gap:16px}
+.wb-work[data-panel-stacked=true] .wb-date-panel{position:static}
 .wb-sec{display:flex;flex-direction:column;gap:8px}
+.wb-surface{display:flex;flex-direction:column;gap:16px}
+.wb-selection-box{position:fixed;z-index:50;pointer-events:none;border:1px solid var(--color-selection-border);background:color-mix(in srgb,var(--color-action) 12%,transparent)}
 .wb-head{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;min-height:32px}
 .wb-head h2{margin:0;display:flex;align-items:center;gap:8px;font-size:var(--font-size-title);font-weight:var(--font-weight-heading);font-family:var(--font-heading)}
 .wb-sum{font-size:var(--font-size-label);color:var(--color-text-muted);font-variant-numeric:tabular-nums}
@@ -14,37 +18,40 @@
 .wb-selinfo{font-size:var(--font-size-label);font-weight:600;margin-right:4px;font-variant-numeric:tabular-nums}
 
 .wb-shelf{display:flex;flex-wrap:wrap;align-items:flex-start;gap:12px 10px;padding:12px;border-radius:var(--radius-panel);background:var(--sp-well)}
-.wb-shelf .wb-card{width:168px}
-.wb-piles{display:flex;flex-wrap:wrap;align-items:stretch;row-gap:18px;min-height:140px;padding:10px 0 12px 12px;border-radius:var(--radius-panel);background:var(--sp-well);user-select:none}
-.wb-pile{flex:none;width:168px;display:flex;flex-direction:column;gap:4px;padding-bottom:10px;border-radius:var(--radius-block);transition:box-shadow .12s,background-color .12s}
-.wb-pile.hot{background:color-mix(in srgb,var(--color-action) 7%,transparent);box-shadow:0 0 0 2px var(--color-action)}
-.wb-pile.lifted{opacity:.3}
-.wb-pile .wb-card{width:100%}
-.wb-handle{display:flex;align-items:center;gap:6px;height:28px;padding:0 6px;border:0;border-radius:var(--radius-control);background:transparent;color:var(--color-text-muted);font:inherit;font-size:12px;text-align:left;cursor:grab;touch-action:none;font-variant-numeric:tabular-nums}
-.wb-handle strong{color:var(--color-text);font-weight:600}
-.wb-handle:hover{background:var(--color-surface);color:var(--color-text)}
-.wb-handle.sel{background:var(--color-surface);color:var(--color-action);box-shadow:inset 0 0 0 1.5px var(--color-selection-border)}
-/* The rail each pile's cards hang from; the 투입구 rail is the action colour so the intake reads first. */
-.wb-rail{flex:none;height:4px;margin:0 2px 2px;border-radius:2px;background:var(--color-structure)}
-.wb-pile.inbox .wb-rail{background:var(--color-action)}
-.wb-empty{flex:none;height:44px;border-radius:var(--radius-block);border:1px dashed var(--sp-fixed-edge)}
-.wb-slot{flex:none;border-radius:var(--radius-block);background:var(--color-surface);outline:1.5px dashed var(--color-action);outline-offset:-1.5px}
-.wb-gutter{position:relative;flex:none;width:12px;align-self:stretch}
-.wb-gutter.end{flex:1 1 24px;min-width:24px}
-.wb-gutter i{position:absolute;top:0;bottom:0;left:4px;width:4px;border-radius:2px;background:var(--color-action);opacity:0;transition:opacity .1s}
-.wb-gutter.hot i{opacity:1}
+.wb-shelf .wb-card{flex:1 1 280px;min-width:min(280px,100%);max-width:100%}
+/* A real work surface: positions belong to the board, not the viewport. */
+.wb-tools{display:flex;flex-wrap:wrap;align-items:center;gap:4px}
+.wb-tools .btn,.wb-tools .ibtn{min-height:30px;font-size:var(--font-size-label)}
+.wb-tools .ibtn{width:30px}
+.wb-tools [aria-pressed=true]{background:var(--color-selection);border-color:var(--color-selection-border);color:var(--color-action)}
+.wb-zoom-tools{margin-left:auto;display:flex;align-items:center;gap:4px}
+.wb-zoom{min-width:44px;font-variant-numeric:tabular-nums}
+.wb-canvas{position:relative;height:clamp(420px,calc(100vh - 260px),760px);min-width:0;overflow:hidden;border:1px solid var(--color-divider);border-radius:var(--radius-panel);background:var(--sp-well);touch-action:none;user-select:none;isolation:isolate}
+.wb-canvas.hand,.wb-canvas.hand .wb-card{cursor:grab}
+.wb-canvas.hand:active{cursor:grabbing}
+.wb-world{position:absolute;left:0;top:0;width:0;height:0;transform-origin:0 0}
+.wb-world .wb-card{position:absolute;flex:none}
+.wb-slot{position:absolute;border-radius:var(--radius-block);background:color-mix(in srgb,var(--color-action) 7%,transparent);outline:1.5px dashed var(--color-action);outline-offset:-1.5px;pointer-events:none;z-index:3}
+.wb-canvas .wb-selbar{position:absolute;left:12px;right:12px;bottom:12px;z-index:6;margin:0;padding:6px;background:var(--color-surface);border:1px solid var(--color-divider);border-radius:var(--radius-control)}
+.wb-past{font-size:var(--font-size-label)}
+.wb-past>summary{cursor:pointer;color:var(--color-text-muted);font-weight:600;padding:4px 0}
+.wb-past .wb-shelf{margin-top:8px;max-height:224px;overflow:auto}
 
-.wb-card>.tile{background:var(--sp-flow);border:1px solid var(--sp-flow-edge);color:var(--sp-flow-ink);padding:4px 8px 4px 6px}
-.wb-card .ttl{color:var(--color-text);font-size:13px}
-.wb-card .main{align-self:stretch;padding:0;gap:1px}
+.wb-card{min-height:80px}
+.wb-card>.tile{background:var(--sp-flow);border:1px solid var(--sp-flow-edge);color:var(--sp-flow-ink);padding:8px}
+.wb-card .ttl{color:var(--color-text);font-size:13px;line-height:18px;white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+.wb-card .main{align-self:stretch;padding:0;gap:4px}
+.wb-card-actions{display:flex;flex:none;align-items:center;flex-direction:column;gap:8px}
+.wb-card .wb-split{min-height:22px;padding:0;font-size:11px;color:var(--color-text-muted)}
 .wb-card .chk{width:22px;height:22px;margin-top:0}
 .wb-card .wb-delete{position:relative;z-index:3;flex:none;width:22px;height:22px;min-height:22px;border:0;background:transparent;color:var(--color-text-muted)}
 .wb-card .wb-delete:hover{color:var(--color-error);background:var(--color-error-surface)}
-.wb-card.compact>.tile{padding-top:0;padding-bottom:0}
-.wb-card .meta{margin-top:auto;align-self:flex-end;font-size:11.5px;opacity:1}
-.wb-card.compact .meta{margin-top:0}
-.wb-memo{font-size:11.5px;line-height:15px;white-space:normal;overflow:hidden;max-height:30px}
-.wb-card.proto>.tile{background:transparent;border:1.5px dashed var(--sp-fixed-edge);color:var(--color-text-muted)}
+.wb-card .meta{margin-top:auto;align-self:flex-end;display:flex;align-items:center;gap:6px;font-size:11.5px;opacity:1}
+.wb-ruler{position:relative;flex:none;width:48px;height:5px;background:color-mix(in srgb,currentColor 14%,transparent)}
+.wb-ruler::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent 0 11px,var(--color-surface) 11px 12px)}
+.wb-ruler i{display:block;height:100%;min-width:1px;background:currentColor}
+.wb-memo{font-size:11.5px;line-height:15px;white-space:nowrap;text-overflow:ellipsis;overflow:hidden}
+.wb-card.proto>.tile{background:var(--color-surface);border:1.5px dashed var(--sp-fixed-edge);color:var(--color-text-muted)}
 .wb-card.past>.tile{background:var(--color-overdue-surface);border-color:var(--color-overdue-border);color:var(--color-overdue)}
 .wb-card.lifted>.tile{opacity:.3}
 .wb-lip{position:absolute;left:0;right:0;bottom:-4px;z-index:2;height:10px;cursor:ns-resize;touch-action:none}
@@ -56,7 +63,7 @@
 .held-more{flex:0 0 auto;font-size:11px;font-weight:700;font-variant-numeric:tabular-nums}
 .held-why.where{background:var(--color-text)}
 
-.wb-dock{flex:0 0 auto;align-self:flex-start;position:sticky;top:0;display:flex;gap:6px;padding:10px;max-width:100%;overflow-x:auto;user-select:none}
+.wb-dock{display:flex;gap:6px;padding:10px;width:100%;max-width:100%;overflow-x:auto;user-select:none}
 .wb-day{flex:none;width:72px;display:flex;flex-direction:column;gap:6px}
 .wb-dhead{min-height:58px;padding:2px 2px 0;display:flex;flex-direction:column;gap:1px}
 .wb-dname{display:flex;flex-wrap:wrap;align-items:center;gap:4px;font-size:13px}
@@ -76,10 +83,10 @@
 .wb-over{position:absolute;left:0;right:0;z-index:3;pointer-events:none;border-top:1px dashed var(--color-overdue);background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--color-overdue) 28%,transparent) 0 1.5px,transparent 1.5px 6px)}
 
 @media (max-width:760px){
-  .wb-work{flex-direction:column;align-items:stretch}
-  .wb-bench{flex-basis:auto;padding:12px}
-  .wb-dock{position:static;width:100%}
+  .wb-work{grid-template-columns:minmax(0,1fr);gap:16px}
+  .wb-bench{padding:12px}
+  .wb-date-panel{position:static}
   .wb-day{flex:1 0 64px}
   .wb-selbar{margin-left:0}
 }
-@media (prefers-reduced-motion:reduce){.wb-pile,.wb-gutter i,.wb-lip::after{transition:none}}
+@media (prefers-reduced-motion:reduce){.wb-lip::after{transition:none}}

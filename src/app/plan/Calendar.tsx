@@ -5,6 +5,7 @@ import type {Task} from '../../types.ts';
 import {setNav,useApp,type Period} from '../store/state.ts';
 import {dayRule,taskMinute} from '../store/tasks.ts';
 import {openEditor} from '../store/editor.ts';
+import type {usePanelResize} from '../ui/PanelResize.tsx';
 import {DaySpace} from '../space/DaySpace.tsx';
 import {useDaysAxis,useDrag,useRegion} from '../space/drag.tsx';
 import {useNewBlock} from './Composer.tsx';
@@ -15,13 +16,14 @@ const DAY_SCALE=1.05;
 const weekdays=['월','화','수','목','금','토','일'];
 
 // 2주 shows titles, 월 shows load. The grid keeps its rows while a date is chosen; the chosen date opens beside it.
-export function Calendar({dates,period}:{dates:string[];period:Exclude<Period,'week'|'day'>}){
+export function Calendar({dates,period,panels}:{dates:string[];period:Exclude<Period,'week'|'day'>;panels:ReturnType<typeof usePanelResize>}){
   const {nav}=useApp();
-  return <div className="cal-layout">
-    <section className="card cal" aria-label={period==='two'?'2주 작업 목록':'월간 작업량'}>
+  return <div ref={panels.ref} data-panel-stacked={panels.stacked} className="cal-layout">
+    <section id="calendar-summary" className="card cal" aria-label={period==='two'?'2주 작업 목록':'월간 작업량'}>
       <div className="cal-weekdays" aria-hidden="true">{weekdays.map(d=><span key={d}>{d}</span>)}</div>
       <div className={'cal-grid '+period}>{dates.map(date=><Cell key={date} date={date} period={period} outside={period==='month'&&dateOf(date).getMonth()!==dateOf(nav.planAnchor).getMonth()}/>)}</div>
     </section>
+    {panels.separator}
     <DatePanel date={nav.selected}/>
   </div>;
 }
@@ -68,7 +70,7 @@ function DatePanel({date}:{date:string}){
   const {tasks}=useDrag();
   const axis=useDaysAxis([date],DAY_SCALE),nb=useNewBlock(date,axis,'day');
   const a=allocation(date,tasks),tag=dayTag(date);
-  return <section className="card plan-day" aria-label={`${dateLabel(date)} 블록 공간`}>
+  return <section id="calendar-day" className="card plan-day" aria-label={`${dateLabel(date)} 블록 공간`}>
     <header className="plan-day-head">
       <h2><button type="button" className="plan-day-link" onClick={()=>openDay(date)}>{dateLabel(date)}</button></h2>{tag&&<span className="tag-chip">{tag}</span>}
       <span className="plan-day-alloc" aria-label={allocationLabel(a)}><Meter a={a}/><span aria-hidden="true">{allocationShort(a)}</span><Outside a={a}/></span>

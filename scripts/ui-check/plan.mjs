@@ -37,6 +37,36 @@ async function press(page,x,y,moves=[]){
 }
 
 export default [
+  {name:'each plan view retains independent drawer and calendar panel preferences',run:async page=>{
+    const keys=['day','week','two','month'].map(p=>'blokky.panel.plan-'+p+'-drawer').concat(['two','month'].map(p=>'blokky.panel.plan-'+p+'-calendar'));
+    const saved=await page.js(`Object.fromEntries(${JSON.stringify(keys)}.map(k=>[k,localStorage.getItem(k)]))`);
+    try{
+      await page.js(`${JSON.stringify(keys)}.forEach(k=>localStorage.removeItem(k))`);
+      await toPlan(page);
+      const widths={};
+      for(const [index,label] of ['일','주','2주','월'].entries()){
+        await page.click('.segmented [role=radio]',label);
+        assert.equal(await page.text('.segmented [aria-checked=true]'),label,'the intended view is active before resizing');
+        const splitter='.plan-desk>.panel-separator';
+        assert.ok((await page.rect(splitter)).w>0,'the open drawer has a usable separator in '+label);
+        await page.js(`document.querySelector('${splitter}').focus({preventScroll:true})`);
+        for(let i=0;i<=index;i++)await page.key('ArrowLeft');
+        const main=await page.rect('.plan-main'),drawer=await page.rect('#plan-drawer');
+        widths[label]=main.w;assert.ok(main.w>=280&&drawer.w>=280,'both outer panels retain their minimum in '+label);
+        if(index>=2){
+          await page.js(`document.querySelector('.cal-layout>.panel-separator').focus({preventScroll:true})`);await page.key('ArrowLeft');
+          assert.ok((await page.rect('.cal')).w>=280&&(await page.rect('.plan-day')).w>=280,'the calendar and chosen date retain their minimum');
+        }
+      }
+      assert.equal(await page.js(`${JSON.stringify(keys)}.every(k=>Number(localStorage.getItem(k))>0)`),true,'each view writes its own preference');
+      await page.click('.segmented [role=radio]','주');
+      assert.ok(Math.abs((await page.rect('.plan-main')).w-widths['주'])<=1,'returning to the week restores its width');
+      await page.click('.drawer-toggle');
+      assert.equal(await page.js(`document.querySelector('.plan-desk>.panel-separator')`),null,'a closed drawer removes its separator');
+      await page.click('.drawer-toggle');
+      assert.ok(Math.abs((await page.rect('.plan-main')).w-widths['주'])<=1,'reopening preserves the drawer preference');
+    }finally{await page.js(`(()=>{const saved=${JSON.stringify(saved)};for(const [key,value] of Object.entries(saved)){if(value===null)localStorage.removeItem(key);else localStorage.setItem(key,value);}})()`);}
+  }},
   {name:'working lips yield to deliberate rail drags and only unavailable slices are hatched',run:async page=>{
     await toPlan(page);
     const {today}=await days(page),scope=sp(today),workshop=await block(page,today,'설계 워크숍');
@@ -210,6 +240,13 @@ export default [
     await page.click('.segmented [role=radio]','2주');
     const cal=await page.rect('.cal'),drawer=await page.rect('#plan-drawer'),day=await page.rect('.plan-day');
     assert.ok(drawer.y>=cal.y+cal.h&&drawer.x<day.x,'drawer moves under the calendar, beside the date panel');
+    assert.equal(await page.js(`getComputedStyle(document.querySelector('.plan-desk>.panel-separator')).display`),'none','the drawer below the calendar has no horizontal separator');
+    const splitter='.cal-layout>.panel-separator',saved=await page.js(`localStorage.getItem('blokky.panel.plan-two-calendar')`);
+    assert.ok((await page.rect(splitter)).w>0,'the calendar/date separator remains usable through display:contents');
+    await page.js(`document.querySelector('${splitter}').focus()`);await page.key('ArrowLeft');
+    assert.ok((await page.rect('.cal')).w<cal.w-14,'keyboard resizing changes the intermediate calendar width');
+    assert.ok((await page.rect('.plan-day')).w>=280,'the date panel retains its minimum');
+    await page.js(`(()=>{const saved=${JSON.stringify(saved)};if(saved===null)localStorage.removeItem('blokky.panel.plan-two-calendar');else localStorage.setItem('blokky.panel.plan-two-calendar',saved);document.querySelector('${splitter}').dispatchEvent(new MouseEvent('dblclick',{bubbles:true}));if(saved!==null)localStorage.setItem('blokky.panel.plan-two-calendar',saved);})()`);
     const empty=await page.js(`[...document.querySelectorAll('.cal-cell')].find(c=>!c.classList.contains('today')).dataset.date`);
     await page.click(`.cal-cell[data-date="${empty}"] .cal-date`);
     const box=await page.rect('.plan-day .space'),y11=await hourY(page,11,'.plan-day .ruler');

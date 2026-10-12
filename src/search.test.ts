@@ -21,7 +21,7 @@ const source={
 test('search finds titles and memos everywhere and says where each one is now',()=>{
   const hits=search(source,'설계');
   assert.deepEqual(hits.map(h=>[h.title,h.where]),[
-    ['설계 문서 정리','투입구'],['설계 문서 작성','‘설계 문서 작성’ 외 1 더미'],
+    ['설계 문서 정리','작업대'],['설계 문서 작성','작업대'],
     ['설계 검토','10월 14일 · 순서 2'],['설계 워크숍','10월 15일 · 14:00'],
     ['설계 초안','10월 9일 · 완료'],['설계 메모','날짜 없는 완료'],['설계 폐기안','휴지통'],
     ['주간 보고','10월 14일 · 순서 3'],

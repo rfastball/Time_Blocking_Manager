@@ -6,6 +6,7 @@ import {getState,setNav,useApp,type Period} from '../store/state.ts';
 import {clearDay,inboxTasks,overdueTasks} from '../store/tasks.ts';
 import {openEditor} from '../store/editor.ts';
 import {Icon} from '../ui/icons.tsx';
+import {usePanelResize} from '../ui/PanelResize.tsx';
 import {InboxTray} from '../space/InboxTray.tsx';
 import {Week,WEEK_SCALE} from './Week.tsx';
 import {Calendar} from './Calendar.tsx';
@@ -29,6 +30,8 @@ export function Plan(){
   const settings=drafts.settingsDraft??snapshot!.settings,week=weekCapacity(settings,nav.selected);
   const inbox=inboxTasks(),dated=snapshot!.tasks.some(t=>t.plan_date===nav.selected&&!t.completed);
   const dates=periodDates(nav.period,nav.planAnchor),open=nav.inboxOpen;
+  const panels=usePanelResize(`plan-${nav.period}-drawer`,.78,'계획과 미계획 패널 크기','plan-main plan-drawer',open,'drawer');
+  const calendarPanels=usePanelResize(`plan-${nav.period}-calendar`,.67,'달력과 선택 날짜 패널 크기','calendar-summary calendar-day',nav.period==='two'||nav.period==='month','calendar');
   return <div className="plan">
     <div className="plan-bar">
       <Periods value={nav.period}/>
@@ -39,8 +42,9 @@ export function Plan(){
       <button ref={drawerToggle} type="button" className={'btn drawer-toggle'+(open?' on':'')} aria-expanded={open} aria-controls="plan-drawer" aria-label={inbox.length?`미계획 ${inbox.length}건`:'미계획'}
         onClick={()=>setNav({inboxOpen:!open})}><Icon name="inbox" size={16}/>미계획{inbox.length>0&&<span className="cnt">{inbox.length}</span>}</button>
     </div>
-    <div className={'plan-desk '+nav.period+(nav.period==='day'?' week':'')+(open?' with-drawer':'')}>
-      <div className="plan-main">{nav.period==='day'?<DayView dates={dates}/>:nav.period==='week'?<Week dates={dates}/>:<Calendar dates={dates} period={nav.period}/>}</div>
+    <div ref={panels.ref} style={{...panels.style,...calendarPanels.style}} data-panel-stacked={panels.stacked} className={'plan-desk '+nav.period+(nav.period==='day'?' week':'')+(open?' with-drawer':'')}>
+      <div id="plan-main" className="plan-main">{nav.period==='day'?<DayView dates={dates}/>:nav.period==='week'?<Week dates={dates}/>:<Calendar dates={dates} period={nav.period} panels={calendarPanels}/>}</div>
+      {panels.separator}
       <aside id="plan-drawer" className="plan-drawer" hidden={!open} aria-label="미계획 드로어">
         {open&&<>
           <InboxTray scale={WEEK_SCALE} overdue={overdueTasks()} onOpen={t=>openEditor(t.id,'dialog')}/>

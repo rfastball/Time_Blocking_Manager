@@ -131,7 +131,9 @@ const scenarios=[
     assert.deepEqual(await page.js('window.__asked'),[],'no dialog');
     await page.click('.rail-nav .nav-button','미계획');await page.sleep(300);
     assert.match(await page.text('.inbox-trash > summary'),/휴지통 2/);
+    await page.js(`document.querySelector('.inbox-trash > summary').scrollIntoView({block:'center'})`);
     await page.click('.inbox-trash > summary');await page.sleep(300);
+    await page.js(`document.querySelector('button[aria-label="회의록 정리 복원"]').scrollIntoView({block:'center'})`);
     await page.click('button[aria-label="회의록 정리 복원"]');await page.sleep(400);
     await page.click('.rail-nav .nav-button','오늘');await page.sleep(400);
     assert.ok((await page.blocks(space)).includes('회의록 정리, 예상 10:45–11:15'),'back at its old place in the order');

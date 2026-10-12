@@ -9,6 +9,7 @@ import {available,completeTasks,dayRule,overdueTasks,planOf,reflowToday} from '.
 import {openEditor} from '../store/editor.ts';
 import {settle} from '../ui/motion.ts';
 import {Icon,Lock} from '../ui/icons.tsx';
+import {usePanelResize} from '../ui/PanelResize.tsx';
 import {DaySpace} from '../space/DaySpace.tsx';
 import {useDaysAxis} from '../space/drag.tsx';
 import {allocationLabel,allocationShort,Outside,outsideOf} from '../plan/day.tsx';
@@ -24,6 +25,7 @@ const open=(t:Task)=>openEditor(t.id,matchMedia('(max-width:760px)').matches?'di
 // Planning a day in full (new blocks, clearing it) is the plan tab's 일 view.
 export function Today(){
   const {snapshot,nav,today,drafts,ui}=useApp();
+  const panels=usePanelResize('today',.3,'시간표와 상세 패널 크기','today-timetable today-detail');
   const [multi,setMulti]=useState<string[]>([]);
   const date=nav.selected,rule=dayRule(date),axis=useDaysAxis([date],SCALE),plan=planOf(date);
   const dayTasks=snapshot!.tasks.filter(t=>t.plan_date===date);
@@ -48,11 +50,12 @@ export function Today(){
       :date===today&&plan.items.some(i=>!i.fixed)&&<><span className="anchor">{time(anchor)} 기준</span>
         <button type="button" className="btn" onClick={()=>void reflowToday()}><Icon name="reflow" size={15}/>재배치</button></>}
     </div>
-    <div className="today-cols">
-      <section className="card today-day" aria-label="시간표">
+    <div ref={panels.ref} style={panels.style} data-panel-stacked={panels.stacked} className="today-cols">
+      <section id="today-timetable" className="card today-day" aria-label="시간표">
         <DaySpace date={date} axis={axis} variant="day" bin selected={editing} multi={multi} onOpen={open} onMulti={toggleMulti}/>
       </section>
-      <div className="today-flow">
+      {panels.separator}
+      <div id="today-detail" className="today-flow">
         <div className="today-main">
           <EditorPanel nextId={nextId}/>
           {queue.length>0&&<Queue items={queue} nextId={nextId} selected={editing}/>}

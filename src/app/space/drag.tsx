@@ -2,7 +2,7 @@ import {createContext,useCallback,useContext,useEffect,useMemo,useRef,useState,t
 import {DndContext,DragOverlay,PointerSensor,TouchSensor,useSensor,useSensors,type DragEndEvent,type DragMoveEvent,type DragStartEvent,type DropAnimation,type Modifier,type Active} from '@dnd-kit/core';
 import {motion} from 'motion/react';
 import {applyIntent,carried,noIntent,type Intent} from '../../intent.ts';
-import {benchOrder,benchPiles} from '../../bench.ts';
+import {benchPiles,BOARD_CARD_WIDTH,BOARD_CARD_HEIGHT,seedBoardPositions} from '../../bench.ts';
 import {dayPlan,newlyOver,overrunEnd} from '../../today.ts';
 import {insertionBefore} from '../../flow.ts';
 import {placementIssue,resistWorkingBoundary} from '../../placement.ts';
@@ -29,23 +29,24 @@ export const runnerReach=(g:Geometry)=>g.flowLeft-(g.railLeft+g.railWidth/2);
 
 // Places where a held block can land. Day spaces know their time axis; the others take a date or send work back to 미계획.
 // The bench is one region; its piles, handles and cards are read from the DOM (data-pile, data-pile-handle, data-card).
-type Region={key:string;kind:'space'|'date'|'tray'|'bench';date:string|null;el:HTMLElement;axis?:TimeAxis;geometry?:Geometry};
+export type BoardView={x:number;y:number;zoom:number};
+type Region={key:string;kind:'space'|'date'|'tray'|'bench'|'canvas';date:string|null;el:HTMLElement;axis?:TimeAxis;geometry?:Geometry;board?:BoardView};
 // The hollow marks the body slot; the held copy follows the hand until it latches onto a rail tick.
 type Slot={start:number;end:number;over:boolean};
 // `ids`: every block carried (a selection or a whole pile), `carry`: the pile carried by its handle.
-export type Held={task:Task;ids:string[];carry?:{pile:string|null};intent:Intent;slot:Slot|null;column:boolean;boundary?:boolean;axis?:TimeAxis;startRect:{left:number;top:number;width:number;height:number};grabX:number;grabY:number;width:number;height:number;dropping?:boolean};
+export type Held={task:Task;ids:string[];carry?:{pile:string|null};origins?:{id:string;x:number;y:number}[];intent:Intent;slot:Slot|null;column:boolean;boundary?:boolean;axis?:TimeAxis;startRect:{left:number;top:number;width:number;height:number};grabX:number;grabY:number;width:number;height:number;dropping?:boolean};
 // `pushed`: blocks the shown change would newly put past working time.
 type Ctx={held:Held|null;pending:Intent|null;tasks:Task[];pushed:string[];register:(r:Region)=>()=>void};
 const DragCtx=createContext<Ctx>({held:null,pending:null,tasks:[],pushed:[],register:()=>()=>{}});
 export const useDrag=()=>useContext(DragCtx);
 
 // Registers an element as a landing region while mounted.
-export function useRegion(kind:Region['kind'],date:string|null,extra:{axis?:TimeAxis;geometry?:Geometry}={}){
+export function useRegion(kind:Region['kind'],date:string|null,extra:{axis?:TimeAxis;geometry?:Geometry;board?:BoardView}={}){
   const {register}=useDrag(),key=useRef(Math.random().toString(36).slice(2)).current,off=useRef<(()=>void)|null>(null);
   const extraRef=useRef(extra);extraRef.current=extra;
   return useCallback((el:HTMLElement|null)=>{
     off.current?.();off.current=null;
-    if(el)off.current=register({key,kind,date,el,get axis(){return extraRef.current.axis;},get geometry(){return extraRef.current.geometry;}} as Region);
+    if(el)off.current=register({key,kind,date,el,get axis(){return extraRef.current.axis;},get geometry(){return extraRef.current.geometry;},get board(){return extraRef.current.board;}} as Region);
   },[register,kind,date,key]);
 }
 
@@ -121,14 +122,13 @@ export function DragProvider({children}:{children:ReactNode}){
     const all=[...regions.current.values()];
     for(const region of all.filter(r=>r.kind==='space')){
       const r=inside(region.el);if(!r||!region.axis||!region.geometry||!region.date)continue;
-      // Several blocks at once only go to the end of the day's order.
-      if(ids.length>1)return {intent:{...intent,zone:'date',date:region.date},region};
-      const {axis,geometry:g,date}=region,topIn=py-r.top-grabY*Math.max(10,task.duration*axis.scale-2),rule=dayRule(date),layouts=snapshot!.layouts??[];
+      const duration=ids.reduce((n,id)=>n+(base.find(t=>t.id===id)?.duration??0),0);
+      const {axis,geometry:g,date}=region,topIn=py-r.top-grabY*Math.max(10,duration*axis.scale-2),rule=dayRule(date),layouts=snapshot!.layouts??[];
       // A fixed block starts latched on its own day; anything latched keeps the wider fixed shape while it is measured.
       const was=prev.zone==='rail'?prev.date===date:prev.zone==='none'&&task.starts_at?.slice(0,10)===date;
       const edge=px-r.left-grab*(r.width-(was?g.fixedLeft:g.flowLeft)-g.right);
       const bite=g.bite*stretch,pull=g.pull*stretch;
-      if(px-r.left<g.bodyLeft||(was?edge<g.fixedLeft+pull:edge<=g.flowLeft-bite)){
+      if(ids.length===1&&(px-r.left<g.bodyLeft||(was?edge<g.fixedLeft+pull:edge<=g.flowLeft-bite))){
         const raw=Math.max(0,Math.min(1440-task.duration,axis.minute(py-r.top)-grabY*task.duration));
         const from=prev.date===date&&prev.zone==='rail'?prev.start!:dayPlan(date,base,rule,layouts).items.find(i=>i.task.id===task.id)?.start??rule.start;
         const resisted=resistWorkingBoundary(from,raw,task.duration,rule,axis.position);
@@ -136,15 +136,23 @@ export function DragProvider({children}:{children:ReactNode}){
         const reason=placementIssue(task.id,date,minute,task.duration,rule,base)?.label??null;
         return {intent:{...intent,zone:'rail',date,start:minute,ok:!reason,reason},region,boundary:resisted!==raw,near:was?Math.max(0,Math.min(1,(edge-g.fixedLeft)/pull)):0};
       }
-      const rest=dayPlan(date,base.filter(t=>t.id!==task.id),rule,layouts);
-      const centre=axis.minute(topIn+task.duration*axis.scale/2),flows=rest.items.filter(i=>!i.fixed);
+      const rest=dayPlan(date,base.filter(t=>!ids.includes(t.id)),rule,layouts);
+      const centre=axis.minute(topIn+duration*axis.scale/2),flows=rest.items.filter(i=>!i.fixed);
       const body:Intent={...intent,zone:'body',date,before:insertionBefore(flows,centre),ok:true,reason:null};
       const near=Math.max(0,Math.min(1,(g.flowLeft-edge)/bite));
-      const item=dayPlan(date,applyIntent(base,body),rule,layouts).items.find(i=>i.task.id===task.id);
-      return {intent:body,region,near,slot:item&&{start:item.start,end:item.end,over:item.over}};
+      const items=dayPlan(date,applyIntent(base,body),rule,layouts).items.filter(i=>ids.includes(i.task.id));
+      return {intent:body,region,near,slot:items.length?{start:items[0].start,end:items[items.length-1].end,over:items.some(i=>i.over)}:undefined};
     }
-    for(const kind of ['bench','date','tray'] as const)for(const region of all.filter(r=>r.kind===kind)){
-      if(!inside(region.el))continue;
+    for(const kind of ['canvas','bench','date','tray'] as const)for(const region of all.filter(r=>r.kind===kind)){
+      const r=inside(region.el);if(!r)continue;
+      if(kind==='canvas'&&region.board){
+        const v=region.board,origins=heldRef.current?.origins??ids.map((id,n)=>({id,x:n*(BOARD_CARD_WIDTH+24),y:0}));
+        const anchor=origins.find(p=>p.id===task.id)??origins[0];
+        const dx=(px-r.left-region.el.clientLeft-v.x)/v.zoom-grab*BOARD_CARD_WIDTH-anchor.x,dy=(py-r.top-region.el.clientTop-v.y)/v.zoom-grabY*BOARD_CARD_HEIGHT-anchor.y;
+        const mx=Math.max(-100000-Math.min(...origins.map(p=>p.x)),Math.min(100000-Math.max(...origins.map(p=>p.x)),Math.round(dx)));
+        const my=Math.max(-100000-Math.min(...origins.map(p=>p.y)),Math.min(100000-Math.max(...origins.map(p=>p.y)),Math.round(dy)));
+        return {intent:{...intent,zone:'canvas',positions:origins.map(p=>({id:p.id,x:p.x+mx,y:p.y+my}))},region};
+      }
       if(kind==='bench'){const at=benchZone(region.el,px,py,ids,carry);return at?{intent:{...intent,zone:'pile',...at},region}:{intent};}
       if(kind==='tray')return task.plan_date&&!task.completed&&ids.length===1?{intent:{...intent,zone:'tray'}}:{intent};
       return {intent:{...intent,zone:'date',date:region.date},region};
@@ -154,15 +162,17 @@ export function DragProvider({children}:{children:ReactNode}){
 
   function onDragStart(e:DragStartEvent){
     const data=e.active.data.current as {taskId?:string;carry?:{pile:string|null}}|undefined;
-    const id=String(data?.taskId??e.active.id),task=base.find(t=>t.id===id);if(!task)return;
+    const seeded=seedBoardPositions(base,snapshot?.piles??[]);
+    const id=String(data?.taskId??e.active.id),task=seeded.find(t=>t.id===id);if(!task)return;
     // A pile handle carries its cards; a block inside a bench selection carries the selection, in reading order.
     const sel=getState().ui.benchSelection,piles=snapshot?.piles??[];
     const ids=data?.carry?benchPiles(base,piles).find(p=>p.id===data.carry!.pile)?.cards.map(t=>t.id)??[]
-      :sel.length>1&&sel.includes(id)?[...base.filter(t=>t.plan_date&&!t.completed&&sel.includes(t.id)),...benchOrder(base,piles).filter(t=>sel.includes(t.id))].map(t=>t.id):[id];
+      :sel.length>1&&sel.includes(id)?[...base.filter(t=>t.plan_date&&!t.completed&&sel.includes(t.id)),...seeded.filter(t=>!t.plan_date&&!t.completed&&sel.includes(t.id)).sort((a,b)=>a.board_y!-b.board_y!||a.board_x!-b.board_x!||a.id.localeCompare(b.id))].map(t=>t.id):[id];
     if(!ids.length)return;
     if(landing.current)return;
     // dnd-kit measures after this callback; read the block's own box so the copy starts exactly on it.
     const node=(e.activatorEvent.target as HTMLElement).closest<HTMLElement>('[data-block]')!,r=node.getBoundingClientRect();
+    if(node.closest('.wb-canvas')&&!sel.includes(id))setUi({benchSelection:[id]});
     const {x:px,y:py}=point(e.activatorEvent!);
     pointer.current={x:px,y:py};
     start.current={left:r.left,top:r.top,width:r.width,height:r.height};
@@ -170,7 +180,8 @@ export function DragProvider({children}:{children:ReactNode}){
     travel.current={x:0,y:0,px,py,t:performance.now()};
     stretch.current=1;
     setGesture(true);setUi({contextMenu:null});
-    setHeld({task,ids,carry:data?.carry,intent:{...noIntent(task.id),ids,carry:data?.carry},slot:null,column:false,startRect:start.current,grabX:px-r.left,grabY:py-r.top,width:r.width,height:r.height});
+    const origins=ids.map((id,n)=>{const t=seeded.find(t=>t.id===id)!;return {id,x:t.board_x??n*(BOARD_CARD_WIDTH+24),y:t.board_y??0};});
+    setHeld({task,ids,origins,carry:data?.carry,intent:{...noIntent(task.id),ids,carry:data?.carry},slot:null,column:false,startRect:start.current,grabX:px-r.left,grabY:py-r.top,width:r.width,height:r.height});
   }
   function onDragMove(e:DragMoveEvent){
     const h=held,s=start.current;if(!h||!s||h.dropping)return;
@@ -183,13 +194,14 @@ export function DragProvider({children}:{children:ReactNode}){
     const rect=region?.el.getBoundingClientRect(),g=region?.geometry,axis=region?.axis;
     // Only the rail constrains the hand to a 15-minute tick; the hollow carries the projected order slot.
     snap.current=rect&&g&&axis&&intent.zone==='rail'?{left:rect.left+g.fixedLeft+near*g.give,top:rect.top+axis.position(intent.start!)+1}:null;
-    const width=rect&&g?(intent.zone==='rail'?rect.width-g.fixedLeft-g.right:intent.zone==='body'?rect.width-g.flowLeft-g.right:s.width):s.width;
+    const width=region?.board?BOARD_CARD_WIDTH*region.board.zoom:rect&&g?(intent.zone==='rail'?rect.width-g.fixedLeft-g.right:intent.zone==='body'?rect.width-g.flowLeft-g.right:s.width):s.width;
     const at=intent.zone==='rail'?intent.start:null;
-    const height=axis?Math.max(10,at!==null?axis.position(at+h.task.duration)-axis.position(at)-2:h.task.duration*axis.scale-2):s.height;
+    const duration=h.ids.reduce((n,id)=>n+(base.find(t=>t.id===id)?.duration??0),0);
+    const height=region?.board?BOARD_CARD_HEIGHT*region.board.zoom:axis?Math.max(10,at!==null?axis.position(at+duration)-axis.position(at)-2:duration*axis.scale-2):s.height;
     const column=g?.ruler===0;
     const i=h.intent;
     if(h.column!==column||i.zone!==intent.zone||i.date!==intent.date||i.before!==intent.before||i.start!==intent.start||i.ok!==intent.ok||width!==h.width||height!==h.height||h.boundary!==boundary
-      ||i.pile!==intent.pile||i.index!==intent.index||i.create!==intent.create
+      ||i.pile!==intent.pile||i.index!==intent.index||i.create!==intent.create||JSON.stringify(i.positions)!==JSON.stringify(intent.positions)
       ||h.slot?.start!==slot?.start||h.slot?.end!==slot?.end)setHeld({...h,intent,slot,column,width,height,boundary,axis});
   }
   useEffect(()=>{
@@ -228,6 +240,7 @@ export function DragProvider({children}:{children:ReactNode}){
     const task=getState().snapshot?.tasks.find(t=>t.id===h.task.id);if(!task)return null;
     const id=CSS.escape(task.id),all=[...regions.current.values()];
     for(const r of all){
+      if(r.kind==='canvas'&&!task.plan_date){const card=r.el.querySelector<HTMLElement>(`[data-card="${id}"]`);if(card)return card;}
       if(r.kind==='bench'){
         if(h.carry&&(!saved||intent.zone==='pile'&&intent.create!=null))return r.el.querySelector<HTMLElement>(`[data-pile="${CSS.escape(h.carry.pile??'')}"] [data-pile-handle]`);
         const scope=task.plan_date?null:r.el.querySelector(`[data-pile="${CSS.escape(task.pile_id??'')}"]`);
