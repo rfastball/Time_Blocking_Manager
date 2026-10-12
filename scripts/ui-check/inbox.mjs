@@ -52,7 +52,10 @@ const scenarios=[
     assert.ok(meeting.h>0);
     await focusCard(page,'경쟁사 동향');await page.key('ArrowLeft',{modifiers:1});await page.sleep(350);
     assert.deepEqual(await titles(page,'.jb-inbox'),['경쟁사 동향 정리','주간 보고 초안']);
-    await focusCard(page,'주간 보고');await page.key('ArrowRight',{modifiers:1});await page.sleep(350);
+    await focusCard(page,'주간 보고');await page.key('ArrowRight',{modifiers:1});
+    // A move without a drag still travels: a flat copy flies from the old place to the new one.
+    assert.ok(await page.js(`new Promise(r=>{const t=performance.now(),look=()=>document.querySelector('.flight')?r(true):performance.now()-t>600?r(false):requestAnimationFrame(look);look();})`),'the move flies');
+    await page.sleep(350);
     assert.equal((await titles(page,'.jb-shelf')).at(-1),'주간 보고 초안');
     assert.deepEqual(await task(page,'주간 보고 초안'),{proto:false,duration:30,pile:'shelf',date:null},'a sheet on the shelf takes its default length');
     await focusCard(page,'메일');await page.key('ArrowUp',{modifiers:1});await page.sleep(350);
@@ -62,8 +65,9 @@ const scenarios=[
   {name:'dropping on a date shows the landing at its real size and ships to the end of that day',run:async page=>{
     await open(page);
     const from=await card(page,'SQLite'),tuesday=await page.rect('.jb-day:nth-child(2) .jb-dbody');
-    const during=await page.drag({x:from.cx,y:from.y+10},{x:tuesday.cx,y:tuesday.y+60},{before:()=>page.js(`(()=>{const s=document.querySelector('.jb-day:nth-child(2) .jb-dblk.slot');return s&&{h:s.getBoundingClientRect().height,held:document.querySelector('.held')?.getBoundingClientRect().height};})()`)});
-    assert.equal(during?.h,52,'the slot is the block at the same scale');assert.equal(during?.held,52);
+    const during=await page.drag({x:from.cx,y:from.y+10},{x:tuesday.cx,y:tuesday.y+60},{before:()=>page.js(`(()=>{const s=document.querySelector('.jb-day:nth-child(2) .jb-dblk.slot'),h=document.querySelector('.held')?.getBoundingClientRect();return s&&{h:s.getBoundingClientRect().height,held:h&&[Math.round(h.width),Math.round(h.height)],column:document.querySelector('.jb-day:nth-child(2) .jb-dbody').clientWidth};})()`)});
+    assert.equal(during?.h,52,'the slot is the block at the same scale');
+    assert.deepEqual(during?.held,[during.column-6,52],'the held block narrows to the column it is over, keeping its height');
     const day=await page.js('document.querySelector(".jb-day:nth-child(2)").dataset.date');
     assert.deepEqual(await task(page,'SQLite 백업 방식 조사'),{proto:false,duration:45,pile:null,date:day});
     assert.ok(!(await titles(page,'.jb-shelf')).includes('SQLite 백업 방식 조사'));

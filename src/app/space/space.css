@@ -130,6 +130,15 @@
 .held.flow>.tile{background:var(--sp-flow);border:1px solid var(--sp-flow-edge);color:var(--sp-flow-ink)}
 .held.fixed>.tile{background:var(--sp-fixed);border:1px solid var(--sp-fixed-edge);color:var(--color-text);padding-left:34px}
 .held.bad>.tile{border-color:var(--color-error)}
+/* Shapes a held block takes from where it is headed: a 2주 title line, a 월 load segment. Text is never stretched. */
+.held.line>.tile{padding:0 6px;align-items:center;gap:4px}
+.held.line .chk,.held.line .meta,.held.line .latch{display:none}
+.held.line .main{flex-direction:row;padding:0}
+.held.line .ttl{font-size:11px;line-height:1}
+.held.bar>.tile{padding:0;background:var(--color-capacity-fill);border-color:var(--color-capacity-fill);box-shadow:none}
+.held.bar>.tile>*{visibility:hidden}
+/* A block in flight between two places after a move made without a drag: a flat face, no controls. */
+.flight{position:fixed;z-index:60;pointer-events:none;box-sizing:border-box;overflow:hidden;padding:4px 8px;font-size:12px;font-weight:600;line-height:16px;white-space:nowrap;text-overflow:ellipsis;box-shadow:var(--sp-lift)}
 .held .meta{display:flex}
 /* Above the copy, so a narrow week column does not cut the reason off. */
 .held-why{position:absolute;left:0;bottom:calc(100% + 6px);white-space:nowrap;font-size:11.5px;font-weight:700;color:var(--color-surface);background:var(--color-error);border-radius:4px;padding:1px 6px}

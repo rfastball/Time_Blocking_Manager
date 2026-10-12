@@ -384,4 +384,29 @@ export default [
     await page.click('.plan-day-link');await page.sleep(400);
     assert.equal(await page.js(`document.querySelector('.segmented [aria-checked=true]').textContent`),'일');
   }},
+  {name:'a held block takes the shape of where it is headed: a week column, a 2주 title line, a 월 load segment',run:async page=>{
+    await toPlan(page);
+    const held=()=>page.js(`(()=>{const h=document.querySelector('.held');if(!h)return null;const r=h.getBoundingClientRect();return {w:Math.round(r.width),h:Math.round(r.height),cls:h.className};})()`);
+    const carry=async(target,read)=>{
+      const from=await page.rect('#plan-drawer .tblk','SQLite');
+      await page.mouse('mouseMoved',from.cx,from.y+8,0);await page.mouse('mousePressed',from.cx,from.y+8);
+      for(let i=1;i<=12;i++){await page.mouse('mouseMoved',from.cx+(target.x-from.cx)*i/12,from.y+8+(target.y-from.y-8)*i/12);await page.sleep(16);}
+      await page.sleep(320);const seen=await read();
+      // Back over the drawer and let go: nothing is stored.
+      await page.mouse('mouseMoved',from.cx,from.y+8);await page.sleep(250);await page.mouse('mouseReleased',from.cx,from.y+8,0);await page.sleep(500);
+      return seen;
+    };
+    const head=await page.rect('.wk-head.today');
+    const week=await carry({x:head.cx,y:head.cy},async()=>({held:await held(),col:await page.js(`Math.round(document.querySelector('.wk-head.today').clientWidth)`)}));
+    assert.equal(week.held.h,43,'45 minutes on the week scale');assert.match(week.held.cls,/narrow/);assert.equal(week.held.w,week.col-21);
+    await page.click('.segmented [role=radio]','2주');await page.sleep(400);
+    const cell=await page.rect('.cal-cell.today');
+    const two=await carry({x:cell.cx,y:cell.cy},held);
+    assert.equal(two.h,20);assert.match(two.cls,/line/);
+    await page.click('.segmented [role=radio]','월');await page.sleep(400);
+    const day=await page.rect('.cal-cell.today');
+    const month=await carry({x:day.cx,y:day.cy},async()=>{await page.shot('plan-month-morph');return held();});
+    assert.equal(month.h,6);assert.match(month.cls,/bar/);assert.ok(month.w<40,'45 minutes is a short share of the day bar');
+    assert.deepEqual(await page.js(`[...document.querySelectorAll('#plan-drawer .tblk .ttl')].map(e=>e.textContent).includes('SQLite 백업 방식 조사')`),true,'nothing was stored');
+  }},
 ];

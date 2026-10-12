@@ -8,6 +8,7 @@ import {getState,setUi} from './state.ts';
 import {announce,dispatch} from './session.ts';
 import {dayRule,land,overdueTasks} from './tasks.ts';
 import {openEditor} from './editor.ts';
+import {fly} from '../ui/flight.ts';
 
 const snap=()=>getState().snapshot!;
 const revisions=(ids:string[])=>ids.map(id=>({id,revision:snap().tasks.find(t=>t.id===id)!.revision}));
@@ -60,10 +61,10 @@ export function moveTo(ids:string[],to:Place,index:number){
   const s=snap(),action=benchAction(s.tasks,s.piles??[],ids,to,index);
   if(!action)return Promise.resolve(false);
   const one=s.tasks.find(t=>t.id===ids[0]);
-  return dispatch(action,{done:()=>{
+  return fly(ids,()=>dispatch(action,{done:()=>{
     ids.forEach(id=>land(id));
     if(placeOfCard(one!)!==to||one?.plan_date)announce(`${ids.length>1?`${ids.length}개를`:`‘${one?.title}’을`} ${to==='shelf'?'선반':'들어옴'}에 놓았어요`);
-  }});
+  }}));
 }
 // One step up or down in its own place (Alt+↑/↓).
 export function shiftInPlace(t:Task,delta:number){
@@ -75,10 +76,10 @@ export function shiftInPlace(t:Task,delta:number){
 // Date only: always the end of that day's order, the same as dropping on its date head in 계획.
 export function shipTo(date:string,ids:string[]){
   if(!ids.length)return Promise.resolve(false);
-  return dispatch({type:'ship_flow',date,items:revisions(ids)},{done:()=>{
+  return fly(ids,()=>dispatch({type:'ship_flow',date,items:revisions(ids)},{done:()=>{
     setSelection(getState().ui.benchSelection.filter(id=>!ids.includes(id)));
     announce(`${ids.length>1?ids.length+'개를':`‘${snap().tasks.find(t=>t.id===ids[0])?.title}’을`} ${dateLabel(date)} 순서 끝에 실었어요`);
-  }});
+  }}));
 }
 
 // ── 길이 ──

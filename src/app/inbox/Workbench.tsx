@@ -239,7 +239,7 @@ function DateColumn({date}:{date:string}){
       <div className="jb-end" style={{top:y(end)}}/>
       {items.map(i=>{
         const slot=carried.includes(i.task.id),over=Math.max(0,i.end-Math.max(i.start,end));
-        return <div key={i.task.id} className={'jb-dblk'+(i.fixed?' fixed':'')+(slot?' slot':'')} style={{top:y(i.start)+1,height:Math.max(4,y(i.end)-y(i.start)-2)}}>
+        return <div key={i.task.id} data-flight={i.task.id} className={'jb-dblk'+(i.fixed?' fixed':'')+(slot?' slot':'')} style={{top:y(i.start)+1,height:Math.max(4,y(i.end)-y(i.start)-2)}}>
           <span>{i.task.title}</span>
           {over>0&&<i className="jb-spill" style={{height:Math.min(y(i.end)-y(i.start)-2,Math.round(over*SCALE))}}/>}
         </div>;

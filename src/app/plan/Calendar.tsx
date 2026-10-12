@@ -1,13 +1,14 @@
+import {useRef} from 'react';
 import {useDraggable} from '@dnd-kit/core';
 import {formatDuration} from '../../format.ts';
 import {dateLabel,dateOf,time} from '../../dates.ts';
 import type {Task} from '../../types.ts';
-import {setNav,useApp,type Period} from '../store/state.ts';
+import {getState,setNav,useApp,type Period} from '../store/state.ts';
 import {dayRule,taskMinute} from '../store/tasks.ts';
 import {openEditor} from '../store/editor.ts';
 import type {usePanelResize} from '../ui/PanelResize.tsx';
 import {DaySpace} from '../space/DaySpace.tsx';
-import {useDaysAxis,useDrag,useRegion} from '../space/drag.tsx';
+import {useDaysAxis,useDrag,useRegion,type Form} from '../space/drag.tsx';
 import {useNewBlock} from './Composer.tsx';
 import {openDay} from './Week.tsx';
 import {allocation,allocationLabel,allocationShort,dayTag,Meter,Outside} from './day.tsx';
@@ -29,12 +30,18 @@ export function Calendar({dates,period,panels}:{dates:string[];period:Exclude<Pe
 }
 
 function Cell({date,period,outside}:{date:string;period:Exclude<Period,'week'>;outside:boolean}){
-  const {today,nav}=useApp(),{held,tasks}=useDrag();
-  const ref=useRegion('date',date);
+  const {today,nav}=useApp(),{held,tasks}=useDrag(),box=useRef<HTMLDivElement|null>(null);
+  // 2주 shows titles, so a block arrives flattened into one; 월 shows load, so it arrives as its share of the day's bar.
+  const ref=useRegion('date',date,{form:(task,ids):Form=>{
+    const minutes=ids.reduce((n,id)=>n+(getState().snapshot!.tasks.find(t=>t.id===id)??task).duration,0),cell=box.current;
+    if(period==='two')return {width:Math.max(40,(cell?.querySelector('.cal-tasks')?.clientWidth??cell?.clientWidth??120)-2),height:20,density:'line'};
+    const track=cell?.querySelector<HTMLElement>('.cal-load')?.clientWidth??cell?.clientWidth??120,avail=allocation(date,getState().snapshot!.tasks).avail||480;
+    return {width:Math.max(6,Math.min(track,Math.round(track*minutes/avail))),height:6,density:'bar'};
+  }});
   const a=allocation(date,tasks),tag=dayTag(date),d=dateOf(date),sel=date===nav.selected,past=date<today;
   const hot=!!held&&!held.dropping&&held.intent.zone==='date'&&held.intent.ok&&held.intent.date===date;
   const select=()=>setNav({selected:date});
-  return <div ref={ref} data-date={date} onClick={select}
+  return <div ref={el=>{box.current=el;ref(el);}} data-date={date} onClick={select}
     className={'cal-cell'+(date===today?' today':'')+(past?' past':'')+(sel?' sel':'')+(outside?' outside':'')+(tag==='휴무'||tag==='휴가'?' off':'')+(hot?' hot':'')}>
     <div className="cal-top">
       <button type="button" className="cal-date" aria-pressed={sel} onClick={e=>{e.stopPropagation();select();}}

@@ -8,6 +8,7 @@ import {intentAction,updateAction,type Intent} from '../../intent.ts';
 import {createCommand} from '../../capture.ts';
 import type {Action,Task,Trashed,WorkingDay} from '../../types.ts';
 import {getState,setDrafts,setState,setUi} from './state.ts';
+import {fly} from '../ui/flight.ts';
 import {acknowledgeCapture,afterIdle,announce,ask,dispatch,draftChanged,persistDraft,queue,showError,stamp} from './session.ts';
 
 const snap=()=>getState().snapshot!;
@@ -75,7 +76,7 @@ export function resize(t:Task,duration:number){
   if(t.starts_at){const issue=issueAt(t.id,t.plan_date!,taskMinute(t),duration);if(issue){showError(Error(issue.label));return Promise.resolve(false);}}
   return dispatch(updateAction(t,t.plan_date,t.starts_at,null,duration),{done:()=>land(t.id)});
 }
-export const unplan=(t:Task)=>t.plan_date&&!t.completed?dispatch(updateAction(t,null,null),{done:()=>announce(`‘${t.title}’ 준비 선반 맨 위로 옮겼어요`)}):Promise.resolve(false);
+export const unplan=(t:Task)=>t.plan_date&&!t.completed?fly([t.id],()=>dispatch(updateAction(t,null,null),{done:()=>announce(`‘${t.title}’ 준비 선반 맨 위로 옮겼어요`)})):Promise.resolve(false);
 // One stored command for a drop: order, date, time or back to 준비.
 export function drop(intent:Intent){
   const action=intentAction(snap().tasks,intent,snap().piles??[]);

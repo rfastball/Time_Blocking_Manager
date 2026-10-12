@@ -2,11 +2,11 @@ import {useLayoutEffect,useRef} from 'react';
 import type {TimeAxis} from '../../time-axis.ts';
 import {dateLabel,dateOf} from '../../dates.ts';
 import type {Task} from '../../types.ts';
-import {setNav,useApp} from '../store/state.ts';
+import {getState,setNav,useApp} from '../store/state.ts';
 import {dayRule} from '../store/tasks.ts';
 import {openEditor} from '../store/editor.ts';
 import {DaySpace} from '../space/DaySpace.tsx';
-import {useDaysAxis,useDrag,useRegion} from '../space/drag.tsx';
+import {COLUMN_GEOMETRY,useDaysAxis,useDrag,useRegion} from '../space/drag.tsx';
 import {useNewBlock} from './Composer.tsx';
 import {allocation,allocationLabel,allocationShort,dayTag,Meter,Outside} from './day.tsx';
 
@@ -44,12 +44,16 @@ export function Week({dates}:{dates:string[]}){
 
 // A date head: its allocation at a glance, a place to drop work, and the way into that day's 일 view.
 export function Head({date}:{date:string}){
-  const {today,nav}=useApp(),{held,tasks}=useDrag();
-  const ref=useRegion('date',date);
+  const {today,nav}=useApp(),{held,tasks}=useDrag(),box=useRef<HTMLDivElement|null>(null);
+  // Work dropped on a head goes to the end of that day's column, so it takes the column's shape on the week's scale.
+  const ref=useRegion('date',date,{form:(task,ids)=>{
+    const minutes=ids.reduce((n,id)=>n+(getState().snapshot!.tasks.find(t=>t.id===id)??task).duration,0);
+    return {width:(box.current?.clientWidth??100)-COLUMN_GEOMETRY.flowLeft-COLUMN_GEOMETRY.right,height:Math.max(10,minutes*WEEK_SCALE-2),density:'narrow'};
+  }});
   const a=allocation(date,tasks),tag=dayTag(date),off=!dayRule(date).enabled;
   const hot=!!held&&!held.dropping&&held.intent.zone==='date'&&held.intent.ok&&held.intent.date===date;
   const d=dateOf(date),past=date<today;
-  return <div ref={ref} data-date={date} className={'wk-head'+(date===today?' today':'')+(past?' past':'')+(date===nav.selected?' sel':'')+(off?' off':'')+(hot?' hot':'')}>
+  return <div ref={el=>{box.current=el;ref(el);}} data-date={date} className={'wk-head'+(date===today?' today':'')+(past?' past':'')+(date===nav.selected?' sel':'')+(off?' off':'')+(hot?' hot':'')}>
     <button type="button" className="wk-date" onClick={()=>openDay(date)}
       aria-label={`${dateLabel(date)}${date===today?', 오늘':''}${past?', 지난 날짜':''}${tag?', '+tag:''}, ${allocationLabel(a)}`}>
       <span className="wk-day"><small>{d.toLocaleDateString('ko-KR',{weekday:'short'})}</small><strong>{d.getDate()}</strong>{date===today&&<span className="pill">오늘</span>}{tag&&<span className="tag-chip">{tag}</span>}</span>

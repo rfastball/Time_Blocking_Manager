@@ -1,3 +1,4 @@
+import {useRef} from 'react';
 import {useDraggable} from '@dnd-kit/core';
 import {AnimatePresence,motion} from 'motion/react';
 import {isCompositionKey} from '../../capture.ts';
@@ -14,7 +15,9 @@ import {benchOrder} from '../../bench.ts';
 // 준비 work drawn at the same scale as the timetable, so its size reads against free space.
 export function InboxTray({scale,overdue=[],onOpen,selected,heading='준비',className=''}:{scale:number;overdue?:Task[];onOpen:(t:Task)=>void;selected?:string|null;heading?:string;className?:string}){
   const {drafts,ready,draftLoaded,snapshot}=useApp(),{held,tasks}=useDrag();
-  const ref=useRegion('tray',null);
+  const well=useRef<HTMLDivElement>(null);
+  // Back to 준비 a block keeps its length and takes the tray's width.
+  const ref=useRegion('tray',null,{form:task=>({width:well.current?.clientWidth?well.current.clientWidth-16:200,height:Math.max(24,task.duration*scale-2)})});
   // The shelf first (sized work ready to fill a gap), then the 들어옴.
   const inbox=benchOrder(tasks,snapshot?.piles??[]);
   const holding=held;
@@ -24,7 +27,7 @@ export function InboxTray({scale,overdue=[],onOpen,selected,heading='준비',cla
     <input id="tray-capture" className="capture-line" autoComplete="off" maxLength={650} placeholder="새 할 일" value={drafts.composer?'':drafts.capture} disabled={!ready||!draftLoaded}
       onFocus={()=>{if(drafts.composer)closeComposer();}} onChange={e=>{if(drafts.composer)closeComposer();else editCapture(e.target.value);}}
       onKeyDown={e=>{if(e.key!=='Enter')return;e.preventDefault();if(isCompositionKey(e.nativeEvent))return;void submitCapture();}}/>
-    <div className={'well'+(inbox.length?'':' empty')}>
+    <div ref={well} className={'well'+(inbox.length?'':' empty')}>
       <AnimatePresence initial={false}>
         {inbox.map(t=><TrayBlock key={t.id} task={t} scale={scale} hollow={holding?.task.id===t.id} selected={selected===t.id} onOpen={()=>onOpen(t)}/>)}
       </AnimatePresence>
