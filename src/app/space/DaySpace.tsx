@@ -107,7 +107,7 @@ export function DaySpace({date,axis,variant,bin,selected,multi=[],onOpen,onMulti
         initial={false} animate={{top:axis.position(anchor)}} transition={reduced()?{duration:0}:reflow}/>}
       {date===today&&<AnchorFlash top={axis.position(anchor)} left={geometry.railLeft} anchor={anchor}/>}
       <AnimatePresence initial={false} custom={doneIds}>
-        {plan.items.map(item=><Block key={item.task.id} item={sized(item)} pushed={pushed.includes(item.task.id)} axis={axis} geometry={geometry} variant={variant} next={item.task.id===nextId}
+        {plan.items.map(item=><Block key={item.task.id} date={date} item={sized(item)} pushed={pushed.includes(item.task.id)} axis={axis} geometry={geometry} variant={variant} next={item.task.id===nextId}
           hollow={holding?.task.id===item.task.id} resizing={sizing?.id===item.task.id} selected={selected===item.task.id&&!multi.length} multi={multi.includes(item.task.id)} squash={squash.includes(item.task.id)}
           landed={ui.landed?.id===item.task.id?ui.landed:null}
           onCheck={()=>void check(byId(item.task.id))} onGrip={e=>grip(e,byId(item.task.id))} onNudge={(d,order,el)=>void nudge(item.task.id,d,order,el)}
@@ -163,13 +163,14 @@ function Bin({tasks,onOpen}:{tasks:Task[];onOpen:(t:Task)=>void}){
   </>;
 }
 
-type BlockProps={item:DayItem;pushed:boolean;axis:TimeAxis;geometry:Geometry;variant:'day'|'column';next:boolean;hollow:boolean;resizing:boolean;selected:boolean;multi:boolean;squash:boolean;landed:{clack:boolean}|null;
+type BlockProps={date:string;item:DayItem;pushed:boolean;axis:TimeAxis;geometry:Geometry;variant:'day'|'column';next:boolean;hollow:boolean;resizing:boolean;selected:boolean;multi:boolean;squash:boolean;landed:{clack:boolean}|null;
   onCheck:()=>void;onOpen:(e:ReactMouseEvent)=>void;onMenu:(e:{clientX:number;clientY:number})=>void;onGrip:(e:ReactPointerEvent<HTMLButtonElement>)=>void;onNudge:(delta:number,order:boolean,el:HTMLElement)=>void};
 // Blocks are placed with `top`, never a transform: dnd-kit measures boxes without transforms.
 // Only completion pulls a block up into the intake; any other departure just fades.
-function Block({item,pushed,axis,geometry:g,variant,next,hollow,resizing,selected,multi,squash,landed,onCheck,onOpen,onMenu,onGrip,onNudge}:BlockProps){
+function Block({date,item,pushed,axis,geometry:g,variant,next,hollow,resizing,selected,multi,squash,landed,onCheck,onOpen,onMenu,onGrip,onNudge}:BlockProps){
   const {held}=useDrag();
-  const t=item.task,{listeners,setNodeRef}=useDraggable({id:`${variant}:${t.id}`,data:{taskId:t.id},disabled:item.fixed&&t.completed||!!held?.dropping});
+  // Date copies overlap during exit animations; each space must own its draggable registration.
+  const t=item.task,{listeners,setNodeRef}=useDraggable({id:`${variant}:${date}:${t.id}`,data:{taskId:t.id},disabled:item.fixed&&t.completed||!!held?.dropping});
   const top=axis.position(item.start)+1,h=Math.max(10,axis.position(item.end)-axis.position(item.start)-2);
   const range=`${time(item.start)}–${time(item.end)}`;
   // Title over meta takes about 56px in a day and 47px in a week column; anything shorter is one row with the meta beside the title.

@@ -1,5 +1,15 @@
 # 검증 범위
 
+## 주 뷰 날짜 왕복 드래그 등록 복구 (2026-10-12)
+
+- Unique risk: 다른 날짜로 미리보기한 블록을 퇴장 애니메이션 중 원래 날짜로 되돌리면 화면에 남은 블록의 draggable 등록이 사라져 다음 드래그가 시작되지 않는다. 기존 날짜 이동 시나리오는 빠른 왕복 이후 재드래그를 확인하지 않는다.
+- Existing owner / selected layer: 기존 `scripts/ui-check/plan.mjs`의 브라우저 UI owner에 시나리오 하나 추가. React 마운트·퇴장·실제 포인터 센서 경합이므로 순수 배치 함수 테스트로 대체할 수 없다. registry 내부 구조 대신 두 날짜의 DOM 중첩, 드래그 복사본 생성, 최종 날짜 이동을 관찰한다.
+- Expected cost / evidence to retire: 기존 명시적 Edge runner 안에서 실행. 새 테스트 파일·의존성·CI lane·기본 suite heavy-resource launch·coverage floor 변화 0. 기존 정상 날짜 이동 검사는 다른 위험을 검증하므로 유지한다.
+- Added / extended / removed: **1 / 0 / 0**, plan 수집 **19→20**. 빠른 왕복 후 놓기·재드래그, Escape 취소 후 재드래그·날짜 저장을 한 시나리오에서 확인한다.
+- 수정 전 재드래그 실패를 확인했고 수정 후 좁은 실행은 **1/1 · 6.746초** 통과. Runtime delta는 수정 전 통과 baseline이 없어 **not measured**이며, 이 시간은 추가 시나리오 단일 실행 비용이다.
+- 최종 관련 UI **30/30**(plan 20 + today 10) 통과. 기존 날짜 이동·레일 고정/해제·본문 순서·일 뷰 연결과 공용 day 블록 드래그를 확인했고, 새 회귀 사례는 이 묶음에서도 **6.720초**에 통과했다. 기본 suite의 브라우저 실행 증가 0이며 명시적 UI 묶음은 기존 Edge 한 개를 공유한다.
+- TypeScript·Vite 빌드 **2.23초**, 기존 Node **68/68 · 199.7519ms** 통과. 실제 Windows 설치본은 별도 미검증이다.
+
 ## 오늘 완료 영역 높이 제한 Test delta (2026-10-12)
 
 - Unique risk / owner: 완료 블록과 긴 제목이 많이 쌓이면 오늘 시간표가 아래로 밀리거나, 높이를 제한한 뒤 마지막 완료 항목을 편집·완료 취소할 수 없는 문제. 실제 CSS 높이·스크롤·포커스를 소유하는 기존 `scripts/ui-check/today.mjs`에 화면 크기별 시나리오 하나를 추가했다.

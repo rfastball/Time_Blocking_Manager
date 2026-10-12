@@ -128,6 +128,31 @@ export default [
     await page.drag({x:a.x+40,y:a.y+6},{x:col.x+60,y:placed.y-40});
     assert.deepEqual(await titles(page,sp(other)),['설계 문서 자료 조사','회의록 정리']);
   }},
+  {name:'a fast date round trip keeps the block draggable after release and cancellation',run:async page=>{
+    await toPlan(page);await page.click('.drawer-toggle');await page.sleep(200);
+    const {today,other}=await days(page),source=await page.rect(sp(today)),target=await page.rect(sp(other));
+    const selector=`${sp(today)} [data-task="sample-a"]`,copies='[data-task="sample-a"]';
+    for(const cancel of [false,true]){
+      const b=await page.rect(selector),x=b.cx,y=b.cy,away=x+target.x-source.x;
+      await page.mouse('mouseMoved',x,y,0);await page.mouse('mousePressed',x,y);
+      await page.mouse('mouseMoved',x+7,y);await page.sleep(30);
+      assert.ok(await page.rect('.blk.held'),'the next drag starts without changing tabs');
+      await page.mouse('mouseMoved',away,y);await page.sleep(40);
+      // Both copies must still exist: returning after the source exit cannot reproduce the bug.
+      assert.equal(await page.js(`document.querySelectorAll('.wk-col ${copies}').length`),2,'return while the source is exiting');
+      await page.mouse('mouseMoved',x,y);await page.sleep(250);
+      if(cancel)await page.key('Escape');
+      await page.mouse('mouseReleased',x,y,0);await page.sleep(700);
+      assert.ok(await page.rect(selector),'the block stays on its original date');
+      assert.equal(await page.js(`document.querySelectorAll('.wk-col ${copies}').length`),1,'the other copy has finished exiting');
+    }
+    const b=await page.rect(selector);
+    await page.drag({x:b.cx,y:b.cy},{x:b.cx+target.x-source.x,y:b.cy},{before:async()=>{
+      assert.ok(await page.rect('.blk.held'),'dragging still starts after cancellation');
+    }});
+    assert.ok(await page.rect(`${sp(other)} ${copies}`),'the same block can be moved to another day');
+    assert.equal(await page.rect(selector),null,'the saved move leaves no source copy');
+  }},
   {name:'dropping on a date head appends to the end of that day',run:async page=>{
     await toPlan(page);
     const {today,other}=await days(page),col=await page.rect(sp(other)),head=await page.rect(`.wk-head[data-date="${other}"]`);
