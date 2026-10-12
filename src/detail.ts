@@ -22,6 +22,11 @@ export function memoPreview(body:string){
 }
 export function checkCount(body:string){const items=checklist(body);return {done:items.filter(i=>i.checked).length,total:items.length};}
 
+// Titles become one checklist line; each original memo (including its checklist marks) stays intact below it.
+export function mergeBody(tasks:Pick<Task,'title'|'body'>[]){
+  return tasks.map(t=>`- [ ] ${t.title.replace(/[\r\n]/g,' ')}${t.body?'\n\n'+t.body:''}`).join('\n\n');
+}
+
 export const taskState=(t:Pick<Task,'completed'|'plan_date'|'starts_at'>)=>t.completed?'완료':!t.plan_date?'미계획':t.starts_at?'시각 고정':'계획';
 export const quarter=(minute:number)=>Math.round(minute/15)*15;
 const startOf=(starts_at:string)=>Number(starts_at.slice(11,13))*60+Number(starts_at.slice(14,16));

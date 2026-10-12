@@ -106,7 +106,7 @@ fn legacy_databases_and_backups_migrate_without_losing_work() {
     let dir=tempdir().unwrap();
     for (n,version) in [1,2,3,4,5].into_iter().enumerate() {
         let path=dir.path().join(format!("legacy-{version}.db"));let mut s=Store::open(&path).unwrap();let task=create(&mut s,"legacy");
-        let c=command(&s,update(&task,"2026-10-05T10:00",30));let task=find(&s.apply(&c).unwrap(),"legacy");drop(s);
+        let c=command(&s,update(&task,"2026-10-05T10:00",30));let mut task=find(&s.apply(&c).unwrap(),"legacy");task.board_x=None;task.board_y=None;drop(s);
         assert_eq!((task.plan_date.as_deref(),task.flow_order),(Some("2026-10-05"),None));
         let conn=rusqlite::Connection::open(&path).unwrap();
         if version<3 {
@@ -115,7 +115,7 @@ fn legacy_databases_and_backups_migrate_without_losing_work() {
             conn.execute_batch("DROP TABLE routine_occurrences;").unwrap();
         }
         // Rebuild the exact older table shape: no bench columns or piles, before v5 no trash column, and before v4 no flow columns or layout anchors.
-        conn.execute_batch("ALTER TABLE tasks DROP COLUMN proto; ALTER TABLE tasks DROP COLUMN pile_id; ALTER TABLE tasks DROP COLUMN pile_order; DROP TABLE piles;").unwrap();
+        conn.execute_batch("ALTER TABLE tasks DROP COLUMN proto; ALTER TABLE tasks DROP COLUMN pile_id; ALTER TABLE tasks DROP COLUMN pile_order; ALTER TABLE tasks DROP COLUMN board_x; ALTER TABLE tasks DROP COLUMN board_y; DROP TABLE piles;").unwrap();
         if version<4 {conn.execute_batch("ALTER TABLE tasks DROP COLUMN plan_date; ALTER TABLE tasks DROP COLUMN flow_order; DROP TABLE day_layouts;").unwrap();}
         if version<5 {conn.execute_batch("ALTER TABLE tasks DROP COLUMN deleted_at;").unwrap();}
         conn.execute_batch("DROP INDEX receipt_accepted; ALTER TABLE receipts DROP COLUMN accepted_at; DELETE FROM meta WHERE key='receipt_cutoff';").unwrap();
@@ -130,7 +130,7 @@ fn legacy_databases_and_backups_migrate_without_losing_work() {
         // The migrated fixed task occupies 10:00, so the routine stays on its date as flow work.
         let generated=ensure(&mut s,"2026-10-05","2026-10-05");assert_eq!(generated.tasks.len(),2);
         assert!(generated.tasks.iter().any(|t|t.id!="legacy"&&t.plan_date.as_deref()==Some("2026-10-05")&&t.flow_order==Some(1)));
-        assert_eq!(rusqlite::Connection::open(&path).unwrap().query_row::<i64,_,_>("PRAGMA user_version",[],|r|r.get(0)).unwrap(),7);
+        assert_eq!(rusqlite::Connection::open(&path).unwrap().query_row::<i64,_,_>("PRAGMA user_version",[],|r|r.get(0)).unwrap(),8);
         // The added trash column works on the migrated file: delete sets aside, restore returns it unchanged.
         let c=command(&s,Action::Delete{id:"legacy".into(),expected_revision:task.revision});let trashed=s.apply(&c).unwrap();
         assert!(trashed.tasks.iter().all(|t|t.id!="legacy"));assert_eq!(trashed.trash[0].task,task);
@@ -399,7 +399,7 @@ fn backup_inspection_reports_validated_contents_without_changing_files() {
     assert!(Store::inspect_backup(&source).unwrap().created_at.is_none());
     assert_eq!(std::fs::read(&source).unwrap(),legacy);
     let safety=dir.path().join("safety.db");let epoch=s.snapshot().unwrap().epoch;
-    for (sql,code) in [("UPDATE tasks SET id='' WHERE id='a'","validation"),("PRAGMA user_version=8","schema")] {
+    for (sql,code) in [("UPDATE tasks SET id='' WHERE id='a'","validation"),("PRAGMA user_version=9","schema")] {
         {rusqlite::Connection::open(&source).unwrap().execute_batch(sql).unwrap();}
         let original=std::fs::read(&source).unwrap();
         assert_eq!(Store::inspect_backup(&source).unwrap_err().code,code);
@@ -684,6 +684,121 @@ fn put(s: &mut Store, list: &[&str], pile: Option<&str>, create_at: Option<i64>,
 }
 
 #[test]
+fn board_moves_are_atomic_and_positions_follow_tasks_through_all_lifecycle_changes() {
+    let dir=tempdir().unwrap();let path=dir.path().join("app.db");let mut s=Store::open(&path).unwrap();let day="2026-10-14";
+    create(&mut s,"a");create(&mut s,"b");flow(&mut s,"past",day,30);
+    let done=create(&mut s,"done");let c=command(&s,Action::SetCompleted{id:done.id,expected_revision:done.revision,completed:true,date:Some(day.into())});s.apply(&c).unwrap();
+    let before=s.snapshot().unwrap();let a=BoardPlacement{id:"a".into(),revision:1,x:-350,y:-100};let b=BoardPlacement{id:"b".into(),revision:1,x:700,y:500};
+    for (items,code) in [(vec![],"validation"),(vec![a.clone(),a.clone()],"validation"),(vec![a.clone(),BoardPlacement{x:100001,..b.clone()}],"validation"),(vec![a.clone(),BoardPlacement{revision:99,..b.clone()}],"conflict"),(vec![a.clone(),BoardPlacement{id:"done".into(),revision:2,..b.clone()}],"conflict")] {
+        let c=command(&s,Action::PlaceBoard{items});assert_eq!(s.apply(&c).unwrap_err().code,code);assert_eq!(s.snapshot().unwrap().tasks,before.tasks);
+    }
+    let c=command(&s,Action::PlaceBoard{items:vec![a,b,BoardPlacement{id:"past".into(),revision:1,x:100000,y:-100000}]});let moved=s.apply(&c).unwrap();assert_eq!(s.apply(&c).unwrap().tasks,moved.tasks);
+    let point=|snapshot:&Snapshot,id:&str|{let t=find(snapshot,id);(t.board_x,t.board_y)};
+    assert_eq!(point(&moved,"a"),(Some(-350),Some(-100)));assert_eq!(point(&moved,"b"),(Some(700),Some(500)));assert_eq!(find(&moved,"past").plan_date,None);
+    assert!(moved.tasks.iter().filter(|t|["a","b","past"].contains(&t.id.as_str())).all(|t|t.revision==2));
+    create(&mut s,"fresh");assert_eq!(point(&s.snapshot().unwrap(),"fresh"),(Some(24),Some(24)));
+    let c=command(&s,Action::ShipFlow{date:day.into(),items:revs(&moved,&["a"]),before:None});let shipped=s.apply(&c).unwrap();assert_eq!(point(&shipped,"a"),point(&moved,"a"));
+    let t=find(&shipped,"a");let mut action=place(&t,None,None);if let Action::Update{title,duration,..}=&mut action {*title="수정".into();*duration=45;}let c=command(&s,action);s.apply(&c).unwrap();
+    let c=command(&s,Action::Delete{id:"b".into(),expected_revision:2});let trashed=s.apply(&c).unwrap();assert_eq!((trashed.trash[0].task.board_x,trashed.trash[0].task.board_y),point(&moved,"b"));
+    let backup=dir.path().join("backup.db");s.backup(&backup).unwrap();let expected=s.snapshot().unwrap();drop(s);let mut s=Store::open(&path).unwrap();assert_eq!(s.snapshot().unwrap().tasks,expected.tasks);
+    let c=command(&s,Action::RestoreTrashed{id:"b".into()});let restored=s.apply(&c).unwrap();assert_eq!(point(&restored,"b"),point(&moved,"b"));
+    let restored=s.restore(&backup,&restored.epoch,&dir.path().join("safety.db")).unwrap();assert_eq!(restored.tasks,expected.tasks);assert_eq!(restored.trash,expected.trash);
+    let c=command(&s,Action::PurgeTrashed{ids:vec!["b".into()]});let purged=s.apply(&c).unwrap();assert_eq!(point(&purged,"a"),point(&moved,"a"));assert!(!purged.tasks.iter().chain(purged.trash.iter().map(|t|&t.task)).any(|t|t.id=="b"));
+    for sql in ["UPDATE tasks SET board_x=100001,board_y=0 WHERE id='a'","UPDATE tasks SET board_x=0,board_y=NULL WHERE id='a'"] {
+        let conn=rusqlite::Connection::open(&backup).unwrap();conn.execute_batch(sql).unwrap();drop(conn);
+        assert_eq!(Store::inspect_backup(&backup).unwrap_err().code,"validation");
+    }
+}
+
+#[test]
+fn v7_board_positions_seed_once_in_reading_order_and_old_backups_restore_into_both_paths() {
+    let dir=tempdir().unwrap();let path=dir.path().join("blokky.sqlite");let mut s=Store::open(&path).unwrap();
+    for id in ["a","b","c"] {create(&mut s,id);}put(&mut s,&["a","b"],Some("p"),Some(1),0).unwrap();
+    let before=s.snapshot().unwrap();drop(s);
+    {rusqlite::Connection::open(&path).unwrap().execute_batch("ALTER TABLE tasks DROP COLUMN board_x; ALTER TABLE tasks DROP COLUMN board_y; PRAGMA user_version=7;").unwrap();}
+    let backup_id=format!("manual-{}.sqlite",uuid::Uuid::new_v4());let backups=dir.path().join("backups");std::fs::create_dir(&backups).unwrap();let backup=backups.join(&backup_id);std::fs::copy(&path,&backup).unwrap();
+    let mut s=Store::open(&path).unwrap();let seeded=s.snapshot().unwrap();
+    let points=|snapshot:&Snapshot|["c","a","b"].map(|id|{let t=find(snapshot,id);(t.board_x,t.board_y)});
+    assert_eq!(points(&seeded),[(Some(24),Some(24)),(Some(348),Some(24)),(Some(24),Some(144))]);
+    assert!(seeded.tasks.iter().all(|t|t.revision==find(&before,&t.id).revision));
+    assert_eq!(Store::list_backups(dir.path()).unwrap().iter().filter(|b|b.kind=="migration").count(),1);
+    let c=command(&s,Action::Delete{id:"a".into(),expected_revision:1});s.apply(&c).unwrap();create(&mut s,"fresh");
+    assert_eq!(find(&s.snapshot().unwrap(),"b").board_y,Some(144));assert_eq!(find(&s.snapshot().unwrap(),"fresh").board_x,Some(348));
+    let epoch=s.snapshot().unwrap().epoch;let restored=s.restore(&backup,&epoch,&dir.path().join("safety.db")).unwrap();assert_eq!(restored.tasks,seeded.tasks);drop(s);
+    std::fs::write(&path,b"damaged original").unwrap();let recovered=Store::recover_from_backup(dir.path(),&backup_id).unwrap();assert_eq!(recovered.snapshot().unwrap().tasks,seeded.tasks);drop(recovered);
+    assert_eq!(Store::open(&path).unwrap().snapshot().unwrap().tasks,seeded.tasks);
+}
+
+#[test]
+fn merging_replaces_selected_work_at_the_first_place_and_preserves_whole_originals() {
+    let dir=tempdir().unwrap();let path=dir.path().join("app.db");let mut s=Store::open(&path).unwrap();
+    for id in ["a","b","c","d"] {create(&mut s,id);}
+    for (id,title,body,duration) in [("b","첫 작업","메모\r\n- [x] 기존 확인",45),("d","다음\n작업","[ ] 남은 일",15)] {
+        let t=find(&s.snapshot().unwrap(),id);let c=command(&s,Action::Update{id:id.into(),expected_revision:t.revision,title:title.into(),body:body.into(),duration,starts_at:None,plan_date:None,before:None,sized:None});s.apply(&c).unwrap();
+    }
+    let before=put(&mut s,&["a","b","c"],Some("p"),Some(1),0).unwrap();
+    let c=command(&s,Action::MergeUnplanned{id:"merged".into(),items:revs(&before,&["b","d"])});
+    let result=s.apply(&c).unwrap();let merged=find(&result,"merged");
+    assert_eq!(bench(&result),vec![(None,vec![]),(Some("p".into()),ids(&["a","merged","c"]))]);
+    assert_eq!((&merged.title,merged.duration,merged.proto,merged.revision,merged.plan_date,merged.starts_at),(&"첫 작업".to_string(),60,false,1,None,None));
+    assert_eq!((merged.board_x,merged.board_y),(find(&before,"b").board_x,find(&before,"b").board_y));
+    assert_eq!(merged.body,"- [ ] 첫 작업\n\n메모\r\n- [x] 기존 확인\n\n- [ ] 다음 작업\n\n[ ] 남은 일");
+    for id in ["b","d"] {assert_eq!(result.trash.iter().find(|t|t.task.id==id).unwrap().task,find(&before,id));}
+    assert_eq!(s.apply(&c).unwrap().tasks,result.tasks);assert_eq!(s.apply(&c).unwrap().trash,result.trash);
+    let backup=dir.path().join("backup.db");s.backup(&backup).unwrap();drop(s);let mut s=Store::open(&path).unwrap();
+    let reopened=s.snapshot().unwrap();assert_eq!(reopened.tasks,result.tasks);assert_eq!(reopened.trash,result.trash);
+    let c=command(&s,Action::RestoreTrashed{id:"b".into()});let restored=s.apply(&c).unwrap();assert_eq!(find(&restored,"b").body,find(&before,"b").body);
+    let epoch=restored.epoch;let restored=s.restore(&backup,&epoch,&dir.path().join("safety.db")).unwrap();
+    assert_eq!(restored.tasks,result.tasks);assert_eq!(restored.trash,result.trash);
+}
+
+#[test]
+fn merging_rejects_all_invalid_sources_and_aggregate_limits_atomically() {
+    let dir=tempdir().unwrap();let path=dir.path().join("app.db");let mut s=Store::open(&path).unwrap();
+    for id in ["a","b","trash","done"] {create(&mut s,id);}
+    let snapshot=s.snapshot().unwrap();let c=command(&s,Action::Delete{id:"trash".into(),expected_revision:find(&snapshot,"trash").revision});s.apply(&c).unwrap();
+    let c=command(&s,Action::SetCompleted{id:"done".into(),expected_revision:1,completed:true,date:Some("2026-10-14".into())});s.apply(&c).unwrap();
+    flow(&mut s,"dated","2026-10-14",30);put(&mut s,&["a","b"],Some("p"),Some(1),0).unwrap();
+    let before=s.snapshot().unwrap();let item=|id:&str,revision|TaskRevision{id:id.into(),revision};
+    let mut cases=vec![("new".to_string(),vec![item("a",1)],"validation"),("new".into(),vec![item("a",1),item("a",1)],"validation"),("new".into(),vec![item("a",1),item("b",2)],"conflict")];
+    for id in ["done","dated","missing"] {cases.push(("new".into(),vec![item("a",1),item(id,1)],"conflict"));}
+    for id in ["a".to_string(),"trash".into(),String::new(),"가".repeat(34)] {cases.push((id,revs(&before,&["a","b"]),"validation"));}
+    for (id,items,code) in cases {
+        let c=command(&s,Action::MergeUnplanned{id,items});assert_eq!(s.apply(&c).unwrap_err().code,code);
+        let after=s.snapshot().unwrap();assert_eq!(after.tasks,before.tasks);assert_eq!(after.trash,before.trash);assert_eq!(after.piles,before.piles);assert_eq!(after.layouts,before.layouts);
+    }
+    let conn=rusqlite::Connection::open(&path).unwrap();
+    conn.execute_batch("CREATE TRIGGER reject_merge BEFORE INSERT ON tasks WHEN NEW.id='storage-failure' BEGIN SELECT RAISE(ABORT,'rejected'); END;").unwrap();
+    let c=command(&s,Action::MergeUnplanned{id:"storage-failure".into(),items:revs(&before,&["a","b"])});assert_eq!(s.apply(&c).unwrap_err().code,"validation");
+    let after=s.snapshot().unwrap();assert_eq!(after.tasks,before.tasks);assert_eq!(after.trash,before.trash);assert_eq!(after.piles,before.piles);
+    conn.execute_batch("DROP TRIGGER reject_merge;").unwrap();drop(conn);
+    for (duration_a,duration_b,body) in [(720,735,String::new()),(30,30,"가".repeat(66666))] {
+        for (id,duration,body) in [("a",duration_a,body),("b",duration_b,String::new())] {
+            let t=find(&s.snapshot().unwrap(),id);let c=command(&s,Action::Update{id:id.into(),expected_revision:t.revision,title:t.title,body,duration,starts_at:None,plan_date:None,before:None,sized:None});s.apply(&c).unwrap();
+        }
+        let before=s.snapshot().unwrap();let c=command(&s,Action::MergeUnplanned{id:"new".into(),items:revs(&before,&["a","b"])});
+        assert_eq!(s.apply(&c).unwrap_err().code,"validation");let after=s.snapshot().unwrap();assert_eq!(after.tasks,before.tasks);assert_eq!(after.trash,before.trash);assert_eq!(after.piles,before.piles);
+    }
+    for id in ["a","b"] {let t=find(&s.snapshot().unwrap(),id);let c=command(&s,Action::Update{id:id.into(),expected_revision:t.revision,title:t.title,body:String::new(),duration:720,starts_at:None,plan_date:None,before:None,sized:None});s.apply(&c).unwrap();}
+    let items=revs(&s.snapshot().unwrap(),&["b","a"]);let c=command(&s,Action::MergeUnplanned{id:"new".into(),items});assert_eq!(find(&s.apply(&c).unwrap(),"new").duration,1440);
+}
+
+#[test]
+fn shipping_selected_work_inserts_before_an_open_flow_target_or_rejects_atomically() {
+    let dir=tempdir().unwrap();let mut s=Store::open(&dir.path().join("app.db")).unwrap();let day="2026-10-14";
+    for id in ["a","b"] {create(&mut s,id);}
+    for id in ["first","target","last"] {flow(&mut s,id,day,30);}
+    let before=s.snapshot().unwrap();
+    for (items,target,code) in [(revs(&before,&["a","b"]),"missing","validation"),(revs(&before,&["a","target"]),"target","validation"),(vec![revision(&find(&before,"a")),TaskRevision{id:"b".into(),revision:99}],"target","conflict")] {
+        let c=command(&s,Action::ShipFlow{date:day.into(),items,before:Some(target.into())});assert_eq!(s.apply(&c).unwrap_err().code,code);assert_eq!(s.snapshot().unwrap().tasks,before.tasks);
+    }
+    let c=command(&s,Action::ShipFlow{date:day.into(),items:revs(&before,&["b","a"]),before:Some("target".into())});let result=s.apply(&c).unwrap();
+    assert_eq!(ordered(&result,day),["first","b","a","target","last"]);assert_eq!(find(&result,"target").revision,find(&before,"target").revision);
+    let c=command(&s,Action::ShipFlow{date:day.into(),items:revs(&result,&["last","b"]),before:Some("target".into())});
+    assert_eq!(ordered(&s.apply(&c).unwrap(),day),["first","a","last","b","target"]);
+}
+
+#[test]
 fn piles_keep_relations_protos_size_once_and_everything_survives_restore() {
     let dir=tempdir().unwrap();let path=dir.path().join("app.db");let mut s=Store::open(&path).unwrap();let day="2026-10-14";
     // Captured work is a proto on top of the 투입구.
@@ -719,7 +834,7 @@ fn piles_keep_relations_protos_size_once_and_everything_survives_restore() {
     assert_eq!(s.apply(&c).unwrap_err().code,"conflict");assert_eq!(s.snapshot().unwrap().tasks,kept.tasks);
     // A whole pile ships in order to the end of a day; protos get their default length; the pile goes.
     flow(&mut s,"early",day,60);
-    let items=revs(&s.snapshot().unwrap(),&["b","d","a","c"]);let c=command(&s,Action::ShipFlow{date:day.into(),items});let snap=s.apply(&c).unwrap();
+    let items=revs(&s.snapshot().unwrap(),&["b","d","a","c"]);let c=command(&s,Action::ShipFlow{date:day.into(),items,before:None});let snap=s.apply(&c).unwrap();
     assert_eq!(ordered(&snap,day),["early","b","d","a","c"]);assert!(snap.piles.is_empty());
     assert!(snap.tasks.iter().all(|t|!t.proto&&t.pile_id.is_none()&&t.pile_order.is_none()));assert_eq!(find(&snap,"d").duration,30);
     // Sent back by a button: top of the 투입구. Dragged back: where it was dropped, as a date change.
@@ -755,7 +870,7 @@ fn v5_unplanned_work_becomes_the_inbox_pile_in_list_order() {
     let dir=tempdir().unwrap();let path=dir.path().join("v5.db");let mut s=Store::open(&path).unwrap();
     for id in ["m","k","z"] {create(&mut s,id);}
     flow(&mut s,"dated","2026-10-14",30);drop(s);
-    {rusqlite::Connection::open(&path).unwrap().execute_batch("ALTER TABLE tasks DROP COLUMN proto; ALTER TABLE tasks DROP COLUMN pile_id; ALTER TABLE tasks DROP COLUMN pile_order; DROP TABLE piles; PRAGMA user_version=5;").unwrap();}
+    {rusqlite::Connection::open(&path).unwrap().execute_batch("ALTER TABLE tasks DROP COLUMN proto; ALTER TABLE tasks DROP COLUMN pile_id; ALTER TABLE tasks DROP COLUMN pile_order; ALTER TABLE tasks DROP COLUMN board_x; ALTER TABLE tasks DROP COLUMN board_y; DROP TABLE piles; PRAGMA user_version=5;").unwrap();}
     // An older backup reads the same way the migration writes it.
     assert_eq!(Store::inspect_backup(&path).unwrap().tasks,4);
     let s=Store::open(&path).unwrap();let snap=s.snapshot().unwrap();
@@ -808,6 +923,8 @@ fn cutting_board_pieces_take_the_original_place_on_the_bench_a_day_or_a_fixed_ti
     let snap=cut(&mut s,&t,pieces.clone(),Some(today)).unwrap();
     assert_eq!(bench(&snap),vec![(None,ids(&["x","t","n1","n2","y"]))]);
     let (t2,n2,n3)=(find(&snap,"t"),find(&snap,"n2"),find(&snap,"n3"));
+    assert_eq!((t2.board_x,t2.board_y),(t.board_x,t.board_y));
+    let n1=find(&snap,"n1");assert_ne!((n1.board_x,n1.board_y),(t2.board_x,t2.board_y));assert_ne!((n2.board_x,n2.board_y),(n1.board_x,n1.board_y));
     assert_eq!((t2.title.as_str(),t2.body.as_str(),t2.duration,t2.proto,t2.revision),("설계","메모",45,false,t.revision+1));
     assert!(n2.proto);assert_eq!((n3.completed,n3.plan_date.as_deref()),(true,Some(today)));
     // A retry is a no-op; a stale or reused request changes nothing.

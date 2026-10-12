@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {benchOrder,benchPiles,normalize,pileName,place} from './bench.ts';
+import {benchOrder,benchPiles,boardPosition,nearestBoardPosition,normalize,pileName,place,seedBoardPositions} from './bench.ts';
 import {previewMutation} from './preview.ts';
 import {requestLifetimeMs} from './capture.ts';
 import type {Action,Pile,Settings,Snapshot,Task} from './types.ts';
@@ -42,6 +42,34 @@ test('normalizing drops empty piles, strips non-bench places and renumbers',()=>
   assert.equal(by('n').proto,true);
 });
 
+test('board defaults assign old reading order once, and only missing cards use vacant slots',()=>{
+  const old=[card('a','p',1),card('b','p',2),card('c',null,1)],piles=[{id:'p',position:1}];
+  const seeded=seedBoardPositions(old,piles);
+  assert.deepEqual(benchOrder(seeded,piles).map(boardPosition),[{x:24,y:24},{x:348,y:24},{x:24,y:144}]);
+  assert.ok(old.every(t=>boardPosition(t)===null));assert.strictEqual(seedBoardPositions(seeded,piles),seeded);
+  const kept=seeded.filter(t=>t.id!=='a');assert.deepEqual(seedBoardPositions(kept,piles),kept);
+  assert.deepEqual(nearestBoardPosition(kept),{x:348,y:24});
+  assert.deepEqual(nearestBoardPosition([card('m',null,1,{board_x:-500,board_y:900})],{x:-500,y:900}),{x:-500,y:1020});
+});
+
+test('board moves validate every source atomically, keep offsets, and survive scheduling and trash',()=>{
+  const day='2026-10-14',tasks=seedBoardPositions([card('a',null,1),card('b',null,2),card('past',null,0,{plan_date:day,flow_order:1,pile_order:null}),card('done',null,0,{completed:true,pile_order:null})]);
+  let s:Snapshot={epoch:'e',tasks,settings:settings(),layouts:[],trash:[],piles:[]};
+  const run=(action:Action)=>s=previewMutation(s,{request_id:crypto.randomUUID(),epoch:'e',issued_at:Date.now(),action},new Set());
+  const a={id:'a',revision:1,x:-350,y:-100},b={id:'b',revision:1,x:700,y:500},before=structuredClone(s);
+  for(const [items,code] of [[[], 'validation'],[[a,a],'validation'],[[a,{...b,x:100001}],'validation'],[[a,{...b,y:1.5}],'validation'],[[a,{...b,revision:2}],'conflict'],[[a,{...b,id:'done'}],'conflict']] as const){
+    assert.throws(()=>run({type:'place_board',items:[...items]}),{code});assert.deepEqual(s,before);
+  }
+  run({type:'place_board',items:[a,b,{id:'past',revision:1,x:100000,y:-100000}]});
+  assert.deepEqual(s.tasks.filter(t=>['a','b','past'].includes(t.id)).map(t=>[t.id,boardPosition(t),t.revision,t.plan_date]),[['a',{x:-350,y:-100},2,null],['b',{x:700,y:500},2,null],['past',{x:100000,y:-100000},2,null]]);
+  run({type:'create',id:'fresh',title:'새 작업'});assert.deepEqual(boardPosition(s.tasks.find(t=>t.id==='fresh')!),{x:24,y:24});
+  run({type:'ship_flow',date:day,items:[{id:'a',revision:2}]});assert.deepEqual(boardPosition(s.tasks.find(t=>t.id==='a')!),{x:-350,y:-100});
+  run({type:'delete',id:'b',expected_revision:2});assert.deepEqual(boardPosition(s.trash[0]),{x:700,y:500});
+  run({type:'restore_trashed',id:'b'});assert.deepEqual(boardPosition(s.tasks.find(t=>t.id==='b')!),{x:700,y:500});
+  const t=s.tasks.find(t=>t.id==='a')!;run({type:'update',id:t.id,expected_revision:t.revision,title:'수정',body:t.body,duration:45,starts_at:null,plan_date:null});
+  assert.deepEqual(boardPosition(s.tasks.find(t=>t.id==='a')!),{x:-350,y:-100});
+});
+
 test('the preview store follows the bench rules of the Rust store',()=>{
   let s:Snapshot={epoch:'e',tasks:[],settings:{revision:1,days:[]},layouts:[],trash:[],piles:[]};
   const run=(action:Action)=>{s=previewMutation(s,{request_id:crypto.randomUUID(),epoch:'e',issued_at:Date.now(),action},new Set());return s;};
@@ -74,6 +102,56 @@ test('the preview store records 미계획 completion on the given day and return
   assert.throws(()=>run({type:'update',id:'a',expected_revision:a.revision,title:'a',body:'',starts_at:null,duration:30,plan_date:null}),/완료한 작업/);
   run({type:'set_completed',id:'old',expected_revision:1,completed:false});
   assert.deepEqual(view(s.tasks,s.piles!),[[null,['old']]]);
+});
+
+test('merging creates one sized task in selection order at the first selected place and keeps whole originals in trash',()=>{
+  const a=card('a','p',1),b=card('b','p',2,{title:'첫 작업',body:'메모\r\n- [x] 기존 확인',duration:45,proto:true,board_x:700,board_y:-200}),c=card('c','p',3),d=card('d',null,1,{title:'다음\n작업',body:'[ ] 남은 일',duration:15,board_x:-100,board_y:200});
+  const s:Snapshot={epoch:'e',tasks:[a,b,c,d],settings:settings(),layouts:[],trash:[],piles:[{id:'p',position:1}]},receipts=new Set<string>();
+  const command={request_id:'merge',epoch:'e',issued_at:Date.now(),action:{type:'merge_unplanned' as const,id:'merged',items:[{id:'b',revision:1},{id:'d',revision:1}]}};
+  const result=previewMutation(s,command,receipts),merged=result.tasks.find(t=>t.id==='merged')!;
+  assert.deepEqual(view(result.tasks,result.piles!),[[null,[]],['p',['a','merged','c']]]);
+  assert.deepEqual([merged.title,merged.duration,merged.proto,merged.revision,merged.plan_date,merged.starts_at],['첫 작업',60,false,1,null,null]);
+  assert.deepEqual(boardPosition(merged),boardPosition(b));
+  assert.equal(merged.body,'- [ ] 첫 작업\n\n메모\r\n- [x] 기존 확인\n\n- [ ] 다음 작업\n\n[ ] 남은 일');
+  assert.deepEqual(result.trash.map(({deleted_at:_,...t})=>t),[b,d]);
+  assert.deepEqual(previewMutation(result,command,receipts),result,'retry never duplicates the replacement or originals');
+  const restored=previewMutation(result,{request_id:'restore',epoch:'e',issued_at:Date.now(),action:{type:'restore_trashed',id:'b'}},receipts);
+  assert.equal(restored.tasks.find(t=>t.id==='b')!.body,b.body);
+});
+
+test('merge rejects stale sources, ineligible work, reused ids and oversized aggregates without any state change',()=>{
+  const a=card('a','p',1,{duration:720}),b=card('b','p',2,{duration:735}),day='2026-10-14';
+  const base:Snapshot={epoch:'e',tasks:[a,b,card('done',null,0,{completed:true,pile_order:null}),card('dated',null,0,{plan_date:day,flow_order:1,pile_order:null})],settings:settings(),layouts:[{date:day,anchor:600}],trash:[{...card('trash',null,1),deleted_at:'2026-10-11T00:00:00Z'}],piles:[{id:'p',position:1}]};
+  const item=(id:string,revision=1)=>({id,revision});
+  const cases:{snapshot:Snapshot;id:string;items:{id:string;revision:number}[];code:string}[]=[
+    {snapshot:base,id:'new',items:[item('a')],code:'validation'},
+    {snapshot:base,id:'new',items:[item('a'),item('a')],code:'validation'},
+    {snapshot:base,id:'new',items:[item('a'),item('b',2)],code:'conflict'},
+    ...['done','dated','missing'].map(id=>({snapshot:base,id:'new',items:[item('a'),item(id)],code:'conflict'})),
+    ...['a','trash','', '가'.repeat(34)].map(id=>({snapshot:base,id,items:[item('a'),item('b')],code:'validation'})),
+    {snapshot:base,id:'new',items:[item('a'),item('b')],code:'validation'},
+    {snapshot:{...base,tasks:[{...a,duration:30,body:'가'.repeat(66666)},{...b,duration:30}]},id:'new',items:[item('a'),item('b')],code:'validation'}
+  ];
+  for(const {snapshot,id,items,code} of cases){const before=structuredClone(snapshot),receipts=new Set<string>();
+    assert.throws(()=>previewMutation(snapshot,{request_id:'merge',epoch:'e',issued_at:Date.now(),action:{type:'merge_unplanned',id,items}},receipts),{code});assert.deepEqual(snapshot,before);assert.equal(receipts.size,0);
+  }
+  const boundary={...base,tasks:[a,{...b,duration:720}]};
+  const accepted=previewMutation(boundary,{request_id:'merge',epoch:'e',issued_at:Date.now(),action:{type:'merge_unplanned',id:'new',items:[item('b'),item('a')]}},new Set());
+  assert.equal(accepted.tasks.find(t=>t.id==='new')!.duration,1440);
+});
+
+test('shipping several cards inserts in selection order before the destination flow card',()=>{
+  const day='2026-10-14',s:Snapshot={epoch:'e',tasks:[card('a',null,1),card('b',null,2),...['first','target','last'].map((id,n)=>card(id,null,0,{plan_date:day,flow_order:n+1,pile_order:null}))],settings:settings(),trash:[],piles:[],layouts:[]};
+  const items=(...ids:string[])=>ids.map(id=>({id,revision:1}));
+  const run=(snapshot:Snapshot,action:Action)=>previewMutation(snapshot,{request_id:crypto.randomUUID(),epoch:'e',issued_at:Date.now(),action},new Set());
+  for(const action of [
+    {type:'ship_flow',date:day,items:items('a','b'),before:'missing'},
+    {type:'ship_flow',date:day,items:items('a','target'),before:'target'}
+  ] satisfies Action[]){assert.throws(()=>run(s,action),{code:'validation'});assert.equal(s.tasks[3].flow_order,2);}
+  const result=run(s,{type:'ship_flow',date:day,items:items('b','a'),before:'target'}),order=(snapshot:Snapshot)=>snapshot.tasks.filter(t=>t.plan_date===day).sort((a,b)=>a.flow_order!-b.flow_order!).map(t=>t.id);
+  assert.deepEqual(order(result),['first','b','a','target','last']);assert.equal(result.tasks.find(t=>t.id==='target')!.revision,1);
+  const moved=run(result,{type:'ship_flow',date:day,items:['last','b'].map(id=>({id,revision:result.tasks.find(t=>t.id===id)!.revision})),before:'target'});
+  assert.deepEqual(order(moved),['first','a','last','b','target']);
 });
 
 test('the preview rejects stale editors and settings and trims accepted titles like Rust',()=>{

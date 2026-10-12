@@ -1,8 +1,7 @@
 import type {Pile,Task} from './types.ts';
 import {formatDuration} from './format.ts';
 
-// The 미계획 bench: the 투입구 (id null) and the user's piles, left to right. A place is stored as a relation
-// (which pile, which position in it); coordinates are always computed from it.
+// The older pile relation remains the compact trays' reading order and the free board's one-time seed order.
 export type PileView={id:string|null;cards:Task[];total:number};
 
 export const onBench=(t:Task)=>!t.plan_date&&!t.completed;
@@ -16,6 +15,40 @@ export function benchPiles(tasks:Task[],piles:Pile[]=[]):PileView[]{
 }
 // The 미계획 cell elsewhere reads the bench: the 투입구 first, then each pile left to right, each top to bottom.
 export const benchOrder=(tasks:Task[],piles:Pile[]=[])=>benchPiles(tasks,piles).flatMap(p=>p.cards);
+
+export const BOARD_CARD_WIDTH=300,BOARD_CARD_HEIGHT=96,BOARD_GAP=24,BOARD_COLUMNS=2,BOARD_LIMIT=100000;
+export type BoardPoint={x:number;y:number};
+export const boardPosition=(t:Task):BoardPoint|null=>t.board_x!=null&&t.board_y!=null?{x:t.board_x,y:t.board_y}:null;
+export function nearestBoardPosition(tasks:Task[],preferred?:BoardPoint):BoardPoint{
+  const occupied=tasks.filter(onBench).flatMap(t=>{const p=boardPosition(t);return p?[p]:[];});
+  const free=(p:BoardPoint)=>Math.abs(p.x)<=BOARD_LIMIT&&Math.abs(p.y)<=BOARD_LIMIT&&!occupied.some(q=>p.x<q.x+BOARD_CARD_WIDTH+BOARD_GAP&&p.x+BOARD_CARD_WIDTH+BOARD_GAP>q.x&&p.y<q.y+BOARD_CARD_HEIGHT+BOARD_GAP&&p.y+BOARD_CARD_HEIGHT+BOARD_GAP>q.y);
+  if(preferred){
+    let best:BoardPoint|null=null,distance=Infinity;
+    for(let row=0;row<=Math.ceil(2*BOARD_LIMIT/(BOARD_CARD_HEIGHT+BOARD_GAP));row++){
+      const dy=row*(BOARD_CARD_HEIGHT+BOARD_GAP);if(dy*dy>distance)break;
+      for(const y of row?[preferred.y+dy,preferred.y-dy]:[preferred.y])for(const col of [0,1,-1]){
+        const p={x:preferred.x+col*(BOARD_CARD_WIDTH+BOARD_GAP),y},d=(p.x-preferred.x)**2+(p.y-preferred.y)**2;
+        if(d<distance&&free(p)){best=p;distance=d;}
+      }
+    }
+    if(best)return best;
+  }
+  // Two columns per strip; a full-height strip continues to its right, never repacking saved cards.
+  const rows=Math.floor((BOARD_LIMIT-BOARD_GAP)/(BOARD_CARD_HEIGHT+BOARD_GAP))+1;
+  for(let n=0;n<=occupied.length*4;n++){
+    const strip=Math.floor(n/(rows*BOARD_COLUMNS)),cell=n%(rows*BOARD_COLUMNS);
+    const p={x:BOARD_GAP+(strip*BOARD_COLUMNS+cell%BOARD_COLUMNS)*(BOARD_CARD_WIDTH+BOARD_GAP),y:BOARD_GAP+Math.floor(cell/BOARD_COLUMNS)*(BOARD_CARD_HEIGHT+BOARD_GAP)};
+    if(free(p))return p;
+  }
+  throw Object.assign(Error('작업대에 새 작업을 놓을 자리가 없습니다.'),{code:'validation',retryable:false});
+}
+export function seedBoardPositions(tasks:Task[],piles:Pile[]=[]):Task[]{
+  let result=tasks;
+  for(const task of benchOrder(tasks,piles))if(!boardPosition(task)){
+    const {x,y}=nearestBoardPosition(result);result=result.map(t=>t.id===task.id?{...t,board_x:x,board_y:y}:t);
+  }
+  return result;
+}
 
 // Piles have no stored name; the reading name follows the top card, so moving piles never renames them.
 export function pileName(p:PileView){

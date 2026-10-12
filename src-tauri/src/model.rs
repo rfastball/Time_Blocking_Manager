@@ -18,6 +18,9 @@ pub struct Task {
     // Open unplanned work sits in a pile (None: the 투입구) at an order; everything else has neither.
     #[serde(default)] pub pile_id: Option<String>,
     #[serde(default)] pub pile_order: Option<i64>,
+    // The last logical workbench place survives scheduling and trash.
+    #[serde(default)] pub board_x: Option<i64>,
+    #[serde(default)] pub board_y: Option<i64>,
 }
 
 // One piece from the cutting board. The first keeps the original task's id; the others are new tasks.
@@ -53,6 +56,9 @@ pub struct Routine {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TaskRevision { pub id: String, pub revision: i64 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BoardPlacement { pub id:String, pub revision:i64, pub x:i64, pub y:i64 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Settings {
@@ -141,9 +147,12 @@ pub enum Action {
     Reflow { date:String, at:String },
     // Into a pile (None: the 투입구) before the card now at `index`; with `create_at` the pile is new at that position.
     PlaceUnplanned { items:Vec<TaskRevision>, pile:Option<String>, #[serde(default)] create_at:Option<i64>, index:i64 },
+    // A fresh task replaces the selected open unplanned tasks; originals stay whole in the trash.
+    MergeUnplanned { id:String, items:Vec<TaskRevision> },
+    PlaceBoard { items:Vec<BoardPlacement> },
     MovePile { pile:String, position:i64 },
-    // In the given order onto the end of the date's order.
-    ShipFlow { date:String, items:Vec<TaskRevision> },
+    // In the given order before a flow task, or onto the end of the date's order.
+    ShipFlow { date:String, items:Vec<TaskRevision>, #[serde(default, skip_serializing_if="Option::is_none")] before:Option<String> },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -230,6 +239,11 @@ pub fn parse_start(value: &str) -> Result<NaiveDateTime> {
 }
 
 pub fn validate_task(task: &Task, tasks: &[Task]) -> Result<()> {
+    match (task.board_x,task.board_y) {
+        (None,None) => {},
+        (Some(x),Some(y)) if (-100_000..=100_000).contains(&x)&&(-100_000..=100_000).contains(&y) => {},
+        _ => return Err(error("validation","작업대 위치를 확인하세요.")),
+    }
     if task.id.is_empty() || task.id.len() > 100 || task.title.trim().is_empty() || task.title.len() > 2000 || task.body.len() > 200_000
         || task.duration < 15 || task.duration > 1440 || task.duration % 15 != 0 {
         return Err(error("validation", "제목(최대 2,000바이트), 본문(최대 200KB), 소요시간을 확인하세요."));

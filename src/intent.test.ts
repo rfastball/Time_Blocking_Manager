@@ -56,4 +56,16 @@ test('the bench stores card, new-pile, pile-move and stack drops, and nothing wh
   const ship=at({id:'a',ids:['a','c'],zone:'date',date:day});
   assert.deepEqual(intentAction(bench,ship),{type:'ship_flow',date:day,items:[{id:'a',revision:1},{id:'c',revision:1}]});
   assert.deepEqual(orderOf(applyIntent(bench,ship)),['a','c']);
+  // A multi-drop on the timetable body inserts before the pointed remaining card.
+  const mixed=[...bench,task('x',{flow_order:1}),task('y',{flow_order:2}),task('z',{flow_order:3})];
+  const insert=at({id:'a',ids:['a','c'],zone:'body',date:day,before:'y'});
+  assert.deepEqual(orderOf(applyIntent(mixed,insert)),['x','a','c','y','z']);
+  assert.deepEqual(intentAction(mixed,insert),{type:'ship_flow',date:day,items:[{id:'a',revision:1},{id:'c',revision:1}],before:'y'});
+  const reorder=at({id:'z',ids:['z','x'],zone:'body',date:day,before:'y'});
+  assert.deepEqual(orderOf(applyIntent(mixed,reorder)),['z','x','y']);
+  const spatial=at({id:'a',ids:['a','c'],zone:'canvas',positions:[{id:'a',x:-32,y:75},{id:'c',x:292,y:195}]});
+  assert.deepEqual(intentAction(bench,spatial),{type:'place_board',items:[{id:'a',x:-32,y:75,revision:1},{id:'c',x:292,y:195,revision:1}]});
+  const placed=applyIntent(bench,spatial);
+  assert.deepEqual(placed.filter(t=>['a','c'].includes(t.id)).map(t=>[t.id,t.board_x,t.board_y]),[['a',-32,75],['c',292,195]]);
+  assert.equal(intentAction(placed,spatial),null,'releasing at the saved coordinates stores nothing');
 });

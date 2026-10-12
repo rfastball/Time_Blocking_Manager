@@ -6,10 +6,10 @@ import {benchPiles} from './bench.ts';
 // Where a held block would go if it were let go right now.
 // body: into that day's order before `before` · rail: fixed at `start` · below/date: end of that day's order · tray: back to 미계획
 // · pile: onto the 미계획 bench, into `pile` (null: the 투입구) before the card at `index`, or as a new pile at position `create`.
-export type Zone='none'|'body'|'rail'|'below'|'date'|'tray'|'pile';
+export type Zone='none'|'body'|'rail'|'below'|'date'|'tray'|'pile'|'canvas';
 // `ids`: every block carried, in order (a selection or a whole pile); `carry`: the pile carried by its handle.
 export type Intent={id:string;zone:Zone;date:string|null;before:string|null;start:number|null;ok:boolean;reason:string|null;
-  ids?:string[];carry?:{pile:string|null};pile?:string|null;index?:number;create?:number|null};
+  ids?:string[];carry?:{pile:string|null};pile?:string|null;index?:number;create?:number|null;positions?:{id:string;x:number;y:number}[]};
 export const noIntent=(id:string):Intent=>({id,zone:'none',date:null,before:null,start:null,ok:true,reason:null});
 export const carried=(i:Intent)=>i.ids?.length?i.ids:[i.id];
 
@@ -19,17 +19,23 @@ function orderWith(tasks:Task[],date:string,id:string,before:string|null){
   ids.splice(at<0?ids.length:at,0,id);
   return ids;
 }
-const lands=(i:Intent)=>i.zone!=='none'&&!(i.zone==='rail'&&!i.ok)&&(i.zone==='tray'||i.zone==='pile'||!!i.date);
+const lands=(i:Intent)=>i.zone!=='none'&&!(i.zone==='rail'&&!i.ok)&&(i.zone==='tray'||i.zone==='pile'||i.zone==='canvas'&&!!i.positions?.length||!!i.date);
 
 // The tasks as they would be after the drop. Used to lay the days out while the block is held.
 // The bench draws its own landing slot, so a pile drop leaves the tasks as they are.
 export function applyIntent(tasks:Task[],intent:Intent|null):Task[]{
   if(!intent||!lands(intent)||intent.zone==='pile')return tasks;
   const {id,date}=intent,ids=carried(intent);
+  if(intent.zone==='canvas')return tasks.map(t=>{
+    const p=intent.positions?.find(p=>p.id===t.id);return p?{...t,plan_date:null,starts_at:null,flow_order:null,board_x:p.x,board_y:p.y}:t;
+  });
   if(intent.zone==='tray')return tasks.map(t=>t.id===id?{...t,plan_date:null,starts_at:null,flow_order:null}:t);
   if(intent.zone==='rail')return tasks.map(t=>t.id===id?{...t,plan_date:date,starts_at:date+'T'+time(intent.start!),flow_order:null}:t);
   if(ids.length>1){
-    const order=new Map([...flowsOn(tasks,date!).map(t=>t.id).filter(x=>!ids.includes(x)),...ids].map((x,n)=>[x,n+1]));
+    const next=flowsOn(tasks,date!).map(t=>t.id).filter(x=>!ids.includes(x));
+    const at=intent.zone==='body'&&intent.before?next.indexOf(intent.before):-1;
+    next.splice(at<0?next.length:at,0,...ids);
+    const order=new Map(next.map((x,n)=>[x,n+1]));
     return tasks.map(t=>order.has(t.id)?{...t,plan_date:date,starts_at:null,flow_order:order.get(t.id)!}:t);
   }
   const order=new Map(orderWith(tasks,date!,id,intent.zone==='body'?intent.before:null).map((x,n)=>[x,n+1]));
@@ -66,11 +72,15 @@ function pileAction(tasks:Task[],piles:Pile[],intent:Intent,newPile:()=>string):
 export function intentAction(tasks:Task[],intent:Intent,piles:Pile[]=[],newPile:()=>string=()=>crypto.randomUUID()):Action|null{
   const t=tasks.find(x=>x.id===intent.id);
   if(!t||!lands(intent))return null;
+  if(intent.zone==='canvas'){
+    const items=intent.positions!.map(p=>({...p,revision:tasks.find(t=>t.id===p.id)!.revision}));
+    return items.every(p=>{const t=tasks.find(t=>t.id===p.id)!;return !t.plan_date&&t.board_x===p.x&&t.board_y===p.y;})?null:{type:'place_board',items};
+  }
   if(intent.zone==='pile')return pileAction(tasks,piles,intent,newPile);
   if(intent.zone==='tray')return t.plan_date&&!t.completed?updateAction(t,null,null):null;
   const date=intent.date!,ids=carried(intent);
-  // Several at once (a selection, a whole pile): in their order onto the end of the day.
-  if(ids.length>1)return {type:'ship_flow',date,items:revisions(tasks,ids)};
+  // Several at once retain their order at the pointed slot; date heads append.
+  if(ids.length>1)return {type:'ship_flow',date,items:revisions(tasks,ids),...(intent.zone==='body'?{before:intent.before}:{})};
   if(intent.zone==='rail'){
     const startsAt=date+'T'+time(intent.start!);
     return t.starts_at===startsAt?null:updateAction(t,date,startsAt);
