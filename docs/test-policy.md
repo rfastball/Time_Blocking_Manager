@@ -1,5 +1,12 @@
 # 검증 범위
 
+## 오늘 완료 영역 높이 제한 Test delta (2026-10-12)
+
+- Unique risk / owner: 완료 블록과 긴 제목이 많이 쌓이면 오늘 시간표가 아래로 밀리거나, 높이를 제한한 뒤 마지막 완료 항목을 편집·완료 취소할 수 없는 문제. 실제 CSS 높이·스크롤·포커스를 소유하는 기존 `scripts/ui-check/today.mjs`에 화면 크기별 시나리오 하나를 추가했다.
+- Added / extended / removed: **1 / 0 / 0**, today 수집 **8→9**. 기본 suite의 heavy-resource launch·새 파일·의존성·lane·coverage floor 변화 **0**. 기존 빈 완료 목록의 배치 검증은 서로 다른 위험을 다뤄 유지했다.
+- 완료 40개로 1440×900·960×640·760×640·720×900을 확인해 **1/1 시나리오 · 14.788초** 통과. 영역 내부 스크롤, 마지막 항목 키보드 편집·완료 취소, 시간표 스크롤 독립성을 확인했다. 1440×900에서 완료 영역 **229→110px**, 시간표 **523→642px**; 960×640에서 **151→110px**, 시간표 **341→382px**였다.
+- 최종 빌드 **1.84초**, `git diff --check` 통과. Runtime delta는 동일 조건의 통과 baseline이 없어 **not measured**. Sol이 CSS·UI 검증을 맡고 root는 코드·화면 검토 및 높이 기준 문서 통합을 맡았다. 실제 Windows 설치본은 미검증이다.
+
 ## 캡처·설정·백업 조작 복구 Test delta (2026-10-12)
 
 - Unique risk / owner: 손상 초안으로 잠긴 캡처의 복구 조작 누락, 빈 정기 업무 추가 무반응, 백업 검사 대기·오류 시 취소 누락을 기존 `scripts/ui-check/capture.mjs`, `settings.mjs`, `backups.mjs`에서 검증한다. 초안 파싱 자체는 기존 Node owner가 맡고 UI 버튼 연결만 확장했다.

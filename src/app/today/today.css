@@ -11,7 +11,7 @@
 .today-cols{flex:1;min-height:0;display:grid;grid-template-columns:clamp(280px,25vw,360px) minmax(0,1fr);gap:var(--space-section-loose)}
 .today-day{min-width:0;min-height:0;padding:0;overflow:hidden}
 .today-day .dayspace{height:100%;display:flex;flex-direction:column;min-height:0}
-.today-day .bin{flex:0 0 auto;max-height:30%;overflow:auto}
+.today-day .bin{flex:0 0 auto;max-height:min(30%,110px);overflow:auto}
 .today-day .slit{flex:0 0 auto}
 .today-day .space-wrap{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable}
 .today-day .main{scroll-margin-block:var(--space-related)}

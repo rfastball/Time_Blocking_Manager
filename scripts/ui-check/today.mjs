@@ -7,6 +7,39 @@ const find=async(page,text)=>{
   return page.rect('.today-day .blk, .tray .tblk',text);
 };
 export default [
+  {name:'many completed blocks keep a bounded intake and the last edit and undo accessible',viewport:{width:1440,height:900},run:async page=>{
+    const sizes=[];
+    for(const viewport of [{width:1440,height:900},{width:960,height:640},{width:760,height:640},{width:720,height:900}]){
+      await page.goto('/?now=10:20',viewport);
+      await page.js(`(async()=>{const {getState,setState}=await import('/src/app/store/state.ts');const s=getState(),done=Array.from({length:40},(_,i)=>({id:'completed-'+i,title:'완료 '+(i+1)+' · '+('긴 제목 검토 내용 ').repeat(i%3===0?12:2),body:'완료 메모 '+(i+1),starts_at:null,duration:15,completed:true,revision:1,plan_date:s.today,flow_order:100+i}));setState({snapshot:{...s.snapshot,tasks:[...s.snapshot.tasks,...done]}});})()`);
+      await page.sleep(450);
+      const size=await page.js(`(()=>{const day=document.querySelector('.today-day'),bin=day.querySelector('.bin'),wrap=day.querySelector('.space-wrap'),r=day.getBoundingClientRect();return {day:day.clientHeight,bottom:r.bottom,bin:bin.clientHeight,binScroll:bin.scrollHeight,timetable:wrap.clientHeight,width:document.documentElement.scrollWidth,viewport:innerWidth};})()`);
+      sizes.push(size);
+      await page.shot('today-many-completed-'+viewport.width);
+      assert.equal(await page.js(`document.querySelectorAll('.today-day .chip').length`),40);
+      assert.ok(size.binScroll>size.bin,'completed items scroll inside their own intake');
+      assert.ok(size.width<=size.viewport,'long titles keep the document within the viewport');
+      if(viewport.width>760)assert.ok(size.bottom<=viewport.height,'the completed list never expands the dashboard row');
+      const last='.today-day [data-task="completed-39"]';
+      const timelineScroll=await page.js(`document.querySelector('.today-day .space-wrap').scrollTop`);
+      await page.js(`document.querySelector('${last}').focus()`);
+      const title=await page.rect(last),bin=await page.rect('.today-day .bin');
+      assert.ok(title.y>=bin.y&&title.y+title.h<=bin.y+bin.h,'keyboard focus reveals the last completed title');
+      assert.equal(await page.js(`document.querySelector('.today-day .space-wrap').scrollTop`),timelineScroll,'completed focus does not scroll the timetable');
+      await page.key('Enter',{text:'\r'});await page.sleep(180);
+      assert.equal(await page.js(`document.querySelector('.ed-title')?.value.startsWith('완료 40')`),true,'last completed task opens for editing');
+      await page.key('Escape');await page.sleep(120);
+      await page.js(`document.querySelector('${last}').focus()`);
+      await page.key('Tab');
+      assert.match(await page.js(`document.activeElement?.getAttribute('aria-label')`),/^완료 40.*완료 취소$/);
+      await page.key('Enter',{text:'\r'});await page.sleep(350);
+      assert.ok(await page.js(`!!document.querySelector('.queue [data-task="completed-39"]')`),'keyboard undo restores the last item to the remaining queue');
+    }
+    for(const size of sizes){
+      assert.ok(size.bin<=110,'completed intake stays compact: '+JSON.stringify(size));
+      assert.ok(size.timetable>=size.day-122,'the timetable retains the rest of its panel');
+    }
+  }},
   {name:'initial layout follows the stored order in two independently scrolling columns',viewport:{width:1440,height:900},run:async page=>{
     assert.deepEqual(await page.blocks(space),['설계 문서 자료 조사, 예상 09:00–10:00','설계 문서 초안 작성, 예상 10:00–10:45','회의록 정리, 예상 10:45–11:15','분리망 배포 의존성 검토, 예상 13:00–14:00','설계 워크숍, 시각 고정 14:00–15:00','신규 입사자 교육 자료, 예상 15:00–16:30','경쟁사 자료 조사, 예상 18:00–20:00']);
     assert.match(await page.text('.today-day .blk.over'),/경쟁사 자료 조사/,'work that no longer fits runs past the end of work instead of leaving the timetable');
