@@ -12,8 +12,8 @@ const scenarios=[
     // The rail is gone: the top bar carries the way home, the dates, the range, search, focus and the gear, in that order.
     await toPlan(page);
     assert.equal(await page.js(`!!document.querySelector('.rail-nav')`),false);
-    const bar=await page.js(`[...document.querySelector('header.topbar').children].map(e=>e.matches('.brand')?'로고':e.matches('.date-nav')?'날짜':e.matches('h1')?'제목':e.matches('.segmented')?'기간':e.matches('.search-open')?'검색':e.matches('button[aria-label="설정"]')?'설정':e.matches('button')?e.textContent.trim():null).filter(Boolean)`);
-    assert.deepEqual(bar,['로고','날짜','제목','기간','검색','몰입','설정']);
+    const bar=await page.js(`[...document.querySelector('header.topbar').children].map(e=>e.matches('.brand')?'로고':e.matches('.date-nav')?'날짜':e.matches('h1')?'제목':e.matches('.segmented')?'기간':e.matches('.search-open')?'검색':e.matches('button[aria-label="단축키"]')?'단축키':e.matches('button[aria-label="설정"]')?'설정':e.matches('button')?e.textContent.trim():null).filter(Boolean)`);
+    assert.deepEqual(bar,['로고','날짜','제목','기간','검색','몰입','단축키','설정']);
     assert.equal(await page.js(`document.querySelector('.search-open').getAttribute('aria-keyshortcuts')`),'Control+K');
     await page.js(`document.querySelector('#tray-capture').focus()`);
     await open(page);

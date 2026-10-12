@@ -1,4 +1,4 @@
-import {useEffect,useState} from 'react';
+import {useCallback,useEffect,useState} from 'react';
 import {rangeTitle} from '../../format.ts';
 import {needsSavedReview} from '../../capture.ts';
 import {dateKey,dateLabel,dateOf,plusDays} from '../../dates.ts';
@@ -10,6 +10,7 @@ import {DragProvider} from '../space/drag.tsx';
 import {Today} from '../today/Today.tsx';
 import {Periods,Plan} from '../plan/Plan.tsx';
 import {Dock} from '../dock/Dock.tsx';
+import {KeyList,useShortcuts} from './keys.tsx';
 import {Settings} from '../settings/Settings.tsx';
 import {AvailabilityPopover} from '../settings/AvailabilityPopover.tsx';
 import {EditorHost,ContextMenuHost} from '../editor/hosts.tsx';
@@ -33,6 +34,8 @@ export function Shell(){
   const unit=focus||nav.period==='day'?'날':nav.period==='month'?'달':nav.period==='two'?'2주':'주';
   // The cutting board opened on the bench holds the calendar still, as the old date columns were.
   const cutting=!!(ui.split&&drafts.cut&&benchShown(s));
+  const [keys,setKeys]=useState(false),openKeys=useCallback(()=>setKeys(true),[]);
+  useShortcuts(openKeys);
   return <DragProvider>
     <div className="app-shell" inert={quitSaving||undefined}>
       <main className="workspace">
@@ -51,8 +54,9 @@ export function Shell(){
           {s.native&&s.info.warning&&<span className="notice warning">{s.info.warning}</span>}
           {/* Search finds work everywhere, so it sits with the screen controls rather than in any one place. */}
           <button type="button" className="btn search-open" aria-label="검색" aria-keyshortcuts="Control+K" aria-expanded={ui.search} onClick={openSearch}><Icon name="search" size={16}/><span className="label">검색</span><kbd>Ctrl K</kbd></button>
-          {work?<button type="button" className="btn primary" onClick={toFocus}><Icon name="focus" size={16}/>몰입</button>
-            :<button type="button" className="btn" onClick={toWork}>작업 화면</button>}
+          {work?<button type="button" className="btn primary" aria-keyshortcuts="F" onClick={toFocus}><Icon name="focus" size={16}/>몰입</button>
+            :<button type="button" className="btn" aria-keyshortcuts={focus?'F Escape':'F'} onClick={toWork}>작업 화면</button>}
+          <button type="button" className="ibtn" aria-label="단축키" aria-keyshortcuts="?" aria-haspopup="dialog" onClick={openKeys}>?</button>
           <button type="button" className={'ibtn'+(nav.view==='settings'?' on':'')} aria-label="설정" aria-pressed={nav.view==='settings'} onClick={()=>nav.view==='settings'?toWork():setNav({view:'settings'})}><Icon name="settings" size={18}/></button>
         </header>
         <div className="content" data-view={nav.view}>
@@ -62,6 +66,7 @@ export function Shell(){
       </main>
     </div>
     {ready&&snapshot&&s.draftLoaded&&<><EditorHost/><ContextMenuHost/><CutHost/><AvailabilityPopover/><SearchHost/></>}
+    {keys&&<KeyList onClose={()=>setKeys(false)}/>}
     <div className="sr-only" role="status" aria-live="polite">{s.message}</div>
   </DragProvider>;
 }

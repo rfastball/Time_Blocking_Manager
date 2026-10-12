@@ -1,5 +1,12 @@
 # 검증 범위
 
+## 한 화면 실험 2단계: 단축키 (2026-10-13, `exp/one-screen`)
+
+- Unique risk: 한 글자 단축키가 입력란·한글 조합·대화상자·검색·도마·옆 편집기의 키를 빼앗는 것, 도크 폭을 키로 바꿀 때 포커스가 사라지는 것.
+- Existing owner / selected layer: 키 판정은 순수 함수 `src/shortcuts.ts`로 두고 Node 테스트로 화면·가드 조합을 덮는다. 실제 포커스·대화상자·한글 자판 위치는 새 `scripts/ui-check/keys.mjs`가 덮는다.
+- Added / extended / removed: Node **5 / 0 / 0**(66→71), UI keys **5 / 0 / 0**, search 위 막대 순서 단언 **0 / 1 / 0**(? 버튼). 전체 UI **85/85**, `npm run build` 통과, Rust 변경 없음.
+- 기본 suite 변화 **0**. Runtime delta **not measured**. 실제 Windows IME와 설치본은 미검증이다.
+
 ## 한 화면 실험 1단계: 위 막대·준비 도크 (2026-10-13, `exp/one-screen`)
 
 - Unique risk: 탭을 없애며 한 탭에만 있던 동작(준비 작업대·휴지통·도마 바로 열기·오늘 대기열·검색 이동)을 잃는 것, 도크 폭 전환에서 포커스가 사라지는 것, 붙은 위 막대가 스크롤된 대상을 가리는 것.
