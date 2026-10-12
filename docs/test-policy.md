@@ -1,5 +1,13 @@
 # 검증 범위
 
+## 카드·상세 삭제 버튼 Test delta (2026-10-12)
+
+- Unique risk / owner: 카드 삭제가 드래그·크기 조절을 시작하거나 포커스를 잃는 문제와 상세의 불필요한 메뉴를 기존 `scripts/ui-check/inbox.mjs`, `editor.mjs` 브라우저 owner에서 검증한다.
+- Added / extended / removed: **1 / 4 / 0**. 기존 더보기 시나리오는 직접 삭제와 블록 메뉴의 미저장 분할 보호로 교체했다. 해당 owner 수집 **22→23**이며 새 테스트 파일·의존성·lane·coverage floor 변경은 없다.
+- 검증: TypeScript·Vite 빌드 성공, UI **23/23 · 101.194초**. 15분·길이 미정 카드의 직접 삭제, 휴지통 복원, 다음/이전 카드·빈 목록 포커스, 상세 삭제와 720px 화면을 확인했다.
+- Runtime delta는 같은 조건의 변경 전 baseline 부재로 **not measured**. 기본 suite의 heavy-resource launch delta **0**, 명시적 UI는 기존 Edge 실행을 공유한다.
+- Sol이 구현·UI 검증을 맡았고 root는 코드·스크린샷 검토와 문서 통합을 맡았다. 실제 Windows 설치본 조작은 미실시했다.
+
 ## 미계획 드롭 위치 연결 Test delta brief (2026-10-12)
 
 - Unique risk: 더미 이동 직후 저장 응답을 기다리는 동안 원래 카드가 다시 보이거나 드래그 복사본이 원래 자리로 돌아간 뒤 목적지에서 다시 나타남. 정상 저장의 연결을 고치면서 실패·취소의 복귀, 연속 드래그 또는 모션 감소 설정이 깨짐.

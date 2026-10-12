@@ -133,12 +133,14 @@ const scenarios=[
     await page.key('Escape');await page.sleep(200);
     assert.match(await label(page),/더미/,'focus returns to the handle');
   }},
-  {name:'Delete moves a card to the collapsed 휴지통 without a dialog; restore puts it back in its pile',run:async page=>{
+  {name:'a card delete button moves even a 15-minute card to 휴지통 without drag or a dialog; restore keeps its pile',run:async page=>{
     await open(page);
     await stubDialogs(page);
-    await focusCard(page,'메일 답장');await page.key('Delete');await page.sleep(500);
+    await page.click('button[aria-label="메일 답장 삭제"]');await page.sleep(500);
     assert.deepEqual(await page.js('window.__asked'),[],'no dialog');
     assert.equal((await bench(page))[1],'P:결재 처리');
+    assert.equal(await label(page),'결재 처리 삭제','focus moves to the next delete button');
+    assert.equal(await page.js(`!!document.querySelector('.held, .cut')`),false,'no drag or cutting board');
     assert.equal(await page.text('[role=status]'),'‘메일 답장’을 휴지통으로 옮겼어요');
     assert.equal(await page.js('document.querySelector(".inbox-trash").open'),false);
     assert.equal(await page.js(`document.querySelectorAll(${JSON.stringify(trashed)}).length`),0,'closed trash disclosure does not mount rows');
@@ -148,6 +150,14 @@ const scenarios=[
     await page.click('button[aria-label="메일 답장 복원"]');await page.sleep(500);
     assert.equal((await bench(page))[1],'P:메일 답장|결재 처리');
     assert.equal(await page.js('!!document.querySelector(".inbox-trash")'),false,'no empty trash label');
+    await focusCard(page,'메일 답장');await page.key('Delete');await page.sleep(300);
+    assert.equal(await label(page),'결재 처리, 15분','keyboard Delete keeps focus in the cards');
+    await page.click('button[aria-label="결재 처리 삭제"]');await page.sleep(300);
+    assert.equal(await label(page),'SQLite 백업 방식 조사 삭제','last card uses the previous card');
+    for(const title of ['SQLite 백업 방식 조사','회의록 템플릿 업데이트','주간 보고 초안','경쟁사 동향 정리']){
+      await page.click(`button[aria-label="${title} 삭제"]`);await page.sleep(200);
+    }
+    assert.equal(await page.js('document.activeElement?.id'),'inbox-capture','last deletion returns to capture');
   }},
   {name:'영구 삭제 removes one item; 휴지통 비우기 asks in place and Esc keeps everything',run:async page=>{
     await open(page);
@@ -218,6 +228,9 @@ const scenarios=[
     assert.ok(d.y>=b.y+b.h,'columns under the bench');
     assert.equal(await page.js('document.documentElement.scrollWidth<=innerWidth'),true,'no sideways page scroll');
     await page.shot('inbox-narrow');
+    await page.click('button[aria-label="주간 보고 초안 삭제"]');await page.sleep(300);
+    assert.equal(await label(page),'회의록 템플릿 업데이트 삭제','proto deletion works at the narrow viewport');
+    assert.equal(await page.js(`!!document.querySelector('.held, .cut')`),false);
   }},
 ];
 export default scenarios.map(s=>({...s,run:async page=>{try{await s.run(page);}catch(e){await page.shot(`FAIL-inbox-${s.name}`.replace(/[^\w가-힣-]+/g,'_')).catch(()=>{});await discard(page).catch(()=>{});throw e;}}}));

@@ -117,12 +117,18 @@ function Card({task:t,past,onOpen}:{task:Task;past?:boolean;onOpen:Open}){
   const dropping=!!held?.dropping&&held.ids.includes(t.id);
   const proto=t.proto&&live===null,size=proto?'':formatDuration(minutes),from=past?shortDate(t.plan_date!):'';
   const memo=!compact&&t.body.trim()?memoPreview(t.body):'';
+  async function remove(items:Task[],action:'main'|'wb-delete'){
+    const ids=items.map(x=>x.id),cards=[...document.querySelectorAll<HTMLElement>('.wb-card')],at=cards.findIndex(c=>c.dataset.card===t.id);
+    const next=cards.slice(at+1).find(c=>!ids.includes(c.dataset.card!))??cards.slice(0,at).reverse().find(c=>!ids.includes(c.dataset.card!));
+    let ok=true;for(const task of items)ok=await deleteTask(task)&&ok;
+    if(ok)requestAnimationFrame(()=>(next?.isConnected?next.querySelector<HTMLElement>('.'+action):document.getElementById('inbox-capture'))?.focus({preventScroll:true}));
+  }
   function keys(e:KeyboardEvent<HTMLButtonElement>){
     const vertical=e.key==='ArrowUp'||e.key==='ArrowDown',up=e.key==='ArrowUp';
     if(vertical&&!e.altKey&&!e.ctrlKey&&!e.metaKey&&!e.shiftKey){e.preventDefault();void setLength(t,t.duration+(up?-15:15));return;}
     if(vertical&&e.altKey&&!past){e.preventDefault();void nudge(t,up?-1:1);return;}
     if(e.altKey&&(e.key==='ArrowLeft'||e.key==='ArrowRight')&&!past){e.preventDefault();void shiftPile(t,e.key==='ArrowLeft'?-1:1);return;}
-    if(e.key==='Delete'){e.preventDefault();const sel=getState().ui.benchSelection;for(const x of sel.includes(t.id)?selectedTasks():[t])void deleteTask(x);return;}
+    if(e.key==='Delete'){e.preventDefault();const sel=getState().ui.benchSelection;void remove(sel.includes(t.id)?selectedTasks():[t],'main');return;}
     if(e.key==='Escape'&&getState().ui.benchSelection.length){e.preventDefault();e.stopPropagation();setSelection([]);}
   }
   // The lip follows the hand in 15-minute steps and stores on release; the cards below simply follow.
@@ -148,6 +154,7 @@ function Card({task:t,past,onOpen}:{task:Task;past?:boolean;onOpen:Open}){
         {memo&&<span className="wb-memo" id={memoId}>{memo}</span>}
         {(from||size)&&<span className="meta">{[from,size].filter(Boolean).join(' · ')}</span>}
       </button>
+      <button type="button" className="ibtn wb-delete" aria-label={`${t.title} 삭제`} title="삭제" disabled={!ready} onPointerDown={e=>e.stopPropagation()} onClick={()=>void remove([t],'wb-delete')}><Icon name="delete" size={15}/></button>
     </div>
     <div className="wb-lip" aria-hidden="true" onPointerDown={resize}/>
   </motion.div>;

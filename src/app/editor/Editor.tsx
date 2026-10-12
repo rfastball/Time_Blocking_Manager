@@ -1,5 +1,5 @@
 import {useEffect,useId,useRef,useState,type KeyboardEvent as ReactKeyboardEvent,type MutableRefObject} from 'react';
-import {AnimatePresence,motion} from 'motion/react';
+import {motion} from 'motion/react';
 import {isCompositionKey,needsSavedReview} from '../../capture.ts';
 import {formatDuration} from '../../format.ts';
 import {time} from '../../dates.ts';
@@ -10,10 +10,9 @@ import {changeEditor,closeEditor,completeFromEditor,discardEditorDraft,editorCon
 import {release,retry,showError} from '../store/session.ts';
 import {dayRule,deleteTask,issueAt,planOf,taskMinute} from '../store/tasks.ts';
 import {Icon,Lock} from '../ui/icons.tsx';
-import {menuKeys,requestSplit} from './actions.ts';
 
 const SIZES=[15,30,60,90,120];
-type Want='title'|'time'|'date'|'duration'|'confirm'|'more'|null;
+type Want='title'|'time'|'date'|'duration'|'confirm'|null;
 
 // One task's detail: title and memo first, schedule folded below, actions pinned at the bottom.
 // The same body serves the 오늘 side panel and the dialog; `closer` lets the dialog route its own close requests here.
@@ -25,7 +24,7 @@ export function Editor({mode,closer}:{mode:'panel'|'dialog';closer?:MutableRefOb
   // A fixed box ticked before the date or time exists has no starts_at yet; it lives here until both are typed.
   const [fix,setFix]=useState({on:!!e.starts_at,at:e.starts_at?.slice(11,16)??''});
   const [want,setWant]=useState<Want>(null);
-  const form=useRef<HTMLFormElement>(null),titleRef=useRef<HTMLInputElement>(null),timeRef=useRef<HTMLInputElement>(null),dateRef=useRef<HTMLInputElement>(null),durationRef=useRef<HTMLInputElement>(null),confirmRef=useRef<HTMLButtonElement>(null),moreRef=useRef<HTMLButtonElement>(null);
+  const form=useRef<HTMLFormElement>(null),titleRef=useRef<HTMLInputElement>(null),timeRef=useRef<HTMLInputElement>(null),dateRef=useRef<HTMLInputElement>(null),durationRef=useRef<HTMLInputElement>(null),confirmRef=useRef<HTMLButtonElement>(null);
   const ids=useId(),fixOn=!!e.starts_at||fix.on,at=e.starts_at?.slice(11,16)??fix.at;
   const conflict=dirty&&editorConflict(),items=checklist(e.body),count=checkCount(e.body);
   const issue=e.starts_at&&durationValid(e.duration)?issueAt(e.id,e.starts_at.slice(0,10),taskMinute(e),e.duration):null;
@@ -44,7 +43,7 @@ export function Editor({mode,closer}:{mode:'panel'|'dialog';closer?:MutableRefOb
   },[ui.editorFocus]);
   useEffect(()=>{
     if(!want)return;
-    const el={title:titleRef,time:timeRef,date:dateRef,duration:durationRef,confirm:confirmRef,more:moreRef}[want].current;
+    const el={title:titleRef,time:timeRef,date:dateRef,duration:durationRef,confirm:confirmRef}[want].current;
     el?.focus();setWant(null);
   },[want]);
   if(closer)closer.current=requestClose;
@@ -77,6 +76,14 @@ export function Editor({mode,closer}:{mode:'panel'|'dialog';closer?:MutableRefOb
   async function submit(){if(await save()&&mode==='dialog')closeEditor();}
   async function complete(){if(getState().drafts.editorDirty&&!ready())return;setBusy(true);await completeFromEditor();setBusy(false);}
   async function rebase(){if(await rebaseEditor()&&mode==='dialog')closeEditor();}
+  async function remove(){
+    if(busy||!saved)return;
+    const buttons=[...document.querySelectorAll<HTMLElement>('[data-task]')],at=buttons.findIndex(b=>b.dataset.task===saved.id);
+    const next=buttons.slice(at+1).find(b=>b.dataset.task!==saved.id)??buttons.slice(0,at).reverse().find(b=>b.dataset.task!==saved.id);
+    setBusy(true);
+    if(await deleteTask(saved))requestAnimationFrame(()=>(next?.isConnected?next:document.querySelector<HTMLElement>('.ed-next-open, .nav-button[aria-current="page"]'))?.focus({preventScroll:true}));
+    else setBusy(false);
+  }
   function keys(ev:ReactKeyboardEvent<HTMLFormElement>){
     const target=ev.target as HTMLElement;
     // An Enter that commits Korean composition must not submit the title.
@@ -84,11 +91,6 @@ export function Editor({mode,closer}:{mode:'panel'|'dialog';closer?:MutableRefOb
     if(ev.key==='Enter'&&(ev.ctrlKey||ev.metaKey)){ev.preventDefault();form.current!.requestSubmit();return;}
     if(ev.key==='Escape'){ev.preventDefault();ev.stopPropagation();if(confirming){setConfirming(false);setWant('title');}else requestClose();}
   }
-  const more=[
-    ...(saved&&!saved.completed?[{label:'블록 나누기',run:()=>requestSplit(e.id)}]:[]),
-    ...(e.plan_date&&!e.completed?[{label:'미계획으로 돌리기',run:()=>{setFix({on:false,at:''});edit({plan_date:null,starts_at:null});}}]:[]),
-    ...(saved?[{label:'삭제',danger:true,run:()=>void deleteTask(saved)}]:[]),
-  ];
 
   return <form ref={form} className={'ed ed-'+mode} onSubmit={ev=>{ev.preventDefault();void submit();}} onKeyDown={keys}>
     <header className="ed-head">
@@ -143,28 +145,10 @@ export function Editor({mode,closer}:{mode:'panel'|'dialog';closer?:MutableRefOb
       </motion.div>
       :<div className="ed-row ed-actions">
         <button type="button" className="btn" disabled={busy} onClick={()=>void complete()}>{e.completed?'미완료로 되돌리기':'완료로 표시'}</button>
-        <More items={more} buttonRef={moreRef} onClose={()=>setWant('more')}/>
+        {saved&&<button type="button" className="btn danger" disabled={busy} onClick={()=>void remove()}><Icon name="delete" size={16}/>삭제</button>}
         <span className="ed-status" role="status">{status}</span>
         <button type="submit" className="btn primary" disabled={busy} aria-keyshortcuts="Control+Enter">저장</button>
       </div>}
     </footer>
   </form>;
-}
-
-type Item={label:string;run:()=>void;danger?:boolean};
-function More({items,buttonRef,onClose}:{items:Item[];buttonRef:MutableRefObject<HTMLButtonElement|null>;onClose:()=>void}){
-  const [open,setOpen]=useState(false),menu=useRef<HTMLDivElement>(null),id=useId();
-  useEffect(()=>{if(open)menu.current?.querySelector<HTMLElement>('[role=menuitem]')?.focus();},[open]);
-  const close=()=>{setOpen(false);onClose();};
-  if(!items.length)return null;
-  return <div className="ed-more" onBlur={x=>{if(open&&!x.currentTarget.contains(x.relatedTarget as Node))setOpen(false);}}>
-    <button ref={buttonRef} type="button" className="btn" aria-haspopup="menu" aria-expanded={open} aria-controls={open?id:undefined} aria-label="더보기"
-      onClick={()=>setOpen(o=>!o)} onKeyDown={x=>{if(x.key==='ArrowDown'||x.key==='ArrowUp'){x.preventDefault();setOpen(true);}}}><Icon name="more" size={16} stroke={3}/>더보기</button>
-    <AnimatePresence>
-      {open&&<motion.div ref={menu} id={id} role="menu" aria-label="더보기" className="menu ed-menu" onKeyDown={x=>menuKeys(x,close)}
-        initial={{opacity:0,scale:.96,y:4}} animate={{opacity:1,scale:1,y:0}} exit={{opacity:0,transition:{duration:.08}}} transition={{type:'spring',visualDuration:.16,bounce:.15}}>
-        {items.map(i=><button key={i.label} type="button" role="menuitem" tabIndex={-1} className={i.danger?'danger':''} onClick={()=>{setOpen(false);buttonRef.current?.focus();i.run();}}>{i.label}</button>)}
-      </motion.div>}
-    </AnimatePresence>
-  </div>;
 }

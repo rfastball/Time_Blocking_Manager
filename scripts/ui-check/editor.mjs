@@ -114,9 +114,11 @@ const scenarios=[
     assert.ok(!(await page.blocks(space)).some(b=>b.startsWith('회의록 정리')),'left the day');
     assert.equal(await page.text('[role=status]'),'‘회의록 정리’을 휴지통으로 옮겼어요');
     await openBlock(page,'분리망 배포');
-    await page.click(panel+' .ed-more > button');await page.click('.ed-menu [role=menuitem]','삭제');await page.sleep(500);
+    assert.equal(await page.js(`document.querySelector(${JSON.stringify(panel)}).querySelector('[aria-label="더보기"]')`),null);
+    await page.click(panel+' .ed-actions button','삭제');await page.sleep(500);
     assert.equal(await page.rect(panel),null,'detail closed');
     assert.ok(!(await page.blocks(space)).some(b=>b.startsWith('분리망 배포')));
+    assert.ok((await active(page)).task,'focus moves to a remaining block');
     assert.deepEqual(await page.js('window.__asked'),[],'no dialog');
     await page.click('.rail-nav .nav-button','미계획');await page.sleep(300);
     assert.match(await page.text('.inbox-trash > summary'),/휴지통 2/);
@@ -166,20 +168,19 @@ const scenarios=[
     assert.equal((await page.blocks(space)).filter(b=>b.startsWith('분리망 배포')).length,1);
     assert.equal((await active(page)).task,'sample-d');
   }},
-  {name:'the more menu refuses to split unsaved changes and moves the draft to 미계획',run:async page=>{
+  {name:'the detail exposes deletion directly; the block menu still guards splitting unsaved changes',run:async page=>{
     await openBlock(page,'분리망 배포');
     await caretEnd(page,panel+' .ed-title');await page.type('!');
-    await page.click(panel+' .ed-more>.btn');
-    assert.equal((await active(page)).text,'블록 나누기');
-    await page.key('Enter',{text:'\r'});await page.sleep(150);
+    assert.deepEqual(await page.js(`[...document.querySelectorAll(${JSON.stringify(panel+' .ed-actions button')})].map(b=>b.textContent)`),['완료로 표시','삭제','저장']);
+    await rightClick(page,space+' .blk','분리망 배포');await page.sleep(150);
+    await page.click('.ctx-menu [role=menuitem]','나누기');await page.sleep(150);
     assert.equal(await page.rect('.cut'),null,'no board while dirty');
     assert.match(await page.text('.status'),/변경을 저장한 뒤 블록을 나눠 주세요/);
-    await page.click(panel+' .ed-more>.btn');await page.key('ArrowDown');
-    assert.equal((await active(page)).text,'미계획으로 돌리기');
-    await page.key('Enter',{text:'\r'});await page.sleep(100);
-    assert.match(await page.text(panel+' .ed-state'),/미계획/);
-    await page.key('Enter',{modifiers:CTRL});await page.sleep(500);
-    assert.match(await page.text('.today-side .tray'),/분리망 배포 의존성 검토!/);
+    await page.js(`document.querySelector(${JSON.stringify(panel+' .ed-actions .danger')}).focus()`);
+    await page.key('Enter',{text:'\r'});await page.sleep(400);
+    assert.equal(await page.rect(panel),null,'deletion clears the unsaved detail');
+    assert.equal(await page.js(`!!document.querySelector('.status')?.textContent.includes('이어서 편집')`),false);
+    assert.equal(await page.text('[role=status]'),'‘분리망 배포 의존성 검토’을 휴지통으로 옮겼어요');
   }},
   {name:'the panel keeps to the role tokens in every theme',run:async page=>{
     for(const theme of ['g1','g3','g4']){
@@ -194,6 +195,16 @@ const scenarios=[
     await page.js(`document.querySelector('.ed-next-open').focus()`);await page.key('Enter',{text:'\r'});await page.sleep(200);
     await page.key('Escape');await page.sleep(200);
     assert.equal(await page.js(`document.activeElement?.classList.contains('ed-next-open')`),true,'the remounted Next card takes focus again');
+  }},
+  {name:'the narrow detail keeps its direct delete action visible',viewport:{width:720,height:900},run:async page=>{
+    await openBlock(page,'분리망 배포');
+    const selector='dialog.ed-dialog .ed-actions .danger',r=await page.rect(selector);
+    assert.ok(r&&r.x>=0&&r.x+r.w<=720&&r.y+r.h<=900,'delete fits the viewport');
+    assert.equal(await page.js(`!!document.querySelector('dialog.ed-dialog [aria-label="더보기"]')`),false);
+    await page.shot('editor-direct-delete-narrow');
+    await page.click(selector);await page.sleep(400);
+    assert.equal(await page.rect('dialog.ed-dialog'),null);
+    assert.ok((await active(page)).task,'focus returns to a remaining block');
   }},
 ];
 export default scenarios.map((s,i)=>({...s,run:async page=>{

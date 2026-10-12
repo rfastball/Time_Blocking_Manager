@@ -54,8 +54,6 @@
 .ed-status{flex:1 1 0;min-width:0;text-align:right;font-size:var(--font-size-label);color:var(--color-text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ed-status:empty{flex-basis:0}
 .ed-confirm p{margin:0 0 8px;font-size:var(--font-size-summary);font-weight:var(--font-weight-heading)}
-.ed-more{position:relative}
-.ed-more>.btn{padding-left:9px}
 
 /* Floating layers */
 .menu{z-index:60;padding:5px;background:var(--color-surface);color:var(--color-text);border:1px solid var(--color-border);border-radius:var(--radius-panel);box-shadow:var(--shadow-dialog)}
@@ -64,7 +62,6 @@
 .menu [role=menuitem]:focus-visible{background:var(--color-selection);outline-offset:-2px}
 .menu [role=menuitem]:disabled{opacity:var(--opacity-disabled);cursor:default;background:transparent}
 .menu .danger{color:var(--color-error)}
-.ed-menu{position:absolute;left:0;bottom:calc(100% + 6px);min-width:170px;transform-origin:0 100%}
 .ctx-menu{position:fixed;min-width:200px;max-width:280px;transform-origin:0 0}
 .menu-head{margin:0 0 4px;padding:6px 12px 8px;border-bottom:1px solid var(--color-divider);font-size:var(--font-size-label);color:var(--color-text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .split-pop{position:fixed;width:min(280px,calc(100vw - 16px));padding:14px;display:flex;flex-direction:column;gap:10px;transform-origin:0 0}
