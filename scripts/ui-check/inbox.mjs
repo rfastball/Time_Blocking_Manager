@@ -120,6 +120,17 @@ const scenarios=[
     await open(page);
     assert.equal((await titles(page,'.jb-shelf'))[0],'회의록 정리');
   }},
+  {name:'a capture dragged onto the shelf can be dragged again there',run:async page=>{
+    await open(page);
+    await page.click('#inbox-capture');await page.type('새 일');await page.key('Enter');await page.sleep(400);
+    const fresh=await card(page,'새 일'),sqlite=await card(page,'SQLite');
+    await page.drag({x:fresh.cx,y:fresh.y+10},{x:sqlite.cx,y:sqlite.y+sqlite.h+10});
+    assert.ok((await titles(page,'.jb-shelf')).includes('새 일'));
+    const moved=await page.rect('.jb-shelf .jb-card','새 일'),top=await card(page,'회의록');
+    const held=await page.drag({x:moved.cx,y:moved.y+10},{x:top.cx,y:top.y+2},{before:()=>page.js('!!document.querySelector(".held")')});
+    assert.equal(held,true,'the block lifts again');
+    assert.equal((await titles(page,'.jb-shelf'))[0],'새 일');
+  }},
   {name:'at 960px the date columns stay usable; at 720px everything stacks inside the page',viewport:{width:960,height:640},run:async page=>{
     await open(page);
     const page960=await page.js('({scroll:document.documentElement.scrollWidth,width:innerWidth})');

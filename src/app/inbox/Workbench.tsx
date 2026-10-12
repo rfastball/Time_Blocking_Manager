@@ -81,7 +81,8 @@ export function ShelfList({onOpen}:{onOpen:Open}){
 // A card in 준비: a sheet (no length yet) or a block whose height is its length. Lengths save at once and never move the card.
 function Card({task:t,place,past,onOpen}:{task:Task;place:Place;past?:boolean;onOpen:Open}){
   const {ui,ready}=useApp(),{held}=useDrag();
-  const {listeners,setNodeRef}=useDraggable({id:`bench:${t.id}`,data:{taskId:t.id},disabled:!ready||!!held?.dropping});
+  // Each place owns its copy's drag registration: a card leaving one list must not take the other's with it.
+  const {listeners,setNodeRef}=useDraggable({id:`bench:${past?"past":place}:${t.id}`,data:{taskId:t.id},disabled:!ready||!!held?.dropping});
   // While the lip is pulled: the length under the hand, null while still a sheet.
   const [live,setLive]=useState<number|null|undefined>(undefined);
   const pulling=live!==undefined,sheet=t.proto&&place==='inbox'&&!(pulling&&live!==null);
