@@ -171,9 +171,9 @@ export function previewSnapshot():Snapshot{
   // Redesign §10 example: a fixed workshop and four flow blocks, usable on any weekday.
   const days=Array.from({length:7},()=>({enabled:true,start:540,end:1080,breaks:[{start:720,end:780,label:'점심'}]})),day=todayKey();
   const flow=(id:string,title:string,duration:number,order:number,body=''):Task=>({id,title,body,starts_at:null,duration,completed:false,revision:1,plan_date:day,flow_order:order});
-  // The bench: a fresh capture on top of the 투입구, two sized items under it, and one pile of small errands.
+  // 준비: a fresh capture in the 들어옴 and four sized blocks on the shelf.
   const card=(id:string,title:string,duration:number,pile_id:string|null,pile_order:number,proto=false):Task=>({id,title,body:'',starts_at:null,duration,completed:false,revision:1,plan_date:null,flow_order:null,proto,pile_id,pile_order});
-  return {epoch:'preview',layouts:[],trash:[],settings:{revision:1,days},piles:[{id:'pile-errands',position:1}],tasks:[
+  return {epoch:'preview',layouts:[],trash:[],settings:{revision:1,days},piles:[{id:'shelf',position:1}],tasks:[
     flow('sample-a','설계 문서 자료 조사',60,1,'[x] 요구사항 확인\n[ ] 초안에 반영'),
     flow('sample-b','설계 문서 초안 작성',45,2,'진행 상황과 필요한 맥락을 이곳에 남깁니다.\n[ ] 계획 화면 정리\n[ ] 검토 의견 반영'),
     flow('sample-c','회의록 정리',30,3),
@@ -183,10 +183,10 @@ export function previewSnapshot():Snapshot{
     flow('sample-f','경쟁사 자료 조사',120,6),
     {id:'sample-past',title:'경쟁사 동향 정리',body:'',starts_at:null,duration:60,completed:false,revision:1,plan_date:plusDays(day,-2),flow_order:1},
     card('sample-6','주간 보고 초안',30,null,1,true),
-    card('sample-4','회의록 템플릿 업데이트',30,null,2),
-    card('sample-5','SQLite 백업 방식 조사',45,null,3),
-    card('sample-m','메일 답장',15,'pile-errands',1),
-    card('sample-r','결재 처리',15,'pile-errands',2)
+    card('sample-4','회의록 템플릿 업데이트',30,'shelf',1),
+    card('sample-5','SQLite 백업 방식 조사',45,'shelf',2),
+    card('sample-m','메일 답장',15,'shelf',3),
+    card('sample-r','결재 처리',15,'shelf',4)
   ]};
 }
 export const resetDrafts=()=>setDrafts(emptyDrafts());

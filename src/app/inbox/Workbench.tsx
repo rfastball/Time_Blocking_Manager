@@ -1,218 +1,183 @@
-// Free 미계획 workbench and the date dock.
-import {useEffect,useId,useLayoutEffect,useRef,useState,type KeyboardEvent,type PointerEvent as ReactPointerEvent,type ReactNode} from 'react';
+// 준비: the 들어옴 and the shelf at the timetable's scale, and the next working days to ship to.
+import {useLayoutEffect,useRef,useState,type KeyboardEvent,type MouseEvent as ReactMouseEvent,type PointerEvent as ReactPointerEvent,type ReactNode} from 'react';
 import {AnimatePresence,motion} from 'motion/react';
 import {useDraggable} from '@dnd-kit/core';
-import {BOARD_CARD_WIDTH,BOARD_CARD_HEIGHT,onBench,seedBoardPositions} from '../../bench.ts';
+import {inboxCards,shelfCards,type Place} from '../../bench.ts';
 import {memoPreview} from '../../detail.ts';
 import {formatDuration} from '../../format.ts';
 import {dateLabel,dateOf} from '../../dates.ts';
+import {dayPlan} from '../../today.ts';
 import type {Task} from '../../types.ts';
-import {getState,useApp} from '../store/state.ts';
-import {completeTasks,deleteTask,overdueTasks,setGesture} from '../store/tasks.ts';
-import {mergeSelected,nudgeBoard,placeCards,selectedTasks,setLength,setSelection,shipDates,shipTo,shortDate,toggleSelected} from '../store/bench.ts';
+import {getState,setNav,setUi,useApp} from '../store/state.ts';
+import {completeTasks,dayRule,deleteTask,setGesture} from '../store/tasks.ts';
+import {mergeSelected,moveTo,placeOfCard,readingOrder,selectRange,selectedTasks,setLength,setSelection,shiftInPlace,shipDates,shipTo,shortDate,toggleSelected} from '../store/bench.ts';
 import {openCut} from '../store/cut.ts';
 import {allocation,allocationLabel,allocationShort,dayTag} from '../plan/day.tsx';
 import {menuKeys,clamp} from '../editor/actions.ts';
-import {useDrag,useRegion,type BoardView} from '../space/drag.tsx';
-import {reflow} from '../ui/motion.ts';
+import {useDrag,useRegion,type Form} from '../space/drag.tsx';
+import {reflow,reduced} from '../ui/motion.ts';
 import {Icon} from '../ui/icons.tsx';
 
-export const SCALE=1;
-const CARD_HEIGHT=BOARD_CARD_HEIGHT;
-const hours=(minutes:number)=>String(Math.round(minutes/60*100)/100);
+// One hour is 72px, as on 오늘, so a block on the shelf is the size it will be on a day.
+export const SCALE=1.2;
+const SHEET=34,INBOX_GAP=6,SHELF_GAP=2;
+const blockHeight=(minutes:number)=>Math.max(16,Math.round(minutes*SCALE)-SHELF_GAP);
+// A proto in the 들어옴 is a sheet with no thickness; anywhere else it is drawn at its default length.
+const cardHeight=(t:Task,place:Place)=>t.proto&&place==='inbox'?SHEET:blockHeight(t.duration);
+const total=(list:Task[])=>list.reduce((n,t)=>n+t.duration,0);
 type Open=(t:Task)=>void;
-const viewKey='blokky.workbench.view';
-function initialView():BoardView{
-  try{const v=JSON.parse(localStorage.getItem(viewKey)??'null');if(v&&Number.isFinite(v.x)&&Number.isFinite(v.y)&&Number.isFinite(v.zoom)&&v.zoom>0&&v.zoom<=2)return v;}catch{}
-  return {x:0,y:0,zoom:1};
+
+// A list in 준비: what it holds, as drawn, for the drop index; held blocks take its width and their own height on it.
+function useList(place:Place,width:()=>number){
+  const gap=place==='shelf'?SHELF_GAP:INBOX_GAP;
+  const items=()=>{const s=getState().snapshot!;return (place==='shelf'?shelfCards(s.tasks,s.piles??[]):inboxCards(s.tasks)).map(t=>({id:t.id,height:cardHeight(t,place)}));};
+  const form=(task:Task,ids:string[]):Form=>{
+    const list=ids.map(id=>getState().snapshot!.tasks.find(t=>t.id===id)??task);
+    return {width:width(),height:list.reduce((n,t)=>n+cardHeight(t,place),0)+(list.length-1)*gap};
+  };
+  return useRegion(place,null,{list:{gap,items},form});
 }
 
-export function Bench({onOpen}:{onOpen:Open}){
-  const {snapshot,ui}=useApp(),{held}=useDrag();
-  const [view,setView]=useState(initialView),[hand,setHand]=useState(false),[space,setSpace]=useState(false);
-  const liveView=useRef(view);liveView.current=view;
-  const viewport=useRef<HTMLDivElement>(null),suppressClick=useRef(false);
-  const register=useRegion('canvas',null,{board:view});
-  const tasks=seedBoardPositions(snapshot!.tasks,snapshot!.piles??[]).filter(onBench).sort((a,b)=>a.board_y!-b.board_y!||a.board_x!-b.board_x!||a.id.localeCompare(b.id));
-  const past=overdueTasks(),total=tasks.reduce((n,t)=>n+t.duration,0);
-  type Gesture={kind:'box'|'pan';pointer:number;x:number;y:number;active:boolean;base:string[];view:BoardView};
-  const gesture=useRef<Gesture|null>(null),[box,setBox]=useState<{left:number;top:number;width:number;height:number}|null>(null);
-  const known=useRef(new Set(tasks.map(t=>t.id)));
-  function changeView(next:BoardView){
-    liveView.current=next;setView(next);
-    try{localStorage.setItem(viewKey,JSON.stringify(next));}catch{}
-  }
-  function zoomTo(value:number,at?:{x:number;y:number}){
-    const el=viewport.current;if(!el)return;
-    const v=liveView.current,r=el.getBoundingClientRect(),p=at??{x:r.width/2,y:r.height/2},zoom=Math.max(.05,Math.min(2,value));
-    changeView({zoom,x:p.x-(p.x-v.x)/v.zoom*zoom,y:p.y-(p.y-v.y)/v.zoom*zoom});
-  }
-  function fit(){
-    const r=viewport.current?.getBoundingClientRect();if(!r)return;
-    if(!tasks.length){changeView({x:0,y:0,zoom:1});return;}
-    const left=Math.min(...tasks.map(t=>t.board_x!)),top=Math.min(...tasks.map(t=>t.board_y!));
-    const width=Math.max(...tasks.map(t=>t.board_x!+BOARD_CARD_WIDTH))-left,height=Math.max(...tasks.map(t=>t.board_y!+CARD_HEIGHT))-top;
-    const zoom=Math.min(1,(r.width-48)/width,(r.height-48)/height);
-    changeView({zoom,x:(r.width-width*zoom)/2-left*zoom,y:(r.height-height*zoom)/2-top*zoom});
-  }
-  function reveal(id:string){
-    const t=tasks.find(t=>t.id===id),r=viewport.current?.getBoundingClientRect();if(!t||!r)return;
-    const v=liveView.current,left=t.board_x!*v.zoom+v.x,top=t.board_y!*v.zoom+v.y;
-    const x=left<16?v.x+16-left:left+BOARD_CARD_WIDTH*v.zoom>r.width-16?v.x+r.width-16-left-BOARD_CARD_WIDTH*v.zoom:v.x;
-    const y=top<16?v.y+16-top:top+CARD_HEIGHT*v.zoom>r.height-16?v.y+r.height-16-top-CARD_HEIGHT*v.zoom:v.y;
-    if(x!==v.x||y!==v.y)changeView({...v,x,y});
-  }
-  useLayoutEffect(()=>{
-    const added=tasks.find(t=>!known.current.has(t.id));known.current=new Set(tasks.map(t=>t.id));
-    if(added)reveal(added.id);
-  },[snapshot]);
-  useLayoutEffect(()=>{if(ui.found?.kind==='bench')reveal(ui.found.id);},[ui.found]);
-  function cancel(clear=false){
-    const g=gesture.current;gesture.current=null;suppressClick.current=false;setBox(null);
-    if(g){setGesture(false);if(g.kind==='box')setSelection(clear?[]:g.base);if(viewport.current?.hasPointerCapture(g.pointer))viewport.current.releasePointerCapture(g.pointer);}
-  }
-  useEffect(()=>{
-    const editable=(e:globalThis.KeyboardEvent)=>(e.target as HTMLElement)?.closest('button,input,textarea,select,[contenteditable=true],[role=button],[role=separator]');
-    const down=(e:globalThis.KeyboardEvent)=>{
-      if(e.code==='Space'&&!editable(e)&&viewport.current?.contains(e.target as Node)){e.preventDefault();setSpace(true);}
-      if(e.key==='Escape'&&!getState().ui.editorMode&&!getState().ui.split&&!held){cancel(true);setSelection([]);setHand(false);}
-    };
-    const up=(e:globalThis.KeyboardEvent)=>{if(e.code==='Space')setSpace(false);};
-    const blur=()=>{setSpace(false);cancel();};
-    document.addEventListener('keydown',down);document.addEventListener('keyup',up);window.addEventListener('blur',blur);
-    return ()=>{document.removeEventListener('keydown',down);document.removeEventListener('keyup',up);window.removeEventListener('blur',blur);if(gesture.current)setGesture(false);};
-  },[held]);
-  useEffect(()=>{
-    const el=viewport.current;if(!el)return;
-    const wheel=(e:WheelEvent)=>{
-      if(held||gesture.current)return;e.preventDefault();
-      const v=liveView.current,r=el.getBoundingClientRect();
-      if(e.ctrlKey)zoomTo(v.zoom*Math.exp(-e.deltaY*.002),{x:e.clientX-r.left,y:e.clientY-r.top});
-      else changeView({...v,x:v.x-e.deltaX,y:v.y-e.deltaY});
-    };
-    el.addEventListener('wheel',wheel,{passive:false});return ()=>el.removeEventListener('wheel',wheel);
-  },[held]);
-  function start(e:ReactPointerEvent<HTMLDivElement>){
-    const pan=e.button===1||e.button===0&&(space||hand);
-    if(e.button!==1&&!space&&(e.target as HTMLElement).closest('button,input,textarea,select,a,summary'))return;
-    if(held||gesture.current||!pan&&(e.button!==0||(e.target as HTMLElement).closest('button,input,textarea,[data-card],.wb-lip')))return;
-    if(pan)e.stopPropagation();e.preventDefault();suppressClick.current=false;
-    if(!(e.target as HTMLElement).closest('[data-card],button'))e.currentTarget.focus({preventScroll:true});
-    gesture.current={kind:pan?'pan':'box',pointer:e.pointerId,x:e.clientX,y:e.clientY,active:false,base:e.ctrlKey||e.metaKey||e.shiftKey?[...getState().ui.benchSelection]:[],view:liveView.current};
-    e.currentTarget.setPointerCapture(e.pointerId);
-  }
-  function move(e:ReactPointerEvent<HTMLDivElement>){
-    const g=gesture.current;if(!g||g.pointer!==e.pointerId)return;
-    if(!g.active&&Math.hypot(e.clientX-g.x,e.clientY-g.y)<=6)return;
-    g.active=true;setGesture(true);
-    if(g.kind==='pan'){changeView({...g.view,x:g.view.x+e.clientX-g.x,y:g.view.y+e.clientY-g.y});return;}
-    const rect={left:Math.min(g.x,e.clientX),top:Math.min(g.y,e.clientY),width:Math.abs(e.clientX-g.x),height:Math.abs(e.clientY-g.y)};setBox(rect);
-    const vr=viewport.current!.getBoundingClientRect();
-    const hits=[...viewport.current!.querySelectorAll<HTMLElement>('[data-card]')].filter(el=>{
-      const r=el.getBoundingClientRect();return r.right>vr.left&&r.left<vr.right&&r.bottom>vr.top&&r.top<vr.bottom&&r.left<=rect.left+rect.width&&r.right>=rect.left&&r.top<=rect.top+rect.height&&r.bottom>=rect.top;
-    }).map(el=>el.dataset.card!);
-    setSelection([...new Set([...g.base,...hits])]);
-  }
-  function finish(e:ReactPointerEvent<HTMLDivElement>){
-    const g=gesture.current;if(!g||g.pointer!==e.pointerId)return;
-    gesture.current=null;suppressClick.current=g.active||g.kind==='pan';setBox(null);setGesture(false);
-    if(e.currentTarget.hasPointerCapture(e.pointerId))e.currentTarget.releasePointerCapture(e.pointerId);
-  }
-  const landing=held&&!held.dropping&&held.intent.zone==='canvas'?held.intent.positions:[];
-  return <div className="wb-surface">
-    <section className="wb-sec" aria-label="미계획">
-      <header className="wb-head"><h2>미계획 {tasks.length>0&&<span className="cnt">{tasks.length}</span>}</h2>{total>0&&<span className="wb-sum">{formatDuration(total)}</span>}</header>
-      <div className="wb-tools" role="toolbar" aria-label="작업대 도구">
-        <button className="btn" type="button" aria-pressed={!hand} onClick={()=>setHand(false)}>선택</button>
-        <button className="btn" type="button" aria-pressed={hand} onClick={()=>setHand(true)}>이동</button>
-        <span className="wb-zoom-tools">
-          <button className="ibtn" type="button" aria-label="축소" disabled={view.zoom<=.05} onClick={()=>zoomTo(view.zoom*.8)}><svg className="ic" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M5 12h14"/></svg></button>
-          <button className="btn text wb-zoom" type="button" aria-label="100%로 보기" onClick={()=>zoomTo(1)}>{Math.round(view.zoom*100)}%</button>
-          <button className="ibtn" type="button" aria-label="확대" disabled={view.zoom>=2} onClick={()=>zoomTo(view.zoom/.8)}><Icon name="plus" size={16}/></button>
-          <button className="btn" type="button" onClick={fit}>전체 보기</button>
-        </span>
+export function InboxList({onOpen,children}:{onOpen:Open;children?:ReactNode}){
+  const {held,tasks}=useDrag(),{today}=useApp(),box=useRef<HTMLDivElement>(null);
+  const register=useList('inbox',()=>box.current?.clientWidth??280);
+  const fresh=inboxCards(tasks),past=tasks.filter(t=>!t.completed&&t.plan_date&&t.plan_date<today).sort((a,b)=>a.plan_date!.localeCompare(b.plan_date!)||a.id.localeCompare(b.id));
+  const hot=held&&!held.dropping&&held.intent.zone==='inbox';
+  return <section className={'jb-panel jb-inbox'+(hot?' hot':'')} aria-label="들어옴">
+    <header className="jb-head"><h2>들어옴</h2>{fresh.length+past.length>0&&<span className="cnt">{fresh.length+past.length}</span>}</header>
+    <div className="jb-scroll">
+      <div ref={el=>{box.current=el;register(el);}} className="jb-well">
+        <AnimatePresence initial={false}>{fresh.map(t=><Card key={t.id} task={t} place="inbox" onOpen={onOpen}/>)}</AnimatePresence>
       </div>
-      <div ref={el=>{viewport.current=el;register(el);}} className={'wb-canvas'+(hand||space?' hand':'')} data-zoom={view.zoom} data-pan-x={view.x} data-pan-y={view.y} role="group" tabIndex={0} aria-label="자유 배치 작업대"
-        onPointerDownCapture={start} onPointerMove={move} onPointerUp={finish} onPointerCancel={()=>cancel()} onLostPointerCapture={()=>{if(gesture.current)cancel();}}
-        onClickCapture={e=>{if(suppressClick.current){suppressClick.current=false;e.preventDefault();e.stopPropagation();}}}>
-        <div className="wb-world" style={{transform:`translate(${view.x}px,${view.y}px) scale(${view.zoom})`}}>
-          <AnimatePresence initial={false}>{tasks.map(t=><Card key={t.id} task={t} board zoom={view.zoom} disabled={hand||space} onReveal={reveal} onOpen={onOpen}/>)}</AnimatePresence>
-          {landing?.map(p=><div key={p.id} className="wb-slot" style={{left:p.x,top:p.y,width:BOARD_CARD_WIDTH,height:CARD_HEIGHT}} aria-hidden="true"/>)}
+      {past.length>0&&<>
+        <h3 className="jb-sub">지난 미완료</h3>
+        <div className="jb-well past"><AnimatePresence initial={false}>{past.map(t=><Card key={t.id} task={t} place="inbox" past onOpen={onOpen}/>)}</AnimatePresence></div>
+      </>}
+      {children}
+    </div>
+  </section>;
+}
+
+export function ShelfList({onOpen}:{onOpen:Open}){
+  const {held,tasks}=useDrag(),box=useRef<HTMLDivElement>(null);
+  const register=useList('shelf',()=>box.current?.clientWidth??300);
+  const cards=shelfCards(tasks,getState().snapshot?.piles??[]),sum=total(cards);
+  const hot=held&&!held.dropping&&held.intent.zone==='shelf';
+  // The ruler shows whole hours down to a little past what the shelf holds, and at least a working day.
+  const hours=Array.from({length:Math.max(8,Math.ceil(sum/60)+1)},(_,i)=>i+1);
+  return <section className={'jb-panel jb-shelf'+(hot?' hot':'')} aria-label="선반">
+    <header className="jb-head"><h2>선반</h2>{cards.length>0&&<><span className="cnt">{cards.length}</span><span className="jb-sum">{formatDuration(sum)}</span></>}</header>
+    <div className="jb-scroll">
+      <div className="jb-rack" style={{minHeight:hours.length*60*SCALE+24}}>
+        <div className="jb-ruler" aria-hidden="true">{hours.map(h=><span key={h} style={{top:h*60*SCALE}}>{h}h</span>)}</div>
+        <div ref={el=>{box.current=el;register(el);}} className="jb-hang">
+          <AnimatePresence initial={false}>{cards.map(t=><Card key={t.id} task={t} place="shelf" onOpen={onOpen}/>)}</AnimatePresence>
         </div>
-        <SelectionBar/>
-        {box&&<div className="wb-selection-box" style={box} aria-hidden="true"/>}
-      </div>
-    </section>
-    {past.length>0&&<details className="wb-past"><summary>지난 미완료 {past.length}</summary><div className="wb-shelf"><AnimatePresence initial={false}>{past.map(t=><Card key={t.id} task={t} past onOpen={onOpen}/>)}</AnimatePresence></div></details>}
-  </div>;
-}
-
-// A card on the bench or the 지난 미완료 shelf. The bottom lip and ↑/↓ set its length; Alt moves it.
-function Card({task:t,past,board,zoom=1,disabled,onReveal,onOpen}:{task:Task;past?:boolean;board?:boolean;zoom?:number;disabled?:boolean;onReveal?:(id:string)=>void;onOpen:Open}){
-  const {ui,ready}=useApp(),{held}=useDrag(),memoId=useId();
-  const {listeners,setNodeRef}=useDraggable({id:`bench:${t.id}`,data:{taskId:t.id},disabled:disabled||!ready||!!held?.dropping});
-  const [live,setLive]=useState<number|null>(null);
-  const minutes=live??t.duration,sel=ui.benchSelection.includes(t.id);
-  const lifted=!!held&&!held.dropping&&held.ids.includes(t.id);
-  const dropping=!!held?.dropping&&held.ids.includes(t.id);
-  const proto=t.proto&&live===null,size=formatDuration(minutes)+(proto?' · 미정':''),from=past?shortDate(t.plan_date!):'';
-  const memo=t.body.trim()?memoPreview(t.body):'';
-  async function remove(items:Task[],action:'main'|'wb-delete'){
-    const ids=items.map(x=>x.id),cards=[...document.querySelectorAll<HTMLElement>('.wb-card')],at=cards.findIndex(c=>c.dataset.card===t.id);
-    const next=cards.slice(at+1).find(c=>!ids.includes(c.dataset.card!))??cards.slice(0,at).reverse().find(c=>!ids.includes(c.dataset.card!));
-    let ok=true;for(const task of items)ok=await deleteTask(task)&&ok;
-    if(ok)requestAnimationFrame(()=>(next?.isConnected?next.querySelector<HTMLElement>('.'+action):document.getElementById('inbox-capture'))?.focus({preventScroll:true}));
-  }
-  function keys(e:KeyboardEvent<HTMLButtonElement>){
-    const vertical=e.key==='ArrowUp'||e.key==='ArrowDown',up=e.key==='ArrowUp';
-    if(vertical&&!e.altKey&&!e.ctrlKey&&!e.metaKey&&!e.shiftKey){e.preventDefault();void setLength(t,t.duration+(up?-15:15));return;}
-    if(e.altKey&&['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)&&!past){e.preventDefault();void nudgeBoard(t,e.key==='ArrowLeft'?-16:e.key==='ArrowRight'?16:0,e.key==='ArrowUp'?-16:e.key==='ArrowDown'?16:0);return;}
-    if(e.key==='Delete'){e.preventDefault();const sel=getState().ui.benchSelection;void remove(sel.includes(t.id)?selectedTasks():[t],'main');return;}
-    if(e.key==='Escape'&&getState().ui.benchSelection.length){e.preventDefault();e.stopPropagation();setSelection([]);}
-  }
-  // A 15px lip movement changes the numeric duration by 15 minutes.
-  function resize(e:ReactPointerEvent<HTMLDivElement>){
-    if(e.button!==0)return;
-    e.stopPropagation();e.preventDefault();
-    const el=e.currentTarget,y0=e.clientY;let value=t.duration;
-    el.setPointerCapture(e.pointerId);setGesture(true);
-    const move=(ev:PointerEvent)=>{value=Math.max(15,Math.min(1440,Math.round((t.duration+(ev.clientY-y0)/zoom/SCALE)/15)*15));setLive(value);};
-    const up=()=>{el.removeEventListener('pointermove',move);el.removeEventListener('pointerup',up);el.removeEventListener('pointercancel',up);setGesture(false);
-      void setLength(t,value).finally(()=>setLive(null));};
-    el.addEventListener('pointermove',move);el.addEventListener('pointerup',up);el.addEventListener('pointercancel',up);
-  }
-  const label=`${t.title}, ${size}${past?`, ${from} 미완료`:''}${sel?', 선택됨':''}`;
-  return <motion.div ref={setNodeRef} data-card={t.id} data-block="true" layout={board||dropping?false:'position'} role="presentation" tabIndex={-1} onFocusCapture={()=>onReveal?.(t.id)} {...listeners}
-    className={'tblk wb-card'+(proto?' proto':'')+(past?' past':'')+(sel?' sel':'')+(lifted?' lifted':'')+(ui.landed?.id===t.id?' landed':'')+(ui.split===t.id?' onboard':'')} style={{width:BOARD_CARD_WIDTH,height:CARD_HEIGHT,left:board?t.board_x!:undefined,top:board?t.board_y!:undefined,zIndex:ui.landed?.id===t.id?4:sel?3:1,visibility:dropping?'hidden':undefined}}
-    initial={dropping?false:{opacity:0,y:-12}} animate={{opacity:1,y:0}} exit={{opacity:0,transition:{duration:0}}} transition={reflow}>
-    <div className="tile">
-      <button type="button" className="chk" aria-label={t.title+' 완료'} onClick={()=>void completeTasks([t])}><Icon name="check" size={12} stroke={3}/></button>
-      <button type="button" className="main" data-task={t.id} aria-label={label} aria-describedby={memo?memoId:undefined}
-        onClick={e=>{if(e.shiftKey||e.ctrlKey||e.metaKey){toggleSelected(t.id);return;}onOpen(t);}} onKeyDown={keys}>
-        <span className="ttl-row"><span className="ttl">{t.title}</span></span>
-        {memo&&<span className="wb-memo" id={memoId}>{memo}</span>}
-        <span className="meta" aria-live={live!==null?'polite':undefined}><span className="wb-ruler" aria-hidden="true"><i style={{width:`${Math.min(100,minutes/480*100)}%`}}/></span>{[from,size].filter(Boolean).join(' · ')}</span>
-      </button>
-      <div className="wb-card-actions">
-        <button type="button" className="btn text wb-split" aria-label={`${t.title} 나누기`} disabled={!ready} onPointerDown={e=>e.stopPropagation()} onClick={()=>openCut(t.id)}>나누기</button>
-        <button type="button" className="ibtn wb-delete" aria-label={`${t.title} 삭제`} title="삭제" disabled={!ready} onPointerDown={e=>e.stopPropagation()} onClick={()=>void remove([t],'wb-delete')}><Icon name="delete" size={15}/></button>
       </div>
     </div>
-    <div className="wb-lip" aria-hidden="true" onPointerDown={resize}/>
-  </motion.div>;
+  </section>;
 }
 
+// A card in 준비: a sheet (no length yet) or a block whose height is its length. Lengths save at once and never move the card.
+function Card({task:t,place,past,onOpen}:{task:Task;place:Place;past?:boolean;onOpen:Open}){
+  const {ui,ready}=useApp(),{held}=useDrag();
+  const {listeners,setNodeRef}=useDraggable({id:`bench:${t.id}`,data:{taskId:t.id},disabled:!ready||!!held?.dropping});
+  // While the lip is pulled: the length under the hand, null while still a sheet.
+  const [live,setLive]=useState<number|null|undefined>(undefined);
+  const pulling=live!==undefined,sheet=t.proto&&place==='inbox'&&!(pulling&&live!==null);
+  const minutes=pulling&&live!=null?live:t.duration;
+  const height=sheet?SHEET:blockHeight(minutes);
+  const sel=ui.benchSelection.includes(t.id),hollow=!!held&&held.ids.includes(t.id);
+  const memo=t.body.trim()?memoPreview(t.body):'';
+  const label=`${t.title}, ${sheet?'길이 미정':formatDuration(minutes)}${past?`, ${dateLabel(t.plan_date!)} 미완료`:''}${sel?', 선택됨':''}`;
+  function pull(e:ReactPointerEvent<HTMLDivElement>){
+    if(e.button!==0)return;
+    e.stopPropagation();e.preventDefault();
+    const el=e.currentTarget,y0=e.clientY,from=t.proto&&place==='inbox'?0:t.duration;let value:number|null=t.proto&&place==='inbox'?null:t.duration;
+    el.setPointerCapture(e.pointerId);setGesture(true);setLive(value);
+    // A sheet gains thickness 15 minutes at a time once pulled past half a step; pushed back flat it stays a sheet.
+    const move=(ev:PointerEvent)=>{
+      const raw=from+(ev.clientY-y0)/SCALE;
+      value=from===0&&raw<7.5?null:Math.max(15,Math.min(1440,Math.round(raw/15)*15));setLive(value);
+    };
+    const up=()=>{
+      el.removeEventListener('pointermove',move);el.removeEventListener('pointerup',up);el.removeEventListener('pointercancel',up);setGesture(false);
+      if(value===null||value===t.duration&&!t.proto){setLive(undefined);return;}
+      void setLength(t,value).finally(()=>setLive(undefined));
+    };
+    el.addEventListener('pointermove',move);el.addEventListener('pointerup',up);el.addEventListener('pointercancel',up);
+  }
+  function click(e:ReactMouseEvent){
+    if(e.shiftKey){selectRange(t.id);return;}
+    if(e.ctrlKey||e.metaKey){toggleSelected(t.id);return;}
+    onOpen(t);
+  }
+  function keys(e:KeyboardEvent<HTMLButtonElement>){
+    if(e.nativeEvent.isComposing)return;
+    const sel=getState().ui.benchSelection,picked=sel.includes(t.id)?selectedTasks():[t];
+    if((e.shiftKey&&e.key==='F10')||e.key==='ContextMenu'){e.preventDefault();const r=e.currentTarget.getBoundingClientRect();menu({clientX:r.left+12,clientY:r.top+12});return;}
+    const up=e.key==='ArrowUp',down=e.key==='ArrowDown';
+    if((up||down)&&!e.altKey&&!e.ctrlKey&&!e.metaKey&&!e.shiftKey){
+      e.preventDefault();
+      // A sheet gets its first length going down; a block grows or shrinks by 15 minutes.
+      if(sheet){if(down)void setLength(t,15);return;}
+      void setLength(t,t.duration+(up?-15:15));return;
+    }
+    if((up||down)&&e.altKey){e.preventDefault();void shiftInPlace(t,up?-1:1);return;}
+    if(e.altKey&&(e.key==='ArrowRight'||e.key==='ArrowLeft')){
+      e.preventDefault();
+      const to:Place=e.key==='ArrowRight'?'shelf':'inbox',ids=picked.filter(x=>placeOfCard(x)!==to||x.plan_date).map(x=>x.id);
+      if(ids.length)void moveTo(ids,to,to==='shelf'?Infinity:0).then(ok=>{if(ok)focusCard(t.id);});
+      return;
+    }
+    if(e.key==='Delete'){e.preventDefault();void remove(picked);return;}
+    if(e.key==='Escape'&&sel.length){e.preventDefault();e.stopPropagation();setSelection([]);}
+  }
+  function menu(e:{clientX:number;clientY:number}){setUi({contextMenu:{taskId:t.id,date:getState().today,minute:0,x:e.clientX,y:e.clientY}});}
+  // After a delete the keyboard stays in the lists: the next card, else the one before, else the capture input.
+  async function remove(items:Task[]){
+    const ids=items.map(x=>x.id),order=readingOrder().map(x=>x.id),at=order.indexOf(t.id);
+    const next=order.slice(at+1).find(id=>!ids.includes(id))??order.slice(0,at).reverse().find(id=>!ids.includes(id));
+    setSelection(getState().ui.benchSelection.filter(id=>!ids.includes(id)));
+    let ok=true;for(const task of items)ok=await deleteTask(task)&&ok;
+    if(ok)requestAnimationFrame(()=>(next?document.querySelector<HTMLElement>(`.jb [data-task="${CSS.escape(next)}"]`):document.getElementById('inbox-capture'))?.focus({preventScroll:true}));
+  }
+  const cls=['jb-card',sheet?'sheet':'block',past?'past':'',sel?'sel':'',hollow?'hollow':'',ui.landed?.id===t.id?'landed':'',ui.split===t.id?'onboard':'',height<30?'thin':'',height>=48?'tall':''].filter(Boolean).join(' ');
+  return <motion.div ref={setNodeRef} data-card={t.id} data-block="true" className={cls} style={{height}} {...listeners} tabIndex={-1} role="presentation"
+    layout={pulling||reduced()?false:'position'} initial={{opacity:0,y:-8}} animate={{opacity:1,y:0}} exit={{opacity:0,transition:{duration:0}}} transition={reflow}
+    onContextMenu={e=>{e.preventDefault();menu(e);}}>
+    <div className="tile">
+      {!sheet&&<button type="button" className="chk" aria-label={t.title+' 완료'} onPointerDown={e=>e.stopPropagation()} onClick={()=>void completeTasks([t])}><Icon name="check" size={12} stroke={3}/></button>}
+      <button type="button" className="main" data-task={t.id} aria-label={label} title={memo?`${t.title}\n${memo}`:t.title} onClick={click} onKeyDown={keys}
+        aria-keyshortcuts="ArrowUp ArrowDown Alt+ArrowUp Alt+ArrowDown Alt+ArrowRight Alt+ArrowLeft Delete Shift+F10">
+        <span className="ttl">{t.title}</span>
+        {!sheet&&<span className="meta">{past&&<b className="from">{shortDate(t.plan_date!)}</b>}<span>{formatDuration(minutes)}</span></span>}
+      </button>
+      <span className="jb-acts">
+        {!past&&!sheet&&height>=30&&<button type="button" className="btn text jb-split" aria-label={`${t.title} 나누기`} disabled={!ready} onPointerDown={e=>e.stopPropagation()} onClick={()=>openCut(t.id)}>나누기</button>}
+        <button type="button" className="ibtn jb-delete" aria-label={`${t.title} 삭제`} title="삭제" disabled={!ready} onPointerDown={e=>e.stopPropagation()} onClick={()=>void remove([t])}><Icon name="delete" size={14}/></button>
+      </span>
+    </div>
+    {sheet&&!pulling&&<div className="jb-steps" role="group" aria-label={`${t.title} 길이`} onPointerDown={e=>e.stopPropagation()}>
+      {[15,30,45,60,75,90,105,120].map(m=><button key={m} type="button" tabIndex={-1} aria-label={formatDuration(m)} title={formatDuration(m)} onClick={()=>void setLength(t,m)}/>)}
+    </div>}
+    {pulling&&live!=null&&<span className="jb-len" aria-live="polite">{formatDuration(live)}</span>}
+    {!past&&<div className={'jb-lip'+(sheet?' tab':'')} aria-hidden="true" onPointerDown={pull}/>}
+  </motion.div>;
+}
+const focusCard=(id:string)=>requestAnimationFrame(()=>document.querySelector<HTMLElement>(`.jb [data-task="${CSS.escape(id)}"]`)?.focus({preventScroll:false}));
+
 // What the picked cards can do at once. Shipping is always to the end of a day's order.
-function SelectionBar(){
+export function SelectionBar(){
   useApp();const picked=selectedTasks();
   if(!picked.length)return null;
-  const ids=picked.map(t=>t.id),dated=picked.filter(t=>t.plan_date),[today,...later]=shipDates();
-  return <div className="wb-selbar" role="group" aria-label="선택한 블록">
-    <span className="wb-selinfo">선택 {picked.length} · {formatDuration(picked.reduce((n,t)=>n+t.duration,0))}</span>
-    {picked.length>=2&&!dated.length&&<button type="button" className="btn" onClick={()=>void mergeSelected()}>하나로 합치기</button>}
+  const ids=picked.map(t=>t.id),dated=picked.filter(t=>t.plan_date),loose=picked.filter(t=>placeOfCard(t)!=='shelf'||t.plan_date),[today,...later]=shipDates();
+  return <div className="jb-selbar" role="group" aria-label="선택한 블록">
+    <span className="jb-selinfo">선택 {picked.length} · {formatDuration(total(picked))}</span>
+    {loose.length>0&&<button type="button" className="btn" onClick={()=>void moveTo(loose.map(t=>t.id),'shelf',Infinity)}>선반으로</button>}
     <button type="button" className="btn" onClick={()=>void shipTo(today,ids)}><Icon name="right" size={15}/>오늘에 싣기</button>
     <MenuButton label="다른 날에 싣기" items={later.map(d=>({label:`${shortDate(d)} ${dateOf(d).toLocaleDateString('ko-KR',{weekday:'short'})}`,run:()=>void shipTo(d,ids)}))}>다른 날</MenuButton>
-    {dated.length>0&&<button type="button" className="btn" onClick={()=>void placeCards(dated.map(t=>t.id),null,0)}>미계획으로</button>}
+    {picked.length>=2&&!dated.length&&<button type="button" className="btn" onClick={()=>void mergeSelected()}>하나로 합치기</button>}
     <button type="button" className="btn" onClick={()=>{setSelection([]);void completeTasks(picked);}}><Icon name="check" size={15}/>완료</button>
     <button type="button" className="ibtn danger" aria-label="선택한 블록 삭제" title="삭제" onClick={()=>{setSelection([]);for(const t of picked)void deleteTask(t);}}><Icon name="delete" size={16}/></button>
     <button type="button" className="ibtn" aria-label="선택 해제" title="선택 해제" onClick={()=>setSelection([])}><Icon name="close" size={15}/></button>
@@ -224,51 +189,62 @@ function MenuButton({label,items,children}:{label:string;items:Item[];children:R
   const [at,setAt]=useState<{x:number;y:number}|null>(null),button=useRef<HTMLButtonElement>(null);
   return <>
     <button ref={button} type="button" className="btn" aria-haspopup="menu" aria-expanded={!!at} aria-label={label}
-      onClick={e=>{const r=e.currentTarget.getBoundingClientRect();setAt(at?null:{x:r.left,y:r.bottom+4});}}>{children}<Icon name="down" size={14}/></button>
+      onClick={e=>{const r=e.currentTarget.getBoundingClientRect();setAt(at?null:{x:r.left,y:r.top-4});}}>{children}<Icon name="down" size={14}/></button>
     {at&&<FloatingMenu label={label} items={items} at={at} onClose={()=>{setAt(null);button.current?.focus();}}/>}
   </>;
 }
 
 function FloatingMenu({label,items,at,onClose}:{label:string;items:Item[];at:{x:number;y:number};onClose:()=>void}){
   const ref=useRef<HTMLDivElement>(null),[pos,setPos]=useState({left:at.x,top:at.y});
-  useLayoutEffect(()=>{const r=ref.current!.getBoundingClientRect();setPos(clamp(at.x,at.y,r.width,r.height));ref.current!.querySelector<HTMLElement>('[role=menuitem]:not(:disabled)')?.focus({preventScroll:true});},[]);
-  useEffect(()=>{
+  // Opens upward from the bar at the bottom of the work area.
+  useLayoutEffect(()=>{const r=ref.current!.getBoundingClientRect();setPos(clamp(at.x,at.y-r.height,r.width,r.height));ref.current!.querySelector<HTMLElement>('[role=menuitem]:not(:disabled)')?.focus({preventScroll:true});},[]);
+  useLayoutEffect(()=>{
     const outside=(e:Event)=>{if(!ref.current?.contains(e.target as Node))onClose();};
     document.addEventListener('pointerdown',outside,true);addEventListener('resize',onClose);
     return ()=>{document.removeEventListener('pointerdown',outside,true);removeEventListener('resize',onClose);};
   },[]);
-  return <motion.div ref={ref} role="menu" aria-label={label} className="menu wb-menu" style={pos} onKeyDown={e=>menuKeys(e,onClose)}
-    initial={{opacity:0,y:-4}} animate={{opacity:1,y:0}} transition={{duration:.12}}>
+  return <motion.div ref={ref} role="menu" aria-label={label} className="menu jb-menu" style={pos} onKeyDown={e=>menuKeys(e,onClose)}
+    initial={{opacity:0,y:4}} animate={{opacity:1,y:0}} transition={{duration:.12}}>
     {items.map(i=><button key={i.label} type="button" role="menuitem" tabIndex={-1} disabled={i.disabled} onClick={()=>{onClose();i.run();}}>{i.label}</button>)}
   </motion.div>;
 }
 
-// The next working days as columns on the bench's scale: what is already on them, where working time ends, and what runs past it.
+// The next working days on the shelf's scale: what is already on them, where working time ends, and what runs past it.
 export function DateDock({frozen}:{frozen?:boolean}){
-  return <section className={'card wb-dock'+(frozen?' wb-dim':'')} inert={frozen||undefined} aria-label="다음 근무일">{shipDates().map(d=><DateColumn key={d} date={d}/>)}</section>;
+  return <section className={'jb-panel jb-dock'+(frozen?' jb-dim':'')} inert={frozen||undefined} aria-label="다음 근무일">
+    <div className="jb-days">{shipDates().map(d=><DateColumn key={d} date={d}/>)}</div>
+  </section>;
 }
 
 function DateColumn({date}:{date:string}){
-  const {snapshot,today}=useApp(),{held,tasks}=useDrag(),ref=useRegion('date',date);
-  const hot=!!held&&!held.dropping&&held.intent.zone==='date'&&held.intent.date===date;
-  const base=allocation(date,snapshot!.tasks),after=hot?allocation(date,tasks):base,tag=dayTag(date),d=dateOf(date);
-  const px=(m:number)=>Math.round(m*SCALE);
-  // Work inside the available time stacks from the top; what runs past working time hangs below the line, hatched.
-  const inside=(a:typeof base)=>a.used-a.outside,addIn=Math.max(0,inside(after)-inside(base)),addOut=Math.max(0,after.outside-base.outside);
-  const height=px(Math.max(base.avail,inside(after))+after.outside+60);
-  return <div ref={ref} className={'wb-day'+(hot?' hot':'')+(date===today?' today':'')} data-date={date} role="group" aria-label={`${dateLabel(date)}${tag?', '+tag:''}, ${allocationLabel(after)}`}>
-    <div className="wb-dhead" aria-hidden="true">
-      <div className="wb-dname"><strong>{d.toLocaleDateString('ko-KR',{weekday:'short'})}</strong><span>{d.getDate()}</span>{date===today&&<span className="pill">오늘</span>}{tag&&<span className="tag-chip">{tag}</span>}</div>
-      <div className="wb-dload">{allocationShort(after)}</div>
-      {after.outside>0&&<div className="wb-dover">근무 외 {hours(after.outside)}h</div>}
-    </div>
-    <div className="wb-dbody" style={{height}} aria-hidden="true">
-      <div className="wb-avail" style={{height:px(base.avail)}}/>
-      {inside(base)>0&&<div className="wb-base" style={{height:Math.max(18,px(inside(base))-3)}}>기존 {hours(base.used)}h</div>}
-      {addIn>0&&<div className="wb-dslot" style={{top:px(inside(base))+1,height:Math.max(12,px(addIn)-2)}}/>}
-      <div className="wb-cap" style={{top:px(base.avail)}}/>
-      {after.outside>0&&<div className="wb-over" style={{top:px(base.avail),height:px(after.outside)}}/>}
-      {addOut>0&&<div className="wb-dslot over" style={{top:px(base.avail+base.outside)+1,height:Math.max(12,px(addOut)-2)}}/>}
+  const {snapshot,today}=useApp(),{held,tasks}=useDrag(),body=useRef<HTMLDivElement>(null);
+  const ref=useRegion('date',date,{form:(task,ids)=>{
+    const list=ids.map(id=>getState().snapshot!.tasks.find(t=>t.id===id)??task);
+    return {width:(body.current?.clientWidth??80)-6,height:Math.max(16,Math.round(total(list)*SCALE)-2)};
+  }});
+  const rule=dayRule(date),items=dayPlan(date,tasks,rule,snapshot?.layouts??[]).items.filter(i=>!i.task.completed);
+  const start=rule.enabled?rule.start:Math.min(540,...items.map(i=>i.start)),end=rule.enabled?rule.end:start;
+  const last=Math.max(end,...items.map(i=>i.end)),y=(m:number)=>Math.round((m-start)*SCALE);
+  const hot=!!held&&!held.dropping&&held.intent.zone==='date'&&held.intent.date===date,carried=hot?held!.ids:[];
+  const a=allocation(date,tasks),tag=dayTag(date),d=dateOf(date);
+  return <div className={'jb-day'+(hot?' hot':'')+(date===today?' today':'')} data-date={date}>
+    <button type="button" className="jb-dhead" aria-label={`${dateLabel(date)}${tag?', '+tag:''}, ${allocationLabel(a)}, 계획에서 보기`}
+      onClick={()=>setNav({view:'plan',period:'day',selected:date,planAnchor:date})}>
+      <span className="jb-dname"><b>{d.toLocaleDateString('ko-KR',{weekday:'short'})}</b> {d.getDate()}{date===today&&<span className="pill">오늘</span>}{tag&&<span className="tag-chip">{tag}</span>}</span>
+      <span className="jb-dload"><span>{allocationShort(a)}</span>{a.outside>0&&<span className="jb-dover">근무 외 {Math.round(a.outside/60*100)/100}h</span>}</span>
+    </button>
+    <div ref={el=>{body.current=el;ref(el);}} className="jb-dbody" style={{height:y(Math.max(last,end))+72}} aria-hidden="true">
+      <div className="jb-off" style={{top:y(end)}}/>
+      {rule.enabled&&rule.breaks.map((b,i)=><div key={i} className="jb-brk" style={{top:y(b.start),height:y(b.end)-y(b.start)}}/>)}
+      <div className="jb-end" style={{top:y(end)}}/>
+      {items.map(i=>{
+        const slot=carried.includes(i.task.id),over=Math.max(0,i.end-Math.max(i.start,end));
+        return <div key={i.task.id} className={'jb-dblk'+(i.fixed?' fixed':'')+(slot?' slot':'')} style={{top:y(i.start)+1,height:Math.max(4,y(i.end)-y(i.start)-2)}}>
+          <span>{i.task.title}</span>
+          {over>0&&<i className="jb-spill" style={{height:Math.min(y(i.end)-y(i.start)-2,Math.round(over*SCALE))}}/>}
+        </div>;
+      })}
     </div>
   </div>;
 }
+

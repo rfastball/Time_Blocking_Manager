@@ -1,17 +1,17 @@
 import type {Action,Pile,Task} from './types.ts';
 import {time} from './dates.ts';
 import {byFlowOrder} from './flow.ts';
-import {benchPiles} from './bench.ts';
+import {SHELF,cardsIn,pileOf,place} from './bench.ts';
 
 // Where a held block would go if it were let go right now.
-// body: into that day's order before `before` · rail: fixed at `start` · below/date: end of that day's order · tray: back to 미계획
-// · pile: onto the 미계획 bench, into `pile` (null: the 투입구) before the card at `index`, or as a new pile at position `create`.
-export type Zone='none'|'body'|'rail'|'below'|'date'|'tray'|'pile'|'canvas';
-// `ids`: every block carried, in order (a selection or a whole pile); `carry`: the pile carried by its handle.
-export type Intent={id:string;zone:Zone;date:string|null;before:string|null;start:number|null;ok:boolean;reason:string|null;
-  ids?:string[];carry?:{pile:string|null};pile?:string|null;index?:number;create?:number|null;positions?:{id:string;x:number;y:number}[]};
+// body: into that day's order before `before` · rail: fixed at `start` · below/date: end of that day's order · tray: back to 준비 (top of the shelf)
+// · inbox/shelf: into the 준비 tab's 들어옴 or shelf, before the card now at `index` among the others.
+export type Zone='none'|'body'|'rail'|'below'|'date'|'tray'|'inbox'|'shelf';
+// `ids`: every block carried, in order (a selection).
+export type Intent={id:string;zone:Zone;date:string|null;before:string|null;start:number|null;ok:boolean;reason:string|null;ids?:string[];index?:number};
 export const noIntent=(id:string):Intent=>({id,zone:'none',date:null,before:null,start:null,ok:true,reason:null});
 export const carried=(i:Intent)=>i.ids?.length?i.ids:[i.id];
+const toBench=(z:Zone):z is 'inbox'|'shelf'=>z==='inbox'||z==='shelf';
 
 const flowsOn=(tasks:Task[],date:string,except?:string)=>tasks.filter(t=>t.plan_date===date&&!t.starts_at&&!t.completed&&t.id!==except).sort(byFlowOrder);
 function orderWith(tasks:Task[],date:string,id:string,before:string|null){
@@ -19,17 +19,18 @@ function orderWith(tasks:Task[],date:string,id:string,before:string|null){
   ids.splice(at<0?ids.length:at,0,id);
   return ids;
 }
-const lands=(i:Intent)=>i.zone!=='none'&&!(i.zone==='rail'&&!i.ok)&&(i.zone==='tray'||i.zone==='pile'||i.zone==='canvas'&&!!i.positions?.length||!!i.date);
+const lands=(i:Intent)=>i.zone!=='none'&&!(i.zone==='rail'&&!i.ok)&&(i.zone==='tray'||toBench(i.zone)||!!i.date);
 
-// The tasks as they would be after the drop. Used to lay the days out while the block is held.
-// The bench draws its own landing slot, so a pile drop leaves the tasks as they are.
+// The tasks as they would be after the drop. Used to lay the days and the 준비 lists out while the block is held.
 export function applyIntent(tasks:Task[],intent:Intent|null):Task[]{
-  if(!intent||!lands(intent)||intent.zone==='pile')return tasks;
+  if(!intent||!lands(intent))return tasks;
   const {id,date}=intent,ids=carried(intent);
-  if(intent.zone==='canvas')return tasks.map(t=>{
-    const p=intent.positions?.find(p=>p.id===t.id);return p?{...t,plan_date:null,starts_at:null,flow_order:null,board_x:p.x,board_y:p.y}:t;
-  });
-  if(intent.zone==='tray')return tasks.map(t=>t.id===id?{...t,plan_date:null,starts_at:null,flow_order:null}:t);
+  const undated=(list:Task[])=>list.map(t=>ids.includes(t.id)&&t.plan_date?{...t,plan_date:null,starts_at:null,flow_order:null}:t);
+  if(toBench(intent.zone)){
+    const next=place(undated(tasks),ids,pileOf(intent.zone),intent.index??Infinity);
+    return intent.zone==='shelf'?next.map(t=>ids.includes(t.id)&&t.proto?{...t,proto:false}:t):next;
+  }
+  if(intent.zone==='tray')return place(undated(tasks),[id],SHELF,0);
   if(intent.zone==='rail')return tasks.map(t=>t.id===id?{...t,plan_date:date,starts_at:date+'T'+time(intent.start!),flow_order:null}:t);
   if(ids.length>1){
     const next=flowsOn(tasks,date!).map(t=>t.id).filter(x=>!ids.includes(x));
@@ -46,37 +47,21 @@ export const updateAction=(t:Task,plan_date:string|null,starts_at:string|null,be
   ({type:'update',id:t.id,expected_revision:t.revision,title:t.title,body:t.body,starts_at,duration,plan_date,before});
 const revisions=(tasks:Task[],ids:string[])=>ids.map(id=>({id,revision:tasks.find(t=>t.id===id)!.revision}));
 
-// Onto the bench: a card into a pile or a new pile, a whole pile moved or stacked onto another.
-function pileAction(tasks:Task[],piles:Pile[],intent:Intent,newPile:()=>string):Action|null{
-  const ids=carried(intent),bench=benchPiles(tasks,piles);
-  if(intent.carry){
-    const from=intent.carry.pile;
-    if(intent.create!=null){
-      const current=piles.find(p=>p.id===from);
-      return from===null||!current||current.position===intent.create?null:{type:'move_pile',pile:from,position:intent.create};
-    }
-    if((intent.pile??null)===from)return null;
-    const target=bench.find(p=>p.id===(intent.pile??null));
-    return target?{type:'place_unplanned',items:revisions(tasks,ids),pile:intent.pile??null,index:target.cards.length}:null;
-  }
-  if(intent.create!=null)return {type:'place_unplanned',items:revisions(tasks,ids),pile:newPile(),create_at:intent.create,index:0};
-  const pile=intent.pile??null,index=intent.index??0,target=bench.find(p=>p.id===pile);
-  if(!target)return null;
+// Into the 들어옴 or the shelf before the card now at `index` among the others; the shelf is created by its first card.
+export function benchAction(tasks:Task[],piles:Pile[],ids:string[],to:'inbox'|'shelf',index:number):Action|null{
+  const cards=cardsIn(to,tasks,piles),others=cards.filter(t=>!ids.includes(t.id)).map(t=>t.id);
+  const at=Math.max(0,Math.min(index,others.length)),after=[...others];after.splice(at,0,...ids);
   // Put back where it already is: nothing to store.
-  const others=target.cards.filter(t=>!ids.includes(t.id)),after=[...others];after.splice(Math.min(index,others.length),0,...ids.map(id=>tasks.find(t=>t.id===id)!));
-  if(after.length===target.cards.length&&after.every((t,n)=>target.cards[n].id===t.id))return null;
-  return {type:'place_unplanned',items:revisions(tasks,ids),pile,index};
+  if(after.length===cards.length&&after.every((id,n)=>cards[n].id===id))return null;
+  const exists=to==='inbox'||piles.some(p=>p.id===SHELF);
+  return {type:'place_unplanned',items:revisions(tasks,ids),pile:pileOf(to),index:at,...(exists?{}:{create_at:1})};
 }
 
 // The single stored command for a drop, or null when nothing would change.
-export function intentAction(tasks:Task[],intent:Intent,piles:Pile[]=[],newPile:()=>string=()=>crypto.randomUUID()):Action|null{
+export function intentAction(tasks:Task[],intent:Intent,piles:Pile[]=[]):Action|null{
   const t=tasks.find(x=>x.id===intent.id);
   if(!t||!lands(intent))return null;
-  if(intent.zone==='canvas'){
-    const items=intent.positions!.map(p=>({...p,revision:tasks.find(t=>t.id===p.id)!.revision}));
-    return items.every(p=>{const t=tasks.find(t=>t.id===p.id)!;return !t.plan_date&&t.board_x===p.x&&t.board_y===p.y;})?null:{type:'place_board',items};
-  }
-  if(intent.zone==='pile')return pileAction(tasks,piles,intent,newPile);
+  if(toBench(intent.zone))return benchAction(tasks,piles,carried(intent),intent.zone,intent.index??Infinity);
   if(intent.zone==='tray')return t.plan_date&&!t.completed?updateAction(t,null,null):null;
   const date=intent.date!,ids=carried(intent);
   // Several at once retain their order at the pointed slot; date heads append.

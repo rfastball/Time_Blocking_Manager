@@ -27,7 +27,7 @@ pub struct Task {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Piece { pub id: String, pub title: String, pub body: String, pub duration: i64, #[serde(default)] pub proto: bool, #[serde(default)] pub completed: bool }
 
-// A user pile on the 미계획 bench. The 투입구 has no row and always comes first.
+// A pile row. Only the reserved 'shelf' (the 준비 shelf) remains in v9; the 들어옴 has no row.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Pile { pub id: String, pub position: i64 }
 
@@ -127,7 +127,7 @@ pub enum Action {
         #[serde(default, skip_serializing_if="Option::is_none")] before: Option<String>,
         // The length was chosen explicitly, even if it equals the stored one: a proto block becomes a sized one.
         #[serde(default, skip_serializing_if="Option::is_none")] sized: Option<bool> },
-    // `date`: the day a 미계획 task is completed on (today); dated work keeps its own date.
+    // `date`: the day a 준비 task is completed on (today); dated work keeps its own date.
     SetCompleted { id: String, expected_revision: i64, completed: bool,
         #[serde(default, skip_serializing_if="Option::is_none")] date: Option<String> },
     // Delete sets the task aside in the trash; only purge removes it for good.
@@ -135,7 +135,7 @@ pub enum Action {
     RestoreTrashed { id: String },
     PurgeTrashed { ids: Vec<String> },
     // The cutting board's result: each piece becomes its own task where the original stood, in order.
-    // `date`: the day a completed piece of 미계획 work is recorded on (today).
+    // `date`: the day a completed piece of 준비 work is recorded on (today).
     SplitPieces { id:String, expected_revision:i64, pieces:Vec<Piece>, #[serde(default, skip_serializing_if="Option::is_none")] date:Option<String> },
     SetSettings { expected_revision: i64, days: Vec<WorkingDay> },
     SetSchedule { expected_revision:i64,days:Vec<WorkingDay>,exceptions:Vec<DayException>,weekly_target:i64,work_days:i64,move_conflicts:bool },

@@ -51,8 +51,6 @@
 .cut-dialog::backdrop{background:var(--color-backdrop)}
 .cut-dialog .cut{border-radius:0;background:var(--color-surface)}
 /* The rest of the bench waits, dimmed, while the board is up; the block's place stays as an outline. */
-.wb-dim{opacity:.35;pointer-events:none;transition:opacity .15s}
-.wb-card.onboard>.tile{background:transparent;border:1.5px dashed var(--sp-fixed-edge)}
-.wb-card.onboard>.tile>*{visibility:hidden}
+.jb-dim{opacity:.35;pointer-events:none;transition:opacity .15s}
 @media (max-width:760px){.cut{flex-direction:column;align-items:stretch;padding:12px}.cut-board{flex-basis:auto}}
-@media (prefers-reduced-motion:reduce){.cut-inline{animation:none}.wb-dim{transition:none}}
+@media (prefers-reduced-motion:reduce){.cut-inline{animation:none}.jb-dim{transition:none}}

@@ -10,17 +10,17 @@ import {setSelection} from '../store/bench.ts';
 import {settle} from '../ui/motion.ts';
 import {Icon} from '../ui/icons.tsx';
 import {usePanelResize} from '../ui/PanelResize.tsx';
-import {Bench,DateDock} from './Workbench.tsx';
+import {DateDock,InboxList,SelectionBar,ShelfList} from './Workbench.tsx';
 import './inbox.css';
 import './workbench.css';
 
 // The archive and 휴지통 disclosures keep the user's choice while they visit other views.
 let archiveOpenMemory=false,trashOpenMemory=false;
 
-// 미계획 is where blocks get their shape: length, pieces, free positions, and the past days' leftovers. Dates are only a shortcut here.
+// 준비 is where captured work becomes blocks that can go on a date: the 들어옴, one ordered shelf, and the next days.
 export function InboxPage(){
   const {snapshot,drafts,ready,draftLoaded,quitSaving,ui,today}=useApp();
-  const panels=usePanelResize('inbox',.58,'작업대와 날짜 패널 크기','inbox-bench inbox-dates');
+  const panels=usePanelResize('inbox',.62,'준비와 날짜 패널 크기','inbox-bench inbox-dates');
   const [archiveOpen,setArchiveOpen]=useState(archiveOpenMemory),[trashOpen,setTrashOpen]=useState(trashOpenMemory),trash=snapshot!.trash??[];
   // Completions kept from before every completion had a date; nothing new arrives here.
   const archived=snapshot!.tasks.filter(t=>!t.plan_date&&t.completed);
@@ -29,8 +29,9 @@ export function InboxPage(){
   // A selection belongs to this page and to work still on it.
   useEffect(()=>()=>setSelection([]),[]);
   useEffect(()=>{const live=ui.benchSelection.filter(id=>snapshot!.tasks.some(t=>t.id===id&&!t.completed&&(!t.plan_date||t.plan_date<today)));if(live.length!==ui.benchSelection.length)setSelection(live);},[snapshot,ui.benchSelection,today]);
-  return <section className="inbox-page wb" aria-label="미계획 작업대" onClick={e=>{
-    if(!(e.target as HTMLElement).closest('button,input,textarea,select,a,summary,[data-card],.cut,.wb-dock'))setSelection([]);
+  const cutting=!!(ui.split&&drafts.cut),open=(t:Task)=>openEditor(t.id);
+  return <section className="inbox-page jb" aria-label="준비" onClick={e=>{
+    if(!(e.target as HTMLElement).closest('button,input,textarea,select,a,summary,[data-card],.cut,.jb-dock,.jb-selbar,.menu'))setSelection([]);
   }}>
     <div className="inbox-entry">
       <Icon name="plus" size={18}/>
@@ -39,33 +40,36 @@ export function InboxPage(){
         onFocus={()=>{if(drafts.composer)closeComposer();}} onChange={e=>{if(drafts.composer)closeComposer();else editCapture(e.target.value);}}
         onKeyDown={e=>{if(e.key!=='Enter')return;e.preventDefault();if(isCompositionKey(e.nativeEvent))return;void submitCapture();}}/>
     </div>
-    <div ref={panels.ref} style={panels.style} data-panel-stacked={panels.stacked} className="wb-work">
-      <div id="inbox-bench" className="card wb-bench">
-        {ui.split&&drafts.cut&&<CutBoard mode="inline"/>}
-        <div className={'wb-layer'+(ui.split&&drafts.cut?' wb-dim':'')} inert={ui.split&&drafts.cut?true:undefined}>
-        <Bench onOpen={t=>openEditor(t.id)}/>
-        {archived.length>0&&<details className="inbox-done inbox-archive" open={archiveOpen} onToggle={e=>{const o=e.currentTarget.open;archiveOpenMemory=o;setArchiveOpen(o);}}>
-          <summary>날짜 없는 완료 {archived.length}</summary>
-          {archiveOpen&&<>
-            <ul className="inbox-rows">
-              <AnimatePresence initial={false} mode="popLayout">{archived.map(t=><ArchiveRow key={t.id} task={t}/>)}</AnimatePresence>
-            </ul>
-            <div className="inbox-trash-foot"><button type="button" className="btn text" onClick={()=>void clearArchive(archived)}>보관 목록 비우기</button></div>
-          </>}
-        </details>}
-        {trash.length>0&&<details className="inbox-done inbox-trash" open={trashOpen} onToggle={e=>{const o=e.currentTarget.open;trashOpenMemory=o;setTrashOpen(o);}}>
-          <summary>휴지통 {trash.length}</summary>
-          {trashOpen&&<>
-            <ul className="inbox-rows">
-              <AnimatePresence initial={false} mode="popLayout">{trash.map((t,index)=><TrashRow key={t.id} item={t} next={trash[index+1]??trash[index-1]}/>)}</AnimatePresence>
-            </ul>
-            <EmptyTrash items={trash}/>
-          </>}
-        </details>}
+    <div ref={panels.ref} style={panels.style} data-panel-stacked={panels.stacked} className="jb-work">
+      <div id="inbox-bench" className="jb-bench">
+        {cutting&&<CutBoard mode="inline"/>}
+        <div className={'jb-layer'+(cutting?' jb-dim':'')} inert={cutting?true:undefined}>
+          <InboxList onOpen={open}>
+            {archived.length>0&&<details className="inbox-done inbox-archive" open={archiveOpen} onToggle={e=>{const o=e.currentTarget.open;archiveOpenMemory=o;setArchiveOpen(o);}}>
+              <summary>날짜 없는 완료 {archived.length}</summary>
+              {archiveOpen&&<>
+                <ul className="inbox-rows">
+                  <AnimatePresence initial={false} mode="popLayout">{archived.map(t=><ArchiveRow key={t.id} task={t}/>)}</AnimatePresence>
+                </ul>
+                <div className="inbox-trash-foot"><button type="button" className="btn text" onClick={()=>void clearArchive(archived)}>보관 목록 비우기</button></div>
+              </>}
+            </details>}
+            {trash.length>0&&<details className="inbox-done inbox-trash" open={trashOpen} onToggle={e=>{const o=e.currentTarget.open;trashOpenMemory=o;setTrashOpen(o);}}>
+              <summary>휴지통 {trash.length}</summary>
+              {trashOpen&&<>
+                <ul className="inbox-rows">
+                  <AnimatePresence initial={false} mode="popLayout">{trash.map((t,index)=><TrashRow key={t.id} item={t} next={trash[index+1]??trash[index-1]}/>)}</AnimatePresence>
+                </ul>
+                <EmptyTrash items={trash}/>
+              </>}
+            </details>}
+          </InboxList>
+          <ShelfList onOpen={open}/>
         </div>
+        <SelectionBar/>
       </div>
       {panels.separator}
-      <div id="inbox-dates" className="wb-date-panel"><DateDock frozen={!!(ui.split&&drafts.cut)}/></div>
+      <div id="inbox-dates" className="jb-date-panel"><DateDock frozen={cutting}/></div>
     </div>
   </section>;
 }

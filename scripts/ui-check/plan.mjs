@@ -260,7 +260,7 @@ export default [
     assert.equal(await page.js(`document.activeElement.textContent`),'월');
     await page.shot('plan-month');
   }},
-  {name:'at 1024px 2주 puts 미계획 below and the date panel takes a new block',viewport:{width:1024,height:900},run:async page=>{
+  {name:'at 1024px 2주 puts 준비 below and the date panel takes a new block',viewport:{width:1024,height:900},run:async page=>{
     await toPlan(page);
     await page.click('.segmented [role=radio]','2주');
     const cal=await page.rect('.cal'),drawer=await page.rect('#plan-drawer'),day=await page.rect('.plan-day');

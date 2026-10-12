@@ -8,7 +8,7 @@ const open=async page=>{await page.key('k',{code:'KeyK',modifiers:CTRL});await p
 
 const scenarios=[
   {name:'Ctrl+K and the menu button open search; Esc closes it and gives focus back',run:async page=>{
-    assert.deepEqual(await page.js(`[...document.querySelectorAll('.rail-nav .nav-button')].map(b=>b.querySelector('span').textContent.split(' ')[0])`),['오늘','계획','미계획','검색','설정']);
+    assert.deepEqual(await page.js(`[...document.querySelectorAll('.rail-nav .nav-button')].map(b=>b.querySelector('span').textContent.split(' ')[0])`),['오늘','계획','준비','검색','설정']);
     await page.js(`document.querySelector('#tray-capture').focus()`);
     await open(page);
     assert.equal(await active(page),'검색');
@@ -36,7 +36,7 @@ const scenarios=[
   }},
   {name:'a bench card, the trash and a memo-only match are found; Korean being composed already updates the list',run:async page=>{
     await open(page);await page.type('결재');await page.sleep(100);
-    assert.deepEqual(await hits(page),['결재 처리 | 작업대']);
+    assert.deepEqual(await hits(page),['결재 처리 | 선반 · 4번째']);
     await page.key('Enter');await page.sleep(900);
     assert.equal(await page.js(`document.querySelector('.content').dataset.view`),'inbox');
     assert.equal(await active(page),'결재 처리, 15분');

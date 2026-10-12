@@ -9,12 +9,12 @@ const tasks=[task('a',{flow_order:1}),task('b',{flow_order:2}),task('c',{flow_or
 const at=(patch:Partial<Intent>&{id:string}):Intent=>({...noIntent(patch.id),...patch});
 const orderOf=(list:Task[],date=day)=>list.filter(t=>t.plan_date===date&&!t.starts_at&&!t.completed).sort((p,q)=>p.flow_order!-q.flow_order!).map(t=>t.id);
 
-test('a held block previews and stores order, date, time and 미계획 as one command each',()=>{
+test('a held block previews and stores order, date, time and 준비 as one command each',()=>{
   // Body: same day is a reorder of the whole remaining order.
   const move=at({id:'c',zone:'body',date:day,before:'a'});
   assert.deepEqual(orderOf(applyIntent(tasks,move)),['c','a','b']);
   assert.deepEqual(intentAction(tasks,move),{type:'reorder_flow',date:day,expected:[{id:'c',revision:1},{id:'a',revision:1},{id:'b',revision:1}]});
-  // Body: from 미계획 it is a date assignment before the target, without a time.
+  // Body: from 준비 it is a date assignment before the target, without a time.
   const assign=at({id:'i',zone:'body',date:day,before:'b'});
   assert.deepEqual(orderOf(applyIntent(tasks,assign)),['a','i','b','c']);
   assert.equal(intentAction(tasks,assign)?.type,'update');
@@ -31,7 +31,7 @@ test('a held block previews and stores order, date, time and 미계획 as one co
   assert.equal(applyIntent(tasks,rail).find(t=>t.id==='b')!.starts_at,day+'T15:00');
   assert.equal(intentAction(tasks,at({id:'b',zone:'rail',date:day,start:720,ok:false,reason:'점심'})),null);
   assert.equal(applyIntent(tasks,at({id:'b',zone:'rail',date:day,start:720,ok:false})),tasks);
-  // Tray returns planned work to 미계획; nothing happens for 미계획 work or outside every zone.
+  // Tray returns planned work to 준비; nothing happens for 준비 work or outside every zone.
   assert.equal(applyIntent(tasks,at({id:'a',zone:'tray'})).find(t=>t.id==='a')!.plan_date,null);
   assert.equal(intentAction(tasks,at({id:'i',zone:'tray'})),null);
   assert.equal(intentAction(tasks,noIntent('a')),null);
@@ -39,23 +39,29 @@ test('a held block previews and stores order, date, time and 미계획 as one co
   assert.equal(intentAction(tasks,at({id:'b',zone:'body',date:day,before:'c'})),null);
 });
 
-test('the bench stores card, new-pile, pile-move and stack drops, and nothing when put back',()=>{
-  const card=(id:string,pile:string|null,order:number):Task=>task(id,{plan_date:null,pile_id:pile,pile_order:order});
-  const bench=[card('a',null,1),card('b',null,2),card('c','p1',1),card('d','p1',2),card('e','p2',1)],piles=[{id:'p1',position:1},{id:'p2',position:2}];
-  const act=(patch:Partial<Intent>&{id:string})=>intentAction(bench,at({zone:'pile',...patch}),piles,()=>'new');
-  assert.deepEqual(act({id:'a',pile:'p1',index:1}),{type:'place_unplanned',items:[{id:'a',revision:1}],pile:'p1',index:1});
-  assert.equal(act({id:'c',pile:'p1',index:0}),null);
-  assert.equal(act({id:'b',pile:null,index:1}),null);
-  assert.deepEqual(act({id:'d',pile:'p1',index:0}),{type:'place_unplanned',items:[{id:'d',revision:1}],pile:'p1',index:0});
-  assert.deepEqual(act({id:'a',create:2}),{type:'place_unplanned',items:[{id:'a',revision:1}],pile:'new',create_at:2,index:0});
-  // A pile by its handle: between piles moves it, onto a pile stacks below its cards; the 투입구 never moves.
-  assert.deepEqual(act({id:'e',ids:['e'],carry:{pile:'p2'},create:1}),{type:'move_pile',pile:'p2',position:1});
-  assert.equal(act({id:'a',ids:['a','b'],carry:{pile:null},create:1}),null);
-  assert.deepEqual(act({id:'c',ids:['c','d'],carry:{pile:'p1'},pile:'p2'}),{type:'place_unplanned',items:[{id:'c',revision:1},{id:'d',revision:1}],pile:'p2',index:1});
+test('the 준비 lists store moves into the 들어옴 and the shelf, create the shelf once, and store nothing when put back',()=>{
+  const card=(id:string,pile:string|null,order:number,extra:Partial<Task>={}):Task=>task(id,{plan_date:null,pile_id:pile,pile_order:order,...extra});
+  const bench=[card('a',null,1,{proto:true}),card('b',null,2),card('c','shelf',1),card('d','shelf',2),task('p',{plan_date:'2026-10-10',flow_order:1})],piles=[{id:'shelf',position:1}];
+  const act=(patch:Partial<Intent>&{id:string},list=bench,known=piles)=>intentAction(list,at({zone:'shelf',...patch}),known);
+  assert.deepEqual(act({id:'b',index:1}),{type:'place_unplanned',items:[{id:'b',revision:1}],pile:'shelf',index:1});
+  assert.equal(act({id:'c',index:0}),null);assert.equal(act({id:'d',index:5}),null,'past the end is the end');
+  assert.deepEqual(act({id:'d',index:0}),{type:'place_unplanned',items:[{id:'d',revision:1}],pile:'shelf',index:0});
+  assert.deepEqual(act({id:'c',zone:'inbox',index:0}),{type:'place_unplanned',items:[{id:'c',revision:1}],pile:null,index:0});
+  assert.equal(act({id:'b',zone:'inbox',index:1}),null);
+  // The first card on an empty shelf creates it.
+  const empty=bench.map(t=>t.pile_id?{...t,pile_id:null,pile_order:t.pile_order!+2}:t);
+  assert.deepEqual(act({id:'b',index:0},empty,[]),{type:'place_unplanned',items:[{id:'b',revision:1}],pile:'shelf',index:0,create_at:1});
+  // A proto previews sized on the shelf; overdue work previews undated; the 들어옴 keeps a proto.
+  const onto=applyIntent(bench,at({id:'a',ids:['a','p'],zone:'shelf',index:1}));
+  assert.deepEqual(onto.filter(t=>t.pile_id==='shelf').sort((x,y)=>x.pile_order!-y.pile_order!).map(t=>[t.id,!!t.proto,t.plan_date]),[['c',false,null],['a',false,null],['p',false,null],['d',false,null]]);
+  assert.equal(applyIntent(bench,at({id:'a',zone:'inbox',index:1})).find(t=>t.id==='a')!.proto,true);
+  // A tray drop from a date previews on top of the shelf.
+  const back=applyIntent(bench,at({id:'p',zone:'tray'})).find(t=>t.id==='p')!;
+  assert.deepEqual([back.plan_date,back.pile_id,back.pile_order],[null,'shelf',1]);
   // Several onto a date: in order to its end, previewed the same way.
   const ship=at({id:'a',ids:['a','c'],zone:'date',date:day});
   assert.deepEqual(intentAction(bench,ship),{type:'ship_flow',date:day,items:[{id:'a',revision:1},{id:'c',revision:1}]});
-  assert.deepEqual(orderOf(applyIntent(bench,ship)),['a','c']);
+  assert.deepEqual(orderOf(applyIntent(bench,ship)),['p','a','c'].filter(id=>id!=='p'));
   // A multi-drop on the timetable body inserts before the pointed remaining card.
   const mixed=[...bench,task('x',{flow_order:1}),task('y',{flow_order:2}),task('z',{flow_order:3})];
   const insert=at({id:'a',ids:['a','c'],zone:'body',date:day,before:'y'});
@@ -63,9 +69,4 @@ test('the bench stores card, new-pile, pile-move and stack drops, and nothing wh
   assert.deepEqual(intentAction(mixed,insert),{type:'ship_flow',date:day,items:[{id:'a',revision:1},{id:'c',revision:1}],before:'y'});
   const reorder=at({id:'z',ids:['z','x'],zone:'body',date:day,before:'y'});
   assert.deepEqual(orderOf(applyIntent(mixed,reorder)),['z','x','y']);
-  const spatial=at({id:'a',ids:['a','c'],zone:'canvas',positions:[{id:'a',x:-32,y:75},{id:'c',x:292,y:195}]});
-  assert.deepEqual(intentAction(bench,spatial),{type:'place_board',items:[{id:'a',x:-32,y:75,revision:1},{id:'c',x:292,y:195,revision:1}]});
-  const placed=applyIntent(bench,spatial);
-  assert.deepEqual(placed.filter(t=>['a','c'].includes(t.id)).map(t=>[t.id,t.board_x,t.board_y]),[['a',-32,75],['c',292,195]]);
-  assert.equal(intentAction(placed,spatial),null,'releasing at the saved coordinates stores nothing');
 });

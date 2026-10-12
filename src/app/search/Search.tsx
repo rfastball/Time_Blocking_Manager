@@ -60,7 +60,7 @@ function SearchPanel(){
   </div>;
 }
 
-// Each kind of hit opens where it lives: dated work in 계획's 일 view, the bench and its lists on 미계획.
+// Each kind of hit opens where it lives: dated work in 계획's 일 view, 준비 work and its lists on 준비.
 function goTo(hit:Hit){
   setUi({search:false});
   if(hit.kind==='dated'||hit.kind==='done')setNav({view:'plan',period:'day',selected:hit.date!,planAnchor:hit.date!});
@@ -68,7 +68,7 @@ function goTo(hit:Hit){
   setUi({found:{id:hit.id,kind:hit.kind,at:Date.now()}});
 }
 const targets:Record<Hit['kind'],(id:string)=>string>={
-  bench:id=>`.wb [data-card="${id}"]`,
+  bench:id=>`.jb [data-card="${id}"]`,
   dated:id=>`.dv-day [data-task="${id}"]`,
   done:id=>`.dv-day [data-task="${id}"]`,
   archive:id=>`.inbox-archive [data-task="${id}"]`,

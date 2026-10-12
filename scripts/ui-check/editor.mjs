@@ -88,16 +88,16 @@ const scenarios=[
     assert.ok((await page.blocks(space)).includes('회의록 정리, 시각 고정 10:45–11:15'));
     assert.match(await page.text(panel+' .ed-state'),/시각 고정/);
   }},
-  {name:'the block menu releases a fixed block and moves another to 미계획',run:async page=>{
+  {name:'the block menu releases a fixed block and moves another to 준비',run:async page=>{
     await rightClick(page,space+' .blk.fixed','설계 워크숍');await page.sleep(200);
     assert.match(await page.text('.ctx-menu .menu-head'),/설계 워크숍/);
-    assert.deepEqual(await menuItems(page),['메모 열기','완료로 표시','고정 해제','나누기','미계획으로 옮기기','삭제']);
+    assert.deepEqual(await menuItems(page),['메모 열기','완료로 표시','고정 해제','나누기','준비로 옮기기','삭제']);
     await page.shot('editor-context-menu');
     await page.click('.ctx-menu [role=menuitem]','고정 해제');await page.sleep(500);
     assert.ok((await page.blocks(space)).some(b=>b.startsWith('설계 워크숍, 예상')),'released into the flow');
     await rightClick(page,space+' .blk','분리망 배포');await page.sleep(200);
     assert.ok((await menuItems(page)).includes('시각 고정…'));
-    await page.click('.ctx-menu [role=menuitem]','미계획으로 옮기기');await page.sleep(500);
+    await page.click('.ctx-menu [role=menuitem]','준비로 옮기기');await page.sleep(500);
     assert.ok(!(await page.blocks(space)).some(b=>b.startsWith('분리망 배포')));
     assert.match(await page.text('.today-side .tray'),/분리망 배포 의존성 검토/);
     // Empty time offers a new block there and the day's working time.
@@ -129,7 +129,7 @@ const scenarios=[
     assert.ok(!(await page.blocks(space)).some(b=>b.startsWith('분리망 배포')));
     assert.ok((await active(page)).task,'focus moves to a remaining block');
     assert.deepEqual(await page.js('window.__asked'),[],'no dialog');
-    await page.click('.rail-nav .nav-button','미계획');await page.sleep(300);
+    await page.click('.rail-nav .nav-button','준비');await page.sleep(300);
     assert.match(await page.text('.inbox-trash > summary'),/휴지통 2/);
     await page.js(`document.querySelector('.inbox-trash > summary').scrollIntoView({block:'center'})`);
     await page.click('.inbox-trash > summary');await page.sleep(300);
@@ -169,7 +169,7 @@ const scenarios=[
     assert.equal(await page.js(`!!document.querySelector('dialog.cut-dialog[open]')`),false);
     const blocks=await page.blocks(space);
     assert.ok(blocks.includes('설계 문서 자료 조사, 예상 09:00–09:30'),blocks.join(' / '));
-    assert.ok(blocks.includes('자료 정리, 예상 09:30–10:00'),'the second piece follows in the day, not in 미계획');
+    assert.ok(blocks.includes('자료 정리, 예상 09:30–10:00'),'the second piece follows in the day, not in 준비');
     // 취소 throws the edit away; focus returns to the block.
     await focusBlock(page,'분리망 배포');await page.key('F10',{modifiers:SHIFT});await page.sleep(200);
     await page.click('.ctx-menu [role=menuitem]','나누기');await page.sleep(300);

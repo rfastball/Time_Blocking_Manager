@@ -84,7 +84,7 @@ export default [
     assert.ok(Math.abs(flow.y-day.y)<=1&&Math.abs(flow.h-day.h)<=1,'both columns share the available viewport height');
     assert.ok(day.y+day.h<=900&&flow.y+flow.h<=900,'the complete day is bounded by the viewport');
     assert.equal(await page.js(`getComputedStyle(document.querySelector('.today-cols')).gridTemplateColumns.split(' ').length`),3,'two panels share one separator track');
-    assert.deepEqual(await page.js(`[...document.querySelectorAll('.today-flow .card')].map(e=>e.getAttribute('aria-label'))`),['다음 블록','남은 블록','미계획'],'DOM order follows the execution flow');
+    assert.deepEqual(await page.js(`[...document.querySelectorAll('.today-flow .card')].map(e=>e.getAttribute('aria-label'))`),['다음 블록','남은 블록','준비'],'DOM order follows the execution flow');
     assert.ok(await page.js(`document.querySelector('.today-day .space-wrap').scrollHeight>document.querySelector('.today-day .space-wrap').clientHeight`),'the day retains its complete scrollable axis');
     assert.ok(await page.js(`document.documentElement.scrollHeight<=innerHeight`),'the dashboard itself does not scroll');
     await page.shot('today-initial');
@@ -131,7 +131,7 @@ export default [
     const capture=await page.rect('#tray-capture');
     assert.ok(capture.y>=0&&capture.y+capture.h<=1000,'the last completion reveals the capture input');
   }},
-  {name:'a 미계획 block held over the body opens a gap and drops into that order',run:async page=>{
+  {name:'a 준비 block held over the body opens a gap and drops into that order',run:async page=>{
     const tray=await find(page,'회의록 템플릿'),c=await find(page,'회의록 정리');
     const during=await page.drag({x:tray.x+30,y:tray.y+10},{x:c.x+200,y:c.y+6},{before:async()=>{await page.shot('today-held-body');return {hollow:await page.js('document.querySelectorAll(".today-day .blk.hollow").length'),held:await page.js('!!document.querySelector(".held")')};}});
     assert.deepEqual(during,{hollow:1,held:true});

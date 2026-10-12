@@ -27,7 +27,7 @@ test('the memo preview shows checklist marks as ✓ and · without blank lines',
 
 test('state badge follows completion, then date, then fixed time',()=>{
   assert.equal(taskState({completed:true,plan_date:'2026-10-10',starts_at:null}),'완료');
-  assert.equal(taskState({completed:false,plan_date:null,starts_at:null}),'미계획');
+  assert.equal(taskState({completed:false,plan_date:null,starts_at:null}),'준비');
   assert.equal(taskState({completed:false,plan_date:'2026-10-10',starts_at:'2026-10-10T14:00'}),'시각 고정');
   assert.equal(taskState({completed:false,plan_date:'2026-10-10',starts_at:null}),'계획');
 });
@@ -39,11 +39,11 @@ test('schedule fields: fixed needs both date and time; summaries read the draft'
   assert.deepEqual(withSchedule('2026-10-10',false,'09:15'),{plan_date:'2026-10-10',starts_at:null});
   assert.equal(scheduleSummary({duration:90,plan_date:'2026-10-10',starts_at:'2026-10-10T14:00'}),'일정 · 1시간 30분 · 10월 10일 14:00 고정');
   assert.equal(scheduleSummary({duration:30,plan_date:'2026-10-09',starts_at:null}),'일정 · 30분 · 10월 9일');
-  assert.equal(scheduleSummary({duration:0,plan_date:null,starts_at:null}),'일정 · 크기 미정 · 미계획');
+  assert.equal(scheduleSummary({duration:0,plan_date:null,starts_at:null}),'일정 · 크기 미정 · 준비');
   assert.equal(scheduleHint({duration:45,plan_date:'2026-10-10',starts_at:'2026-10-10T23:30'}),'23:30–24:15');
   assert.equal(scheduleHint({duration:45,plan_date:'2026-10-10',starts_at:null},{start:600,end:645}),'예상 10:00–10:45');
   assert.equal(scheduleHint({duration:45,plan_date:'2026-10-10',starts_at:null}),'10월 10일');
-  assert.equal(scheduleHint({duration:45,plan_date:null,starts_at:null}),'미계획');
+  assert.equal(scheduleHint({duration:45,plan_date:null,starts_at:null}),'준비');
 });
 
 test('quarter rounding and duration rule',()=>{

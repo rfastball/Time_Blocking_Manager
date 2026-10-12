@@ -27,7 +27,7 @@ export function mergeBody(tasks:Pick<Task,'title'|'body'>[]){
   return tasks.map(t=>`- [ ] ${t.title.replace(/[\r\n]/g,' ')}${t.body?'\n\n'+t.body:''}`).join('\n\n');
 }
 
-export const taskState=(t:Pick<Task,'completed'|'plan_date'|'starts_at'>)=>t.completed?'완료':!t.plan_date?'미계획':t.starts_at?'시각 고정':'계획';
+export const taskState=(t:Pick<Task,'completed'|'plan_date'|'starts_at'>)=>t.completed?'완료':!t.plan_date?'준비':t.starts_at?'시각 고정':'계획';
 export const quarter=(minute:number)=>Math.round(minute/15)*15;
 const startOf=(starts_at:string)=>Number(starts_at.slice(11,13))*60+Number(starts_at.slice(14,16));
 export const shortDate=(date:string)=>`${Number(date.slice(5,7))}월 ${Number(date.slice(8,10))}일`;
@@ -35,13 +35,13 @@ export const shortDate=(date:string)=>`${Number(date.slice(5,7))}월 ${Number(da
 // The collapsed schedule line: size, then where the block lives.
 export function scheduleSummary(t:Pick<Task,'duration'|'plan_date'|'starts_at'>){
   const size=Number.isInteger(t.duration)&&t.duration>0?formatDuration(t.duration):'크기 미정';
-  const place=t.starts_at?`${shortDate(t.starts_at.slice(0,10))} ${t.starts_at.slice(11,16)} 고정`:t.plan_date?shortDate(t.plan_date):'미계획';
+  const place=t.starts_at?`${shortDate(t.starts_at.slice(0,10))} ${t.starts_at.slice(11,16)} 고정`:t.plan_date?shortDate(t.plan_date):'준비';
   return `일정 · ${size} · ${place}`;
 }
 // The time the block occupies: its fixed range, or the flow estimate when the day plan has one.
 export function scheduleHint(t:Pick<Task,'duration'|'plan_date'|'starts_at'>,estimate:{start:number;end:number}|null=null){
   if(t.starts_at)return `${t.starts_at.slice(11,16)}–${time(startOf(t.starts_at)+(Number.isFinite(t.duration)?t.duration:0))}`;
-  if(!t.plan_date)return '미계획';
+  if(!t.plan_date)return '준비';
   return estimate?`예상 ${time(estimate.start)}–${time(estimate.end)}`:shortDate(t.plan_date);
 }
 // Date and fixed time as typed. A fixed block needs both; until then it stays a dated flow block.

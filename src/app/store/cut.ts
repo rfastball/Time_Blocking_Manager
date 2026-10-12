@@ -1,13 +1,13 @@
 // The cutting board: opened on a block, edited as a draft, committed by closing (닫기·Esc), thrown away by 취소.
 import {initialSegs,piecesOf} from '../../cut.ts';
 import {updateAction} from '../../intent.ts';
-import {pileLabel} from '../../bench.ts';
+import {placeLabel} from '../../bench.ts';
 import {time} from '../../dates.ts';
 import {getState,setDrafts,setUi,type CutDraft} from './state.ts';
 import {announce,dispatch,draftChanged,persistDraft,queue,showError} from './session.ts';
 import {closeEditor,openEditor} from './editor.ts';
 import {flowOrderOn,taskMinute} from './tasks.ts';
-import {piles,shortDate} from './bench.ts';
+import {shortDate} from './bench.ts';
 
 const snap=()=>getState().snapshot!;
 
@@ -32,7 +32,7 @@ export function cancelCut(){const c=getState().drafts.cut;if(c)close(c.taskId);e
 // Where the block came from, as the board says it.
 export function cutPlace(id:string){
   const t=snap().tasks.find(x=>x.id===id);if(!t)return '';
-  if(!t.plan_date)return piles().find(p=>p.cards.some(c=>c.id===id)) ? pileLabel(piles().find(p=>p.cards.some(c=>c.id===id))!) : '미계획';
+  if(!t.plan_date)return placeLabel(t,snap().tasks,snap().piles??[]);
   if(t.plan_date<getState().today)return `${shortDate(t.plan_date)} 미완료`;
   if(t.starts_at)return `${shortDate(t.plan_date)} · ${time(taskMinute(t))} 고정`;
   return `${shortDate(t.plan_date)} · 순서 ${flowOrderOn(t.plan_date).findIndex(x=>x.id===id)+1}`;

@@ -6,6 +6,7 @@ import {setNav,setUi,useApp,type Ui} from '../store/state.ts';
 import {openEditor} from '../store/editor.ts';
 import {openAvailability} from '../store/schedule.ts';
 import {deleteTask,flowOrderOn,openComposer,reorder,toggleComplete,unfix,unplan} from '../store/tasks.ts';
+import {moveTo,placeOfCard,shipTo} from '../store/bench.ts';
 import {blockButton,clamp,menuKeys,requestSplit} from './actions.ts';
 
 type Item={label:string;run:()=>void;danger?:boolean;disabled?:boolean};
@@ -46,7 +47,11 @@ function ContextMenu({m}:{m:NonNullable<Ui['contextMenu']>}){
       ...(flow?[{label:'앞으로',disabled:at<=0,run:()=>void reorder(t,-1)},{label:'뒤로',disabled:at<0||at===order.length-1,run:()=>void reorder(t,1)},{label:'시각 고정…',run:()=>openEditor(t.id,mode,'fix')}]:[]),
       ...(t.starts_at?[{label:'고정 해제',run:()=>void unfix(t)}]:[]),
       ...(!t.completed?[{label:'나누기',run:()=>requestSplit(t.id)}]:[]),
-      ...(t.plan_date&&!t.completed?[{label:'미계획으로 옮기기',run:()=>void unplan(t)}]:[]),
+      // 준비 work moves between the 들어옴 and the shelf or goes to today; dated work goes back to 준비 (top of the shelf).
+      ...(s.nav.view==='inbox'&&!t.completed&&(!t.plan_date||t.plan_date<s.today)?[
+        placeOfCard(t)==='shelf'&&!t.plan_date?{label:'들어옴으로',run:()=>void moveTo([t.id],'inbox',0)}:{label:'선반으로',run:()=>void moveTo([t.id],'shelf',Infinity)},
+        {label:'오늘에 싣기',run:()=>void shipTo(s.today,[t.id])}]:[]),
+      ...(t.plan_date&&!t.completed&&s.nav.view!=='inbox'?[{label:'준비로 옮기기',run:()=>void unplan(t)}]:[]),
       {label:'삭제',danger:true,run:()=>void deleteTask(t)},
     ];
   }else items=[

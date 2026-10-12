@@ -30,7 +30,7 @@ export function Plan(){
   const settings=drafts.settingsDraft??snapshot!.settings,week=weekCapacity(settings,nav.selected);
   const inbox=inboxTasks(),dated=snapshot!.tasks.some(t=>t.plan_date===nav.selected&&!t.completed);
   const dates=periodDates(nav.period,nav.planAnchor),open=nav.inboxOpen;
-  const panels=usePanelResize(`plan-${nav.period}-drawer`,.78,'계획과 미계획 패널 크기','plan-main plan-drawer',open,'drawer');
+  const panels=usePanelResize(`plan-${nav.period}-drawer`,.78,'계획과 준비 패널 크기','plan-main plan-drawer',open,'drawer');
   const calendarPanels=usePanelResize(`plan-${nav.period}-calendar`,.67,'달력과 선택 날짜 패널 크기','calendar-summary calendar-day',nav.period==='two'||nav.period==='month','calendar');
   return <div className="plan">
     <div className="plan-bar">
@@ -39,16 +39,16 @@ export function Plan(){
       <span className="grow"/>
       <button type="button" className="btn" onClick={goRoutines}>정기 업무</button>
       <button type="button" className="btn text" disabled={!dated} aria-label={`${dateLabel(nav.selected)} 일정 비우기`} onClick={()=>void clearDay(nav.selected)}>{dateOf(nav.selected).getDate()}일 비우기</button>
-      <button ref={drawerToggle} type="button" className={'btn drawer-toggle'+(open?' on':'')} aria-expanded={open} aria-controls="plan-drawer" aria-label={inbox.length?`미계획 ${inbox.length}건`:'미계획'}
-        onClick={()=>setNav({inboxOpen:!open})}><Icon name="inbox" size={16}/>미계획{inbox.length>0&&<span className="cnt">{inbox.length}</span>}</button>
+      <button ref={drawerToggle} type="button" className={'btn drawer-toggle'+(open?' on':'')} aria-expanded={open} aria-controls="plan-drawer" aria-label={inbox.length?`준비 ${inbox.length}건`:'준비'}
+        onClick={()=>setNav({inboxOpen:!open})}><Icon name="inbox" size={16}/>준비{inbox.length>0&&<span className="cnt">{inbox.length}</span>}</button>
     </div>
     <div ref={panels.ref} style={{...panels.style,...calendarPanels.style}} data-panel-stacked={panels.stacked} className={'plan-desk '+nav.period+(nav.period==='day'?' week':'')+(open?' with-drawer':'')}>
       <div id="plan-main" className="plan-main">{nav.period==='day'?<DayView dates={dates}/>:nav.period==='week'?<Week dates={dates}/>:<Calendar dates={dates} period={nav.period} panels={calendarPanels}/>}</div>
       {panels.separator}
-      <aside id="plan-drawer" className="plan-drawer" hidden={!open} aria-label="미계획 드로어">
+      <aside id="plan-drawer" className="plan-drawer" hidden={!open} aria-label="준비 드로어">
         {open&&<>
           <InboxTray scale={WEEK_SCALE} overdue={overdueTasks()} onOpen={t=>openEditor(t.id,'dialog')}/>
-          <button type="button" className="ibtn drawer-close" aria-label="미계획 패널 닫기" onClick={()=>{setNav({inboxOpen:false});drawerToggle.current?.focus({preventScroll:true});}}><Icon name="close" size={16}/></button>
+          <button type="button" className="ibtn drawer-close" aria-label="준비 패널 닫기" onClick={()=>{setNav({inboxOpen:false});drawerToggle.current?.focus({preventScroll:true});}}><Icon name="close" size={16}/></button>
         </>}
       </aside>
     </div>

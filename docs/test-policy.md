@@ -1,5 +1,13 @@
 # 검증 범위
 
+## 준비 탭: 들어옴·선반·날짜 기둥 (2026-10-12)
+
+- Unique risk: 자유 캔버스를 들어옴과 하나의 선반으로 바꾸면서 저장 위치(예약 더미 `shelf`)·v8 이하 이관·날짜에서 돌아오는 자리·판의 30분 확정이 Rust와 미리보기 저장소에서 달라지거나, 시간 축척 카드·드롭 순서·날짜 기둥 미리보기가 실제 저장 결과와 어긋나는 문제.
+- Existing owner / selected layer: 저장 규칙은 기존 `src-tauri/tests/storage.rs`와 `src/bench.test.ts`·`src/intent.test.ts`, 화면 조작은 기존 `scripts/ui-check/inbox.mjs`가 맡는다. 자유 캔버스 좌표·확대·올가미 시나리오는 제품에서 없어져 퇴역했다.
+- Added / extended / removed: Rust **1 / 6 / 0**(v8 → v9 이관·선반의 판 확정 추가, 날짜에서 돌아오는 자리를 선반으로 바꾼 6건 갱신) **28→29**. Node **4 / 3 / 6**(작업대 좌표·더미 이름 테스트 퇴역) **68→66**. inbox UI **9 / 0 / 11**, 다른 UI 소유자의 표기 갱신 4건, 전체 UI **72/72**.
+- 기본 suite의 heavy-resource launch·새 파일·의존성·lane·coverage floor 변화 **0**. Runtime delta는 동일 조건 baseline이 없어 **not measured**이며, 이번 전체 UI 실행은 **319초**, Rust storage **5.88초**였다.
+- TypeScript·Vite 빌드 통과. 실제 Windows 설치본과 실제 v8 사용자 DB 이관은 별도 미검증이다.
+
 ## 주 뷰 날짜 왕복 드래그 등록 복구 (2026-10-12)
 
 - Unique risk: 다른 날짜로 미리보기한 블록을 퇴장 애니메이션 중 원래 날짜로 되돌리면 화면에 남은 블록의 draggable 등록이 사라져 다음 드래그가 시작되지 않는다. 기존 날짜 이동 시나리오는 빠른 왕복 이후 재드래그를 확인하지 않는다.

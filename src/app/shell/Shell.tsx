@@ -5,7 +5,8 @@ import {dateKey,dateLabel,dateOf,plusDays} from '../../dates.ts';
 import {setNav,useApp,type View} from '../store/state.ts';
 import {discardStoredDraft,release,reload,retry,queue} from '../store/session.ts';
 import {openEditor} from '../store/editor.ts';
-import {inboxTasks} from '../store/tasks.ts';
+import {overdueTasks} from '../store/tasks.ts';
+import {inbox} from '../store/bench.ts';
 import {Icon,Logo} from '../ui/icons.tsx';
 import {DragProvider} from '../space/drag.tsx';
 import {Today} from '../today/Today.tsx';
@@ -20,11 +21,12 @@ import {openCut} from '../store/cut.ts';
 import {BackupManager} from '../backups/BackupManager.tsx';
 import './shell.css';
 
-const views:{id:View;label:string}[]=[{id:'today',label:'오늘'},{id:'plan',label:'계획'},{id:'inbox',label:'미계획'},{id:'settings',label:'설정'}];
+const views:{id:View;label:string}[]=[{id:'today',label:'오늘'},{id:'plan',label:'계획'},{id:'inbox',label:'준비'},{id:'settings',label:'설정'}];
 
 export function Shell(){
   const s=useApp(),{nav,ready,snapshot,quitSaving}=s;
-  const inboxCount=ready&&snapshot?inboxTasks().length:0;
+  // The count is what still waits for a decision: the 들어옴, overdue work included.
+  const inboxCount=ready&&snapshot?inbox().length+overdueTasks().length:0;
   const go=(view:View)=>{
     if(view==='today')setNav({view,selected:s.today});
     else if(view==='plan')setNav({view,planAnchor:nav.selected});
@@ -35,16 +37,16 @@ export function Shell(){
     const base=nav.view==='plan'?nav.planAnchor:nav.selected,key=plusDays(base,direction*(nav.view==='plan'?(nav.period==='day'?1:nav.period==='week'?7:14):1));
     setNav(nav.view==='plan'?{selected:key,planAnchor:key}:{selected:key});
   }
-  const heading=nav.view==='settings'?'설정':nav.view==='inbox'?'미계획':nav.view==='plan'?rangeTitle(nav.period,nav.planAnchor):dateLabel(nav.selected);
+  const heading=nav.view==='settings'?'설정':nav.view==='inbox'?'준비':nav.view==='plan'?rangeTitle(nav.period,nav.planAnchor):dateLabel(nav.selected);
   const unit=nav.view==='today'||nav.period==='day'?'날':nav.period==='month'?'달':nav.period==='two'?'2주':'주';
   const navButton=(v:{id:View;label:string})=><button key={v.id} type="button" className={'nav-button'+(nav.view===v.id?' active':'')} aria-current={nav.view===v.id?'page':undefined}
-    aria-label={v.id==='inbox'&&inboxCount?`미계획 ${inboxCount}건`:v.label} onClick={()=>go(v.id)}><Icon name={v.id} size={20} stroke={1.7}/><span>{v.label}{v.id==='inbox'&&inboxCount?' '+inboxCount:''}</span></button>;
+    aria-label={v.id==='inbox'&&inboxCount?`준비, 들어옴 ${inboxCount}건`:v.label} onClick={()=>go(v.id)}><Icon name={v.id} size={20} stroke={1.7}/><span>{v.label}{v.id==='inbox'&&inboxCount?' '+inboxCount:''}</span></button>;
   return <DragProvider>
     <div className="app-shell" inert={quitSaving||undefined}>
       <nav className="rail-nav" aria-label="주 메뉴">
         <button type="button" className="brand" aria-label="BLOKKY 오늘로 이동" title="오늘로 이동" onClick={()=>setNav({view:'today',selected:s.today})}><Logo/></button>
         {views.slice(0,3).map(navButton)}
-        {/* Search sits outside any one tab: it finds work everywhere, so it is not beside the 미계획 capture. */}
+        {/* Search sits outside any one tab: it finds work everywhere, so it is not beside the 준비 capture. */}
         <button type="button" className={'nav-button'+(s.ui.search?' active':'')} aria-label="검색" aria-keyshortcuts="Control+K" aria-expanded={s.ui.search} onClick={openSearch}><Icon name="search" size={20} stroke={1.7}/><span>검색</span></button>
         {views.slice(3).map(navButton)}
       </nav>

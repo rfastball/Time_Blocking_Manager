@@ -2,7 +2,6 @@ import {createContext,useCallback,useContext,useEffect,useMemo,useRef,useState,t
 import {DndContext,DragOverlay,PointerSensor,TouchSensor,useSensor,useSensors,type DragEndEvent,type DragMoveEvent,type DragStartEvent,type DropAnimation,type Modifier,type Active} from '@dnd-kit/core';
 import {motion} from 'motion/react';
 import {applyIntent,carried,noIntent,type Intent} from '../../intent.ts';
-import {benchPiles,BOARD_CARD_WIDTH,BOARD_CARD_HEIGHT,seedBoardPositions} from '../../bench.ts';
 import {dayPlan,newlyOver,overrunEnd} from '../../today.ts';
 import {insertionBefore} from '../../flow.ts';
 import {placementIssue,resistWorkingBoundary} from '../../placement.ts';
@@ -12,6 +11,7 @@ import {formatDuration} from '../../format.ts';
 import {dateOf,time} from '../../dates.ts';
 import {getState,setUi,useApp} from '../store/state.ts';
 import {dayRule,drop,setGesture} from '../store/tasks.ts';
+import {selectedTasks} from '../store/bench.ts';
 import {reduced} from '../ui/motion.ts';
 import {Lock} from '../ui/icons.tsx';
 import {OffHours} from './OffHours.tsx';
@@ -27,26 +27,29 @@ export const COLUMN_GEOMETRY:Geometry={ruler:0,railLeft:0,railWidth:13,bodyLeft:
 // How far a flow block's runner reaches left from the block to sit in the middle of the rail's groove.
 export const runnerReach=(g:Geometry)=>g.flowLeft-(g.railLeft+g.railWidth/2);
 
-// Places where a held block can land. Day spaces know their time axis; the others take a date or send work back to 미계획.
-// The bench is one region; its piles, handles and cards are read from the DOM (data-pile, data-pile-handle, data-card).
-export type BoardView={x:number;y:number;zoom:number};
-type Region={key:string;kind:'space'|'date'|'tray'|'bench'|'canvas';date:string|null;el:HTMLElement;axis?:TimeAxis;geometry?:Geometry;board?:BoardView};
+// Places where a held block can land. Day spaces know their time axis; the others take a date or send work back to 준비.
+// The 준비 lists (inbox, shelf) say what they hold top to bottom, so a drop index comes from the same heights they draw.
+// `form`: the box a held block takes over the region (its destination's shape); none keeps the shape it was lifted with.
+export type Form={width:number;height:number};
+export type ListModel={gap:number;items:()=>{id:string;height:number}[]};
+type RegionExtra={axis?:TimeAxis;geometry?:Geometry;list?:ListModel;form?:(task:Task,ids:string[])=>Form|null};
+type Region={key:string;kind:'space'|'date'|'tray'|'inbox'|'shelf';date:string|null;el:HTMLElement}&RegionExtra;
 // The hollow marks the body slot; the held copy follows the hand until it latches onto a rail tick.
 type Slot={start:number;end:number;over:boolean};
-// `ids`: every block carried (a selection or a whole pile), `carry`: the pile carried by its handle.
-export type Held={task:Task;ids:string[];carry?:{pile:string|null};origins?:{id:string;x:number;y:number}[];intent:Intent;slot:Slot|null;column:boolean;boundary?:boolean;axis?:TimeAxis;startRect:{left:number;top:number;width:number;height:number};grabX:number;grabY:number;width:number;height:number;dropping?:boolean};
+// `ids`: every block carried (a selection), in order.
+export type Held={task:Task;ids:string[];intent:Intent;slot:Slot|null;column:boolean;boundary?:boolean;axis?:TimeAxis;startRect:{left:number;top:number;width:number;height:number};grabX:number;grabY:number;width:number;height:number;dropping?:boolean};
 // `pushed`: blocks the shown change would newly put past working time.
 type Ctx={held:Held|null;pending:Intent|null;tasks:Task[];pushed:string[];register:(r:Region)=>()=>void};
 const DragCtx=createContext<Ctx>({held:null,pending:null,tasks:[],pushed:[],register:()=>()=>{}});
 export const useDrag=()=>useContext(DragCtx);
 
 // Registers an element as a landing region while mounted.
-export function useRegion(kind:Region['kind'],date:string|null,extra:{axis?:TimeAxis;geometry?:Geometry;board?:BoardView}={}){
+export function useRegion(kind:Region['kind'],date:string|null,extra:RegionExtra={}){
   const {register}=useDrag(),key=useRef(Math.random().toString(36).slice(2)).current,off=useRef<(()=>void)|null>(null);
   const extraRef=useRef(extra);extraRef.current=extra;
   return useCallback((el:HTMLElement|null)=>{
     off.current?.();off.current=null;
-    if(el)off.current=register({key,kind,date,el,get axis(){return extraRef.current.axis;},get geometry(){return extraRef.current.geometry;},get board(){return extraRef.current.board;}} as Region);
+    if(el)off.current=register({key,kind,date,el,get axis(){return extraRef.current.axis;},get geometry(){return extraRef.current.geometry;},get list(){return extraRef.current.list;},get form(){return extraRef.current.form;}} as Region);
   },[register,kind,date,key]);
 }
 
@@ -106,8 +109,8 @@ export function DragProvider({children}:{children:ReactNode}){
   // `grab` is where along its width the block was taken; `prev` is the last intent, for the latch's hysteresis.
   // `near` is how far the block has been pushed toward biting (or, latched, pulled toward letting go), 0–1.
   // `stretch` scales both distances: 1 when the hand is still or moving sideways, up to STRETCH while it travels up or down.
-  function zoneAt(task:Task,px:number,py:number,grabY:number,grab:number,prev:Intent,stretch=1,ids:string[]=[task.id],carry?:Held['carry']):{intent:Intent;region?:Region;slot?:Slot;near?:number;boundary?:boolean}{
-    const intent:Intent={...noIntent(task.id),ids,carry};
+  function zoneAt(task:Task,px:number,py:number,grabY:number,grab:number,prev:Intent,stretch=1,ids:string[]=[task.id],lifted?:Form):{intent:Intent;region?:Region;slot?:Slot;near?:number;boundary?:boolean}{
+    const intent:Intent={...noIntent(task.id),ids};
     const inside=(el:HTMLElement)=>{
       const r=el.getBoundingClientRect();
       if(px<Math.max(0,r.left)||px>Math.min(innerWidth,r.right)||py<Math.max(0,r.top)||py>Math.min(innerHeight,r.bottom))return null;
@@ -143,17 +146,16 @@ export function DragProvider({children}:{children:ReactNode}){
       const items=dayPlan(date,applyIntent(base,body),rule,layouts).items.filter(i=>ids.includes(i.task.id));
       return {intent:body,region,near,slot:items.length?{start:items[0].start,end:items[items.length-1].end,over:items.some(i=>i.over)}:undefined};
     }
-    for(const kind of ['canvas','bench','date','tray'] as const)for(const region of all.filter(r=>r.kind===kind)){
+    for(const kind of ['inbox','shelf','date','tray'] as const)for(const region of all.filter(r=>r.kind===kind)){
       const r=inside(region.el);if(!r)continue;
-      if(kind==='canvas'&&region.board){
-        const v=region.board,origins=heldRef.current?.origins??ids.map((id,n)=>({id,x:n*(BOARD_CARD_WIDTH+24),y:0}));
-        const anchor=origins.find(p=>p.id===task.id)??origins[0];
-        const dx=(px-r.left-region.el.clientLeft-v.x)/v.zoom-grab*BOARD_CARD_WIDTH-anchor.x,dy=(py-r.top-region.el.clientTop-v.y)/v.zoom-grabY*BOARD_CARD_HEIGHT-anchor.y;
-        const mx=Math.max(-100000-Math.min(...origins.map(p=>p.x)),Math.min(100000-Math.max(...origins.map(p=>p.x)),Math.round(dx)));
-        const my=Math.max(-100000-Math.min(...origins.map(p=>p.y)),Math.min(100000-Math.max(...origins.map(p=>p.y)),Math.round(dy)));
-        return {intent:{...intent,zone:'canvas',positions:origins.map(p=>({id:p.id,x:p.x+mx,y:p.y+my}))},region};
+      if((kind==='inbox'||kind==='shelf')&&region.list){
+        // Before the first remaining card whose middle is below the held block's middle, as the list draws them.
+        const items=region.list.items().filter(i=>!ids.includes(i.id)),h=(region.form?.(task,ids)??lifted)?.height??0;
+        const centre=py-r.top-grabY*h+h/2;
+        let top=0,index=items.length;
+        for(const [n,item] of items.entries()){if(centre<top+item.height/2){index=n;break;}top+=item.height+region.list.gap;}
+        return {intent:{...intent,zone:kind,index},region};
       }
-      if(kind==='bench'){const at=benchZone(region.el,px,py,ids,carry);return at?{intent:{...intent,zone:'pile',...at},region}:{intent};}
       if(kind==='tray')return task.plan_date&&!task.completed&&ids.length===1?{intent:{...intent,zone:'tray'}}:{intent};
       return {intent:{...intent,zone:'date',date:region.date},region};
     }
@@ -161,18 +163,15 @@ export function DragProvider({children}:{children:ReactNode}){
   }
 
   function onDragStart(e:DragStartEvent){
-    const data=e.active.data.current as {taskId?:string;carry?:{pile:string|null}}|undefined;
-    const seeded=seedBoardPositions(base,snapshot?.piles??[]);
-    const id=String(data?.taskId??e.active.id),task=seeded.find(t=>t.id===id);if(!task)return;
-    // A pile handle carries its cards; a block inside a bench selection carries the selection, in reading order.
-    const sel=getState().ui.benchSelection,piles=snapshot?.piles??[];
-    const ids=data?.carry?benchPiles(base,piles).find(p=>p.id===data.carry!.pile)?.cards.map(t=>t.id)??[]
-      :sel.length>1&&sel.includes(id)?[...base.filter(t=>t.plan_date&&!t.completed&&sel.includes(t.id)),...seeded.filter(t=>!t.plan_date&&!t.completed&&sel.includes(t.id)).sort((a,b)=>a.board_y!-b.board_y!||a.board_x!-b.board_x!||a.id.localeCompare(b.id))].map(t=>t.id):[id];
+    const data=e.active.data.current as {taskId?:string}|undefined;
+    const id=String(data?.taskId??e.active.id),task=base.find(t=>t.id===id);if(!task)return;
+    // A block inside a 준비 selection carries the selection, in screen order.
+    const sel=getState().ui.benchSelection;
+    const ids=sel.length>1&&sel.includes(id)?selectedTasks().map(t=>t.id):[id];
     if(!ids.length)return;
     if(landing.current)return;
     // dnd-kit measures after this callback; read the block's own box so the copy starts exactly on it.
     const node=(e.activatorEvent.target as HTMLElement).closest<HTMLElement>('[data-block]')!,r=node.getBoundingClientRect();
-    if(node.closest('.wb-canvas')&&!sel.includes(id))setUi({benchSelection:[id]});
     const {x:px,y:py}=point(e.activatorEvent!);
     pointer.current={x:px,y:py};
     start.current={left:r.left,top:r.top,width:r.width,height:r.height};
@@ -180,8 +179,7 @@ export function DragProvider({children}:{children:ReactNode}){
     travel.current={x:0,y:0,px,py,t:performance.now()};
     stretch.current=1;
     setGesture(true);setUi({contextMenu:null});
-    const origins=ids.map((id,n)=>{const t=seeded.find(t=>t.id===id)!;return {id,x:t.board_x??n*(BOARD_CARD_WIDTH+24),y:t.board_y??0};});
-    setHeld({task,ids,origins,carry:data?.carry,intent:{...noIntent(task.id),ids,carry:data?.carry},slot:null,column:false,startRect:start.current,grabX:px-r.left,grabY:py-r.top,width:r.width,height:r.height});
+    setHeld({task,ids,intent:{...noIntent(task.id),ids},slot:null,column:false,startRect:start.current,grabX:px-r.left,grabY:py-r.top,width:r.width,height:r.height});
   }
   function onDragMove(e:DragMoveEvent){
     const h=held,s=start.current;if(!h||!s||h.dropping)return;
@@ -190,18 +188,19 @@ export function DragProvider({children}:{children:ReactNode}){
     moveHeld(h,s,px,py);
   }
   function moveHeld(h:Held,s:Held['startRect'],px:number,py:number){
-    const {intent,region,slot=null,near=0,boundary=false}=zoneAt(h.task,px,py,h.grabY/s.height,h.grabX/s.width,h.intent,stretch.current,h.ids,h.carry);
+    const {intent,region,slot=null,near=0,boundary=false}=zoneAt(h.task,px,py,h.grabY/s.height,h.grabX/s.width,h.intent,stretch.current,h.ids,s);
     const rect=region?.el.getBoundingClientRect(),g=region?.geometry,axis=region?.axis;
     // Only the rail constrains the hand to a 15-minute tick; the hollow carries the projected order slot.
     snap.current=rect&&g&&axis&&intent.zone==='rail'?{left:rect.left+g.fixedLeft+near*g.give,top:rect.top+axis.position(intent.start!)+1}:null;
-    const width=region?.board?BOARD_CARD_WIDTH*region.board.zoom:rect&&g?(intent.zone==='rail'?rect.width-g.fixedLeft-g.right:intent.zone==='body'?rect.width-g.flowLeft-g.right:s.width):s.width;
+    const form=region?.form?.(h.task,h.ids)??null;
+    const width=form?form.width:rect&&g?(intent.zone==='rail'?rect.width-g.fixedLeft-g.right:intent.zone==='body'?rect.width-g.flowLeft-g.right:s.width):s.width;
     const at=intent.zone==='rail'?intent.start:null;
     const duration=h.ids.reduce((n,id)=>n+(base.find(t=>t.id===id)?.duration??0),0);
-    const height=region?.board?BOARD_CARD_HEIGHT*region.board.zoom:axis?Math.max(10,at!==null?axis.position(at+duration)-axis.position(at)-2:duration*axis.scale-2):s.height;
+    const height=form?form.height:axis?Math.max(10,at!==null?axis.position(at+duration)-axis.position(at)-2:duration*axis.scale-2):s.height;
     const column=g?.ruler===0;
     const i=h.intent;
     if(h.column!==column||i.zone!==intent.zone||i.date!==intent.date||i.before!==intent.before||i.start!==intent.start||i.ok!==intent.ok||width!==h.width||height!==h.height||h.boundary!==boundary
-      ||i.pile!==intent.pile||i.index!==intent.index||i.create!==intent.create||JSON.stringify(i.positions)!==JSON.stringify(intent.positions)
+      ||i.index!==intent.index
       ||h.slot?.start!==slot?.start||h.slot?.end!==slot?.end)setHeld({...h,intent,slot,column,width,height,boundary,axis});
   }
   useEffect(()=>{
@@ -216,7 +215,7 @@ export function DragProvider({children}:{children:ReactNode}){
     const h=heldRef.current;
     if(!h)return;
     const a=point(e.activatorEvent!),p=pointer.current??{x:a.x+e.delta.x,y:a.y+e.delta.y};
-    const intent=zoneAt(h.task,p.x,p.y,h.grabY/h.startRect.height,h.grabX/h.startRect.width,h.intent,stretch.current,h.ids,h.carry).intent;
+    const intent=zoneAt(h.task,p.x,p.y,h.grabY/h.startRect.height,h.grabX/h.startRect.width,h.intent,stretch.current,h.ids,h.startRect).intent;
     beginLanding(h,intent,intent.zone!=='none'&&intent.ok);
   }
   function saveLanding(dropped:Landing){
@@ -240,13 +239,8 @@ export function DragProvider({children}:{children:ReactNode}){
     const task=getState().snapshot?.tasks.find(t=>t.id===h.task.id);if(!task)return null;
     const id=CSS.escape(task.id),all=[...regions.current.values()];
     for(const r of all){
-      if(r.kind==='canvas'&&!task.plan_date){const card=r.el.querySelector<HTMLElement>(`[data-card="${id}"]`);if(card)return card;}
-      if(r.kind==='bench'){
-        if(h.carry&&(!saved||intent.zone==='pile'&&intent.create!=null))return r.el.querySelector<HTMLElement>(`[data-pile="${CSS.escape(h.carry.pile??'')}"] [data-pile-handle]`);
-        const scope=task.plan_date?null:r.el.querySelector(`[data-pile="${CSS.escape(task.pile_id??'')}"]`);
-        const card=scope?.querySelector<HTMLElement>(`[data-card="${id}"]`);if(card)return card;
-      }
-      if((r.kind==='space'||r.kind==='date')&&r.date!==task.plan_date||r.kind==='bench')continue;
+      if(r.kind==='inbox'||r.kind==='shelf'){const card=r.el.querySelector<HTMLElement>(`[data-card="${id}"]`);if(card)return card;continue;}
+      if((r.kind==='space'||r.kind==='date')&&r.date!==task.plan_date)continue;
       const block=r.el.querySelector<HTMLElement>(`[data-task="${id}"]`)?.closest<HTMLElement>('[data-block]');if(block)return block;
     }
     return null;
@@ -297,21 +291,22 @@ function steadiness(m:{x:number;y:number;px:number;py:number;t:number},px:number
 function HeldBlock({held,out,outside}:{held:Held;out:number;outside:number}){
   const {task,intent,slot,width,height}=held,rail=intent.zone==='rail',fixedLook=rail||(!!task.starts_at&&intent.zone==='none'),bad=!intent.ok;
   const many=held.ids.length,total=held.ids.reduce((n,id)=>n+(getState().snapshot?.tasks.find(t=>t.id===id)?.duration??0),0);
-  // Where it lands, said only where the place itself does not show it: a date column's end, a new or stacked pile.
-  const place=intent.zone==='date'&&intent.date&&held.ids.length&&!held.column&&!held.axis?`${dateOf(intent.date).getMonth()+1}월 ${dateOf(intent.date).getDate()}일 순서 끝${outside?` · 근무 외 ${Math.round(outside/60*100)/100}h`:''}`
-    :intent.zone==='pile'?(held.carry?(intent.create!=null?'':'더미 합치기'):intent.create!=null?'새 더미':''):'';
+  // Where it lands, said only where the place itself does not show it: a date column's end.
+  const place=intent.zone==='date'&&intent.date&&held.ids.length&&!held.column&&!held.axis?`${dateOf(intent.date).getMonth()+1}월 ${dateOf(intent.date).getDate()}일 순서 끝${outside?` · 근무 외 ${Math.round(outside/60*100)/100}h`:''}`:'';
+  // Still a proto only where it stays one: lifted, in the 들어옴, or headed back to 준비.
+  const proto=task.proto&&many===1&&['none','inbox','tray'].includes(intent.zone);
   const at=rail?{start:intent.start!,end:intent.start!+task.duration}:intent.zone==='body'?slot:null;
   // Keep the same point under the pointer as the copy changes width or height between surfaces.
   const shiftX=rail?0:-held.grabX*(width/held.startRect.width-1),shiftY=rail?0:-held.grabY*(height/held.startRect.height-1);
-  return <motion.div className={'blk held '+(held.column?'column ':'')+(fixedLook?'fixed':'flow')+(height<(held.column?47:56)?' compact':'')+(bad?' bad':'')+(!rail&&slot?.over&&intent.zone==='body'?' over':'')+(task.proto&&many===1?' proto':'')} style={{width,height,marginLeft:shiftX,marginTop:shiftY}}
+  return <motion.div className={'blk held '+(held.column?'column ':'')+(fixedLook?'fixed':'flow')+(height<(held.column?47:56)?' compact':'')+(bad?' bad':'')+(!rail&&slot?.over&&intent.zone==='body'?' over':'')+(proto?' proto':'')} style={{width,height,marginLeft:shiftX,marginTop:shiftY}}
     initial={false} animate={{x:bad?[0,-4,3,-2,0]:0}} transition={{x:{duration:reduced()?0:.18}}}>
     <div className="tile">
       {at&&intent.date&&<OffHours start={at.start} end={at.end} rule={dayRule(intent.date)} position={rail?held.axis?.position:undefined}/>}
       {/* Latching, the clasp shoots out of the runner and seats on the rail: fast, no overshoot. */}
       {fixedLook&&<motion.span className="latch" style={{transformOrigin:'0 50%'}} initial={rail?{scaleX:.15}:false} animate={{scaleX:1}} transition={{duration:.09,ease:[.2,.9,.3,1]}}><Lock open/></motion.span>}
       <span className="chk"/>
-      <span className="main"><span className="ttl-row"><span className="ttl">{held.carry?held.carry.pile===null?'투입구':'더미':task.title}</span>{many>1&&<b className="held-more">{held.carry?`${many}개`:`+${many-1}`}</b>}</span>
-        <span className="meta">{at?`${time(at.start)}–${time(at.end)}`:task.proto&&many===1?'':formatDuration(many>1?total:task.duration)}</span></span>
+      <span className="main"><span className="ttl-row"><span className="ttl">{task.title}</span>{many>1&&<b className="held-more">+{many-1}</b>}</span>
+        <span className="meta">{at?`${time(at.start)}–${time(at.end)}`:proto?'':formatDuration(many>1?total:task.duration)}</span></span>
     </div>
     {place&&!bad&&!held.dropping&&<span className="held-why where">{place}</span>}
     {bad&&!held.dropping&&<span className="held-why">{intent.reason}</span>}
@@ -325,30 +320,6 @@ export const isGestureActive=()=>getState().gesture;
 function shownOutside(tasks:Task[],layouts:DayLayout[],intent:Intent|null){
   if(intent?.zone!=='date'||!intent.date)return 0;
   return dayPlan(intent.date,tasks,dayRule(intent.date),layouts).items.reduce((n,i)=>n+i.outside,0);
-}
-
-// The bench target under the pointer. Over a pile: before the first card whose middle is below the pointer (its handle: the top);
-// a carried pile stacks onto it. Between piles or in empty space: a new pile there (a carried pile moves there). The 투입구 stays first.
-function benchZone(el:HTMLElement,px:number,py:number,ids:string[],carry?:Held['carry']):Partial<Intent>|null{
-  const cols=[...el.querySelectorAll<HTMLElement>('[data-pile]')].map((node,visual)=>({node,visual,id:node.dataset.pile||null,r:node.getBoundingClientRect()}));
-  if(!cols.length)return null;
-  const hit=cols.find(c=>px>=c.r.left&&px<=c.r.right&&py>=c.r.top&&py<=c.r.bottom);
-  if(hit){
-    if(carry)return hit.id===carry.pile?null:{pile:hit.id};
-    const handle=hit.node.querySelector('[data-pile-handle]')?.getBoundingClientRect();
-    if(handle&&py<=handle.bottom)return {pile:hit.id,index:0};
-    const cards=[...hit.node.querySelectorAll<HTMLElement>('[data-card]')].filter(c=>!ids.includes(c.dataset.card!));
-    return {pile:hit.id,index:cards.filter(c=>{const b=c.getBoundingClientRect();return b.top+b.height/2<py;}).length};
-  }
-  // The row of piles nearest the pointer, then the gap in it.
-  const gap=(c:typeof cols[number])=>py<c.r.top?c.r.top-py:py>c.r.bottom?py-c.r.bottom:0;
-  const nearest=Math.min(...cols.map(gap)),row=cols.filter(c=>gap(c)===nearest);
-  const left=row.filter(c=>c.r.right<=px).pop();
-  const before=Math.max(1,left?left.visual+1:row[0].visual);
-  if(!carry)return {create:before};
-  if(carry.pile===null)return null;
-  const from=cols.find(c=>c.id===carry.pile)?.visual??0;
-  return {create:before>from?before-1:before};
 }
 
 // Blocks that dropping `intent` would newly push past working time on its day.

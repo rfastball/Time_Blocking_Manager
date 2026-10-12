@@ -2,7 +2,7 @@ import type {Command,Settings,Snapshot,Task,TaskRevision} from './types.ts';
 import {placementIssue as checkPlacement,unavailableParts} from './placement.ts';
 import {effectiveDay} from './settings.ts';
 import {dateOf,minutes,plusDays,time} from './dates.ts';
-import {BOARD_LIMIT,boardPosition,insertPile,movePile,nearestBoardPosition,normalize,onBench,place,seedBoardPositions} from './bench.ts';
+import {SHELF,insertPile,normalize,onBench,place} from './bench.ts';
 import {requestTimeIssue} from './capture.ts';
 import {mergeBody} from './detail.ts';
 
@@ -53,7 +53,6 @@ function validateSettings(settings:Settings){
   }
 }
 function validateTask(task:Task,tasks:Task[],settings:Settings){
-  if((task.board_x==null)!==(task.board_y==null)||task.board_x!=null&&(!Number.isInteger(task.board_x)||!Number.isInteger(task.board_y)||Math.abs(task.board_x)>BOARD_LIMIT||Math.abs(task.board_y!)>BOARD_LIMIT))reject('작업대 위치를 확인하세요.');
   if(!task.id||bytes(task.id)>100||!task.title.trim()||bytes(task.title)>2000||bytes(task.body)>200_000||!Number.isInteger(task.duration)||task.duration<15||task.duration>1440||task.duration%15)reject('제목(최대 2,000바이트), 본문(최대 200KB), 소요시간을 확인하세요.');
   if(task.plan_date!==null)parseDate(task.plan_date);
   if(task.starts_at===null){
@@ -78,12 +77,13 @@ export function previewMutation(snapshot:Snapshot,command:Command,occurrences:Se
   const acknowledged=previewAcknowledgement(snapshot,command,occurrences);if(acknowledged)return acknowledged;
   const issue=requestTimeIssue(command,now);if(issue)throw issue;
   const s=structuredClone(snapshot),a=command.action;s.layouts??=[];s.trash??=[];s.piles??=[];
-  s.tasks=seedBoardPositions(s.tasks,s.piles);
   const generated=new Set<string>();
   const nextOrder=(date:string)=>Math.max(0,...s.tasks.filter(t=>t.plan_date===date&&!t.starts_at).map(t=>t.flow_order??0))+1;
   const toFlow=(t:Task,date:string)=>{const order=nextOrder(date);t.starts_at=null;t.plan_date=date;t.flow_order=order;};
   const raise=(date:string,at:string)=>{parseDate(date);const minute=parseStart(at);if(at.slice(0,10)!==date)reject('배치 기준 시각은 같은 날짜여야 합니다.');const row=s.layouts.find(l=>l.date===date);if(row)row.anchor=Math.max(row.anchor,minute);else s.layouts.push({date,anchor:minute});};
   const put=(ids:string[],pile:string|null,index:number)=>{s.tasks=place(s.tasks,ids,pile,index);};
+  // Sized work coming back from a date goes on top of the shelf, in the order given.
+  const shelve=(ids:string[])=>{if(!ids.length)return;const piles=s.piles??[];if(!piles.some(p=>p.id===SHELF))s.piles=insertPile(piles,SHELF,piles.length+1);put(ids,SHELF,0);};
   const changed=()=>Object.assign(Error('다른 창에서 작업이 변경됐습니다. 다시 확인하세요.'),{code:'conflict',retryable:false});
   if(a.type==='create'||a.type==='create_scheduled'||a.type==='create_flow'){
     const start=a.type==='create_scheduled'?a.starts_at:null,duration=a.type==='create'?30:a.duration;
@@ -122,12 +122,12 @@ export function previewMutation(snapshot:Snapshot,command:Command,occurrences:Se
     parseDate(a.date);uniqueRevisions(a.expected_tasks);
     const tasks=s.tasks.filter(t=>t.plan_date===a.date);
     if(tasks.length!==a.expected_tasks.length||tasks.some(t=>!a.expected_tasks.some(expected=>expected.id===t.id&&expected.revision===t.revision)))reject('일정이 변경됐습니다. 다시 확인하세요.','conflict');
-    // The day's open work goes on top of the 투입구 in the order it was planned.
+    // The day's open work goes on top of the shelf in the order it was planned.
     const open=tasks.filter(t=>!t.completed).sort((x,y)=>(x.flow_order==null?1:0)-(y.flow_order==null?1:0)||(x.flow_order??0)-(y.flow_order??0)||(x.starts_at??'').localeCompare(y.starts_at??'')||(x.id<y.id?-1:1)).map(t=>t.id);
-    // Completed work stays as that day's record; only open work goes back to 미계획.
+    // Completed work stays as that day's record; only open work goes back to 준비.
     for(const task of tasks)if(!task.completed){task.starts_at=null;task.plan_date=null;task.flow_order=null;task.revision++;}
     s.layouts=s.layouts.filter(l=>l.date!==a.date);
-    put(open,null,0);
+    shelve(open);
   }
   else if(a.type==='complete_flow'){
     parseDate(a.date);uniqueRevisions(a.items);
@@ -150,10 +150,11 @@ export function previewMutation(snapshot:Snapshot,command:Command,occurrences:Se
     // A taken time falls back to flow work on the same date (D8/D9); flow work returns to its old order.
     if(task.starts_at){try{validateTask(task,s.tasks,s.settings);}catch(e){if((e as {code?:string}).code!=='overlap')throw e;toFlow(task,task.plan_date!);}}
     else if(task.plan_date&&task.flow_order!==null)for(const x of s.tasks)if(x.plan_date===task.plan_date&&!x.starts_at&&(x.flow_order??0)>=task.flow_order!)x.flow_order=(x.flow_order??0)+1;
-    // Open unplanned work goes back into its pile while it exists, else on top of the 투입구.
-    const pile=task.pile_id&&s.piles.some(p=>p.id===task.pile_id)?task.pile_id:null,index=pile?Math.max(0,(task.pile_order??1)-1):0;
+    // Open unplanned work returns to its place on the shelf or the top of the 들어옴; sized work whose pile is gone goes on top of the shelf.
+    const kept=task.pile_id&&(task.pile_id===SHELF||s.piles.some(p=>p.id===task.pile_id)),pile=kept?task.pile_id!:task.pile_id&&!task.proto?SHELF:null;
+    const index=kept?Math.max(0,(task.pile_order??1)-1):0;
     validateTask(task,s.tasks,s.settings);s.tasks.push({...task,pile_id:null,pile_order:null});
-    if(onBench(task))put([task.id],pile,index);
+    if(onBench(task)){if(pile===SHELF&&!s.piles.some(p=>p.id===SHELF))s.piles=insertPile(s.piles,SHELF,s.piles.length+1);put([task.id],pile,index);}
   }
   else if(a.type==='purge_trashed'){
     if(!a.ids.length||new Set(a.ids).size!==a.ids.length)reject('지울 휴지통 항목을 확인하세요.');
@@ -174,7 +175,7 @@ export function previewMutation(snapshot:Snapshot,command:Command,occurrences:Se
   }
   else if(a.type==='merge_unplanned'){
     uniqueRevisions(a.items);
-    if(a.items.length<2)reject('합칠 미계획 작업을 두 개 이상 선택하세요.');
+    if(a.items.length<2)reject('합칠 준비 작업을 두 개 이상 선택하세요.');
     const originals=a.items.map(item=>s.tasks.find(t=>t.id===item.id&&t.revision===item.revision&&onBench(t)&&t.starts_at===null));
     if(originals.some(t=>!t))throw changed();
     const tasks=originals as Task[],first=tasks[0],ids=tasks.map(t=>t.id),pile=first.pile_id??null;
@@ -185,18 +186,6 @@ export function previewMutation(snapshot:Snapshot,command:Command,occurrences:Se
     const deleted_at=new Date(now).toISOString().slice(0,19)+'Z';
     s.trash.unshift(...tasks.map(t=>({...t,deleted_at})));
     s.tasks=s.tasks.filter(t=>!ids.includes(t.id));s.tasks.push(task);put([a.id],pile,index);
-  }
-  else if(a.type==='place_board'){
-    uniqueRevisions(a.items);
-    if(!a.items.length||a.items.some(p=>!Number.isInteger(p.x)||!Number.isInteger(p.y)||Math.abs(p.x)>BOARD_LIMIT||Math.abs(p.y)>BOARD_LIMIT))reject('작업대 위치를 확인하세요.');
-    const moving=a.items.map(p=>s.tasks.find(t=>t.id===p.id&&t.revision===p.revision&&!t.completed));
-    if(moving.some(t=>!t))throw changed();
-    a.items.forEach((p,n)=>Object.assign(moving[n]!,{starts_at:null,plan_date:null,flow_order:null,pile_id:null,pile_order:null,board_x:p.x,board_y:p.y,revision:p.revision+1}));
-  }
-  else if(a.type==='move_pile'){
-    if(!s.piles.some(p=>p.id===a.pile))reject('더미가 바뀌었습니다. 다시 확인하세요.','conflict');
-    if(!Number.isInteger(a.position)||a.position<1)reject('더미 위치를 확인하세요.');
-    s.piles=movePile(s.piles,a.pile,a.position);
   }
   else if(a.type==='ship_flow'){
     parseDate(a.date);uniqueRevisions(a.items);if(!a.items.length)reject('실을 항목을 선택하세요.');
@@ -219,11 +208,11 @@ export function previewMutation(snapshot:Snapshot,command:Command,occurrences:Se
     if(!t||t.revision!==a.expected_revision)throw changed();
     if(a.type==='delete'){s.tasks=s.tasks.filter(x=>x!==t);s.trash.unshift({...t,deleted_at:new Date().toISOString().slice(0,19)+'Z'});}
     else if(a.type==='set_completed'){
-      // No completion without a date: 미계획 work done now is that day's completion. Undoing an old dateless one returns it to the 투입구.
+      // No completion without a date: 준비 work done now is that day's completion. Undoing an old dateless one returns it to the shelf.
       if(a.completed&&!t.completed&&!t.plan_date){if(!a.date)reject('완료한 날짜를 확인하세요.');parseDate(a.date);toFlow(t,a.date);t.proto=false;}
       const dateless=!a.completed&&t.completed&&!t.plan_date;
       t.completed=a.completed;t.revision++;
-      if(dateless)put([t.id],null,0);
+      if(dateless)shelve([t.id]);
     }
     else if(a.type==='split_pieces'){
       if(t.completed)reject('완료한 블록은 나눌 수 없어요.');
@@ -238,7 +227,7 @@ export function previewMutation(snapshot:Snapshot,command:Command,occurrences:Se
         if(minute!=null){x.starts_at=t.plan_date+'T'+time(minute);minute+=p.duration;}
         else if(order!=null)x.flow_order=order+n;
         else if(p.completed){x.plan_date=a.date!;x.flow_order=Math.max(0,...[...others,...built].filter(y=>y.plan_date===a.date&&!y.starts_at).map(y=>y.flow_order??0))+1;}
-        else {x.proto=p.proto;open.push(x.id);if(n>0){const at=nearestBoardPosition([...others,...built],boardPosition(t)??undefined);x.board_x=at.x;x.board_y=at.y;}}
+        else {x.proto=p.proto;open.push(x.id);}
         validateTask(x,[...others,...built],s.settings);built.push(x);
       });
       s.tasks=[...others,...built];
@@ -249,19 +238,18 @@ export function previewMutation(snapshot:Snapshot,command:Command,occurrences:Se
       const wasFlowOn=!t.starts_at?t.plan_date:null,wasDated=!!t.plan_date,wasDone=t.completed;
       const date=a.starts_at?.slice(0,10)??a.plan_date;if(date!==null)parseDate(date);
       if(a.before!=null&&(a.starts_at!==null||date===null))reject('순서는 날짜만 정한 작업에서 지정할 수 있습니다.');
-      if(!date&&wasDone&&wasDated)reject('완료한 작업은 미계획으로 옮길 수 없어요. 완료를 취소한 뒤 옮겨 주세요.');
+      if(!date&&wasDone&&wasDated)reject('완료한 작업은 준비로 옮길 수 없어요. 완료를 취소한 뒤 옮겨 주세요.');
       // A length chosen or a date given makes a proto block a sized one, for good.
       t.proto=!!t.proto&&!date&&a.duration===t.duration&&a.sized!==true;
       Object.assign(t,{title:a.title.trim(),body:a.body,duration:a.duration,starts_at:a.starts_at,revision:t.revision+1});
       if(a.starts_at){t.plan_date=date;t.flow_order=null;}
-      else if(!date){t.plan_date=null;t.flow_order=null;if(wasDated&&!wasDone)put([t.id],null,0);}
+      else if(!date){t.plan_date=null;t.flow_order=null;if(wasDated&&!wasDone)shelve([t.id]);}
       else if(a.before!=null){const target=s.tasks.find(x=>x.id===a.before&&x.plan_date===date&&!x.starts_at&&x.flow_order!==null&&!x.completed&&x.id!==t.id);if(!target)reject('끼워 넣을 위치를 다시 확인하세요.');const order=target.flow_order!;for(const x of s.tasks)if(x.id!==t.id&&x.plan_date===date&&!x.starts_at&&(x.flow_order??0)>=order)x.flow_order=(x.flow_order??0)+1;t.plan_date=date;t.flow_order=order;}
       else if(wasFlowOn!==date||t.flow_order===null)toFlow(t,date);
       validateTask(t,s.tasks,s.settings);
     }
   }
   const bench=normalize(s.tasks,s.piles);s.tasks=bench.tasks;s.piles=bench.piles;
-  s.tasks=seedBoardPositions(s.tasks,s.piles);
   for(const key of generated)occurrences.add(key);
   let recorded=receipts.get(occurrences);if(!recorded){recorded=new Map();receipts.set(occurrences,recorded);}
   recorded.set(command.request_id,{epoch:command.epoch,payload:JSON.stringify(command)});

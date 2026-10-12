@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {addPiece,cut,fromChecklist,halve,initialSegs,join,knifeAt,move,piecesOf,sizedTotal,trade,type Seg} from './cut.ts';
 import {previewMutation} from './preview.ts';
-import {benchPiles} from './bench.ts';
+import {inboxCards} from './bench.ts';
 import type {Snapshot,Task} from './types.ts';
 
 const task=(extra:Partial<Task>={}):Task=>({id:'t',title:'설계 문서 작성',body:'메모',starts_at:null,duration:180,completed:false,revision:1,plan_date:null,flow_order:null,pile_id:null,pile_order:1,...extra});
@@ -56,7 +56,7 @@ test('the preview store places pieces where the original stood, as the Rust stor
   const run=(id:string,pieces:{id:string;completed?:boolean;duration?:number;title?:string;body?:string}[],date?:string)=>{const t=s.tasks.find(x=>x.id===id)!;
     s=previewMutation(s,{request_id:'r'+Math.random(),epoch:'e',issued_at:Date.now(),action:{type:'split_pieces',id,expected_revision:t.revision,date,pieces:pieces.map(p=>({title:'조각',body:'',duration:30,proto:false,completed:false,...p}))}},new Set());};
   run('t',[{id:'t'},{id:'n1'},{id:'n2',completed:true}],'2026-10-11');
-  assert.deepEqual(benchPiles(s.tasks,s.piles).map(p=>p.cards.map(c=>c.id)),[['x','t','n1','y']]);
+  assert.deepEqual(inboxCards(s.tasks).map(c=>c.id),['x','t','n1','y']);
   assert.deepEqual(s.tasks.find(t=>t.id==='n2')!.plan_date,'2026-10-11');
   run('f',[{id:'f'},{id:'f2'}]);
   assert.deepEqual(s.tasks.filter(t=>t.plan_date===day).sort((p,q)=>p.flow_order!-q.flow_order!).map(t=>t.id),['a','f','f2','b']);

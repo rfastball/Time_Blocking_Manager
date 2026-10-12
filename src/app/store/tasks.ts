@@ -31,7 +31,7 @@ export async function completeTasks(tasks:Task[]){
     const items=flow.filter(t=>t.plan_date===date).map(({id,revision})=>({id,revision}));
     ok=await dispatch({type:'complete_flow',date,items,at:date===getState().today?stamp():null},{done:()=>announce(items.length>1?`${items.length}개를 완료했어요`:'완료했어요')})&&ok;
   }
-  // 미계획 work done now is recorded as today's completion; nothing is laid out again.
+  // 준비 work done now is recorded as today's completion; nothing is laid out again.
   const today=getState().today,unplanned=other.filter(t=>!t.plan_date);
   for(const t of other)ok=await dispatch({type:'set_completed',id:t.id,expected_revision:t.revision,completed:true,...(t.plan_date?{}:{date:today})},
     {done:()=>{if(!t.plan_date&&unplanned.length===1)announce(`‘${t.title}’을 오늘 완료로 기록했어요`);}})&&ok;
@@ -75,8 +75,8 @@ export function resize(t:Task,duration:number){
   if(t.starts_at){const issue=issueAt(t.id,t.plan_date!,taskMinute(t),duration);if(issue){showError(Error(issue.label));return Promise.resolve(false);}}
   return dispatch(updateAction(t,t.plan_date,t.starts_at,null,duration),{done:()=>land(t.id)});
 }
-export const unplan=(t:Task)=>t.plan_date&&!t.completed?dispatch(updateAction(t,null,null),{done:()=>announce(`‘${t.title}’ 미계획으로 옮겼어요`)}):Promise.resolve(false);
-// One stored command for a drop: order, date, time or back to 미계획.
+export const unplan=(t:Task)=>t.plan_date&&!t.completed?dispatch(updateAction(t,null,null),{done:()=>announce(`‘${t.title}’ 준비 선반 맨 위로 옮겼어요`)}):Promise.resolve(false);
+// One stored command for a drop: order, date, time or back to 준비.
 export function drop(intent:Intent){
   const action=intentAction(snap().tasks,intent,snap().piles??[]);
   if(!action)return Promise.resolve(false);
@@ -112,12 +112,12 @@ export async function clearDay(date:string){
   if(queue.busy||queue.failed)return false;
   if(d.capture||d.editorDirty||d.settingsDraft||d.routineDraft||Object.keys(d.rawSchedules).length){showError(Error('작성 중인 내용을 저장하거나 되돌린 뒤 하루 일정을 비워 주세요.'));return false;}
   const epoch=snap().epoch,dated=snap().tasks.filter(t=>t.plan_date===date),expected_tasks=dated.map(({id,revision})=>({id,revision})),open=dated.filter(t=>!t.completed).length;
-  if(!open||!await ask(`${dateLabel(date)}의 블록 ${open}개를 미계획으로 돌릴까요? 제목·메모는 유지되고, 완료한 블록은 이 날짜에 남습니다.`))return false;
-  return dispatch({type:'clear_day',date,expected_tasks},{epoch,done:()=>announce('하루 일정을 비웠습니다. 작업은 미계획에 보관했습니다.')});
+  if(!open||!await ask(`${dateLabel(date)}의 블록 ${open}개를 준비 선반으로 돌릴까요? 제목·메모는 유지되고, 완료한 블록은 이 날짜에 남습니다.`))return false;
+  return dispatch({type:'clear_day',date,expected_tasks},{epoch,done:()=>announce('하루 일정을 비웠습니다. 작업은 준비 선반 맨 위에 두었습니다.')});
 }
 
 // ── 담기·새 블록 ──
-// Capture text is one draft shared by the 미계획 input, the capture window and the timetable composer.
+// Capture text is one draft shared by the 준비 input, the capture window and the timetable composer.
 export function editCapture(text:string){setDrafts({capture:text});draftChanged();}
 export async function submitCapture(){
   const s=getState();

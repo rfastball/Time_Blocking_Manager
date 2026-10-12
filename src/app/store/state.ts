@@ -28,11 +28,11 @@ export type Ui={
   editorMode:'panel'|'dialog'|null;editorFocus:'fix'|'duration'|null;
   contextMenu:{taskId:string|null;date:string;minute:number;x:number;y:number}|null;
   availability:{date:string;target:AvailabilityTarget;x:number;y:number}|null;
-  // The task the cutting board is open for (inline on 미계획, a dialog elsewhere).
+  // The task the cutting board is open for (inline on 준비, a dialog elsewhere).
   split:string|null;
   pendingShortcut:string|null;
   landed:{id:string;clack:boolean}|null;
-  // Blocks picked on the 미계획 bench (Shift/Ctrl+click, a pile handle); a drag of one of them carries them all.
+  // Blocks picked on 준비 (Shift/Ctrl+click); a drag of one of them carries them all.
   benchSelection:string[];
   // Global search: the panel, and the block a chosen result points at while it is briefly ringed.
   search:boolean;found:{id:string;kind:'bench'|'dated'|'done'|'archive'|'trash';at:number}|null;

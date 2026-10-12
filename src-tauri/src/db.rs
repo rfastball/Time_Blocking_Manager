@@ -339,7 +339,7 @@ fn read(conn: &Connection) -> Result<Snapshot> {
 // Only open unplanned work has a pile place and only it can be a proto; every pile holds some of it.
 fn validate_bench(s: &Snapshot) -> Result<()> {
     use std::collections::HashSet;
-    let bad=||error("schema","미계획 더미 정보가 올바르지 않습니다.");
+    let bad=||error("schema","준비 작업의 위치 정보가 올바르지 않습니다.");
     let (mut piles,mut positions,mut used,mut slots)=(HashSet::new(),HashSet::new(),HashSet::new(),HashSet::new());
     for pile in &s.piles {
         if pile.id.is_empty() || pile.id.len()>100 || pile.position<1 || !piles.insert(pile.id.as_str()) || !positions.insert(pile.position) {return Err(bad());}
@@ -637,7 +637,7 @@ impl Store {
                 let expected=unique_revisions(expected_tasks,"하루 초기화 항목 정보를 확인하세요.")?;
                 let scheduled:Vec<_>=snapshot.tasks.iter().filter(|task|task.plan_date.as_deref()==Some(date.as_str())).collect();
                 if scheduled.len()!=expected.len() || scheduled.iter().any(|task|expected.get(&task.id)!=Some(&task.revision)) {return Err(error("conflict","다른 창에서 하루 일정이 변경됐습니다. 다시 확인하세요."));}
-                // Completed work stays as that day's record; only open work goes back to 미계획.
+                // Completed work stays as that day's record; only open work goes back to 준비.
                 for task in scheduled.iter().filter(|t|!t.completed) {tx.execute("UPDATE tasks SET starts_at=NULL,plan_date=NULL,flow_order=NULL,revision=revision+1 WHERE id=?1",[&task.id])?;}
                 // The day's open work goes on top of the shelf in the order it was planned.
                 let mut open:Vec<_>=scheduled.iter().filter(|t|!t.completed).collect();
@@ -735,7 +735,7 @@ impl Store {
             }
             Action::MergeUnplanned {id,items} => {
                 let revisions=unique_revisions(items,"합칠 항목 정보를 확인하세요.")?;
-                if revisions.len()<2 {return Err(error("validation","합칠 미계획 작업을 두 개 이상 선택하세요."));}
+                if revisions.len()<2 {return Err(error("validation","합칠 준비 작업을 두 개 이상 선택하세요."));}
                 let originals=items.iter().map(|item|snapshot.tasks.iter().find(|t|t.id==item.id&&t.revision==item.revision&&!t.completed&&t.plan_date.is_none()&&t.starts_at.is_none())
                     .ok_or_else(||error("conflict","다른 창에서 작업이 변경됐습니다. 다시 확인하세요."))).collect::<Result<Vec<_>>>()?;
                 if snapshot.tasks.iter().chain(snapshot.trash.iter().map(|t|&t.task)).any(|t|&t.id==id) {return Err(error("validation","이미 사용 중인 블록 식별자입니다."));}
@@ -779,7 +779,7 @@ impl Store {
                             if piece.id.is_empty() || piece.id.len()>100 || !seen.insert(piece.id.as_str()) || taken {return Err(error("validation","이미 사용 중인 블록 식별자입니다."));}
                         }
                         let bench=current.plan_date.is_none();
-                        // Done pieces of 미계획 work are that day's completion, like any completion there.
+                        // Done pieces of 준비 work are that day's completion, like any completion there.
                         let done_on=if bench && pieces.iter().any(|p|p.completed) {
                             let date=date.as_deref().ok_or_else(||error("validation","완료한 날짜를 확인하세요."))?;parse_date(date)?;Some(date.to_string())
                         } else {None};
@@ -825,7 +825,7 @@ impl Store {
                         if derived.is_some() && plan_date.is_some() && derived!=*plan_date {return Err(error("validation","시각을 고정한 날짜와 계획 날짜가 다릅니다."));}
                         let date=derived.or_else(||plan_date.clone());
                         if let Some(date)=&date {parse_date(date)?;}
-                        if date.is_none() && current.completed && current.plan_date.is_some() {return Err(error("validation","완료한 작업은 미계획으로 옮길 수 없어요. 완료를 취소한 뒤 옮겨 주세요."));}
+                        if date.is_none() && current.completed && current.plan_date.is_some() {return Err(error("validation","완료한 작업은 준비로 옮길 수 없어요. 완료를 취소한 뒤 옮겨 주세요."));}
                         let mut shift=None;
                         let flow_order=match (starts_at,&date,before) {
                             (None,Some(date),Some(before)) => {
@@ -845,12 +845,12 @@ impl Store {
                         // A length chosen or a date given makes a proto block a sized one, for good.
                         let proto=current.proto&&task.plan_date.is_none()&&*duration==current.duration&&*sized!=Some(true);
                         tx.execute("UPDATE tasks SET title=?1,body=?2,starts_at=?3,duration=?4,plan_date=?5,flow_order=?6,proto=?7,revision=revision+1 WHERE id=?8 AND revision=?9", params![task.title,task.body,task.starts_at,task.duration,task.plan_date,task.flow_order,proto,id,revision])?;
-                        // Sent back to 미계획 by a button: on top of the 투입구.
+                        // Sent back to 준비 by a button: on top of the shelf.
                         if task.plan_date.is_none()&&current.plan_date.is_some()&&!current.completed {shelve(&tx,std::slice::from_ref(id))?;}
                     }
                     Action::SetCompleted { completed, date, .. } => {
                         if *completed && !current.completed && current.plan_date.is_none() {
-                            // There is no completion without a date: 미계획 work done now is that day's completion. Nothing is laid out again.
+                            // There is no completion without a date: 준비 work done now is that day's completion. Nothing is laid out again.
                             let date=date.as_deref().ok_or_else(||error("validation","완료한 날짜를 확인하세요."))?;
                             parse_date(date)?;
                             tx.execute("UPDATE tasks SET completed=1,plan_date=?1,flow_order=?2,proto=0,revision=revision+1 WHERE id=?3 AND revision=?4",params![date,next_flow_order(&snapshot.tasks,date),id,revision])?;

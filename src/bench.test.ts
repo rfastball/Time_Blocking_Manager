@@ -1,97 +1,76 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {benchOrder,benchPiles,boardPosition,nearestBoardPosition,normalize,pileName,place,seedBoardPositions} from './bench.ts';
+import {benchOrder,inboxCards,normalize,place,placeLabel,placeName,shelfCards} from './bench.ts';
 import {previewMutation} from './preview.ts';
 import {requestLifetimeMs} from './capture.ts';
 import type {Action,Pile,Settings,Snapshot,Task} from './types.ts';
 
 const card=(id:string,pile:string|null,order:number,extra:Partial<Task>={}):Task=>({id,title:id,body:'',starts_at:null,duration:30,completed:false,revision:1,plan_date:null,flow_order:null,pile_id:pile,pile_order:order,...extra});
-const view=(tasks:Task[],piles:Pile[])=>benchPiles(tasks,piles).map(p=>[p.id,p.cards.map(t=>t.id)]);
+const view=(tasks:Task[],piles:Pile[])=>[inboxCards(tasks).map(t=>t.id),shelfCards(tasks,piles).map(t=>t.id)];
 const settings=():Settings=>({revision:1,days:Array.from({length:7},()=>({enabled:true,start:540,end:1080,breaks:[]})),exceptions:[],weekly_target:2400,work_days:5,routines:[]});
 
-test('the bench reads the 투입구 first, piles left to right, cards top to bottom',()=>{
-  const tasks=[card('a','p2',1),card('b',null,2),card('c','p1',2),card('d','p1',1),card('e',null,1),card('dated',null,0,{plan_date:'2026-10-14',pile_order:null}),card('done',null,0,{completed:true,pile_order:null})];
-  const piles=[{id:'p2',position:2},{id:'p1',position:1}];
-  assert.deepEqual(view(tasks,piles),[[null,['e','b']],['p1',['d','c']],['p2',['a']]]);
-  assert.deepEqual(benchOrder(tasks,piles).map(t=>t.id),['e','b','d','c','a']);
-  // An unknown pile reads as the 투입구 rather than hiding work.
-  assert.deepEqual(view([card('x','gone',1)],[]),[[null,['x']]]);
+test('준비 reads the 들어옴 and the shelf in their own orders; elsewhere the shelf comes first',()=>{
+  const tasks=[card('a','shelf',2),card('b',null,2),card('c','shelf',1),card('d','old',1),card('e',null,1),card('dated',null,0,{plan_date:'2026-10-14',pile_order:null}),card('done',null,0,{completed:true,pile_order:null})];
+  const piles=[{id:'old',position:2},{id:'shelf',position:1}];
+  assert.deepEqual(view(tasks,piles),[['e','b'],['c','a','d']],'an unmigrated pile reads after the shelf');
+  assert.deepEqual(benchOrder(tasks,piles).map(t=>t.id),['c','a','d','e','b']);
+  assert.equal(placeLabel(tasks[0],tasks,piles),'선반 · 2번째');assert.equal(placeLabel(tasks[1],tasks,piles),'들어옴');
 });
 
-test('reading names follow the top card and say the total; piles are never named',()=>{
-  const piles=benchPiles([card('설계 문서 작성','p1',1,{duration:180}),card('조사','p1',2,{duration:45}),card('메일',null,1,{duration:15})],[{id:'p1',position:1}]);
-  assert.equal(pileName(piles[0]),'투입구, 1개, 15분');
-  assert.equal(pileName(piles[1]),'‘설계 문서 작성’ 외 1 더미, 3시간 45분');
-  assert.equal(pileName(benchPiles([],[])[0]),'투입구, 비어 있음');
+test('place names say the count and the total',()=>{
+  const tasks=[card('설계','shelf',1,{duration:180}),card('조사','shelf',2,{duration:45}),card('메일',null,1,{duration:15})];
+  assert.equal(placeName('inbox',tasks),'들어옴, 1개, 15분');
+  assert.equal(placeName('shelf',tasks),'선반, 2개, 3시간 45분');
+  assert.equal(placeName('shelf',[]),'선반, 비어 있음');
 });
 
 test('placing inserts before the card at the index among the others and keeps order numbers dense',()=>{
-  const tasks=[card('a','p',1),card('b','p',2),card('c','p',3),card('x',null,1)];
-  const ids=(list:Task[])=>benchPiles(list,[{id:'p',position:1}])[1].cards.map(t=>t.id);
-  assert.deepEqual(ids(place(tasks,['x'],'p',1)),['a','x','b','c']);
-  assert.deepEqual(ids(place(tasks,['c'],'p',0)),['c','a','b']);
-  assert.deepEqual(ids(place(tasks,['a','x'],'p',99)),['b','c','a','x']);
+  const tasks=[card('a','shelf',1),card('b','shelf',2),card('c','shelf',3),card('x',null,1)];
+  const ids=(list:Task[])=>shelfCards(list).map(t=>t.id);
+  assert.deepEqual(ids(place(tasks,['x'],'shelf',1)),['a','x','b','c']);
+  assert.deepEqual(ids(place(tasks,['c'],'shelf',0)),['c','a','b']);
+  assert.deepEqual(ids(place(tasks,['a','x'],'shelf',99)),['b','c','a','x']);
 });
 
-test('normalizing drops empty piles, strips non-bench places and renumbers',()=>{
-  const {tasks,piles}=normalize([card('a','p2',5),card('b',null,7),card('d','p1',1,{plan_date:'2026-10-14',proto:true}),card('n',null,0,{pile_order:null,proto:true})],[{id:'p1',position:3},{id:'p2',position:9}]);
-  assert.deepEqual(piles,[{id:'p2',position:1}]);
+test('normalizing shelves sized orphans on top, sizes protos on the shelf, drops empty piles and renumbers',()=>{
+  const {tasks,piles}=normalize([card('a','shelf',5),card('b',null,7),card('d','p1',1,{plan_date:'2026-10-14',proto:true}),card('n',null,0,{pile_order:null,proto:true}),
+    card('back',null,0,{pile_order:null}),card('s','shelf',9,{proto:true})],[{id:'p1',position:3},{id:'shelf',position:9}]);
+  assert.deepEqual(piles,[{id:'shelf',position:1}]);
   const by=(id:string)=>tasks.find(t=>t.id===id)!;
-  assert.deepEqual([by('n').pile_order,by('b').pile_order,by('a').pile_order],[1,2,1]);
+  assert.deepEqual(view(tasks,piles),[['n','b'],['back','a','s']]);
   assert.deepEqual([by('d').pile_id,by('d').pile_order,by('d').proto],[null,null,false]);
-  assert.equal(by('n').proto,true);
+  assert.deepEqual([by('n').proto,by('s').proto],[true,false]);
+  assert.deepEqual(normalize([card('back',null,0,{pile_order:null})],[]).piles,[{id:'shelf',position:1}],'the shelf appears with its first card');
 });
 
-test('board defaults assign old reading order once, and only missing cards use vacant slots',()=>{
-  const old=[card('a','p',1),card('b','p',2),card('c',null,1)],piles=[{id:'p',position:1}];
-  const seeded=seedBoardPositions(old,piles);
-  assert.deepEqual(benchOrder(seeded,piles).map(boardPosition),[{x:24,y:24},{x:348,y:24},{x:24,y:144}]);
-  assert.ok(old.every(t=>boardPosition(t)===null));assert.strictEqual(seedBoardPositions(seeded,piles),seeded);
-  const kept=seeded.filter(t=>t.id!=='a');assert.deepEqual(seedBoardPositions(kept,piles),kept);
-  assert.deepEqual(nearestBoardPosition(kept),{x:348,y:24});
-  assert.deepEqual(nearestBoardPosition([card('m',null,1,{board_x:-500,board_y:900})],{x:-500,y:900}),{x:-500,y:1020});
-});
-
-test('board moves validate every source atomically, keep offsets, and survive scheduling and trash',()=>{
-  const day='2026-10-14',tasks=seedBoardPositions([card('a',null,1),card('b',null,2),card('past',null,0,{plan_date:day,flow_order:1,pile_order:null}),card('done',null,0,{completed:true,pile_order:null})]);
-  let s:Snapshot={epoch:'e',tasks,settings:settings(),layouts:[],trash:[],piles:[]};
-  const run=(action:Action)=>s=previewMutation(s,{request_id:crypto.randomUUID(),epoch:'e',issued_at:Date.now(),action},new Set());
-  const a={id:'a',revision:1,x:-350,y:-100},b={id:'b',revision:1,x:700,y:500},before=structuredClone(s);
-  for(const [items,code] of [[[], 'validation'],[[a,a],'validation'],[[a,{...b,x:100001}],'validation'],[[a,{...b,y:1.5}],'validation'],[[a,{...b,revision:2}],'conflict'],[[a,{...b,id:'done'}],'conflict']] as const){
-    assert.throws(()=>run({type:'place_board',items:[...items]}),{code});assert.deepEqual(s,before);
-  }
-  run({type:'place_board',items:[a,b,{id:'past',revision:1,x:100000,y:-100000}]});
-  assert.deepEqual(s.tasks.filter(t=>['a','b','past'].includes(t.id)).map(t=>[t.id,boardPosition(t),t.revision,t.plan_date]),[['a',{x:-350,y:-100},2,null],['b',{x:700,y:500},2,null],['past',{x:100000,y:-100000},2,null]]);
-  run({type:'create',id:'fresh',title:'새 작업'});assert.deepEqual(boardPosition(s.tasks.find(t=>t.id==='fresh')!),{x:24,y:24});
-  run({type:'ship_flow',date:day,items:[{id:'a',revision:2}]});assert.deepEqual(boardPosition(s.tasks.find(t=>t.id==='a')!),{x:-350,y:-100});
-  run({type:'delete',id:'b',expected_revision:2});assert.deepEqual(boardPosition(s.trash[0]),{x:700,y:500});
-  run({type:'restore_trashed',id:'b'});assert.deepEqual(boardPosition(s.tasks.find(t=>t.id==='b')!),{x:700,y:500});
-  const t=s.tasks.find(t=>t.id==='a')!;run({type:'update',id:t.id,expected_revision:t.revision,title:'수정',body:t.body,duration:45,starts_at:null,plan_date:null});
-  assert.deepEqual(boardPosition(s.tasks.find(t=>t.id==='a')!),{x:-350,y:-100});
-});
-
-test('the preview store follows the bench rules of the Rust store',()=>{
+test('the preview store follows the 준비 rules of the Rust store',()=>{
   let s:Snapshot={epoch:'e',tasks:[],settings:{revision:1,days:[]},layouts:[],trash:[],piles:[]};
   const run=(action:Action)=>{s=previewMutation(s,{request_id:crypto.randomUUID(),epoch:'e',issued_at:Date.now(),action},new Set());return s;};
   const rev=(...ids:string[])=>ids.map(id=>({id,revision:s.tasks.find(t=>t.id===id)!.revision}));
   for(const id of ['a','b','c'])run({type:'create',id,title:id});
-  assert.deepEqual(view(s.tasks,s.piles!),[[null,['c','b','a']]]);assert.ok(s.tasks.every(t=>t.proto));
-  run({type:'place_unplanned',items:rev('a'),pile:'p1',create_at:1,index:0});
-  run({type:'place_unplanned',items:rev('b'),pile:'p1',index:0});
-  assert.deepEqual(view(s.tasks,s.piles!),[[null,['c']],['p1',['b','a']]]);
-  // Same length but chosen: sized. A date: sized, out of its pile, and the emptied pile goes.
+  assert.deepEqual(view(s.tasks,s.piles!),[['c','b','a'],[]]);assert.ok(s.tasks.every(t=>t.proto));
+  // Choosing a length, even the same one, sizes it in place.
   const a=s.tasks.find(t=>t.id==='a')!;
   run({type:'update',id:'a',expected_revision:a.revision,title:'a',body:'',starts_at:null,duration:30,plan_date:null,sized:true});
-  assert.equal(s.tasks.find(t=>t.id==='a')!.proto,false);
+  assert.equal(s.tasks.find(t=>t.id==='a')!.proto,false);assert.deepEqual(view(s.tasks,s.piles!),[['c','b','a'],[]]);
+  // The first card creates the shelf; a proto put there is sized.
+  run({type:'place_unplanned',items:rev('a'),pile:'shelf',create_at:1,index:0});
+  run({type:'place_unplanned',items:rev('b'),pile:'shelf',index:0});
+  assert.deepEqual(view(s.tasks,s.piles!),[['c'],['b','a']]);assert.equal(s.tasks.find(t=>t.id==='b')!.proto,false);
   run({type:'ship_flow',date:'2026-10-14',items:rev('b','a')});
   assert.deepEqual(s.piles,[]);assert.deepEqual(s.tasks.filter(t=>t.plan_date).sort((x,y)=>x.flow_order!-y.flow_order!).map(t=>t.id),['b','a']);
-  // Back by a button: top of the 투입구.
+  // Back by a button: top of the shelf. A cleared day: on top of it in the day's order.
   const b=s.tasks.find(t=>t.id==='b')!;
   run({type:'update',id:'b',expected_revision:b.revision,title:'b',body:'',starts_at:null,duration:30,plan_date:null});
-  assert.deepEqual(view(s.tasks,s.piles!),[[null,['b','c']]]);
+  assert.deepEqual(view(s.tasks,s.piles!),[['c'],['b']]);
+  run({type:'clear_day',date:'2026-10-14',expected_tasks:rev('a')});
+  assert.deepEqual(view(s.tasks,s.piles!),[['c'],['a','b']]);
+  // Trash: back to its place on the shelf.
+  run({type:'delete',id:'b',expected_revision:s.tasks.find(t=>t.id==='b')!.revision});run({type:'restore_trashed',id:'b'});
+  assert.deepEqual(view(s.tasks,s.piles!),[['c'],['a','b']]);
 });
 
-test('the preview store records 미계획 completion on the given day and returns old dateless ones to the 투입구',()=>{
+test('the preview store records 준비 completion on the given day and returns old dateless ones to the shelf',()=>{
   let s:Snapshot={epoch:'e',tasks:[card('a',null,1,{proto:true}),card('old',null,0,{completed:true,pile_order:null})],settings:{revision:1,days:[]},layouts:[],trash:[],piles:[]};
   const run=(action:Action)=>{s=previewMutation(s,{request_id:crypto.randomUUID(),epoch:'e',issued_at:Date.now(),action},new Set());return s;};
   assert.throws(()=>run({type:'set_completed',id:'a',expected_revision:1,completed:true}),/날짜/);
@@ -101,17 +80,16 @@ test('the preview store records 미계획 completion on the given day and return
   assert.deepEqual(s.layouts,[]);
   assert.throws(()=>run({type:'update',id:'a',expected_revision:a.revision,title:'a',body:'',starts_at:null,duration:30,plan_date:null}),/완료한 작업/);
   run({type:'set_completed',id:'old',expected_revision:1,completed:false});
-  assert.deepEqual(view(s.tasks,s.piles!),[[null,['old']]]);
+  assert.deepEqual(view(s.tasks,s.piles!),[[],['old']]);
 });
 
 test('merging creates one sized task in selection order at the first selected place and keeps whole originals in trash',()=>{
-  const a=card('a','p',1),b=card('b','p',2,{title:'첫 작업',body:'메모\r\n- [x] 기존 확인',duration:45,proto:true,board_x:700,board_y:-200}),c=card('c','p',3),d=card('d',null,1,{title:'다음\n작업',body:'[ ] 남은 일',duration:15,board_x:-100,board_y:200});
-  const s:Snapshot={epoch:'e',tasks:[a,b,c,d],settings:settings(),layouts:[],trash:[],piles:[{id:'p',position:1}]},receipts=new Set<string>();
+  const a=card('a','shelf',1),b=card('b','shelf',2,{title:'첫 작업',body:'메모\r\n- [x] 기존 확인',duration:45,proto:true,board_x:700,board_y:-200}),c=card('c','shelf',3),d=card('d',null,1,{title:'다음\n작업',body:'[ ] 남은 일',duration:15,board_x:-100,board_y:200});
+  const s:Snapshot={epoch:'e',tasks:[a,b,c,d],settings:settings(),layouts:[],trash:[],piles:[{id:'shelf',position:1}]},receipts=new Set<string>();
   const command={request_id:'merge',epoch:'e',issued_at:Date.now(),action:{type:'merge_unplanned' as const,id:'merged',items:[{id:'b',revision:1},{id:'d',revision:1}]}};
   const result=previewMutation(s,command,receipts),merged=result.tasks.find(t=>t.id==='merged')!;
-  assert.deepEqual(view(result.tasks,result.piles!),[[null,[]],['p',['a','merged','c']]]);
+  assert.deepEqual(view(result.tasks,result.piles!),[[],['a','merged','c']]);
   assert.deepEqual([merged.title,merged.duration,merged.proto,merged.revision,merged.plan_date,merged.starts_at],['첫 작업',60,false,1,null,null]);
-  assert.deepEqual(boardPosition(merged),boardPosition(b));
   assert.equal(merged.body,'- [ ] 첫 작업\n\n메모\r\n- [x] 기존 확인\n\n- [ ] 다음 작업\n\n[ ] 남은 일');
   assert.deepEqual(result.trash.map(({deleted_at:_,...t})=>t),[b,d]);
   assert.deepEqual(previewMutation(result,command,receipts),result,'retry never duplicates the replacement or originals');
@@ -218,7 +196,6 @@ test('the preview rejects invalid command inputs without changing work, trash, p
     {type:'place_unplanned',items:[item,item],pile:'p',index:0},
     {type:'place_unplanned',items:[item],pile:'p',index:-1},
     {type:'place_unplanned',items:[item],pile:'new',create_at:0,index:0},
-    {type:'move_pile',pile:'p',position:0},
     {type:'ship_flow',date:day,items:[]},{type:'ship_flow',date:day,items:[item,item]}
   ];
   for(const action of cases){

@@ -11,16 +11,16 @@ import {Dots} from '../ui/icons.tsx';
 import {useDrag,useRegion} from './drag.tsx';
 import {benchOrder} from '../../bench.ts';
 
-// 미계획 work drawn at the same scale as the timetable, so its size reads against free space.
-export function InboxTray({scale,overdue=[],onOpen,selected,heading='미계획',className=''}:{scale:number;overdue?:Task[];onOpen:(t:Task)=>void;selected?:string|null;heading?:string;className?:string}){
+// 준비 work drawn at the same scale as the timetable, so its size reads against free space.
+export function InboxTray({scale,overdue=[],onOpen,selected,heading='준비',className=''}:{scale:number;overdue?:Task[];onOpen:(t:Task)=>void;selected?:string|null;heading?:string;className?:string}){
   const {drafts,ready,draftLoaded,snapshot}=useApp(),{held,tasks}=useDrag();
   const ref=useRegion('tray',null);
-  // The bench read in order: the 투입구, then each pile left to right, each top to bottom.
+  // The shelf first (sized work ready to fill a gap), then the 들어옴.
   const inbox=benchOrder(tasks,snapshot?.piles??[]);
   const holding=held;
   return <section ref={ref} className={'card tray'+(holding?.intent.zone==='tray'?' hot':'')+(className?' '+className:'')} aria-label={heading}>
     <h2>{heading} {inbox.length>0&&<span className="cnt">{inbox.length}</span>}</h2>
-    <label className="sr-only" htmlFor="tray-capture">미계획에 추가</label>
+    <label className="sr-only" htmlFor="tray-capture">준비에 담기</label>
     <input id="tray-capture" className="capture-line" autoComplete="off" maxLength={650} placeholder="새 할 일" value={drafts.composer?'':drafts.capture} disabled={!ready||!draftLoaded}
       onFocus={()=>{if(drafts.composer)closeComposer();}} onChange={e=>{if(drafts.composer)closeComposer();else editCapture(e.target.value);}}
       onKeyDown={e=>{if(e.key!=='Enter')return;e.preventDefault();if(isCompositionKey(e.nativeEvent))return;void submitCapture();}}/>
@@ -44,7 +44,7 @@ function TrayBlock({task,scale,hollow,selected,onOpen,past}:{task:Task;scale:num
   const h=Math.max(24,task.duration*scale-2),compact=h<52;
   return <motion.div ref={setNodeRef} data-block="true" layout={!hollow} className={'tblk'+(task.proto?' proto':'')+(hollow?' hollow':'')+(selected?' sel':'')+(compact?' compact':'')} style={{height:h}}
     initial={hollow?false:{opacity:0,scale:.96}} animate={{opacity:1,scale:1}} exit={{opacity:0,transition:{duration:0}}} transition={settle} {...listeners} tabIndex={-1} role="presentation">
-    <div className="tile"><Dots/><button type="button" className="main" data-task={task.id} onClick={onOpen} aria-label={`${task.title}, ${task.proto?'길이 미정':formatDuration(task.duration)}, ${past?dateLabel(task.plan_date!):'미계획'}`}>
+    <div className="tile"><Dots/><button type="button" className="main" data-task={task.id} onClick={onOpen} aria-label={`${task.title}, ${task.proto?'길이 미정':formatDuration(task.duration)}, ${past?dateLabel(task.plan_date!):'준비'}`}>
       <span className="ttl">{task.title}</span><span className="meta">{past?dateLabel(task.plan_date!)+(task.proto?'':' · '):''}{task.proto?'':formatDuration(task.duration)}</span></button></div>
   </motion.div>;
 }
