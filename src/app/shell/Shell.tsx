@@ -2,16 +2,14 @@ import {useEffect,useState} from 'react';
 import {rangeTitle} from '../../format.ts';
 import {needsSavedReview} from '../../capture.ts';
 import {dateKey,dateLabel,dateOf,plusDays} from '../../dates.ts';
-import {setNav,useApp,type View} from '../store/state.ts';
+import {benchShown,setNav,useApp} from '../store/state.ts';
 import {discardStoredDraft,release,reload,retry,queue} from '../store/session.ts';
 import {openEditor} from '../store/editor.ts';
-import {overdueTasks} from '../store/tasks.ts';
-import {inbox} from '../store/bench.ts';
 import {Icon,Logo} from '../ui/icons.tsx';
 import {DragProvider} from '../space/drag.tsx';
 import {Today} from '../today/Today.tsx';
-import {Plan} from '../plan/Plan.tsx';
-import {InboxPage} from '../inbox/InboxPage.tsx';
+import {Periods,Plan} from '../plan/Plan.tsx';
+import {Dock} from '../dock/Dock.tsx';
 import {Settings} from '../settings/Settings.tsx';
 import {AvailabilityPopover} from '../settings/AvailabilityPopover.tsx';
 import {EditorHost,ContextMenuHost} from '../editor/hosts.tsx';
@@ -21,49 +19,44 @@ import {openCut} from '../store/cut.ts';
 import {BackupManager} from '../backups/BackupManager.tsx';
 import './shell.css';
 
-const views:{id:View;label:string}[]=[{id:'today',label:'오늘'},{id:'plan',label:'계획'},{id:'inbox',label:'준비'},{id:'settings',label:'설정'}];
-
 export function Shell(){
-  const s=useApp(),{nav,ready,snapshot,quitSaving}=s;
-  // The count is what still waits for a decision: the 들어옴, overdue work included.
-  const inboxCount=ready&&snapshot?inbox().length+overdueTasks().length:0;
-  const go=(view:View)=>{
-    if(view==='today')setNav({view,selected:s.today});
-    else if(view==='plan')setNav({view,planAnchor:nav.selected});
-    else setNav({view});
-  };
+  const s=useApp(),{nav,ready,snapshot,quitSaving,ui,drafts}=s;
+  const work=nav.view==='plan',focus=nav.view==='today';
+  const toWork=()=>setNav({view:'plan',planAnchor:nav.selected});
+  const toFocus=()=>setNav({view:'today',selected:s.today});
   function step(direction:number){
-    if(nav.view==='plan'&&nav.period==='month'){const d=dateOf(nav.planAnchor);d.setDate(1);d.setMonth(d.getMonth()+direction);const key=dateKey(d);setNav({selected:key,planAnchor:key});return;}
-    const base=nav.view==='plan'?nav.planAnchor:nav.selected,key=plusDays(base,direction*(nav.view==='plan'?(nav.period==='day'?1:nav.period==='week'?7:14):1));
-    setNav(nav.view==='plan'?{selected:key,planAnchor:key}:{selected:key});
+    if(work&&nav.period==='month'){const d=dateOf(nav.planAnchor);d.setDate(1);d.setMonth(d.getMonth()+direction);const key=dateKey(d);setNav({selected:key,planAnchor:key});return;}
+    const base=work?nav.planAnchor:nav.selected,key=plusDays(base,direction*(work?(nav.period==='day'?1:nav.period==='week'?7:14):1));
+    setNav(work?{selected:key,planAnchor:key}:{selected:key});
   }
-  const heading=nav.view==='settings'?'설정':nav.view==='inbox'?'준비':nav.view==='plan'?rangeTitle(nav.period,nav.planAnchor):dateLabel(nav.selected);
-  const unit=nav.view==='today'||nav.period==='day'?'날':nav.period==='month'?'달':nav.period==='two'?'2주':'주';
-  const navButton=(v:{id:View;label:string})=><button key={v.id} type="button" className={'nav-button'+(nav.view===v.id?' active':'')} aria-current={nav.view===v.id?'page':undefined}
-    aria-label={v.id==='inbox'&&inboxCount?`준비, 들어옴 ${inboxCount}건`:v.label} onClick={()=>go(v.id)}><Icon name={v.id} size={20} stroke={1.7}/><span>{v.label}{v.id==='inbox'&&inboxCount?' '+inboxCount:''}</span></button>;
+  const heading=nav.view==='settings'?'설정':work?rangeTitle(nav.period,nav.planAnchor):dateLabel(nav.selected);
+  const unit=focus||nav.period==='day'?'날':nav.period==='month'?'달':nav.period==='two'?'2주':'주';
+  // The cutting board opened on the bench holds the calendar still, as the old date columns were.
+  const cutting=!!(ui.split&&drafts.cut&&benchShown(s));
   return <DragProvider>
     <div className="app-shell" inert={quitSaving||undefined}>
-      <nav className="rail-nav" aria-label="주 메뉴">
-        <button type="button" className="brand" aria-label="BLOKKY 오늘로 이동" title="오늘로 이동" onClick={()=>setNav({view:'today',selected:s.today})}><Logo/></button>
-        {views.slice(0,3).map(navButton)}
-        {/* Search sits outside any one tab: it finds work everywhere, so it is not beside the 준비 capture. */}
-        <button type="button" className={'nav-button'+(s.ui.search?' active':'')} aria-label="검색" aria-keyshortcuts="Control+K" aria-expanded={s.ui.search} onClick={openSearch}><Icon name="search" size={20} stroke={1.7}/><span>검색</span></button>
-        {views.slice(3).map(navButton)}
-      </nav>
       <main className="workspace">
         <header className="topbar">
-          {(nav.view==='today'||nav.view==='plan')&&<div className="date-nav">
+          <button type="button" className="brand" aria-label="BLOKKY 오늘로 이동" title="오늘로 이동" onClick={()=>setNav({view:focus?'today':'plan',selected:s.today,planAnchor:s.today})}><Logo/></button>
+          {(work||focus)&&<div className="date-nav">
             <button type="button" className="ibtn" aria-label={'이전 '+unit} onClick={()=>step(-1)}><Icon name="left"/></button>
             <button type="button" className="ibtn" aria-label={'다음 '+unit} onClick={()=>step(1)}><Icon name="right"/></button>
             <button type="button" className="btn" disabled={nav.selected===s.today} onClick={()=>setNav({selected:s.today,planAnchor:s.today})}>오늘</button>
           </div>}
           <h1>{heading}</h1>
-          {nav.view==='today'&&nav.selected===s.today&&<span className="pill">오늘</span>}
+          {focus&&nav.selected===s.today&&<span className="pill">오늘</span>}
+          {work&&<Periods value={nav.period}/>}
+          <span className="grow"/>
           {!s.native&&<span className="notice">미리보기 · 예시 데이터</span>}
           {s.native&&s.info.warning&&<span className="notice warning">{s.info.warning}</span>}
+          {/* Search finds work everywhere, so it sits with the screen controls rather than in any one place. */}
+          <button type="button" className="btn search-open" aria-label="검색" aria-keyshortcuts="Control+K" aria-expanded={ui.search} onClick={openSearch}><Icon name="search" size={16}/><span className="label">검색</span><kbd>Ctrl K</kbd></button>
+          {work?<button type="button" className="btn primary" onClick={toFocus}><Icon name="focus" size={16}/>몰입</button>
+            :<button type="button" className="btn" onClick={toWork}>작업 화면</button>}
+          <button type="button" className={'ibtn'+(nav.view==='settings'?' on':'')} aria-label="설정" aria-pressed={nav.view==='settings'} onClick={()=>nav.view==='settings'?toWork():setNav({view:'settings'})}><Icon name="settings" size={18}/></button>
         </header>
         <div className="content" data-view={nav.view}>
-          {!ready||!snapshot?<LoadState/>:!s.draftLoaded?<DraftState/>:nav.view==='today'?<Today/>:nav.view==='plan'?<Plan/>:nav.view==='inbox'?<InboxPage/>:<Settings/>}
+          {!ready||!snapshot?<LoadState/>:!s.draftLoaded?<DraftState/>:focus?<Today/>:work?<div className={'work-screen'+(cutting?' cutting':'')}><Dock/><div className="plan-wrap" inert={cutting||undefined}><Plan/></div></div>:<Settings/>}
         </div>
         <StatusBar/>
       </main>

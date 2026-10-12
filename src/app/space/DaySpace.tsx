@@ -108,7 +108,7 @@ export function DaySpace({date,axis,variant,bin,selected,multi=[],onOpen,onMulti
       {date===today&&<AnchorFlash top={axis.position(anchor)} left={geometry.railLeft} anchor={anchor}/>}
       <AnimatePresence initial={false} custom={doneIds}>
         {plan.items.map(item=><Block key={item.task.id} date={date} item={sized(item)} pushed={pushed.includes(item.task.id)} axis={axis} geometry={geometry} variant={variant} next={item.task.id===nextId}
-          hollow={holding?.task.id===item.task.id} resizing={sizing?.id===item.task.id} selected={selected===item.task.id&&!multi.length} multi={multi.includes(item.task.id)} squash={squash.includes(item.task.id)}
+          hollow={!!holding?.ids.includes(item.task.id)} resizing={sizing?.id===item.task.id} selected={selected===item.task.id&&!multi.length} multi={multi.includes(item.task.id)} squash={squash.includes(item.task.id)}
           landed={ui.landed?.id===item.task.id?ui.landed:null}
           onCheck={()=>void check(byId(item.task.id))} onGrip={e=>grip(e,byId(item.task.id))} onNudge={(d,order,el)=>void nudge(item.task.id,d,order,el)}
           onOpen={e=>{if((e.shiftKey||e.ctrlKey||e.metaKey)&&onMulti){onMulti(byId(item.task.id));return;}onOpen(byId(item.task.id));}}

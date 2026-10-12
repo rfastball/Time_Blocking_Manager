@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {dockState,toPlan} from './support/nav.mjs';
 
 // Global search over the preview data. Ctrl is modifier 2 in CDP key events.
 const CTRL=2;
@@ -7,8 +8,13 @@ const active=page=>page.js(`document.activeElement?.getAttribute('aria-label')??
 const open=async page=>{await page.key('k',{code:'KeyK',modifiers:CTRL});await page.sleep(200);assert.ok(await page.js('!!document.querySelector(".search-panel")'),'search panel');};
 
 const scenarios=[
-  {name:'Ctrl+K and the menu button open search; Esc closes it and gives focus back',run:async page=>{
-    assert.deepEqual(await page.js(`[...document.querySelectorAll('.rail-nav .nav-button')].map(b=>b.querySelector('span').textContent.split(' ')[0])`),['오늘','계획','준비','검색','설정']);
+  {name:'Ctrl+K and the top bar button open search; Esc closes it and gives focus back',run:async page=>{
+    // The rail is gone: the top bar carries the way home, the dates, the range, search, focus and the gear, in that order.
+    await toPlan(page);
+    assert.equal(await page.js(`!!document.querySelector('.rail-nav')`),false);
+    const bar=await page.js(`[...document.querySelector('header.topbar').children].map(e=>e.matches('.brand')?'로고':e.matches('.date-nav')?'날짜':e.matches('h1')?'제목':e.matches('.segmented')?'기간':e.matches('.search-open')?'검색':e.matches('button[aria-label="설정"]')?'설정':e.matches('button')?e.textContent.trim():null).filter(Boolean)`);
+    assert.deepEqual(bar,['로고','날짜','제목','기간','검색','몰입','설정']);
+    assert.equal(await page.js(`document.querySelector('.search-open').getAttribute('aria-keyshortcuts')`),'Control+K');
     await page.js(`document.querySelector('#tray-capture').focus()`);
     await open(page);
     assert.equal(await active(page),'검색');
@@ -16,7 +22,7 @@ const scenarios=[
     await page.key('Escape');await page.sleep(150);
     assert.equal(await page.js('!!document.querySelector(".search-panel")'),false);
     assert.equal(await active(page),'tray-capture');
-    await page.click('.rail-nav .nav-button','검색');
+    await page.click('header.topbar .search-open');
     assert.equal(await active(page),'검색');
     await page.key('Escape');
   }},
@@ -35,10 +41,12 @@ const scenarios=[
     assert.ok(await page.js('!!document.querySelector(".found-ring")'),'the block is ringed');
   }},
   {name:'a bench card, the trash and a memo-only match are found; Korean being composed already updates the list',run:async page=>{
+    await toPlan(page);
     await open(page);await page.type('결재');await page.sleep(100);
     assert.deepEqual(await hits(page),['결재 처리 | 선반 · 4번째']);
     await page.key('Enter');await page.sleep(900);
-    assert.equal(await page.js(`document.querySelector('.content').dataset.view`),'inbox');
+    assert.equal(await page.js(`document.querySelector('.content').dataset.view`),'plan');
+    assert.equal(await dockState(page),'wide','bench work opens on the work screen with the dock wide');
     assert.equal(await active(page),'결재 처리, 15분');
     await page.key('Delete');await page.sleep(400);
     await open(page);await page.type('결재');await page.sleep(100);

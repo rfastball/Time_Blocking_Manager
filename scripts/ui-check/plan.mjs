@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
+import {dockState,setDock,toFocus,toPlan} from './support/nav.mjs';
 
 // Preview data puts every block on today. Each scenario starts fresh; "other" is a neighbouring day of the same week.
-// A cold dev server may still be compiling on the first load.
-const toPlan=async page=>{for(let i=0;i<40&&!await page.rect('.nav-button','계획');i++)await page.sleep(250);await page.click('.nav-button','계획');await page.sleep(500);};
+// toPlan opens the work screen with the 준비 dock narrow, as 계획 opened with its drawer.
 const sp=date=>`.wk-col[data-date="${date}"] .space`;
 const titles=async(page,scope)=>(await page.blocks(scope)).map(b=>b.split(',')[0]);
 async function days(page){
@@ -37,8 +37,9 @@ async function press(page,x,y,moves=[]){
 }
 
 export default [
-  {name:'each plan view retains independent drawer and calendar panel preferences',run:async page=>{
-    const keys=['day','week','two','month'].map(p=>'blokky.panel.plan-'+p+'-drawer').concat(['two','month'].map(p=>'blokky.panel.plan-'+p+'-calendar'));
+  // The drawer's remembered splitter became the dock's three widths (docs/one-screen-plan.md, 일부러 바꾸는 것); the calendar splitters stay.
+  {name:'each plan view keeps its calendar panel preference while the dock keeps its three widths beside it',run:async page=>{
+    const keys=['two','month'].map(p=>'blokky.panel.plan-'+p+'-calendar');
     const saved=await page.js(`Object.fromEntries(${JSON.stringify(keys)}.map(k=>[k,localStorage.getItem(k)]))`);
     try{
       await page.js(`${JSON.stringify(keys)}.forEach(k=>localStorage.removeItem(k))`);
@@ -47,24 +48,27 @@ export default [
       for(const [index,label] of ['일','주','2주','월'].entries()){
         await page.click('.segmented [role=radio]',label);
         assert.equal(await page.text('.segmented [aria-checked=true]'),label,'the intended view is active before resizing');
-        const splitter='.plan-desk>.panel-separator';
-        assert.ok((await page.rect(splitter)).w>0,'the open drawer has a usable separator in '+label);
-        await page.js(`document.querySelector('${splitter}').focus({preventScroll:true})`);
-        for(let i=0;i<=index;i++)await page.key('ArrowLeft');
-        const main=await page.rect('.plan-main'),drawer=await page.rect('#plan-drawer');
-        widths[label]=main.w;assert.ok(main.w>=280&&drawer.w>=280,'both outer panels retain their minimum in '+label);
+        assert.equal(await page.js(`document.querySelector('.plan-desk>.panel-separator')`),null,'no drawer splitter in '+label+': the dock sets its own width');
+        const main=await page.rect('.plan-main'),dock=await page.rect('#dock');
+        assert.ok(dock.x+dock.w<=main.x,'the dock sits left of the calendar in '+label);
+        widths[label]=main.w;assert.ok(main.w>=280&&dock.w>=280,'both outer panels retain their minimum in '+label);
         if(index>=2){
-          await page.js(`document.querySelector('.cal-layout>.panel-separator').focus({preventScroll:true})`);await page.key('ArrowLeft');
+          await page.js(`document.querySelector('.cal-layout>.panel-separator').focus({preventScroll:true})`);
+          for(let i=1;i<index;i++)await page.key('ArrowLeft');
+          widths[label+' calendar']=(await page.rect('.cal')).w;
           assert.ok((await page.rect('.cal')).w>=280&&(await page.rect('.plan-day')).w>=280,'the calendar and chosen date retain their minimum');
         }
       }
       assert.equal(await page.js(`${JSON.stringify(keys)}.every(k=>Number(localStorage.getItem(k))>0)`),true,'each view writes its own preference');
+      await page.click('.segmented [role=radio]','2주');
+      assert.ok(Math.abs((await page.rect('.cal')).w-widths['2주 calendar'])<=1,'returning to 2주 restores its calendar width');
       await page.click('.segmented [role=radio]','주');
-      assert.ok(Math.abs((await page.rect('.plan-main')).w-widths['주'])<=1,'returning to the week restores its width');
-      await page.click('.drawer-toggle');
-      assert.equal(await page.js(`document.querySelector('.plan-desk>.panel-separator')`),null,'a closed drawer removes its separator');
-      await page.click('.drawer-toggle');
-      assert.ok(Math.abs((await page.rect('.plan-main')).w-widths['주'])<=1,'reopening preserves the drawer preference');
+      assert.ok(Math.abs((await page.rect('.plan-main')).w-widths['주'])<=1,'returning to the week keeps its width');
+      await setDock(page,'hidden');
+      assert.equal(await page.js(`!!document.querySelector('#dock .dock-tools')`),false,'a folded dock keeps only its unfold button');
+      assert.ok((await page.rect('.plan-main')).w>widths['주']+200,'folding gives the calendar the room');
+      await setDock(page,'narrow');
+      assert.ok(Math.abs((await page.rect('.plan-main')).w-widths['주'])<=1,'unfolding returns to the same narrow width');
     }finally{await page.js(`(()=>{const saved=${JSON.stringify(saved)};for(const [key,value] of Object.entries(saved)){if(value===null)localStorage.removeItem(key);else localStorage.setItem(key,value);}})()`);}
   }},
   {name:'working lips yield to deliberate rail drags and only unavailable slices are hatched',run:async page=>{
@@ -104,11 +108,14 @@ export default [
     assert.ok(Math.abs(first.y-1-await hourY(page,9))<=2,'the shared ruler lines up with the blocks');
     assert.match(await page.text('.wk-head.today'),/오늘.*[\d.]+ \/ [\d.]+h/);
     assert.match(await page.text('.plan-bar .week-summary'),/선택한 주 근무 .+ \/ .+ · \d \/ \d일/);
-    assert.equal(await page.js(`document.querySelector('.drawer-toggle').getAttribute('aria-expanded')`),'true');
+    // The drawer and its toggle became the narrow dock beside the week.
+    assert.equal(await dockState(page),'narrow');
+    assert.ok(await page.js(`!!document.querySelector('#dock .tray #tray-capture')`),'the narrow dock is the 준비 list');
     await page.shot('plan-week');
-    await page.js(`document.querySelector('.drawer-close').focus()`);await page.key('Enter',{text:'\r'});await page.sleep(150);
-    assert.equal(await page.js(`document.activeElement?.classList.contains('drawer-toggle')`),true,'drawer close returns to its toggle');
-    assert.equal(await page.js(`document.querySelector('.drawer-toggle').getAttribute('aria-expanded')`),'false');
+    await page.js(`document.querySelector('#dock button[aria-label="준비 접기"]').focus()`);await page.key('Enter',{text:'\r'});await page.sleep(300);
+    assert.equal(await dockState(page),'hidden');
+    const focused=await page.js(`(()=>{const a=document.activeElement;return a?.classList.contains('dock-unfold')?'dock-unfold':a?.tagName+(a?.className?'.'+a.className:'');})()`);
+    assert.equal(focused,'dock-unfold','folding the dock returns focus to its unfold button, as the drawer close returned it to its toggle');
   }},
   {name:'at 960px the week scrolls sideways inside its card',viewport:{width:960,height:900},run:async page=>{
     await toPlan(page);
@@ -129,7 +136,7 @@ export default [
     assert.deepEqual(await titles(page,sp(other)),['설계 문서 자료 조사','회의록 정리']);
   }},
   {name:'a fast date round trip keeps the block draggable after release and cancellation',run:async page=>{
-    await toPlan(page);await page.click('.drawer-toggle');await page.sleep(200);
+    await setDock(page,'hidden');
     const {today,other}=await days(page),source=await page.rect(sp(today)),target=await page.rect(sp(other));
     const selector=`${sp(today)} [data-task="sample-a"]`,copies='[data-task="sample-a"]';
     for(const cancel of [false,true]){
@@ -260,12 +267,13 @@ export default [
     assert.equal(await page.js(`document.activeElement.textContent`),'월');
     await page.shot('plan-month');
   }},
-  {name:'at 1024px 2주 puts 준비 below and the date panel takes a new block',viewport:{width:1024,height:900},run:async page=>{
+  // The drawer that moved under the calendar is now the narrow dock, which stays left of it.
+  {name:'at 1024px 2주 keeps 준비 beside the calendar and the date panel takes a new block',viewport:{width:1024,height:900},run:async page=>{
     await toPlan(page);
     await page.click('.segmented [role=radio]','2주');
-    const cal=await page.rect('.cal'),drawer=await page.rect('#plan-drawer'),day=await page.rect('.plan-day');
-    assert.ok(drawer.y>=cal.y+cal.h&&drawer.x<day.x,'drawer moves under the calendar, beside the date panel');
-    assert.equal(await page.js(`getComputedStyle(document.querySelector('.plan-desk>.panel-separator')).display`),'none','the drawer below the calendar has no horizontal separator');
+    const cal=await page.rect('.cal'),dock=await page.rect('#dock'),day=await page.rect('.plan-day');
+    assert.ok(dock.x+dock.w<=cal.x&&dock.x+dock.w<=day.x,'the narrow dock stays left of the calendar and the date panel');
+    assert.ok(await page.js(`document.documentElement.scrollWidth<=innerWidth`),'the page does not scroll sideways');
     const splitter='.cal-layout>.panel-separator',saved=await page.js(`localStorage.getItem('blokky.panel.plan-two-calendar')`);
     assert.ok((await page.rect(splitter)).w>0,'the calendar/date separator remains usable through display:contents');
     await page.js(`document.querySelector('${splitter}').focus()`);await page.key('ArrowLeft');
@@ -374,6 +382,7 @@ export default [
     assert.ok((await page.blocks('.dv-day .space')).includes('오늘 추가, 예상 20:00–20:30'));
   }},
   {name:'2주 date panel title opens the 일 view; 오늘 has no composer and no 하루 비우기',run:async page=>{
+    await toFocus(page);
     const box=await page.rect('.today-day .space');
     await press(page,box.x+box.w-30,box.y+box.h-30);
     assert.equal(await page.js(`!!document.querySelector('.composer')`),false,'empty time on 오늘 does not compose');
@@ -388,11 +397,11 @@ export default [
     await toPlan(page);
     const held=()=>page.js(`(()=>{const h=document.querySelector('.held');if(!h)return null;const r=h.getBoundingClientRect();return {w:Math.round(r.width),h:Math.round(r.height),cls:h.className};})()`);
     const carry=async(target,read)=>{
-      const from=await page.rect('#plan-drawer .tblk','SQLite');
+      const from=await page.rect('#dock .tblk','SQLite');
       await page.mouse('mouseMoved',from.cx,from.y+8,0);await page.mouse('mousePressed',from.cx,from.y+8);
       for(let i=1;i<=12;i++){await page.mouse('mouseMoved',from.cx+(target.x-from.cx)*i/12,from.y+8+(target.y-from.y-8)*i/12);await page.sleep(16);}
       await page.sleep(320);const seen=await read();
-      // Back over the drawer and let go: nothing is stored.
+      // Back over the dock and let go: nothing is stored.
       await page.mouse('mouseMoved',from.cx,from.y+8);await page.sleep(250);await page.mouse('mouseReleased',from.cx,from.y+8,0);await page.sleep(500);
       return seen;
     };
@@ -407,6 +416,6 @@ export default [
     const day=await page.rect('.cal-cell.today');
     const month=await carry({x:day.cx,y:day.cy},async()=>{await page.shot('plan-month-morph');return held();});
     assert.equal(month.h,6);assert.match(month.cls,/bar/);assert.ok(month.w<40,'45 minutes is a short share of the day bar');
-    assert.deepEqual(await page.js(`[...document.querySelectorAll('#plan-drawer .tblk .ttl')].map(e=>e.textContent).includes('SQLite 백업 방식 조사')`),true,'nothing was stored');
+    assert.deepEqual(await page.js(`[...document.querySelectorAll('#dock .tblk .ttl')].map(e=>e.textContent).includes('SQLite 백업 방식 조사')`),true,'nothing was stored');
   }},
 ];

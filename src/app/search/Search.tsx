@@ -3,7 +3,7 @@ import {useEffect,useLayoutEffect,useMemo,useRef,useState,type KeyboardEvent} fr
 import {motion} from 'motion/react';
 import {isCompositionKey} from '../../capture.ts';
 import {search,type Hit} from '../../search.ts';
-import {getState,setNav,setUi,useApp} from '../store/state.ts';
+import {getState,openBench,setNav,setUi,useApp} from '../store/state.ts';
 import {reduced} from '../ui/motion.ts';
 import {Icon} from '../ui/icons.tsx';
 import './search.css';
@@ -60,11 +60,11 @@ function SearchPanel(){
   </div>;
 }
 
-// Each kind of hit opens where it lives: dated work in 계획's 일 view, 준비 work and its lists on 준비.
+// Each kind of hit opens where it lives: dated work in the 일 view, 준비 work and its lists on the bench.
 function goTo(hit:Hit){
   setUi({search:false});
   if(hit.kind==='dated'||hit.kind==='done')setNav({view:'plan',period:'day',selected:hit.date!,planAnchor:hit.date!});
-  else setNav({view:'inbox'});
+  else openBench();
   setUi({found:{id:hit.id,kind:hit.kind,at:Date.now()}});
 }
 const targets:Record<Hit['kind'],(id:string)=>string>={

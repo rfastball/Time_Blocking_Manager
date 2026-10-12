@@ -1,0 +1,93 @@
+import assert from 'node:assert/strict';
+import {dockState,ready,toPlan,view} from './support/nav.mjs';
+
+// One screen: the work screen (준비 dock beside the calendar) and the focus screen; 설정 opens from the gear.
+const stored=page=>page.js(`localStorage.getItem('blokky.dock')`);
+const has=(page,selector)=>page.js(`!!document.querySelector(${JSON.stringify(selector)})`);
+const reload=async page=>{await page.goto('/?now=10:20');await ready(page);await page.sleep(300);};
+const pressDock=async(page,label)=>{await page.click(`#dock button[aria-label="${label}"]`);await page.sleep(350);};
+
+export default [
+  {name:'the app starts on the work screen with the narrow 준비 dock beside the week and no rail',run:async page=>{
+    await page.js(`localStorage.removeItem('blokky.dock')`);await reload(page);
+    assert.equal(await view(page),'plan','the work screen comes first');
+    assert.equal(await page.text('.segmented [aria-checked=true]'),'주');
+    assert.equal(await dockState(page),'narrow','a device without a preference gets the narrow dock');
+    const dock=await page.rect('#dock'),main=await page.rect('.plan-main');
+    assert.ok(dock.x+dock.w<=main.x,'the dock sits left of the calendar');
+    assert.ok(await has(page,'#dock .tray #tray-capture'),'the narrow dock is the 준비 list');
+    assert.equal(await page.js(`document.querySelectorAll('.plan-main .wk-col').length`),7);
+    assert.equal(await has(page,'.rail-nav'),false,'no rail');
+    assert.ok(await has(page,'header.topbar button[aria-label="BLOKKY 오늘로 이동"]'));
+    await page.shot('shell-start');
+  }},
+  {name:'the dock goes narrow, wide, narrow, folded and unfolded by its controls and keeps its width over a reload',run:async page=>{
+    await toPlan(page);
+    const narrowMain=(await page.rect('.plan-main')).w;
+    await pressDock(page,'준비 넓히기');
+    assert.equal(await dockState(page),'wide');
+    assert.ok(await has(page,'#dock .inbox-page #inbox-capture')&&await has(page,'#dock .jb-inbox')&&await has(page,'#dock .jb-shelf'),'wide, the dock is the bench');
+    assert.equal(await has(page,'#dock .tray'),false,'the list gives way to the bench');
+    assert.equal(await page.js(`document.querySelector('#dock button[aria-label="준비 좁히기"]').getAttribute('aria-pressed')`),'true');
+    assert.ok((await page.rect('.plan-main')).w<narrowMain,'the calendar gives the bench its room');
+    assert.equal(await stored(page),'wide');
+    await page.shot('shell-dock-wide');
+    await reload(page);
+    assert.equal(await dockState(page),'wide','a reload keeps the wide dock');
+    assert.ok(await has(page,'#dock .jb-shelf'));
+    await pressDock(page,'준비 좁히기');
+    assert.equal(await dockState(page),'narrow');
+    assert.ok(await has(page,'#dock .tray #tray-capture'),'narrow, the dock is the list again');
+    assert.equal(await has(page,'#dock .jb-shelf'),false);
+    assert.ok(Math.abs((await page.rect('.plan-main')).w-narrowMain)<=1,'the calendar returns to its narrow-dock width');
+    assert.equal(await stored(page),'narrow');
+    await pressDock(page,'준비 접기');
+    assert.equal(await dockState(page),'hidden');
+    assert.equal(await has(page,'#dock .tray')||await has(page,'#dock .jb-shelf')||await has(page,'#dock .dock-tools'),false,'folded, only the unfold button stays');
+    assert.match(await page.js(`document.querySelector('#dock .dock-unfold').getAttribute('aria-label')`),/^준비 펴기/);
+    assert.ok((await page.rect('.plan-main')).w>narrowMain+200,'folding gives the calendar the room');
+    assert.equal(await stored(page),'hidden');
+    await page.shot('shell-dock-hidden');
+    await reload(page);
+    assert.equal(await dockState(page),'hidden','a reload keeps the folded dock');
+    await page.click('#dock .dock-unfold');await page.sleep(350);
+    assert.equal(await dockState(page),'narrow','unfolding opens the list');
+    assert.ok(await has(page,'#dock .tray #tray-capture'));
+    assert.equal(await stored(page),'narrow');
+  }},
+  {name:'몰입 opens the focus screen and 작업 화면 returns to the work screen as it was left',run:async page=>{
+    await toPlan(page);
+    await page.click('.segmented [role=radio]','2주');await page.sleep(300);
+    await page.click('header.topbar button','몰입');await page.sleep(500);
+    assert.equal(await view(page),'today');
+    assert.ok(await has(page,'.today-day')&&await has(page,'.today-flow'),'the focus screen is the former 오늘');
+    assert.equal(await has(page,'#dock'),false,'no dock while focusing');
+    assert.equal(await has(page,'.segmented'),false,'no period choice while focusing');
+    assert.match(await page.text('header.topbar h1'),/\d+월 \d+일/);
+    assert.equal(await page.js(`[...document.querySelectorAll('header.topbar button')].some(b=>b.textContent.includes('몰입'))`),false);
+    await page.shot('shell-focus');
+    await page.click('header.topbar button','작업 화면');await page.sleep(400);
+    assert.equal(await view(page),'plan');
+    assert.equal(await page.text('.segmented [aria-checked=true]'),'2주','the period survives the round trip');
+    assert.equal(await dockState(page),'narrow','so does the dock');
+  }},
+  {name:'the gear opens 설정 and leads back to the work screen',run:async page=>{
+    await toPlan(page);
+    const gear='header.topbar button[aria-label="설정"]';
+    await page.click(gear);await page.sleep(400);
+    assert.equal(await view(page),'settings');
+    assert.equal(await page.js(`document.querySelector('${gear}').getAttribute('aria-pressed')`),'true');
+    assert.ok(await has(page,'.st-page'));
+    assert.equal(await has(page,'#dock'),false);
+    await page.click(gear);await page.sleep(400);
+    assert.equal(await view(page),'plan','the gear again closes 설정');
+    assert.equal(await page.js(`document.querySelector('${gear}').getAttribute('aria-pressed')`),'false');
+    // From the focus screen too, 설정 returns to the work screen.
+    await page.click('header.topbar button','몰입');await page.sleep(400);
+    await page.click(gear);await page.sleep(400);
+    assert.equal(await view(page),'settings');
+    await page.click('header.topbar button','작업 화면');await page.sleep(400);
+    assert.equal(await view(page),'plan');
+    assert.ok(await has(page,'#dock'));
+  }},
+];

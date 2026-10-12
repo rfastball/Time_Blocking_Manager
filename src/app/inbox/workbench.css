@@ -1,7 +1,6 @@
-/* 준비: the 들어옴 and one shelf at the timetable's scale (1 hour = 72px), then the next days. Flat objects; motion carries the physics. */
+/* 준비's bench: the 들어옴 and one shelf at the timetable's scale (1 hour = 72px). Flat objects; motion carries the physics. */
 .inbox-page.jb{max-width:none}
-.jb-work{display:grid;grid-template-columns:minmax(560px,var(--panel-first)) 16px minmax(280px,var(--panel-second));align-items:start;margin-top:4px}
-.jb-work[data-panel-stacked=true]{grid-template-columns:minmax(0,1fr);gap:16px}
+.jb-work{margin-top:4px}
 .jb-bench{position:relative;min-width:0}
 .jb-layer{display:grid;grid-template-columns:minmax(240px,300px) minmax(280px,1fr);gap:16px;align-items:start}
 .jb-dim{opacity:.35}
@@ -81,40 +80,12 @@
 .jb-selinfo{font-size:var(--font-size-label);font-weight:600;margin:0 4px;font-variant-numeric:tabular-nums}
 .jb-menu{position:fixed;min-width:160px;max-width:280px}
 
-/* The next days, on the shelf's scale: the same ceiling, hour lines, end of work, off-hours dots and spill hatching. */
-.jb-date-panel{min-width:0;position:sticky;top:0}
-.jb-dock{padding:14px 10px 10px}
-.jb-days{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(64px,1fr);gap:6px;overflow:auto;max-height:max(360px,calc(100vh - 196px))}
-.jb-day{display:flex;flex-direction:column;gap:6px;min-width:0}
-.jb-dhead{min-height:40px;padding:2px 4px;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:1px;border:0;border-radius:var(--radius-control);background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer}
-.jb-dhead:hover{background:var(--color-control-hover)}
-.jb-dname{display:flex;flex-wrap:wrap;align-items:center;gap:4px;font-size:13px}
-.jb-dname b{font-weight:500;color:var(--color-text-muted)}
-.jb-dname .pill{font-size:11px;padding:0 6px}
-.jb-dload{display:flex;flex-direction:column;font-size:11.5px;color:var(--color-text-muted);font-variant-numeric:tabular-nums}
-.jb-dover{color:var(--color-overdue);font-weight:600;white-space:nowrap}
-.jb-day.hot .jb-dload{color:var(--color-action);font-weight:600}
-.jb-dbody{position:relative;flex:none;border-top:3px solid var(--color-structure);background:repeating-linear-gradient(to bottom,transparent 0 71px,var(--color-divider) 71px 72px),var(--color-surface);box-shadow:inset 1px 0 var(--color-divider),inset -1px 0 var(--color-divider)}
-.jb-day.hot .jb-dbody{outline:2px solid var(--color-action);outline-offset:2px}
-.jb-off{position:absolute;left:0;right:0;bottom:0;background:radial-gradient(circle,color-mix(in srgb,var(--color-text-muted) 28%,transparent) .8px,transparent 1px) 0 0/6px 6px,var(--color-unavailable-soft)}
-.jb-end{position:absolute;left:0;right:0;z-index:2;height:2px;margin-top:-1px;background:var(--color-structure)}
-.jb-brk{position:absolute;left:0;right:0;background:var(--background-unavailable);opacity:.55}
-.jb-dblk{position:absolute;left:3px;right:3px;z-index:1;box-sizing:border-box;overflow:hidden;border-radius:4px;padding:2px 5px;background:var(--sp-flow);border:1px solid var(--sp-flow-edge);color:var(--sp-flow-ink);font-size:11px;font-weight:600;line-height:14px;transition:top .18s ease,height .18s ease}
-.jb-dblk>span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.jb-dblk.fixed{background:var(--sp-fixed);border-color:var(--sp-fixed-edge);border-left:6px solid var(--sp-clasp);color:var(--color-text)}
-.jb-dblk.slot{z-index:3;background:color-mix(in srgb,var(--color-action) 10%,var(--color-surface));border:1.5px dashed var(--color-action);color:var(--color-action)}
-.jb-spill{position:absolute;left:0;right:0;bottom:0;border-top:1px dashed var(--color-overdue);background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--color-overdue) 28%,transparent) 0 1.5px,transparent 1.5px 6px)}
-
 .held.proto>.tile{background:var(--color-surface);border:1.5px dashed var(--sp-fixed-edge);color:var(--color-text-muted)}
 .held-more{flex:0 0 auto;font-size:11px;font-weight:700;font-variant-numeric:tabular-nums}
 .held-why.where{background:var(--color-text)}
 
-/* Two lists and the dates need about 860px; below that the dates go under the lists. */
-@media (max-width:1000px){.jb-work{grid-template-columns:minmax(0,1fr);gap:16px}.jb-work>.panel-separator{display:none}.jb-date-panel{position:static}}
 @media (max-width:760px){
   .jb-layer{grid-template-columns:minmax(0,1fr)}
   .jb-scroll{max-height:none}
-  .jb-date-panel{position:static}
-  .jb-days{max-height:none}
 }
-@media (prefers-reduced-motion:reduce){.jb-card>.tile,.jb-lip::after,.jb-dblk,.jb-well,.jb-hang,.jb-ceiling::after{transition:none}}
+@media (prefers-reduced-motion:reduce){.jb-card>.tile,.jb-lip::after,.jb-well,.jb-hang,.jb-ceiling::after{transition:none}}

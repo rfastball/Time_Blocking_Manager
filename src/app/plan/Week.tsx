@@ -29,7 +29,7 @@ export function Week({dates}:{dates:string[]}){
     const to=el.scrollLeft>left?left:el.scrollLeft<right?Math.min(left,right):el.scrollLeft;
     if(Math.abs(to-el.scrollLeft)<1)return;
     el.scrollTo({left:to,behavior:first||matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});
-  },[dates[0],target,nav.inboxOpen]);
+  },[dates[0],target,nav.dock]);
   return <section className="card wk" aria-label="주간 블록 공간">
     <div ref={scroll} className="wk-scroll">
       <div className="wk-grid">

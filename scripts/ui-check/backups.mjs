@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
+import {toSettings} from './support/nav.mjs';
 
 // Backups need the native store; the browser preview only says where they are managed.
 export default [
   {name:'the preview shows where backups are managed and offers no actions',run:async page=>{
-    await page.click('.rail-nav .nav-button','설정');await page.sleep(300);
+    await toSettings(page);
     assert.equal(await page.js('document.querySelector("details.backups").open'),false);
     await page.click('details.backups > summary');await page.sleep(150);
     assert.match(await page.text('details.backups'),/데스크톱 앱에서 백업을 관리합니다\./);
@@ -11,7 +12,7 @@ export default [
     await page.shot('backups-preview');
   }},
   {name:'backup inspection can be canceled while waiting or after an error',run:async page=>{
-    await page.click('.rail-nav .nav-button','설정');
+    await toSettings(page);
     try{
       await page.js(`(async()=>{
         const [{setState},{setOpen}]=await Promise.all([import('/src/app/store/state.ts'),import('/src/app/backups/backups.ts')]);

@@ -9,7 +9,8 @@ import {deleteTask,openComposer,toggleComplete,unfix,unplan} from '../store/task
 import {completeHere,moveTo,placeOfCard,shipTo} from '../store/bench.ts';
 
 // 준비 shows undated work and overdue work; both are still being placed there.
-const inPrep=(t:Task,view:string,today:string)=>view==='inbox'&&!t.completed&&(!t.plan_date||t.plan_date<today);
+// A 준비 card offers 준비's menu; the same task on a date offers the date menu.
+const inPrep=(t:Task,bench:boolean,today:string)=>bench&&!t.completed&&(!t.plan_date||t.plan_date<today);
 import {blockButton,clamp,menuKeys,requestSplit} from './actions.ts';
 
 type Item={label:string;run:()=>void;danger?:boolean;disabled?:boolean};
@@ -43,7 +44,7 @@ function ContextMenu({m}:{m:NonNullable<Ui['contextMenu']>}){
   const mode=s.nav.view==='today'&&!matchMedia('(max-width:960px)').matches?'panel':'dialog';
   let items:Item[];
   // Each place offers only what is not already one gesture away there: a click opens the editor, a drag or Alt+arrows reorder.
-  if(t&&inPrep(t,s.nav.view,s.today)){
+  if(t&&inPrep(t,!!m.bench,s.today)){
     const shelved=!t.plan_date&&placeOfCard(t)==='shelf';
     items=[
       ...(!shelved?[{label:'선반으로',run:()=>void moveTo([t.id],'shelf',Infinity)}]:[]),

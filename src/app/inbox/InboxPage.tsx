@@ -9,18 +9,17 @@ import {CutBoard} from '../cut/CutBoard.tsx';
 import {setSelection} from '../store/bench.ts';
 import {settle} from '../ui/motion.ts';
 import {Icon} from '../ui/icons.tsx';
-import {usePanelResize} from '../ui/PanelResize.tsx';
-import {DateDock,DoneHere,InboxList,SelectionBar,ShelfList} from './Workbench.tsx';
+import {DoneHere,InboxList,SelectionBar,ShelfList} from './Workbench.tsx';
 import './inbox.css';
 import './workbench.css';
 
 // The archive and 휴지통 disclosures keep the user's choice while they visit other views.
 let archiveOpenMemory=false,trashOpenMemory=false;
 
-// 준비 is where captured work becomes blocks that can go on a date: the 들어옴, one ordered shelf, and the next days.
-export function InboxPage(){
+// The bench: the 준비 dock opened wide, where captured work becomes blocks that can go on a date.
+// The 들어옴 and one ordered shelf; the calendar beside it takes the place of the old date columns.
+export function Bench(){
   const {snapshot,drafts,ready,draftLoaded,quitSaving,ui,today}=useApp();
-  const panels=usePanelResize('inbox',.62,'준비와 날짜 패널 크기','inbox-bench inbox-dates');
   const [archiveOpen,setArchiveOpen]=useState(archiveOpenMemory),[trashOpen,setTrashOpen]=useState(trashOpenMemory),trash=snapshot!.trash??[];
   // Completions kept from before every completion had a date; nothing new arrives here.
   const archived=snapshot!.tasks.filter(t=>!t.plan_date&&t.completed);
@@ -40,7 +39,7 @@ export function InboxPage(){
         onFocus={()=>{if(drafts.composer)closeComposer();}} onChange={e=>{if(drafts.composer)closeComposer();else editCapture(e.target.value);}}
         onKeyDown={e=>{if(e.key!=='Enter')return;e.preventDefault();if(isCompositionKey(e.nativeEvent))return;void submitCapture();}}/>
     </div>
-    <div ref={panels.ref} style={panels.style} data-panel-stacked={panels.stacked} className="jb-work">
+    <div className="jb-work">
       <div id="inbox-bench" className="jb-bench">
         {cutting&&<CutBoard mode="inline"/>}
         <div className={'jb-layer'+(cutting?' jb-dim':'')} inert={cutting?true:undefined}>
@@ -69,8 +68,6 @@ export function InboxPage(){
         </div>
         <SelectionBar/>
       </div>
-      {panels.separator}
-      <div id="inbox-dates" className="jb-date-panel"><DateDock frozen={cutting}/></div>
     </div>
   </section>;
 }
