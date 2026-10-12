@@ -158,9 +158,6 @@ function Card({task:t,place,past,onOpen}:{task:Task;place:Place;past?:boolean;on
         <button type="button" className="ibtn jb-delete" aria-label={`${t.title} 삭제`} title="삭제" disabled={!ready} onPointerDown={e=>e.stopPropagation()} onClick={()=>void remove([t])}><Icon name="delete" size={14}/></button>
       </span>
     </div>
-    {sheet&&!pulling&&<div className="jb-steps" role="group" aria-label={`${t.title} 길이`} onPointerDown={e=>e.stopPropagation()}>
-      {[15,30,45,60,75,90,105,120].map(m=><button key={m} type="button" tabIndex={-1} aria-label={formatDuration(m)} title={formatDuration(m)} onClick={()=>void setLength(t,m)}/>)}
-    </div>}
     {pulling&&live!=null&&<span className="jb-len" aria-live="polite">{formatDuration(live)}</span>}
     {!past&&<div className={'jb-lip'+(sheet?' tab':'')} aria-hidden="true" onPointerDown={pull}/>}
   </motion.div>;

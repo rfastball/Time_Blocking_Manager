@@ -23,7 +23,7 @@ const scenarios=[
     assert.equal(await page.js('document.querySelectorAll(".wb-canvas,.wb-tools,.wb-world").length'),0,'no free canvas or its tools');
     await page.shot('junbi-initial');
   }},
-  {name:'pulling a sheet gives it thickness in place; steps and arrows size it too, and nothing moves',run:async page=>{
+  {name:'pulling a sheet gives it thickness in place; arrows size it too, and nothing moves',run:async page=>{
     await open(page);
     const sheet=await card(page,'주간 보고');
     const during=await page.drag({x:sheet.cx,y:sheet.y+sheet.h},{x:sheet.cx,y:sheet.y+sheet.h+52},{before:()=>page.js('document.querySelector(".jb-len")?.textContent')});
@@ -32,14 +32,15 @@ const scenarios=[
     assert.equal((await card(page,'주간 보고')).h,52);
     assert.deepEqual(await titles(page,'.jb-inbox'),['주간 보고 초안','경쟁사 동향 정리'],'length never moves the card');
     await page.shot('junbi-pulled');
-    // A new capture is a sheet on top; a step sets its first length; arrows change it by 15 minutes.
+    // A new capture is a sheet on top with no length steps to fill; ↓ gives its first length, then arrows change it by 15 minutes.
     await page.click('#inbox-capture');await page.type('보안 점검 결과 회신');await page.key('Enter');await page.sleep(400);
     assert.deepEqual((await titles(page,'.jb-inbox')).slice(0,2),['보안 점검 결과 회신','주간 보고 초안']);
     const fresh=await card(page,'보안 점검');await page.mouse('mouseMoved',fresh.cx,fresh.cy,0);await page.sleep(80);
-    await page.click('.jb-card.sheet .jb-steps button:nth-child(4)');await page.sleep(300);
-    assert.deepEqual(await task(page,'보안 점검 결과 회신'),{proto:false,duration:60,pile:null,date:null});
-    await focusCard(page,'보안 점검');await page.key('ArrowUp');await page.sleep(250);
-    assert.equal((await task(page,'보안 점검 결과 회신')).duration,45);
+    assert.equal(await page.js('document.querySelectorAll(".jb-steps").length'),0);
+    await focusCard(page,'보안 점검');await page.key('ArrowDown');await page.sleep(250);
+    assert.deepEqual(await task(page,'보안 점검 결과 회신'),{proto:false,duration:15,pile:null,date:null});
+    await page.key('ArrowDown');await page.sleep(250);
+    assert.equal((await task(page,'보안 점검 결과 회신')).duration,30);
   }},
   {name:'a block dragged onto the shelf lands where the gap opened; Alt+arrows move between the 들어옴 and the shelf',run:async page=>{
     await open(page);

@@ -53,14 +53,6 @@
 .jb-acts .jb-delete{width:22px;height:22px;min-height:22px;border:0;background:transparent;color:var(--color-text-muted)}
 .jb-acts .jb-delete:hover{color:var(--color-error);background:var(--color-error-surface)}
 
-/* A sheet's first length: eight 15-minute steps, filled up to the one pointed at. */
-.jb-steps{position:absolute;right:34px;top:50%;z-index:3;display:none;grid-template-columns:repeat(8,10px);gap:2px;translate:0 -50%}
-.jb-card.sheet:hover .jb-steps,.jb-card.sheet:focus-within .jb-steps{display:grid}
-.jb-card.sheet:hover .ttl,.jb-card.sheet:focus-within .ttl{padding-right:150px}
-.jb-steps>button{width:10px;height:12px;padding:0;min-height:0;border:1px solid var(--color-control-border);border-radius:2px;background:var(--color-surface);cursor:pointer}
-.jb-steps:hover>button{background:var(--color-action);border-color:var(--color-action)}
-.jb-steps>button:hover~button{background:var(--color-surface);border-color:var(--color-control-border)}
-
 /* The bottom lip: a sheet's pull tab is always there; a block's resize grip shows on hover. */
 .jb-lip{position:absolute;left:0;right:0;bottom:-5px;z-index:3;height:10px;cursor:ns-resize;touch-action:none}
 .jb-lip::after{content:"";position:absolute;left:50%;top:2px;width:24px;height:6px;margin-left:-12px;border-radius:3px;background:var(--sp-fixed-edge);opacity:0;transition:opacity .1s,background-color .1s}
