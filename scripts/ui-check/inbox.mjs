@@ -109,6 +109,7 @@ const scenarios=[
     // No 나누기 label on the card: the block menu opens the board.
     assert.equal(await page.js('document.querySelectorAll(".jb-split").length'),0);
     await page.js(`(()=>{const c=[...document.querySelectorAll('.jb-shelf .jb-card')].find(e=>e.textContent.includes('SQLite')),r=c.getBoundingClientRect();c.dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,clientX:r.left+20,clientY:r.top+10}));})()`);await page.sleep(200);
+    assert.deepEqual(await page.js('[...document.querySelectorAll(".ctx-menu [role=menuitem]")].map(b=>b.textContent)'),['오늘에 싣기','나누기','완료','삭제'],'a shelf block offers only what its place needs');
     await page.click('.ctx-menu [role=menuitem]','나누기');await page.sleep(400);
     assert.ok(await page.js('!!document.querySelector(".cut-inline")'));
     assert.ok(await page.js('document.querySelector(".jb-layer").inert'));

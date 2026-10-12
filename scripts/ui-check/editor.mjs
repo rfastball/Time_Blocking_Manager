@@ -91,25 +91,24 @@ const scenarios=[
   {name:'the block menu releases a fixed block and moves another to 준비',run:async page=>{
     await rightClick(page,space+' .blk.fixed','설계 워크숍');await page.sleep(200);
     assert.match(await page.text('.ctx-menu .menu-head'),/설계 워크숍/);
-    assert.deepEqual(await menuItems(page),['메모 열기','완료로 표시','고정 해제','나누기','준비로 옮기기','삭제']);
+    assert.deepEqual(await menuItems(page),['고정 해제','나누기','준비로 보내기','완료','삭제']);
     await page.shot('editor-context-menu');
     await page.click('.ctx-menu [role=menuitem]','고정 해제');await page.sleep(500);
     assert.ok((await page.blocks(space)).some(b=>b.startsWith('설계 워크숍, 예상')),'released into the flow');
     await rightClick(page,space+' .blk','분리망 배포');await page.sleep(200);
     assert.ok((await menuItems(page)).includes('시각 고정…'));
-    await page.click('.ctx-menu [role=menuitem]','준비로 옮기기');await page.sleep(500);
+    await page.click('.ctx-menu [role=menuitem]','준비로 보내기');await page.sleep(500);
     assert.ok(!(await page.blocks(space)).some(b=>b.startsWith('분리망 배포')));
     assert.match(await page.text('.today-side .tray'),/분리망 배포 의존성 검토/);
-    // Empty time offers a new block there and the day's working time.
-    await page.js(`(()=>{const s=document.querySelector('${space}'),r=s.getBoundingClientRect();s.dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,clientX:r.left+r.width-40,clientY:r.top+20}));})()`);await page.sleep(200);
-    const empty=await menuItems(page);
-    assert.match(empty[0],/^\d\d:\d\d에 블록 만들기$/);assert.equal(empty[1],'이 날짜의 근무시간 조정');
+    // On 오늘 empty time only adjusts the day's working time; new blocks are made where the day is planned.
+    const emptyMenu=async scope=>{await page.js(`(()=>{const s=document.querySelector('${scope}'),r=s.getBoundingClientRect();s.dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,clientX:r.left+r.width-40,clientY:r.top+20}));})()`);await page.sleep(200);return menuItems(page);};
+    assert.deepEqual(await emptyMenu(space),['근무시간 조정']);
     await page.mouse('mouseMoved',5,5,0);await page.mouse('mousePressed',5,5);await page.mouse('mouseReleased',5,5,0);await page.sleep(150);
     assert.equal(await page.rect('.ctx-menu'),null,'outside press closes');
-    await page.js(`(()=>{const s=document.querySelector('${space}'),r=s.getBoundingClientRect();s.dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,clientX:r.left+r.width-40,clientY:r.top+20}));})()`);await page.sleep(150);
-    const create=(await menuItems(page))[0];
+    await page.click('.rail-nav .nav-button','계획');await page.sleep(300);await page.click('.segmented [role=radio]','일');await page.sleep(400);
+    const create=(await emptyMenu('.dv-day .space'))[0];
+    assert.match(create,/^\d\d:\d\d에 새 블록$/);
     await page.click('.ctx-menu [role=menuitem]',create);await page.sleep(200);
-    assert.equal(await page.js(`document.querySelector('.content').dataset.view`),'plan');
     assert.equal(await page.js(`document.querySelector('.plan-desk').classList.contains('day')`),true);
     assert.equal(await page.js('document.activeElement?.id'),'composer-title','creation takes focus in the plan day');
     await page.shot('today-menu-create-plan');
@@ -141,10 +140,10 @@ const scenarios=[
   {name:'Shift+F10 opens the menu by keyboard; arrows move and Esc returns focus to the block',run:async page=>{
     await focusBlock(page,'회의록 정리');
     await page.key('F10',{modifiers:SHIFT});await page.sleep(200);
-    assert.equal((await active(page)).text,'메모 열기');
-    await page.key('ArrowDown');assert.equal((await active(page)).text,'완료로 표시');
+    assert.equal((await active(page)).text,'시각 고정…');
+    await page.key('ArrowDown');assert.equal((await active(page)).text,'나누기');
     await page.key('ArrowUp');await page.key('ArrowUp');assert.equal((await active(page)).text,'삭제','wraps');
-    await page.key('Home');assert.equal((await active(page)).text,'메모 열기');
+    await page.key('Home');assert.equal((await active(page)).text,'시각 고정…');
     await page.key('End');assert.equal((await active(page)).text,'삭제');
     await page.key('Escape');await page.sleep(100);
     assert.equal(await page.rect('.ctx-menu'),null);

@@ -2,11 +2,14 @@ import {useEffect,useLayoutEffect,useRef,useState} from 'react';
 import {motion} from 'motion/react';
 import {dateLabel,time} from '../../dates.ts';
 import type {Task} from '../../types.ts';
-import {setNav,setUi,useApp,type Ui} from '../store/state.ts';
+import {setUi,useApp,type Ui} from '../store/state.ts';
 import {openEditor} from '../store/editor.ts';
 import {openAvailability} from '../store/schedule.ts';
-import {deleteTask,flowOrderOn,openComposer,reorder,toggleComplete,unfix,unplan} from '../store/tasks.ts';
-import {moveTo,placeOfCard,shipTo} from '../store/bench.ts';
+import {deleteTask,openComposer,toggleComplete,unfix,unplan} from '../store/tasks.ts';
+import {completeHere,moveTo,placeOfCard,shipTo} from '../store/bench.ts';
+
+// 준비 shows undated work and overdue work; both are still being placed there.
+const inPrep=(t:Task,view:string,today:string)=>view==='inbox'&&!t.completed&&(!t.plan_date||t.plan_date<today);
 import {blockButton,clamp,menuKeys,requestSplit} from './actions.ts';
 
 type Item={label:string;run:()=>void;danger?:boolean;disabled?:boolean};
@@ -39,28 +42,33 @@ function ContextMenu({m}:{m:NonNullable<Ui['contextMenu']>}){
   useDismiss(ref,()=>close(false));
   const mode=s.nav.view==='today'&&!matchMedia('(max-width:960px)').matches?'panel':'dialog';
   let items:Item[];
-  if(t){
-    const flow=!!t.plan_date&&!t.starts_at&&!t.completed,order=flow?flowOrderOn(t.plan_date!).map(x=>x.id):[],at=order.indexOf(t.id);
+  // Each place offers only what is not already one gesture away there: a click opens the editor, a drag or Alt+arrows reorder.
+  if(t&&inPrep(t,s.nav.view,s.today)){
+    const shelved=!t.plan_date&&placeOfCard(t)==='shelf';
     items=[
-      {label:'메모 열기',run:()=>openEditor(t.id,mode)},
-      {label:t.completed?'미완료로 되돌리기':'완료로 표시',run:()=>void toggleComplete(t)},
-      ...(flow?[{label:'앞으로',disabled:at<=0,run:()=>void reorder(t,-1)},{label:'뒤로',disabled:at<0||at===order.length-1,run:()=>void reorder(t,1)},{label:'시각 고정…',run:()=>openEditor(t.id,mode,'fix')}]:[]),
-      ...(t.starts_at?[{label:'고정 해제',run:()=>void unfix(t)}]:[]),
+      ...(!shelved?[{label:'선반으로',run:()=>void moveTo([t.id],'shelf',Infinity)}]:[]),
+      {label:'오늘에 싣기',run:()=>void shipTo(s.today,[t.id])},
+      {label:'나누기',run:()=>requestSplit(t.id)},
+      {label:'완료',run:()=>void completeHere([t])},
+      {label:'삭제',danger:true,run:()=>void deleteTask(t)},
+    ];
+  }else if(t){
+    const flow=!!t.plan_date&&!t.starts_at&&!t.completed;
+    items=[
+      ...(flow?[{label:'시각 고정…',run:()=>openEditor(t.id,mode,'fix')}]:[]),
+      ...(t.starts_at&&!t.completed?[{label:'고정 해제',run:()=>void unfix(t)}]:[]),
       ...(!t.completed?[{label:'나누기',run:()=>requestSplit(t.id)}]:[]),
-      // 준비 work moves between the 들어옴 and the shelf or goes to today; dated work goes back to 준비 (top of the shelf).
-      ...(s.nav.view==='inbox'&&!t.completed&&(!t.plan_date||t.plan_date<s.today)?[
-        placeOfCard(t)==='shelf'&&!t.plan_date?{label:'들어옴으로',run:()=>void moveTo([t.id],'inbox',0)}:{label:'선반으로',run:()=>void moveTo([t.id],'shelf',Infinity)},
-        {label:'오늘에 싣기',run:()=>void shipTo(s.today,[t.id])}]:[]),
-      ...(t.plan_date&&!t.completed&&s.nav.view!=='inbox'?[{label:'준비로 옮기기',run:()=>void unplan(t)}]:[]),
+      ...(t.plan_date&&!t.completed?[{label:'준비로 보내기',run:()=>void unplan(t)}]:[]),
+      {label:t.completed?'완료 취소':'완료',run:()=>void toggleComplete(t)},
       {label:'삭제',danger:true,run:()=>void deleteTask(t)},
     ];
   }else items=[
-    {label:`${time(m.minute)}에 블록 만들기`,run:()=>{
+    // 오늘 runs the day; new blocks are made where the day is planned.
+    ...(s.nav.view==='plan'?[{label:`${time(m.minute)}에 새 블록`,run:()=>{
       if(!openComposer(m.date,m.minute,30,true))return;
-      if(s.nav.view==='today')setNav({view:'plan',period:'day',selected:m.date,planAnchor:m.date});
       requestAnimationFrame(()=>{const input=document.getElementById('composer-title');input?.focus({preventScroll:true});input?.scrollIntoView({block:'nearest'});});
-    }},
-    {label:'이 날짜의 근무시간 조정',run:()=>openAvailability(m.date,'work',m.x,m.y)},
+    }}]:[]),
+    {label:'근무시간 조정',run:()=>openAvailability(m.date,'work',m.x,m.y)},
   ];
   const heading=t?t.title:`${dateLabel(m.date)} ${time(m.minute)}`;
   return <motion.div ref={ref} role="menu" aria-label={t?`${t.title} 블록 메뉴`:`${heading} 메뉴`} className="menu ctx-menu" style={pos}
