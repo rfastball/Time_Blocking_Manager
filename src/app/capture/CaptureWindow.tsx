@@ -1,7 +1,7 @@
 import {useEffect,useRef,useState} from 'react';
 import {captureEnterAction,needsSavedReview} from '../../capture.ts';
 import {useApp} from '../store/state.ts';
-import {release,reload,retry,queue} from '../store/session.ts';
+import {discardStoredDraft,release,reload,retry,queue} from '../store/session.ts';
 import {editCapture,submitCapture} from '../store/tasks.ts';
 import {hideCapture} from '../store/lifecycle.ts';
 import {Logo} from '../ui/icons.tsx';
@@ -58,6 +58,7 @@ export function CaptureWindow(){
         {issue?<span className="error" role="alert">{issue}</span>:state&&<span role="status">{state}</span>}
         {failed&&<><button type="button" onClick={()=>void retry()}>{conflict?'저장된 내용 확인':'다시 시도'}</button><button type="button" onClick={()=>void release()}>입력 유지하고 수정</button></>}
         {reloadable&&<button type="button" onClick={()=>{if(!queue.busy)void reload();}}>다시 불러오기</button>}
+        {s.ready&&s.draftLoadFailed&&s.draftSequenceKnown&&<button type="button" onClick={()=>void discardStoredDraft()}>보관 초안 버리기</button>}
       </div>
       <button type="button" className="capture-close" onClick={()=>{void hideCapture();if(!s.native)hide(true);}}>닫기</button>
       <button type="submit" form="capture-form" className="capture-save" disabled={!canSave}>저장</button>

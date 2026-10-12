@@ -42,7 +42,7 @@ export async function inspectBackup(id:string){
   catch(e){if(current())set({inspectionError:errorText(e)});}
   finally{if(current())set({inspecting:false});}
 }
-export function cancelReview(){if(!state.busy&&!queue.failed)clearReview();}
+export function cancelReview(){if(!state.busy&&!queue.failed){clearReview();set({focusSummary:state.focusSummary+1});}}
 
 export async function createBackup(){
   const s=getState();

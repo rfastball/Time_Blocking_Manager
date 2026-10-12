@@ -58,7 +58,8 @@ export async function cancelRoutineDraft(){if(!await ask('작성 중인 정기 �
 // Returns an error message for the form, or null after a successful save.
 export async function saveRoutine():Promise<string|null>{
   const s=getState(),draft=s.drafts.routineDraft;
-  if(!draft||queue.busy||queue.failed)return null;
+  if(queue.busy||queue.failed)return null;
+  if(!draft)return '정기 업무 제목을 입력하세요.';
   const start=minutes(draft.start),duration=Number(draft.duration);
   if(!draft.title.trim()||!draft.weekdays.length||!Number.isFinite(start)||start%15||!Number.isInteger(duration)||duration<15||duration%15||start+duration>1440)return '제목과 반복 요일을 선택하고, 하루 안의 시간을 15분 단위로 입력하세요.';
   if(s.drafts.settingsDraft)return '근무시간 변경을 먼저 저장하거나 되돌려 주세요.';

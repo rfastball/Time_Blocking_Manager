@@ -1,5 +1,12 @@
 # 검증 범위
 
+## 캡처·설정·백업 조작 복구 Test delta (2026-10-12)
+
+- Unique risk / owner: 손상 초안으로 잠긴 캡처의 복구 조작 누락, 빈 정기 업무 추가 무반응, 백업 검사 대기·오류 시 취소 누락을 기존 `scripts/ui-check/capture.mjs`, `settings.mjs`, `backups.mjs`에서 검증한다. 초안 파싱 자체는 기존 Node owner가 맡고 UI 버튼 연결만 확장했다.
+- Added / extended / removed: **1 / 2 / 0**, 담당 owner 수집 **16→17**. 새 테스트 파일·의존성·lane·coverage floor·기본 suite heavy-resource launch 변화 **0**. Runtime delta는 같은 조건의 baseline 부재로 **not measured**.
+- 대상 UI **3/3 통과**: 캡처 **6.682초**, 정기 업무 **5.016초**, 백업 **3.234초**. 초안 버리기 확인 취소/승인·저장된 작업 보존·입력 복구, 빈 추가 안내와 정상 CRUD, 검사 취소 후 늦은 응답 무시·포커스 복원을 확인했다. 캡처 대역의 dialog IPC 반환 형식을 바로잡은 뒤 실패한 사례만 재실행했다.
+- 캡처 **620×176**과 백업 오류 화면을 육안 확인했다. 실제 Windows 저장소·확인창은 실행하지 않았으며 브라우저의 Tauri IPC 대역 검증이다. Sol 두 명이 영역별 구현·검증, root가 코드·화면 검토와 문서 통합·공통 빌드를 맡았다.
+
 ## 작업 생성·도마 저장 복구 Test delta (2026-10-12)
 
 - Unique risk / owner: 오늘 메뉴의 생성 입력이 보이지 않음, 단일 조각 이름 변경 유실, 모달 저장 실패 후 복구 경로 차단을 기존 `scripts/ui-check/editor.mjs`에서 검증한다. 순수 조각 계산 테스트로는 UI와 저장 연결의 결함을 잡을 수 없다.

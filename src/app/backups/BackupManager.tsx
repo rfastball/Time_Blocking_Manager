@@ -44,11 +44,11 @@ export function BackupManager({recovery=false}:{recovery?:boolean}){
           <dl><div><dt>전체</dt><dd>{info.tasks}건</dd></div><div><dt>배치</dt><dd>{info.scheduled}건</dd></div><div><dt>완료</dt><dd>{info.completed}건</dd></div></dl>
           <p className="restore-warning">{s.ready?'현재 기록을 이 백업으로 교체합니다. 교체 전 기록은 ‘복원 전’ 백업으로 보존됩니다.':'현재 손상 기록은 복구 자료로 보존하고, 이 백업으로 교체합니다.'}</p>
           {blocked&&<p id="restore-blocked" className="error">작성 중인 내용을 저장하거나 되돌린 뒤 복원하세요.</p>}
-          <div className="restore-actions">
-            <button type="button" className="btn" data-key="cancel" disabled={!!b.busy||failed} onClick={cancelReview}>취소</button>
-            <button type="button" className="btn primary" data-key="restore" aria-describedby={blocked?'restore-blocked':undefined} disabled={!!b.busy||unsaved()||failed} onClick={()=>void restoreBackup()}>{b.busy==='restore'?'복원 중…':'현재 기록을 교체하고 복원'}</button>
-          </div>
         </>}
+        <div className="restore-actions">
+          <button type="button" className="btn" data-key="cancel" disabled={!!b.busy||failed} onClick={cancelReview}>취소</button>
+          {info&&!b.inspecting&&!b.inspectionError&&<button type="button" className="btn primary" data-key="restore" aria-describedby={blocked?'restore-blocked':undefined} disabled={!!b.busy||unsaved()||failed} onClick={()=>void restoreBackup()}>{b.busy==='restore'?'복원 중…':'현재 기록을 교체하고 복원'}</button>}
+        </div>
       </section>}
     </div>}
   </details>;

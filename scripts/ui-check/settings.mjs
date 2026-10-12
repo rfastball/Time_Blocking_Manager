@@ -122,7 +122,11 @@ export default [
   {name:'routines are added, edited and deleted',run:async page=>{
     await open(page);
     const save=`document.querySelector('#routine-form .btn.primary')`;
+    await tap(page,save);
+    assert.match(await page.text('#routine-form [role=alert]'),/정기 업무 제목을 입력하세요/,'empty Add explains the required input');
+    assert.equal(await page.js(`!!document.querySelector('.st-routine-list')`),false,'empty Add does not create a routine');
     await page.js(`document.querySelector('#routine-title').focus()`);await page.type('주간 보고');
+    assert.equal(await page.js(`!!document.querySelector('#routine-form [role=alert]')`),false,'typing clears validation');
     await tap(page,save);
     assert.match(await page.text('.st-routine-list'),/주간 보고.*월·화·수·목·금 · 09:00–09:30/);
     await tap(page,`document.querySelector('.st-routine')`);

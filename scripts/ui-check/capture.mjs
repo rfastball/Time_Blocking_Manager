@@ -91,7 +91,8 @@ const scenarios=[
           if(cmd==='mutate'){mock.mutations++;mock.snapshot=previewMutation(mock.snapshot,args.command,mock.receipts);mock.accepted=args.command;if(mock.loseResponse)throw {code:'storage',message:'저장 응답을 받지 못했습니다.',retryable:true};return structuredClone(mock.snapshot);}
           if(cmd==='acknowledge'){mock.lookups++;if(mock.failLookup)throw {code:'storage',message:'처리 기록 읽기 실패',retryable:true};return mock.accepted&&JSON.stringify(mock.accepted)===JSON.stringify(args.command)?structuredClone(mock.snapshot):null;}
           if(cmd==='diagnostics')return {db_path:'mock',warning:null,last_backup:null};
-          if(cmd==='autostart'||cmd==='exit_on_close'||cmd==='plugin:dialog|confirm')return false;
+          if(cmd==='plugin:dialog|message')return mock.confirmDraft?'Ok':'Cancel';
+          if(cmd==='autostart'||cmd==='exit_on_close')return false;
           if(cmd==='capture_shortcut')return 'Ctrl+Shift+Space';
           if(cmd==='set_dirty'||cmd==='hide_capture')return;
           throw Error('Unexpected mock IPC '+cmd);
@@ -114,6 +115,26 @@ const scenarios=[
         await loadStoredDraft();await queue.whenIdle();const s=getState();return {text:s.drafts.capture,pending:s.drafts.captureCommand.request_id,error:s.error,mutations:mock.mutations};
       })()`);
       assert.deepEqual(lookupFailure,{text:'보존할 입력',pending:blocked.pending,error:'처리 기록 읽기 실패',mutations:1},'failed receipt lookup retains input and unresolved identity');
+      const damaged=await page.js(`(async()=>{
+        const [{getState,setDrafts,setState},{storedDraft,loadStoredDraft,queue}]=await Promise.all([import('/src/app/store/state.ts'),import('/src/app/store/session.ts')]);
+        const mock=window.saveRecoveryMock;mock.failLookup=false;mock.draft=[mock.draft[0]+1,'{'];setDrafts({capture:'',captureCommand:null});storedDraft.loaded=false;setState({error:''});
+        await loadStoredDraft();await queue.whenIdle();return {loaded:getState().draftLoaded,known:getState().draftSequenceKnown,snapshot:JSON.stringify(getState().snapshot)};
+      })()`);
+      assert.equal(damaged.loaded,false);assert.equal(damaged.known,true);
+      assert.equal(await page.js(`document.querySelector('#capture').disabled`),true,'malformed draft blocks editing');
+      assert.equal(await saveDisabled(page),true);
+      await page.shot('capture-damaged-draft');
+      await page.click('.capture-status button','보관 초안 버리기');
+      assert.equal(await page.js(`window.saveRecoveryMock.draft[1]`),'{','declining confirmation preserves the damaged draft');
+      assert.equal(await page.js(`document.querySelector('#capture').disabled`),true);
+      await page.js(`window.saveRecoveryMock.confirmDraft=true`);
+      await page.click('.capture-status button','보관 초안 버리기');
+      await page.js(`(async()=>{const {queue}=await import('/src/app/store/session.ts');await queue.whenIdle();})()`);
+      assert.equal(await page.js(`window.saveRecoveryMock.draft[1]`),'','confirmed recovery discards only the stored draft');
+      assert.equal(await page.js(`document.querySelector('#capture').disabled`),false,'capture can be used again');
+      assert.equal(await page.js(`document.activeElement.id`),'capture','recovery returns focus to the field');
+      assert.equal(await page.js(`(async()=>{const {getState}=await import('/src/app/store/state.ts');return JSON.stringify(getState().snapshot);})()`),damaged.snapshot,'recovery preserves saved tasks');
+      await page.shot('capture-draft-recovered');
     }finally{
       await page.js(`(async()=>{const [{setDrafts,setState},{queue,storedDraft}]=await Promise.all([import('/src/app/store/state.ts'),import('/src/app/store/session.ts')]);queue.discardFailed();await queue.whenIdle();setDrafts({capture:'',captureCommand:null,composer:null});setState({native:false,error:'',message:'',draftLoaded:true});storedDraft.loaded=true;if(window.saveRecoveryMock){if(window.saveRecoveryPreviousIPC)window.__TAURI_INTERNALS__=window.saveRecoveryPreviousIPC;else delete window.__TAURI_INTERNALS__;delete window.saveRecoveryMock;delete window.saveRecoveryPreviousIPC;}})()`).catch(()=>{});
       await page.sleep(250);
