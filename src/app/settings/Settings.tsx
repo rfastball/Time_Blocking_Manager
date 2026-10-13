@@ -36,8 +36,8 @@ function ThemePicker(){
     <div className="st-theme-grid">{themes.map(t=><label key={t.id} className="st-theme">
       <input type="radio" name="theme" value={t.id} checked={theme===t.id} onChange={()=>choose(t.id)}/>
       <span className="st-preview" data-theme={t.id} aria-hidden="true">
-        <span className="st-preview-rail"/>
-        <span className="st-preview-page"><strong>오늘</strong><i className="p-flow"/><i className="p-next"/><i className="p-fixed"/><i className="p-now"/></span>
+        <span className="st-preview-bar"/>
+        <span className="st-preview-page"><strong>13일</strong><i className="p-flow"/><i className="p-next"/><i className="p-fixed"/><i className="p-now"/></span>
       </span>
       <span className="sr-only">{t.name}</span>
     </label>)}</div>

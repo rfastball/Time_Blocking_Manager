@@ -130,17 +130,16 @@
 .st-theme:has(input:focus-visible){outline:2px solid var(--color-focus);outline-offset:2px}
 .st-theme input{position:absolute;z-index:1;top:12px;right:12px;width:16px;height:16px;margin:0;accent-color:var(--color-action)}
 .st-theme input:focus-visible{outline:0}
-.st-preview{display:flex;min-height:78px;overflow:hidden;border:1px solid var(--color-border);border-radius:var(--radius-control);background:var(--color-canvas);color:var(--color-text)}
-.st-preview-rail{flex:0 0 16px;background:var(--color-nav)}
-.st-preview-page{flex:1;display:flex;flex-direction:column;gap:4px;padding:7px 9px}
+.st-preview{display:flex;flex-direction:column;min-height:78px;overflow:hidden;border:1px solid var(--color-border);border-radius:var(--radius-control);background:var(--color-canvas);color:var(--color-text)}
+.st-preview-bar{flex:0 0 12px;display:flex;align-items:center;padding:0 7px;border-bottom:1px solid var(--color-divider)}
+.st-preview-bar::before{content:"";width:7px;height:7px;border-radius:2px;background:var(--color-action)}
+.st-preview-page{flex:1;display:flex;flex-direction:column;gap:4px;padding:6px 9px 7px}
 .st-preview-page strong{align-self:flex-start;font:var(--font-weight-heading) 12px/1.3 var(--font-heading);border-bottom:var(--border-structure-width) solid var(--color-structure)}
 .st-preview-page i{display:block;height:9px;border-radius:var(--radius-block)}
 .st-preview-page .p-flow{width:82%;background:var(--color-block)}
 .st-preview-page .p-next{width:62%;background:var(--color-action)}
 .st-preview-page .p-fixed{width:72%;background:var(--color-surface);border:1px solid var(--color-border)}
 .st-preview-page .p-now{height:0;border-radius:0;border-top:1px solid var(--color-now)}
-.st-theme-name{padding:0 2px;font-size:var(--font-size-label);color:var(--color-text-muted)}
-.st-theme:has(input:checked) .st-theme-name{color:var(--color-text);font-weight:var(--font-weight-emphasis)}
 .st-shortcut label{display:block;margin-bottom:6px;font-size:var(--font-size-label)}
 .st-inline{display:flex;gap:8px}
 .st-inline input{flex:1;min-width:0;font-variant-numeric:tabular-nums}

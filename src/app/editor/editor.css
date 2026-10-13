@@ -3,7 +3,7 @@
 .ed-head{display:flex;align-items:flex-start;gap:6px}
 .ed .ed-title{flex:1;min-width:0;margin-left:-7px;padding:3px 6px;border:1px solid transparent;background:transparent;border-radius:var(--radius-control);font-family:var(--font-heading);font-size:var(--font-size-composer);font-weight:var(--font-weight-heading);letter-spacing:var(--tracking-heading);line-height:var(--line-height-compact)}
 .ed .ed-title:hover{border-color:var(--color-control-border)}
-.ed .ed-title:focus{border-color:var(--color-control-border);background:var(--color-input)}
+.ed .ed-title:focus{border-color:var(--color-input-border);background:var(--color-input)}
 .ed .ed-close{flex:0 0 auto;border-color:transparent;background:transparent;color:var(--color-text-muted)}
 .ed-body{display:flex;flex-direction:column;gap:12px;padding-top:10px;min-width:0}
 .ed-badges{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;font-size:var(--font-size-label);color:var(--color-text-muted);font-variant-numeric:tabular-nums}
@@ -78,6 +78,9 @@
 .ed-dialog{width:min(510px,calc(100vw - 32px));max-width:none;max-height:95vh;padding:0;border:0;border-radius:var(--radius-dialog);background:var(--color-surface);color:var(--color-text);box-shadow:var(--shadow-dialog);overflow:hidden}
 .ed-dialog[open]{display:flex;flex-direction:column}
 .ed-dialog::backdrop{background:var(--color-backdrop);animation:ed-fade var(--duration-dialog) var(--ease-feedback)}
+/* Beside its block on the work screen: a lighter veil, so the block and its day stay readable behind it. */
+.ed-dialog.beside{position:fixed;inset:auto;border:1px solid var(--color-border)}
+.ed-dialog.beside::backdrop{background:color-mix(in srgb,var(--color-backdrop) 35%,transparent)}
 .ed-dialog .ed{flex:1 1 auto}
 .ed-dialog .ed-head{padding:18px 16px 0 22px}
 .ed-dialog .ed-body{flex:1 1 auto;min-height:0;overflow:auto;padding:10px 22px 6px}
@@ -91,4 +94,9 @@
 .ed-next-title{font-size:var(--font-size-title);font-weight:var(--font-weight-heading);overflow-wrap:anywhere}
 .ed-next-memo{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-line;font-size:var(--font-size-summary);color:var(--color-text-muted)}
 .ed-next-time{font-size:var(--font-size-label);color:var(--color-text-muted);font-variant-numeric:tabular-nums}
+/* What the next block can have done to it, under the card that opens it. */
+.ed-next-acts{display:flex;flex-wrap:wrap;gap:6px;padding:0 16px 14px}
+/* Themes whose controls take the panel's colour still show where each button is. */
+.ed-next-acts .btn:not(.primary){background:var(--color-surface)}
+.ed-next-acts .btn:not(.primary):hover{background:var(--color-control-hover)}
 @media (prefers-reduced-motion:reduce){.ed-dialog::backdrop{animation:none}.ed-fold>summary::before,.ed-ruler span{transition:none}}

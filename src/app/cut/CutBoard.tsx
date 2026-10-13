@@ -5,7 +5,7 @@ import {isCompositionKey,needsSavedReview} from '../../capture.ts';
 import {addPiece,canCut,cut,fromChecklist,halve,join,knifeAt,move,sizedTotal,trade,type Seg} from '../../cut.ts';
 import {checklist} from '../../detail.ts';
 import {formatDuration} from '../../format.ts';
-import {getState,useApp} from '../store/state.ts';
+import {benchShown,getState,useApp} from '../store/state.ts';
 import {cancelCut,commitCut,cutPlace,editCut} from '../store/cut.ts';
 import {setGesture} from '../store/tasks.ts';
 import {release,retry} from '../store/session.ts';
@@ -128,17 +128,23 @@ export function CutBoard({mode}:{mode:'inline'|'dialog'}){
   </div>;
 }
 
-// Elsewhere (계획·오늘) the same board opens as a dialog. Esc commits like the close button.
+// Unless the bench is open, the same board opens as a dialog. Esc commits like the close button.
 export function CutHost(){
-  const {ui,drafts,nav}=useApp();
-  if(!ui.split||!drafts.cut||nav.view==='inbox')return null;
+  const s=useApp(),{ui,drafts}=s;
+  if(!ui.split||!drafts.cut||benchShown(s))return null;
   return <CutDialog key={drafts.cut.taskId}/>;
 }
 function CutDialog(){
+  const opening=useRef<{dialog:HTMLDialogElement;opener:Element|null}|null>(null);
   const attach=useCallback((d:HTMLDialogElement|null)=>{
     if(!d)return;
-    const opener=document.activeElement;if(!d.open)d.showModal();
-    return ()=>{if(opener instanceof HTMLElement&&opener.isConnected)opener.focus({preventScroll:true});};
+    // StrictMode reattaches the same node after the board has already taken focus.
+    if(opening.current?.dialog!==d)opening.current={dialog:d,opener:document.activeElement};
+    const opener=opening.current.opener;if(!d.open)d.showModal();
+    return ()=>{
+      if(!d.contains(document.activeElement))return;
+      requestAnimationFrame(()=>{if(!d.isConnected&&document.activeElement===document.body&&opener instanceof HTMLElement&&opener.isConnected)opener.focus({preventScroll:true});});
+    };
   },[]);
   return <dialog ref={attach} className="cut-dialog" aria-label="블록 쪼개기" onCancel={e=>{e.preventDefault();void commitCut();}}>
     <CutBoard mode="dialog"/>

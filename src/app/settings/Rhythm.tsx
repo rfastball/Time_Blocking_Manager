@@ -10,6 +10,13 @@ import {BandEditor} from './BandEditor.tsx';
 import {publishWeekly,weeklyDraft,weeklyProblem} from './drafts.ts';
 
 const kindLabel={custom:'시간 변경',early:'조퇴',leave:'휴가'};
+// A date's own hours are changed in its column on the work screen; the keyboard lands on that date's head.
+function pickOnPlan(date:string){
+  setNav({view:'plan',planAnchor:date});
+  let frames=0;
+  const look=()=>{const head=document.querySelector<HTMLElement>(`.wk-head[data-date="${date}"] .wk-date,.cal-cell[data-date="${date}"] .cal-date`);if(head)head.focus();else if(++frames<30)requestAnimationFrame(look);};
+  requestAnimationFrame(look);
+}
 
 // 한 주의 근무 리듬: targets, the weekday band editor, date exceptions and the save bar.
 export function Rhythm(){
@@ -40,7 +47,7 @@ export function Rhythm(){
     <BandEditor days={draft.days} names={weekdays} short={weekdays.map(w=>w.slice(0,1))}
       onChange={(i,day)=>{const now=weeklyDraft();publishWeekly(now.draft.days.map((d,j)=>j===i?day:d),now.hours,now.count);}} onError={setError}/>
     <section className="st-exceptions" aria-labelledby="exceptions-heading">
-      <div className="st-row"><h3 id="exceptions-heading">날짜별 변경</h3><button type="button" className="btn text" onClick={()=>setNav({view:'plan',planAnchor:s.nav.selected})}>계획에서 선택</button></div>
+      <div className="st-row"><h3 id="exceptions-heading">날짜별 변경</h3><button type="button" className="btn text" onClick={()=>pickOnPlan(s.nav.selected)}>작업 화면에서 선택</button></div>
       {exceptions.length>0&&<ul>{exceptions.map(x=><li key={x.date}>
         <span><strong>{dateLabel(x.date)}</strong> {kindLabel[x.kind]}{x.day.enabled&&x.kind!=='leave'?` · ${time(x.day.start)}–${time(x.day.end)}`:''}</span>
         <button type="button" className="btn" onClick={()=>restore(x.date)}>반복 일정으로 복원</button>

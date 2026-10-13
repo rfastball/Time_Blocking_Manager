@@ -1,445 +1,753 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-08T22:53:51.010160+00:00",
+  "generatedAt": "2026-10-13T12:18:50.825Z",
   "title": "Design System: BLOKKY",
   "extensions": {
     "colorMeta": {
-      "blue": {
-        "role": "primary",
-        "displayName": "파랑",
-        "tonalRamp": [
-          "oklch(15.00% 0.20354 265.53)",
-          "oklch(26.43% 0.20354 265.53)",
-          "oklch(37.86% 0.20354 265.53)",
-          "oklch(49.29% 0.20354 265.53)",
-          "oklch(60.71% 0.20354 265.53)",
-          "oklch(72.14% 0.20354 265.53)",
-          "oklch(83.57% 0.20354 265.53)",
-          "oklch(95.00% 0.20354 265.53)"
-        ]
-      },
-      "blue-soft": {
-        "role": "primary",
-        "displayName": "연한 파랑",
-        "tonalRamp": [
-          "oklch(15.00% 0.02420 267.93)",
-          "oklch(26.43% 0.02420 267.93)",
-          "oklch(37.86% 0.02420 267.93)",
-          "oklch(49.29% 0.02420 267.93)",
-          "oklch(60.71% 0.02420 267.93)",
-          "oklch(72.14% 0.02420 267.93)",
-          "oklch(83.57% 0.02420 267.93)",
-          "oklch(95.00% 0.02420 267.93)"
-        ]
-      },
-      "blue-hover": {
-        "role": "primary",
-        "displayName": "주요 버튼 호버",
-        "tonalRamp": [
-          "oklch(15.00% 0.18468 265.55)",
-          "oklch(26.43% 0.18468 265.55)",
-          "oklch(37.86% 0.18468 265.55)",
-          "oklch(49.29% 0.18468 265.55)",
-          "oklch(60.71% 0.18468 265.55)",
-          "oklch(72.14% 0.18468 265.55)",
-          "oklch(83.57% 0.18468 265.55)",
-          "oklch(95.00% 0.18468 265.55)"
-        ]
-      },
       "text": {
         "role": "neutral",
-        "displayName": "짙은 먹색",
+        "displayName": "먹색",
+        "canonical": "#1b1e23",
         "tonalRamp": [
-          "oklch(15.00% 0.01064 260.69)",
-          "oklch(26.43% 0.01064 260.69)",
-          "oklch(37.86% 0.01064 260.69)",
-          "oklch(49.29% 0.01064 260.69)",
-          "oklch(60.71% 0.01064 260.69)",
-          "oklch(72.14% 0.01064 260.69)",
-          "oklch(83.57% 0.01064 260.69)",
-          "oklch(95.00% 0.01064 260.69)"
+          "#090b10",
+          "#22252a",
+          "#3f4248",
+          "#5e6167",
+          "#7f8289",
+          "#a1a5ac",
+          "#c5c9d0",
+          "#eaeff6"
         ]
       },
-      "muted": {
+      "text-muted": {
         "role": "neutral",
         "displayName": "회색 보조 글자",
+        "canonical": "#5b6270",
         "tonalRamp": [
-          "oklch(15.00% 0.02402 264.33)",
-          "oklch(26.43% 0.02402 264.33)",
-          "oklch(37.86% 0.02402 264.33)",
-          "oklch(49.29% 0.02402 264.33)",
-          "oklch(60.71% 0.02402 264.33)",
-          "oklch(72.14% 0.02402 264.33)",
-          "oklch(83.57% 0.02402 264.33)",
-          "oklch(95.00% 0.02402 264.33)"
+          "#060b15",
+          "#1f2531",
+          "#3c424f",
+          "#5a616f",
+          "#7b8291",
+          "#9da5b5",
+          "#c1c9d9",
+          "#e7efff"
         ]
       },
       "canvas": {
         "role": "neutral",
-        "displayName": "밝은 회색",
+        "displayName": "바탕",
+        "canonical": "#f7f8fa",
         "tonalRamp": [
-          "oklch(15.00% 0.00287 264.54)",
-          "oklch(26.43% 0.00287 264.54)",
-          "oklch(37.86% 0.00287 264.54)",
-          "oklch(49.29% 0.00287 264.54)",
-          "oklch(60.71% 0.00287 264.54)",
-          "oklch(72.14% 0.00287 264.54)",
-          "oklch(83.57% 0.00287 264.54)",
-          "oklch(95.00% 0.00287 264.54)"
+          "#0b0b0c",
+          "#242526",
+          "#414243",
+          "#606163",
+          "#818284",
+          "#a4a5a7",
+          "#c8c9cb",
+          "#edeef0"
         ]
       },
       "surface": {
         "role": "neutral",
-        "displayName": "흰색",
+        "displayName": "표면",
+        "canonical": "#fff",
         "tonalRamp": [
-          "oklch(15.00% 0.00000 89.88)",
-          "oklch(26.43% 0.00000 89.88)",
-          "oklch(37.86% 0.00000 89.88)",
-          "oklch(49.29% 0.00000 89.88)",
-          "oklch(60.71% 0.00000 89.88)",
-          "oklch(72.14% 0.00000 89.88)",
-          "oklch(83.57% 0.00000 89.88)",
-          "oklch(95.00% 0.00000 89.88)"
+          "#0b0b0b",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#a5a5a5",
+          "#c9c9c9",
+          "#eeeeee"
+        ]
+      },
+      "panel": {
+        "role": "neutral",
+        "displayName": "영역 판",
+        "canonical": "#fff",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#a5a5a5",
+          "#c9c9c9",
+          "#eeeeee"
         ]
       },
       "border": {
         "role": "neutral",
-        "displayName": "외곽 경계",
+        "displayName": "패널 선",
+        "canonical": "#d9dce1",
         "tonalRamp": [
-          "oklch(15.00% 0.00756 260.73)",
-          "oklch(26.43% 0.00756 260.73)",
-          "oklch(37.86% 0.00756 260.73)",
-          "oklch(49.29% 0.00756 260.73)",
-          "oklch(60.71% 0.00756 260.73)",
-          "oklch(72.14% 0.00756 260.73)",
-          "oklch(83.57% 0.00756 260.73)",
-          "oklch(95.00% 0.00756 260.73)"
+          "#090b0e",
+          "#232529",
+          "#404246",
+          "#5f6166",
+          "#808287",
+          "#a2a5aa",
+          "#c6c9ce",
+          "#eceff4"
         ]
       },
-      "line": {
+      "divider": {
         "role": "neutral",
-        "displayName": "내부 구분선",
+        "displayName": "구분선",
+        "canonical": "#e4e6ea",
         "tonalRamp": [
-          "oklch(15.00% 0.00582 264.53)",
-          "oklch(26.43% 0.00582 264.53)",
-          "oklch(37.86% 0.00582 264.53)",
-          "oklch(49.29% 0.00582 264.53)",
-          "oklch(60.71% 0.00582 264.53)",
-          "oklch(72.14% 0.00582 264.53)",
-          "oklch(83.57% 0.00582 264.53)",
-          "oklch(95.00% 0.00582 264.53)"
+          "#0a0b0e",
+          "#242528",
+          "#404245",
+          "#5f6165",
+          "#808286",
+          "#a3a5a9",
+          "#c7c9cd",
+          "#eceef2"
+        ]
+      },
+      "structure": {
+        "role": "neutral",
+        "displayName": "먹색 구조선",
+        "canonical": "#1b1e23",
+        "tonalRamp": [
+          "#090b10",
+          "#22252a",
+          "#3f4248",
+          "#5e6167",
+          "#7f8289",
+          "#a1a5ac",
+          "#c5c9d0",
+          "#eaeff6"
+        ]
+      },
+      "control": {
+        "role": "neutral",
+        "displayName": "컨트롤 면",
+        "canonical": "#fff",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#a5a5a5",
+          "#c9c9c9",
+          "#eeeeee"
+        ]
+      },
+      "control-border": {
+        "role": "neutral",
+        "displayName": "컨트롤 선",
+        "canonical": "#d9dce1",
+        "tonalRamp": [
+          "#090b0e",
+          "#232529",
+          "#404246",
+          "#5f6166",
+          "#808287",
+          "#a2a5aa",
+          "#c6c9ce",
+          "#eceff4"
         ]
       },
       "control-hover": {
         "role": "neutral",
-        "displayName": "컨트롤 호버",
+        "displayName": "호버 바탕",
+        "canonical": "#f0f3fa",
         "tonalRamp": [
-          "oklch(15.00% 0.00990 267.36)",
-          "oklch(26.43% 0.00990 267.36)",
-          "oklch(37.86% 0.00990 267.36)",
-          "oklch(49.29% 0.00990 267.36)",
-          "oklch(60.71% 0.00990 267.36)",
-          "oklch(72.14% 0.00990 267.36)",
-          "oklch(83.57% 0.00990 267.36)",
-          "oklch(95.00% 0.00990 267.36)"
+          "#090b0f",
+          "#23252a",
+          "#404247",
+          "#5f6167",
+          "#808288",
+          "#a2a5ab",
+          "#c6c9d0",
+          "#ebeef5"
         ]
       },
-      "selected-surface": {
+      "input": {
         "role": "neutral",
-        "displayName": "선택 날짜 바탕",
+        "displayName": "입력 면",
+        "canonical": "#fff",
         "tonalRamp": [
-          "oklch(15.00% 0.00986 267.36)",
-          "oklch(26.43% 0.00986 267.36)",
-          "oklch(37.86% 0.00986 267.36)",
-          "oklch(49.29% 0.00986 267.36)",
-          "oklch(60.71% 0.00986 267.36)",
-          "oklch(72.14% 0.00986 267.36)",
-          "oklch(83.57% 0.00986 267.36)",
-          "oklch(95.00% 0.00986 267.36)"
+          "#0b0b0b",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#a5a5a5",
+          "#c9c9c9",
+          "#eeeeee"
         ]
       },
-      "nav-muted": {
+      "input-border": {
         "role": "neutral",
-        "displayName": "메뉴 보조 글자",
+        "displayName": "입력 경계",
+        "canonical": "#898f98",
         "tonalRamp": [
-          "oklch(15.00% 0.01822 264.46)",
-          "oklch(26.43% 0.01822 264.46)",
-          "oklch(37.86% 0.01822 264.46)",
-          "oklch(49.29% 0.01822 264.46)",
-          "oklch(60.71% 0.01822 264.46)",
-          "oklch(72.14% 0.01822 264.46)",
-          "oklch(83.57% 0.01822 264.46)",
-          "oklch(95.00% 0.01822 264.46)"
+          "#070b12",
+          "#21252d",
+          "#3d424a",
+          "#5c626a",
+          "#7d838c",
+          "#9fa5af",
+          "#c3cad3",
+          "#e8eff9"
         ]
       },
-      "nav-hover": {
-        "role": "neutral",
-        "displayName": "메뉴 호버",
+      "action": {
+        "role": "primary",
+        "displayName": "업무 파랑",
+        "canonical": "#2b55d6",
         "tonalRamp": [
-          "oklch(15.00% 0.02329 261.20)",
-          "oklch(26.43% 0.02329 261.20)",
-          "oklch(37.86% 0.02329 261.20)",
-          "oklch(49.29% 0.02329 261.20)",
-          "oklch(60.71% 0.02329 261.20)",
-          "oklch(72.14% 0.02329 261.20)",
-          "oklch(83.57% 0.02329 261.20)",
-          "oklch(95.00% 0.02329 261.20)"
+          "#010036",
+          "#04007b",
+          "#0e2aab",
+          "#2851d2",
+          "#4677fa",
+          "#79a1ff",
+          "#b0c9ff",
+          "#e7efff"
+        ]
+      },
+      "action-hover": {
+        "role": "primary",
+        "displayName": "업무 파랑 호버",
+        "canonical": "#2145b7",
+        "tonalRamp": [
+          "#010036",
+          "#05007b",
+          "#1230a2",
+          "#2e55c8",
+          "#4c79ef",
+          "#7aa1ff",
+          "#b0c9ff",
+          "#e7efff"
+        ]
+      },
+      "on-action": {
+        "role": "neutral",
+        "displayName": "파랑 위 글자",
+        "canonical": "#fff",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#a5a5a5",
+          "#c9c9c9",
+          "#eeeeee"
+        ]
+      },
+      "selection": {
+        "role": "neutral",
+        "displayName": "선택 바탕",
+        "canonical": "#f4f7fe",
+        "tonalRamp": [
+          "#090b0f",
+          "#23252a",
+          "#404247",
+          "#5f6167",
+          "#808288",
+          "#a2a5ab",
+          "#c6c9d0",
+          "#ebeef5"
+        ]
+      },
+      "selection-border": {
+        "role": "primary",
+        "displayName": "선택 선",
+        "canonical": "#2b55d6",
+        "tonalRamp": [
+          "#010036",
+          "#04007b",
+          "#0e2aab",
+          "#2851d2",
+          "#4677fa",
+          "#79a1ff",
+          "#b0c9ff",
+          "#e7efff"
+        ]
+      },
+      "text-selection": {
+        "role": "neutral",
+        "displayName": "텍스트 선택",
+        "canonical": "#e3eafb",
+        "tonalRamp": [
+          "#070b15",
+          "#202531",
+          "#3c424f",
+          "#5b616f",
+          "#7c8291",
+          "#9ea5b5",
+          "#c2c9da",
+          "#e8eeff"
+        ]
+      },
+      "block": {
+        "role": "primary",
+        "displayName": "옅은 파랑 블록",
+        "canonical": "#e3eafb",
+        "tonalRamp": [
+          "#070b15",
+          "#202531",
+          "#3c424f",
+          "#5b616f",
+          "#7c8291",
+          "#9ea5b5",
+          "#c2c9da",
+          "#e8eeff"
+        ]
+      },
+      "block-completed": {
+        "role": "neutral",
+        "displayName": "완료",
+        "canonical": "#f7f8fa",
+        "tonalRamp": [
+          "#0b0b0c",
+          "#242526",
+          "#414243",
+          "#606163",
+          "#818284",
+          "#a4a5a7",
+          "#c8c9cb",
+          "#edeef0"
+        ]
+      },
+      "now": {
+        "role": "semantic",
+        "displayName": "현재",
+        "canonical": "#ac351d",
+        "tonalRamp": [
+          "#1e0100",
+          "#4a0800",
+          "#7b1500",
+          "#a93219",
+          "#d0573e",
+          "#f87b60",
+          "#ffb4a3",
+          "#ffe9e4"
         ]
       },
       "error": {
-        "role": "neutral",
-        "displayName": "오류 글자",
+        "role": "semantic",
+        "displayName": "오류",
+        "canonical": "#ac351d",
         "tonalRamp": [
-          "oklch(15.00% 0.15923 33.23)",
-          "oklch(26.43% 0.15923 33.23)",
-          "oklch(37.86% 0.15923 33.23)",
-          "oklch(49.29% 0.15923 33.23)",
-          "oklch(60.71% 0.15923 33.23)",
-          "oklch(72.14% 0.15923 33.23)",
-          "oklch(83.57% 0.15923 33.23)",
-          "oklch(95.00% 0.15923 33.23)"
+          "#1e0100",
+          "#4a0800",
+          "#7b1500",
+          "#a93219",
+          "#d0573e",
+          "#f87b60",
+          "#ffb4a3",
+          "#ffe9e4"
+        ]
+      },
+      "error-surface": {
+        "role": "semantic",
+        "displayName": "오류 바탕",
+        "canonical": "#fbf3ef",
+        "tonalRamp": [
+          "#0f0a08",
+          "#292421",
+          "#47403d",
+          "#66605c",
+          "#88817d",
+          "#aba3a0",
+          "#cfc7c3",
+          "#f5ede9"
         ]
       },
       "warning-surface": {
-        "role": "neutral",
-        "displayName": "경고 바탕",
+        "role": "semantic",
+        "displayName": "설정 충돌 바탕",
+        "canonical": "#fff2e7",
         "tonalRamp": [
-          "oklch(15.00% 0.02029 62.87)",
-          "oklch(26.43% 0.02029 62.87)",
-          "oklch(37.86% 0.02029 62.87)",
-          "oklch(49.29% 0.02029 62.87)",
-          "oklch(60.71% 0.02029 62.87)",
-          "oklch(72.14% 0.02029 62.87)",
-          "oklch(83.57% 0.02029 62.87)",
-          "oklch(95.00% 0.02029 62.87)"
+          "#110904",
+          "#2c231b",
+          "#4a4037",
+          "#6a5f56",
+          "#8b8076",
+          "#afa398",
+          "#d3c7bc",
+          "#f9ece1"
         ]
       },
       "overdue": {
         "role": "semantic",
-        "displayName": "overdue"
+        "displayName": "적갈 미완료",
+        "canonical": "#b4451f",
+        "tonalRamp": [
+          "#1c0300",
+          "#461000",
+          "#752100",
+          "#a5370d",
+          "#cc5b37",
+          "#f47f5a",
+          "#ffb49d",
+          "#ffe9e2"
+        ]
       },
       "overdue-surface": {
         "role": "semantic",
-        "displayName": "overdue-surface"
+        "displayName": "적갈 미완료 바탕",
+        "canonical": "#fbf3ef",
+        "tonalRamp": [
+          "#0f0a08",
+          "#292421",
+          "#47403d",
+          "#66605c",
+          "#88817d",
+          "#aba3a0",
+          "#cfc7c3",
+          "#f5ede9"
+        ]
       },
       "overdue-border": {
         "role": "semantic",
-        "displayName": "overdue-border"
+        "displayName": "적갈 미완료 선",
+        "canonical": "#f0c9b8",
+        "tonalRamp": [
+          "#1a0400",
+          "#391c0f",
+          "#58392b",
+          "#7a584a",
+          "#9d796a",
+          "#c19c8b",
+          "#e6c0af",
+          "#ffe9e0"
+        ]
       },
-      "stripe": {
+      "unavailable": {
         "role": "semantic",
-        "displayName": "stripe"
+        "displayName": "금지 시간",
+        "canonical": "#e6e8ec",
+        "tonalRamp": [
+          "#0a0b0e",
+          "#242528",
+          "#404245",
+          "#5f6165",
+          "#808286",
+          "#a3a5a9",
+          "#c7c9cd",
+          "#eceef2"
+        ]
       },
-      "stripe-soft": {
+      "unavailable-soft": {
         "role": "semantic",
-        "displayName": "stripe-soft"
+        "displayName": "금지 시간 옅음",
+        "canonical": "#f1f2f4",
+        "tonalRamp": [
+          "#0a0b0c",
+          "#242526",
+          "#414243",
+          "#606163",
+          "#818284",
+          "#a4a5a7",
+          "#c8c9cb",
+          "#edeef0"
+        ]
       },
-      "modal-shadow": {
-        "role": "semantic",
-        "displayName": "modal-shadow"
+      "scrollbar": {
+        "role": "neutral",
+        "displayName": "스크롤 막대",
+        "canonical": "#b5bbc7",
+        "tonalRamp": [
+          "#070b13",
+          "#21252e",
+          "#3d424c",
+          "#5c616c",
+          "#7d828e",
+          "#9fa5b1",
+          "#c3c9d5",
+          "#e8effb"
+        ]
       },
       "backdrop": {
-        "role": "semantic",
-        "displayName": "backdrop"
+        "role": "neutral",
+        "displayName": "배경막",
+        "canonical": "#1b24334d",
+        "tonalRamp": []
       }
     },
     "typographyMeta": {
       "capture": {
-        "displayName": "capture",
-        "purpose": "별도 빠른 캡처 입력."
+        "displayName": "Capture",
+        "purpose": "빠른 캡처 창의 두 줄 입력만."
       },
       "composer": {
-        "displayName": "composer",
-        "purpose": "할 일 추가 제목 입력."
+        "displayName": "Composer",
+        "purpose": "새 블록 제목 입력."
       },
       "headline": {
-        "displayName": "headline",
-        "purpose": "날짜와 상세 제목."
+        "displayName": "Headline",
+        "purpose": "위 막대의 기간 제목과 상세 제목."
       },
       "title": {
-        "displayName": "title",
-        "purpose": "패널 제목."
+        "displayName": "Title",
+        "purpose": "패널·영역 제목, 준비 담기 입력."
       },
       "body": {
-        "displayName": "body",
-        "purpose": "기본 본문."
+        "displayName": "Body",
+        "purpose": "업무 제목(블록 안에서는 500), 버튼, 입력."
       },
-      "paragraph": {
-        "displayName": "paragraph",
-        "purpose": "여러 줄 설명."
-      },
-      "label": {
-        "displayName": "label",
-        "purpose": "시간과 보조 정보."
+      "prose": {
+        "displayName": "Prose",
+        "purpose": "메모. 본문 크기에 1.7 줄 간격."
       },
       "summary": {
-        "displayName": "summary",
-        "purpose": "요약과 보관함 칩."
+        "displayName": "Summary",
+        "purpose": "블록 안 제목, 요약 줄, 상태줄."
       },
-      "nav-label": {
-        "displayName": "nav-label",
-        "purpose": "메뉴와 작은 메타, 최소 글자 크기."
+      "label": {
+        "displayName": "Label",
+        "purpose": "시간·길이·배분 수치·날짜 보조 표기·알약."
+      },
+      "micro": {
+        "displayName": "Micro",
+        "purpose": "얇은 블록의 제목과 길이, 키캡, 선반 눈금."
       }
     },
     "shadows": [
       {
-        "name": "dialog",
-        "value": "0 16px 64px #16224430",
-        "purpose": "상세 모달 전용."
+        "name": "lift",
+        "value": "0 14px 28px color-mix(in srgb,var(--color-text) 18%,transparent),0 4px 8px color-mix(in srgb,var(--color-text) 12%,transparent)",
+        "purpose": "들림(--sp-lift). 손에 든 블록, 날아가는 블록 사본, 시간표 위 컴포저. 놓이면 사라진다."
       },
       {
-        "name": "selected-day",
-        "value": "inset 0 0 0 2px var(--blue)",
-        "purpose": "달력의 선택 표시. 고도 효과가 아님."
+        "name": "dialog",
+        "value": "0 16px 64px #16224430",
+        "purpose": "대화상자(--shadow-dialog). 편집 대화상자, 도마, 메뉴, 검색 패널, 날짜 팝업, 선택 막대. G1 0 16px 64px #26231e30, G3 0 16px 64px #1f1f1c30, G4 none."
+      },
+      {
+        "name": "hover",
+        "value": "none",
+        "purpose": "호버(--shadow-hover). 준비 카드의 1px 떠오름과 함께. 기본·G1·G4는 없음, G3만 0 1px 2px #1f1f1c24."
+      },
+      {
+        "name": "capture",
+        "value": "0 0 0 1px color-mix(in srgb,var(--color-text) 11%,transparent), 0 1px 2px color-mix(in srgb,var(--color-text) 10%,transparent), 0 8px 18px -6px color-mix(in srgb,var(--color-text) 30%,transparent)",
+        "purpose": "캡처(--shadow-capture). 빠른 캡처 창만: 헤어라인 외곽 + 짧은 접지 + 넓은 확산. G4는 0 0 0 1px var(--color-structure), 0 8px 16px -8px color-mix(in srgb,var(--color-text) 35%,transparent)."
       }
     ],
     "motion": [
       {
-        "name": "button-state",
-        "value": "background-color 100ms ease-out,border-color 100ms ease-out",
-        "purpose": "prefers-reduced-motion:no-preference에서만 적용."
+        "name": "rearrange",
+        "value": "160ms cubic-bezier(.16,1,.3,1)",
+        "purpose": "재배치·크기 변경·비켜 줌. 주변 블록의 top·height 감속 전환. 손잡이로 조절하는 블록은 15분 스냅 결과를 즉시."
       },
       {
-        "name": "dialog-appear",
-        "value": "140ms ease-out; opacity 0 → 1; translateY(6px) → translateY(0)",
-        "purpose": "prefers-reduced-motion:no-preference에서 열린 모달에 적용."
+        "name": "landing",
+        "value": "140ms cubic-bezier(.16,1,.3,1)",
+        "purpose": "내려놓음. 블록이 감속으로 자리에 들어간다. 오버슈트·찌그러짐 없음."
+      },
+      {
+        "name": "shape-fit",
+        "value": "150ms cubic-bezier(.2,.8,.2,1)",
+        "purpose": "형태 맞춤. 든 블록이 목표 상자(전체·좁음·줄·막대)로 width·height를 바꾼다(높이는 1/4 늦게). transform scale은 쓰지 않는다."
+      },
+      {
+        "name": "dock-width",
+        "value": "220ms cubic-bezier(.2,.8,.2,1)",
+        "purpose": "준비 도크 폭 전환(좁게 300px·넓게 640px·접힘 48px). 사용자 조작으로만."
+      },
+      {
+        "name": "duration-control",
+        "value": "100ms ease-out",
+        "purpose": "--duration-control + --ease-feedback. 버튼·컨트롤의 배경·테두리 전환."
+      },
+      {
+        "name": "duration-dialog",
+        "value": "140ms ease-out",
+        "purpose": "--duration-dialog. 대화상자 배경막 페이드, 캡처 창 액션의 불투명도."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "none",
+        "purpose": "prefers-reduced-motion: reduce에서는 모두 즉시 전환. 빈칸·걸쇠·셔터의 정지 상태로 같은 의미를 읽는다."
       }
     ],
     "breakpoints": [
       {
-        "name": "compact-topbar",
-        "value": "1250px"
+        "name": "search-compact",
+        "value": "1180px",
+        "purpose": "이하에서 검색 버튼은 아이콘만."
       },
       {
-        "name": "toolbar-wrap",
-        "value": "1100px"
+        "name": "dock-stacked",
+        "value": "1100px",
+        "purpose": "이하에서 넓은 도크는 min(560px, 52vw)이고 들어옴·선반이 위아래로 놓인다."
       },
       {
-        "name": "today-stack",
-        "value": "960px"
+        "name": "focus-flow-scroll",
+        "value": "960px",
+        "purpose": "이하에서 몰입은 두 열과 옆 편집 패널을 유지하고(760px까지), 실행 흐름이 따로 스크롤한다."
       },
       {
-        "name": "plan-stack",
-        "value": "680px"
+        "name": "topbar-wrap",
+        "value": "900px",
+        "purpose": "이하에서 위 막대는 sticky를 풀고 묶음 단위로 오른쪽 정렬 줄바꿈한다. 도크의 sticky 위치는 12px."
       },
       {
-        "name": "editor-compact-height",
-        "value": "740px"
+        "name": "single-column",
+        "value": "760px",
+        "purpose": "이하에서 도크는 캘린더 위 전체 폭, 몰입은 한 열, 편집기는 가운데 대화상자, 위 막대와 날짜 머리의 조작은 44px."
+      },
+      {
+        "name": "settings-single",
+        "value": "680px",
+        "purpose": "이하에서 설정 한 열."
       }
     ]
   },
   "components": [
     {
-      "name": "주요 버튼",
+      "name": "주 동작 버튼",
       "kind": "button",
       "refersTo": "button-primary",
-      "description": "주요 저장 실행.",
-      "html": "<button class=\"ds-primary\">저장</button>",
-      "css": ".ds-primary{font-family:\"Segoe UI\",\"Malgun Gothic\",sans-serif;font-size:14px;color:var(--text,#1b1e23);cursor:pointer;background:var(--surface,#fff);border:1px solid var(--border,#d9dce1);border-radius:6px;padding:8px 12px;min-height:34px;background:var(--blue,#2b55d6);border-color:var(--blue,#2b55d6);color:var(--surface,#fff);}.ds-primary:hover{background:var(--blue-hover,#2145b7);}.ds-primary:focus-visible{outline:2px solid var(--focus,#2b55d6);outline-offset:3px;}.ds-primary:disabled{opacity:.55;cursor:default;}@media(prefers-reduced-motion:no-preference){.ds-primary{transition:background-color 100ms ease-out,border-color 100ms ease-out;}}"
+      "description": "화면의 주 동작 하나(몰입·저장·‘다음’ 카드의 완료). 위 막대에서 action 색 버튼은 ‘몰입’ 하나다.",
+      "html": "<button type=\"button\" class=\"ds-btn-primary\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z\"/></svg>몰입</button>",
+      "css": ".ds-btn-primary{min-height:var(--control-height);display:inline-flex;align-items:center;justify-content:center;gap:var(--space-small);padding:var(--space-small) var(--space-control);border-radius:var(--radius-control);font-family:var(--font-body);font-size:var(--font-size-body);line-height:var(--line-height-body);white-space:nowrap;cursor:pointer;transition:background var(--duration-control) var(--ease-feedback),border-color var(--duration-control) var(--ease-feedback),transform .08s;border:1px solid var(--color-action);background:var(--color-action);color:var(--color-on-action)}.ds-btn-primary:hover{background:var(--color-action-hover);border-color:var(--color-action-hover)}.ds-btn-primary:active{transform:scale(.96)}.ds-btn-primary:focus-visible{outline:2px solid var(--color-focus);outline-offset:2px}.ds-btn-primary:disabled{opacity:var(--opacity-disabled);cursor:default;transform:none}@media (prefers-reduced-motion:reduce){.ds-btn-primary{transition:none}}"
     },
     {
-      "name": "기본 버튼",
+      "name": "보조 버튼",
       "kind": "button",
       "refersTo": "button-secondary",
-      "description": "오늘 이동과 일반 조작.",
-      "html": "<button class=\"ds-secondary\">오늘</button>",
-      "css": ".ds-secondary{font-family:\"Segoe UI\",\"Malgun Gothic\",sans-serif;font-size:14px;color:var(--text,#1b1e23);cursor:pointer;background:var(--surface,#fff);border:1px solid var(--border,#d9dce1);border-radius:6px;padding:8px 12px;min-height:34px;}.ds-secondary:hover{background:var(--control-hover,#f0f3fa);}.ds-secondary:focus-visible{outline:2px solid var(--focus,#2b55d6);outline-offset:3px;}.ds-secondary:disabled{opacity:.55;cursor:default;}@media(prefers-reduced-motion:no-preference){.ds-secondary{transition:background-color 100ms ease-out,border-color 100ms ease-out;}}"
+      "description": "control 면과 control-border 1px. 호버는 control-hover, 누르면 0.96 축소. 텍스트 버튼은 면과 테두리 없이 link 색.",
+      "html": "<div class=\"ds-btn-row\"><button type=\"button\" class=\"ds-btn\">오늘</button><button type=\"button\" class=\"ds-btn ds-btn-text\">13일 비우기</button><button type=\"button\" class=\"ds-btn\" disabled>저장</button></div>",
+      "css": ".ds-btn-row{display:flex;flex-wrap:wrap;gap:var(--space-related);align-items:center}.ds-btn{min-height:var(--control-height);display:inline-flex;align-items:center;justify-content:center;gap:var(--space-small);padding:var(--space-small) var(--space-control);border-radius:var(--radius-control);font-family:var(--font-body);font-size:var(--font-size-body);line-height:var(--line-height-body);white-space:nowrap;cursor:pointer;transition:background var(--duration-control) var(--ease-feedback),border-color var(--duration-control) var(--ease-feedback),transform .08s;border:1px solid var(--color-control-border);background:var(--color-control);color:var(--color-text)}.ds-btn:hover{background:var(--color-control-hover)}.ds-btn:active{transform:scale(.96)}.ds-btn:focus-visible{outline:2px solid var(--color-focus);outline-offset:2px}.ds-btn:disabled{opacity:var(--opacity-disabled);cursor:default;transform:none}.ds-btn:disabled:hover{background:var(--color-control)}.ds-btn-text{border-color:transparent;background:transparent;color:var(--color-link)}.ds-btn-text:hover{background:var(--color-control-hover)}@media (prefers-reduced-motion:reduce){.ds-btn{transition:none}}"
+    },
+    {
+      "name": "아이콘 버튼",
+      "kind": "button",
+      "refersTo": "button-icon",
+      "description": "34px 정사각형. 이전·다음·닫기·검색·?·톱니. 이름은 접근성 이름으로만 둔다.",
+      "html": "<div class=\"ds-ibtn-row\"><button type=\"button\" class=\"ds-ibtn\" aria-label=\"이전 주\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M15 6l-6 6 6 6\"/></svg></button><button type=\"button\" class=\"ds-ibtn\" aria-label=\"다음 주\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M9 6l6 6-6 6\"/></svg></button><button type=\"button\" class=\"ds-ibtn\" aria-label=\"검색\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M16 16l4.5 4.5M11 18a7 7 0 1 1 0-14 7 7 0 0 1 0 14z\"/></svg></button></div>",
+      "css": ".ds-ibtn-row{display:flex;gap:var(--space-small)}.ds-ibtn{width:var(--control-height);height:var(--control-height);display:inline-flex;align-items:center;justify-content:center;padding:0;border:1px solid var(--color-control-border);border-radius:var(--radius-control);background:var(--color-control);color:var(--color-text);cursor:pointer;transition:background var(--duration-control) var(--ease-feedback),transform .08s}.ds-ibtn:hover{background:var(--color-control-hover)}.ds-ibtn:active{transform:scale(.96)}.ds-ibtn:focus-visible{outline:2px solid var(--color-focus);outline-offset:2px}@media (prefers-reduced-motion:reduce){.ds-ibtn{transition:none}}"
     },
     {
       "name": "텍스트 입력",
       "kind": "input",
       "refersTo": "input",
-      "description": "제목과 편집용 단일 행 입력.",
-      "html": "<label class=\"ds-label\">제목<input class=\"ds-input\" value=\"설계 문서 초안 작성\"></label>",
-      "css": ".ds-label{font-family:\"Segoe UI\",\"Malgun Gothic\",sans-serif;font-size:14px;color:var(--text,#1b1e23);display:block;font-size:12px;color:var(--muted,#5b6270);}.ds-input{font-family:\"Segoe UI\",\"Malgun Gothic\",sans-serif;font-size:14px;color:var(--text,#1b1e23);display:block;width:100%;background:var(--surface,#fff);border:1px solid var(--border,#d9dce1);border-radius:6px;padding:9px 11px;caret-color:var(--blue,#2b55d6);}.ds-input:focus-visible{outline:2px solid var(--focus,#2b55d6);outline-offset:3px;}"
-    },
-    {
-      "name": "활성 메뉴",
-      "kind": "nav",
-      "refersTo": "navigation-active",
-      "description": "오늘·계획·보관함·설정 탐색. 로고와 오늘은 실제 오늘로 이동.",
-      "html": "<nav class=\"ds-rail\" aria-label=\"주 메뉴\"><button class=\"ds-nav\" aria-current=\"page\"><svg aria-hidden=\"true\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\"><rect x=\"3\" y=\"4\" width=\"18\" height=\"17\" rx=\"2\"/><path d=\"M3 9h18M9 9v12M15 9v12M3 15h18\"/></svg><span>계획</span></button></nav>",
-      "css": ".ds-rail{background:var(--text,#1b1e23);padding:18px 8px;width:max-content;}.ds-nav{font-family:\"Segoe UI\",\"Malgun Gothic\",sans-serif;font-size:14px;color:var(--text,#1b1e23);cursor:pointer;background:var(--surface,#fff);border:1px solid var(--border,#d9dce1);border-radius:6px;padding:8px 12px;min-height:34px;background:var(--blue,#2b55d6);color:var(--surface,#fff);border:0;width:56px;min-height:54px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;padding:7px 3px;}.ds-nav svg{width:20px;height:20px;}.ds-nav span{font-size:11px;}.ds-nav:hover{background:var(--blue,#2b55d6);}.ds-nav:focus-visible{outline:2px solid var(--focus,#2b55d6);outline-offset:3px;}"
-    },
-    {
-      "name": "패널",
-      "kind": "card",
-      "refersTo": "panel",
-      "description": "목록·시간표·설정의 평면 구획.",
-      "html": "<section class=\"ds-panel\"><h2>시간표</h2><p>시간을 정하고 오늘 할 일을 확인하세요.</p></section>",
-      "css": ".ds-panel{font-family:\"Segoe UI\",\"Malgun Gothic\",sans-serif;font-size:14px;color:var(--text,#1b1e23);background:var(--surface,#fff);border:1px solid var(--border,#d9dce1);border-radius:10px;padding:20px;}.ds-panel h2{font-size:16px;font-weight:600;margin:0;}.ds-panel p{color:var(--muted,#5b6270);line-height:1.7;}"
+      "description": "input 면, control 반경, 9px 11px 안쪽 여백. 포커스는 공통 2px 윤곽.",
+      "html": "<label class=\"ds-field\"><span class=\"ds-field-label\">제목</span><input class=\"ds-input\" type=\"text\" value=\"설계 문서 자료 조사\"></label>",
+      "css": ".ds-field{display:flex;flex-direction:column;gap:var(--space-tight);max-width:320px;font-family:var(--font-body)}.ds-field-label{font-size:var(--font-size-label);line-height:var(--line-height-label);color:var(--color-text-muted)}.ds-input{font-family:var(--font-body);font-size:var(--font-size-body);line-height:var(--line-height-body);color:var(--color-text);background:var(--color-input);border:1px solid var(--color-control-border);border-radius:var(--radius-control);padding:var(--input-padding);transition:border-color var(--duration-control) var(--ease-feedback)}.ds-input:hover{border-color:var(--color-input-border)}.ds-input:focus-visible{outline:2px solid var(--color-focus);outline-offset:2px;border-color:var(--color-input-border)}.ds-input::selection{background:var(--color-text-selection)}@media (prefers-reduced-motion:reduce){.ds-input{transition:none}}"
     },
     {
       "name": "기간 선택",
-      "kind": "custom",
+      "kind": "nav",
       "refersTo": "period-selected",
-      "description": "주: 시간 격자, 2주: 제목, 월: 작업량.",
-      "html": "<div class=\"ds-period\" aria-label=\"계획 기간\"><button aria-pressed=\"false\">주</button><button aria-pressed=\"false\">2주</button><button aria-pressed=\"true\">월</button></div>",
-      "css": ".ds-period{display:flex;border:1px solid var(--border,#d9dce1);border-radius:6px;overflow:hidden;width:max-content;}.ds-period button{font-family:\"Segoe UI\",\"Malgun Gothic\",sans-serif;font-size:14px;color:var(--text,#1b1e23);cursor:pointer;background:var(--surface,#fff);border:1px solid var(--border,#d9dce1);border-radius:6px;padding:8px 12px;min-height:34px;border:0;border-radius:0;min-width:48px;}.ds-period button:hover{background:var(--control-hover,#f0f3fa);}.ds-period [aria-pressed=true]{background:var(--blue,#2b55d6);color:var(--surface,#fff);}.ds-period button:focus-visible{outline:2px solid var(--focus,#2b55d6);outline-offset:3px;outline-offset:-2px;}"
+      "description": "맞붙은 세그먼트(일·주·2주·월). 고른 것만 action으로 채운다. 하나의 탭 정지에서 화살표로 고른다.",
+      "html": "<div class=\"ds-seg\" role=\"radiogroup\" aria-label=\"기간\"><button type=\"button\" role=\"radio\" aria-checked=\"false\" tabindex=\"-1\">일</button><button type=\"button\" role=\"radio\" aria-checked=\"true\" tabindex=\"0\">주</button><button type=\"button\" role=\"radio\" aria-checked=\"false\" tabindex=\"-1\">2주</button><button type=\"button\" role=\"radio\" aria-checked=\"false\" tabindex=\"-1\">월</button></div>",
+      "css": ".ds-seg{display:inline-flex;gap:2px;padding:2px;border:1px solid var(--color-control-border);border-radius:var(--radius-control);background:var(--color-control);font-family:var(--font-body)}.ds-seg button{min-width:48px;height:calc(var(--control-height) - 6px);border:0;border-radius:calc(var(--radius-control) - 2px);background:transparent;color:var(--color-text-muted);font:inherit;font-size:var(--font-size-body);font-weight:var(--font-weight-heading);cursor:pointer;transition:background var(--duration-control) var(--ease-feedback),color var(--duration-control) var(--ease-feedback)}.ds-seg button:hover{background:var(--color-control-hover)}.ds-seg button[aria-checked=true]{background:var(--color-action);color:var(--color-on-action)}.ds-seg button:focus-visible{outline:2px solid var(--color-focus);outline-offset:2px}@media (prefers-reduced-motion:reduce){.ds-seg button{transition:none}}"
     },
     {
       "name": "시간 블록",
       "kind": "custom",
       "refersTo": "time-block",
-      "description": "소요시간에 비례하는 작업, 예시는 90분.",
-      "html": "<div class=\"ds-block\"><button class=\"ds-title\"><span>설계 문서 초안 작성</span><small>13:00–14:30 · 1시간 30분</small></button><div class=\"ds-resize\" role=\"separator\" aria-label=\"소요시간 조절\" aria-orientation=\"horizontal\" aria-valuemin=\"15\" aria-valuemax=\"1440\" aria-valuenow=\"90\" aria-valuetext=\"90분\" tabindex=\"0\"></div></div>",
-      "css": ".ds-block{font-family:\"Segoe UI\",\"Malgun Gothic\",sans-serif;font-size:14px;color:var(--text,#1b1e23);position:relative;background:var(--blue-soft,#e3eafb);border:1px solid var(--blue-soft,#e3eafb);border-radius:6px;height:108px;min-height:12px;overflow:hidden;}.ds-title{font-family:\"Segoe UI\",\"Malgun Gothic\",sans-serif;font-size:14px;color:var(--text,#1b1e23);border:0;background:transparent;width:100%;height:100%;padding:4px 8px;text-align:left;display:flex;flex-direction:column;gap:3px;font-size:12px;cursor:pointer;}.ds-title span{overflow:hidden;white-space:nowrap;text-overflow:ellipsis;}.ds-title small{font-size:11px;}.ds-title:hover{background:var(--blue-soft,#e3eafb);}.ds-title:focus-visible{outline:2px solid var(--focus,#2b55d6);outline-offset:3px;outline-offset:-2px;}.ds-resize{position:absolute;bottom:0;left:0;right:0;height:12px;opacity:0;cursor:ns-resize;touch-action:none;}.ds-resize:after{content:\"\";display:block;width:26px;height:3px;border-radius:2px;background:var(--blue,#2b55d6);margin:3px auto;}.ds-block:hover .ds-resize,.ds-resize:focus-visible{opacity:1;}.ds-resize:focus-visible{outline:2px solid var(--focus,#2b55d6);outline-offset:3px;outline-offset:-2px;}"
+      "description": "유동 블록(block 면, 동작색을 섞은 테두리)과 ‘다음’ 블록(action 면과 ‘다음’ 태그). 높이는 소요시간(1.2px/분: 1시간 72px, 30분 36px).",
+      "html": "<div class=\"ds-blocks\"><div class=\"ds-blk ds-blk-next\" style=\"height:72px\"><button type=\"button\" class=\"ds-chk\" aria-label=\"완료\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M5 12.5l4.5 4.5L19 7.5\"/></svg></button><button type=\"button\" class=\"ds-blk-main\"><span class=\"ds-blk-row\"><span class=\"ds-tag\">다음</span><span class=\"ds-blk-ttl\">설계 문서 자료 조사</span></span><span class=\"ds-blk-meta\">1시간</span></button></div><div class=\"ds-blk ds-blk-flow\" style=\"height:36px\"><button type=\"button\" class=\"ds-chk\" aria-label=\"완료\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M5 12.5l4.5 4.5L19 7.5\"/></svg></button><button type=\"button\" class=\"ds-blk-main\"><span class=\"ds-blk-row\"><span class=\"ds-blk-ttl\">회의록 정리</span></span><span class=\"ds-blk-meta\">30분</span></button></div></div>",
+      "css": ".ds-blocks{display:flex;flex-direction:column;gap:var(--space-hairline);width:260px;font-family:var(--font-body)}.ds-blk{box-sizing:border-box;display:flex;align-items:flex-start;gap:var(--space-small);padding:var(--space-small) var(--space-related) var(--space-small) var(--space-small);border-radius:var(--radius-block);overflow:hidden;transition:translate .14s ease,box-shadow .14s ease}.ds-blk-flow{background:var(--color-block);border:1px solid color-mix(in srgb,var(--color-action) 22%,var(--color-block));color:color-mix(in srgb,var(--color-action) 45%,var(--color-text))}.ds-blk-next{background:var(--color-action);border:1px solid var(--color-action);color:var(--color-on-action)}.ds-blk:hover{translate:0 -1px;box-shadow:0 3px 8px color-mix(in srgb,var(--color-text) 10%,transparent)}.ds-blk-flow.ds-blk:hover{border-color:color-mix(in srgb,var(--color-action) 40%,var(--color-block))}.ds-chk{flex:0 0 auto;width:22px;height:22px;display:flex;align-items:center;justify-content:center;padding:0;border:1.5px solid currentColor;border-radius:50%;background:transparent;color:inherit;opacity:.75;cursor:pointer}.ds-chk svg{opacity:0}.ds-chk:hover{opacity:1}.ds-chk:hover svg{opacity:.55}.ds-chk:focus-visible{outline:2px solid currentColor;outline-offset:1px;opacity:1}.ds-blk-flow .ds-chk{width:18px;height:18px}.ds-blk-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:var(--space-hairline);padding:2px 0 0;border:0;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}.ds-blk-flow .ds-blk-main{flex-direction:row;align-items:baseline;gap:var(--space-related);padding-top:0}.ds-blk-main:focus-visible{outline:2px solid currentColor;outline-offset:-2px;border-radius:var(--radius-indicator)}.ds-blk-row{display:flex;align-items:center;gap:var(--space-small);min-width:0}.ds-tag{flex:0 0 auto;font-size:var(--font-size-micro);font-weight:var(--font-weight-strong);background:color-mix(in srgb,var(--color-on-action) 20%,transparent);border-radius:4px;padding:1px 6px}.ds-blk-ttl{font-size:var(--font-size-summary);font-weight:var(--font-weight-heading);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ds-blk-meta{font-size:var(--font-size-label);opacity:.8;font-variant-numeric:tabular-nums;white-space:nowrap}@media (prefers-reduced-motion:reduce){.ds-blk{transition:none}}"
     },
     {
-      "name": "선택 날짜",
+      "name": "날짜 머리",
       "kind": "custom",
-      "refersTo": "calendar-day-selected",
-      "description": "월간 작업량과 여유시간.",
-      "html": "<button class=\"ds-day\" aria-pressed=\"true\"><span class=\"ds-number\">9 <small>오늘</small></span><small>2건 · 2시간</small><span class=\"ds-capacity\"><i></i></span><small>여유 6시간</small></button>",
-      "css": ".ds-day{font-family:\"Segoe UI\",\"Malgun Gothic\",sans-serif;font-size:14px;color:var(--text,#1b1e23);cursor:pointer;background:var(--surface,#fff);border:1px solid var(--border,#d9dce1);border-radius:6px;padding:8px 12px;min-height:34px;border:0;min-height:92px;padding:8px 6px;text-align:left;display:flex;flex-direction:column;gap:6px;background:var(--selected-surface,#f4f7fe);box-shadow:inset 0 0 0 2px var(--blue,#2b55d6);}.ds-number{font-size:13px;color:var(--blue,#2b55d6);font-weight:700;}.ds-day small{font-size:11px;color:var(--muted,#5b6270);font-weight:400;}.ds-capacity{margin-top:auto;height:6px;background:var(--line,#e4e6ea);width:100%;border-radius:2px;overflow:hidden;}.ds-capacity i{display:block;height:100%;width:25%;background:var(--blue,#2b55d6);}.ds-day:hover{background:var(--selected-surface,#f4f7fe);}.ds-day:focus-visible{outline:2px solid var(--focus,#2b55d6);outline-offset:3px;}"
+      "refersTo": "day-head",
+      "description": "날짜 버튼 아래 배분 막대와 ‘7.75 / 8h’, 근무 외로 넘쳤으면 ‘근무 외 2h’. ‘준비로’ 텍스트 버튼은 막대 끝 자리를 차지해 머리 높이가 변하지 않는다.",
+      "html": "<div class=\"ds-dayhead\"><button type=\"button\" class=\"ds-dayhead-date\"><span class=\"ds-dayhead-day\"><small>화</small><strong>14</strong><span class=\"ds-pill\">오늘</span></span><span class=\"ds-meter-slot\"></span><span class=\"ds-dayhead-alloc\"><span>7.75 / 8h</span><span class=\"ds-alloc-out\">근무 외 2h</span></span></button><div class=\"ds-meter-row\"><span class=\"ds-meter\" role=\"img\" aria-label=\"배분 7.75 / 8h, 근무 외 2h\"><i class=\"ds-meter-done\" style=\"width:22%\"></i><i class=\"ds-meter-fixed\" style=\"width:18%\"></i><i class=\"ds-meter-flow\" style=\"width:60%\"></i><i class=\"ds-meter-over\" style=\"width:20%\"></i></span><button type=\"button\" class=\"ds-toready\">준비로</button></div></div>",
+      "css": ".ds-dayhead{position:relative;width:180px;background:var(--color-panel);border:1px solid var(--color-divider);font-family:var(--font-body);color:var(--color-text)}.ds-dayhead-date{width:100%;display:flex;flex-direction:column;gap:var(--space-small);padding:var(--space-related) var(--space-related) 9px;border:0;background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer;transition:background var(--duration-control) var(--ease-feedback)}.ds-dayhead-date:hover{background:var(--color-control-hover)}.ds-dayhead-date:focus-visible{outline:2px solid var(--color-focus);outline-offset:-2px}.ds-dayhead-day{display:flex;align-items:baseline;gap:var(--space-tight) var(--space-small);min-height:22px}.ds-dayhead-day small{font-size:var(--font-size-label);color:var(--color-text-muted)}.ds-dayhead-day strong{font-size:17px;font-weight:var(--font-weight-heading);line-height:1.1;font-variant-numeric:tabular-nums;color:var(--color-calendar-today)}.ds-pill{align-self:center;font-size:var(--font-size-micro);font-weight:var(--font-weight-heading);color:var(--color-action);background:var(--color-text-selection);border-radius:999px;padding:1px 7px}.ds-meter-slot{display:block;height:24px}.ds-dayhead-alloc{display:flex;flex-wrap:wrap;gap:0 var(--space-small);font-size:var(--font-size-micro);line-height:var(--line-height-compact);color:var(--color-text-muted);font-variant-numeric:tabular-nums}.ds-alloc-out{color:color-mix(in srgb,var(--color-overdue) 70%,var(--color-text-muted));white-space:nowrap}.ds-meter-row{position:absolute;left:var(--space-related);right:var(--space-tight);top:36px;height:24px;display:flex;align-items:center;gap:var(--space-tight);pointer-events:none}.ds-meter{position:relative;display:flex;gap:1px;flex:1;height:8px;border-radius:3px;background:color-mix(in srgb,var(--color-text-muted) 16%,var(--color-surface));overflow:hidden}.ds-meter i{display:block;height:100%}.ds-meter-done{background:color-mix(in srgb,var(--color-text-muted) 45%,var(--color-surface))}.ds-meter-flow{background:var(--color-action)}.ds-meter-fixed{background:color-mix(in srgb,var(--color-structure) 75%,var(--color-surface))}.ds-meter i.ds-meter-over{position:absolute;top:0;bottom:0;right:0;border-left:1.5px solid var(--color-text);background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--color-surface) 75%,transparent) 0 2px,transparent 2px 4px)}.ds-toready{pointer-events:auto;flex:none;height:24px;padding:0 var(--space-small);border:1px solid transparent;border-radius:var(--radius-control);background:transparent;color:var(--color-link);font:inherit;font-size:11.5px;cursor:pointer;transition:background var(--duration-control) var(--ease-feedback)}.ds-toready:hover{background:var(--color-control-hover)}.ds-toready:focus-visible{outline:2px solid var(--color-focus);outline-offset:2px}@media (prefers-reduced-motion:reduce){.ds-dayhead-date,.ds-toready{transition:none}}"
     },
     {
-      "name": "빠른 캡처",
-      "kind": "input",
-      "refersTo": "capture-input",
-      "description": "620×176 투명 native 창 안의 둥근 반투명 표면, 두 줄 입력과 저장·닫기. Windows 바탕화면 블러는 사용하지 않음.",
-      "html": "<div class=\"ds-capture\"><form class=\"ds-capture-form\"><span class=\"ds-capture-mark\"><svg aria-hidden=\"true\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M12 5v14M5 12h14\"/></svg></span><textarea aria-label=\"빠른 캡처\" placeholder=\"어떤 일을 해야 하나요?\" rows=\"2\"></textarea><button class=\"ds-capture-save\" type=\"button\" aria-label=\"미계획에 저장\"><svg aria-hidden=\"true\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"m5 12 4 4L19 6\"/></svg></button><button type=\"button\" aria-label=\"빠른 캡처 닫기\"><svg aria-hidden=\"true\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"m6 6 12 12M18 6 6 18\"/></svg></button></form></div>",
-      "css": ".ds-capture{box-sizing:border-box;font-family:\"Segoe UI\",\"Malgun Gothic\",sans-serif;color:var(--text,#1b1e23);margin:12px;padding:20px;width:596px;max-width:calc(100% - 24px);height:152px;border-radius:24px;background:color-mix(in srgb,var(--surface,#fff) 94%,transparent);backdrop-filter:blur(24px) saturate(1.15);box-shadow:0 5px 12px color-mix(in srgb,var(--text,#1b1e23) 16%,transparent);}.ds-capture:focus-within{box-shadow:0 5px 12px color-mix(in srgb,var(--text,#1b1e23) 16%,transparent),inset 0 0 0 1px var(--blue,#2b55d6);}.ds-capture-form{display:flex;align-items:flex-start;gap:12px;}.ds-capture-mark{display:grid;place-items:center;flex:none;width:36px;height:36px;margin-top:2px;border-radius:12px;background:var(--blue-soft,#e3eafb);color:var(--blue,#2b55d6);}.ds-capture textarea{box-sizing:border-box;font:24px/1.3 \"Segoe UI\",\"Malgun Gothic\",sans-serif;color:inherit;width:100%;min-width:0;height:64px;resize:none;border:0;background:transparent;padding:2px 0;outline:none;caret-color:var(--blue,#2b55d6);}.ds-capture textarea::placeholder{color:var(--muted,#5b6270);}.ds-capture button{display:grid;place-items:center;flex:none;cursor:pointer;margin-top:2px;padding:8px;width:36px;height:36px;border:0;border-radius:50%;background:transparent;color:var(--muted,#5b6270);}.ds-capture .ds-capture-save{background:var(--blue,#2b55d6);color:var(--surface,#fff);}.ds-capture button:hover{background:var(--control-hover,#f0f3fa);}.ds-capture .ds-capture-save:hover{background:var(--blue-hover,#2145b7);}.ds-capture button:focus-visible{outline:2px solid var(--blue,#2b55d6);outline-offset:3px;}@media(prefers-reduced-transparency:reduce),(forced-colors:active){.ds-capture{background:var(--surface,#fff);backdrop-filter:none;}}"
+      "name": "선반",
+      "kind": "card",
+      "refersTo": "panel",
+      "description": "검은 천장(3px structure, 가리키면 6px)에 블록을 2px 간격으로 매달고 왼쪽 30px에 1h 눈금을 둔다. 천장을 누르면 전체 선택·운반. 준비 도크는 1시간 72px.",
+      "html": "<section class=\"ds-shelf\" aria-label=\"선반\"><h3 class=\"ds-shelf-title\">선반</h3><div class=\"ds-rack\"><div class=\"ds-rack-ruler\" aria-hidden=\"true\"><span style=\"top:82px\">1h</span><span style=\"top:154px\">2h</span></div><div class=\"ds-rack-stack\"><button type=\"button\" class=\"ds-ceiling\" aria-label=\"선반 전체 선택\"></button><div class=\"ds-hang\"><div class=\"ds-card\" style=\"height:72px\"><span class=\"ds-card-ttl\">설계 문서 자료 조사</span><span class=\"ds-card-meta\">1시간</span></div><div class=\"ds-card\" style=\"height:36px\"><span class=\"ds-card-ttl\">회의록 정리</span><span class=\"ds-card-meta\">30분</span></div></div></div></div></section>",
+      "css": ".ds-shelf{width:280px;padding:var(--space-section);background:var(--color-panel);border:1px solid var(--color-border);border-radius:var(--radius-panel);font-family:var(--font-body);color:var(--color-text)}.ds-shelf-title{margin:0 0 var(--space-related);font-size:var(--font-size-title);font-weight:var(--font-weight-heading);font-family:var(--font-heading)}.ds-rack{display:grid;grid-template-columns:30px minmax(0,1fr);min-height:168px}.ds-rack-ruler{position:relative}.ds-rack-ruler span{position:absolute;left:0;margin-top:-4px;font-size:var(--font-size-micro);font-weight:var(--font-weight-heading);color:var(--color-text-muted);font-variant-numeric:tabular-nums}.ds-rack-stack{display:flex;flex-direction:column}.ds-ceiling{position:relative;height:10px;padding:0;border:0;background:transparent;cursor:grab}.ds-ceiling::after{content:\"\";position:absolute;left:0;right:0;bottom:0;height:3px;background:var(--color-structure);transition:height var(--duration-control)}.ds-ceiling:hover::after,.ds-ceiling:focus-visible::after{height:6px}.ds-ceiling:focus-visible{outline:2px solid var(--color-focus);outline-offset:2px}.ds-hang{flex:1;display:flex;flex-direction:column;gap:var(--space-hairline);background:repeating-linear-gradient(to bottom,transparent 0 71px,var(--color-divider) 71px 72px)}.ds-card{box-sizing:border-box;display:flex;align-items:flex-start;gap:var(--space-related);padding:var(--space-small);border-radius:var(--radius-block);background:var(--color-block);border:1px solid color-mix(in srgb,var(--color-action) 22%,var(--color-block));color:color-mix(in srgb,var(--color-action) 45%,var(--color-text));cursor:grab;transition:translate .14s ease,box-shadow .14s ease}.ds-card:hover{translate:0 -1px;box-shadow:var(--shadow-hover)}.ds-card-ttl{flex:1;min-width:0;font-size:var(--font-size-summary);font-weight:var(--font-weight-heading);line-height:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ds-card-meta{flex:none;font-size:11.5px;line-height:18px;opacity:.85;font-variant-numeric:tabular-nums}@media (prefers-reduced-motion:reduce){.ds-ceiling::after,.ds-card{transition:none}}"
     },
     {
-      "name": "보관함 칩",
+      "name": "키캡",
       "kind": "chip",
-      "refersTo": "inbox-chip",
-      "description": "미배치 작업과 지난 미완료를 드래그해 배치.",
-      "html": "<button class=\"ds-chip\"><svg aria-hidden=\"true\" width=\"12\" height=\"20\" viewBox=\"0 0 12 20\" fill=\"currentColor\"><circle cx=\"4\" cy=\"5\" r=\"1\"/><circle cx=\"8\" cy=\"5\" r=\"1\"/><circle cx=\"4\" cy=\"10\" r=\"1\"/><circle cx=\"8\" cy=\"10\" r=\"1\"/><circle cx=\"4\" cy=\"15\" r=\"1\"/><circle cx=\"8\" cy=\"15\" r=\"1\"/></svg><span>검토 의견 정리</span><small>30분</small></button>",
-      "css": ".ds-chip{font-family:\"Segoe UI\",\"Malgun Gothic\",sans-serif;font-size:14px;color:var(--text,#1b1e23);cursor:pointer;background:var(--surface,#fff);border:1px solid var(--border,#d9dce1);border-radius:6px;padding:8px 12px;min-height:34px;display:inline-flex;align-items:center;gap:6px;height:36px;min-height:36px;max-width:100%;border-radius:18px;padding:0 12px;font-size:13px;font-weight:500;cursor:grab;}.ds-chip svg,.ds-chip small{color:var(--muted,#5b6270);}.ds-chip small{font-size:11px;white-space:nowrap;}.ds-chip>span{max-width:260px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;}.ds-chip:hover{background:var(--control-hover,#f0f3fa);}.ds-chip:active{cursor:grabbing;}.ds-chip:focus-visible{outline:2px solid var(--focus,#2b55d6);outline-offset:3px;}"
+      "refersTo": "keycap",
+      "description": "앱 전체에서 같은 키캡: --radius-control에서 2px 뺀 반경, 아래 2px 선, 11px. 검색 버튼의 Ctrl K 표기.",
+      "html": "<button type=\"button\" class=\"ds-search\" aria-label=\"검색\" aria-keyshortcuts=\"Control+K\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M16 16l4.5 4.5M11 18a7 7 0 1 1 0-14 7 7 0 0 1 0 14z\"/></svg><span>검색</span><kbd class=\"ds-kbd\">Ctrl K</kbd></button>",
+      "css": ".ds-search{min-height:var(--control-height);display:inline-flex;align-items:center;gap:var(--space-small);padding:var(--space-small) var(--space-control);border:1px solid var(--color-control-border);border-radius:var(--radius-control);background:var(--color-control);color:var(--color-text-muted);font-family:var(--font-body);font-size:var(--font-size-body);cursor:pointer;transition:background var(--duration-control) var(--ease-feedback),transform .08s}.ds-search:hover{background:var(--color-control-hover)}.ds-search:active{transform:scale(.96)}.ds-search:focus-visible{outline:2px solid var(--color-focus);outline-offset:2px}.ds-kbd{margin-left:var(--space-tight);font-family:inherit;font-size:var(--font-size-micro);font-weight:var(--font-weight-heading);color:var(--color-text);background:var(--color-surface);border:1px solid var(--color-border);border-bottom-width:2px;border-radius:calc(var(--radius-control) - 2px);padding:0 5px;white-space:nowrap}@media (prefers-reduced-motion:reduce){.ds-search{transition:none}}"
     }
   ],
   "narrative": {
-    "northStar": "확정 B/D 업무 화면",
-    "overview": "사용자가 확정한 오늘 B안과 계획 D안의 파랑·회색 Windows 업무 화면을 유지한다. 짙은 왼쪽 메뉴, 밝은 작업 영역, 흰 패널과 파란 선택 상태로 현재 위치와 수행할 일을 드러낸다. 2026-10-09의 로고·캡처·기간·설정 변경은 이 시각 체계 안에서 구현한 확장이다.\n\n이 문서는 `src/style.css`, `src/main.ts`, `src/availability.ts`, `public/logo.svg`와 Tauri 창 설정의 구현을 기록한다. 앞의 토큰은 규범적 값이며 아래 설명은 적용 맥락이다. 별도 시안이나 새로운 시각 체계를 도입하지 않는다.\n\n함께 저장한 `.impeccable/design.json`의 8단계 색상 램프는 패널 미리보기용으로 합성한 것이다. 앱의 새 색상 단계나 규범 토큰을 뜻하지 않는다. 컴포넌트 예시는 외형과 CSS 상태를 재현하며 앱 동작을 실행하지 않는다.",
+    "northStar": "평면 블록, 물리적 움직임",
+    "overview": "BLOKKY의 모든 것은 시간 블록이라는 하나의 사물에서 시작한다. 블록·칩·패널은 단색 면과 1px 선뿐인 평면이고, 두께·광택·그라데이션·글자 그림자로 입체를 흉내 내지 않는다. 물리감은 움직임이 맡는다. 블록은 손에 들리면 그림자로 떠오르고, 이웃은 160ms 안에 비켜 주며, 레일에 밀어 넣으면 걸쇠가 착 물린다. 시간축에서 블록의 높이는 곧 소요시간이고, 블록은 놓일 곳의 형태(주 열, 2주 줄, 월 막대)를 따라 모양을 바꾼다.\n\n화면은 분리망 업무 PC의 차분한 Windows 업무 화면이다. 위 막대 아래 **작업 화면**은 왼쪽 준비 도크(일을 블록으로 가공하는 작업대)와 오른쪽 캘린더(블록을 날짜에 배분하는 시간표)로 이루어지고, **몰입 화면**은 오늘 하루의 시간표와 ‘다음’ 블록만 남긴다. 기본 테마는 파랑 하나와 회색 바탕이며, 사용자는 종이 플래너(G1)·톤 레이어(G3)·사무 장부(G4)를 고를 수 있다. 테마는 역할 토큰의 값만 바꾸고 화면 구조와 블록의 기하는 바꾸지 않는다.\n\n조작은 설명 문구가 아니라 형태가 말한다. 손잡이·레일 홈·천장·눈금·입력 위치가 할 수 있는 일을 보여 주고, 화면에는 이름·상태·오류와 복구만 글로 남는다. 시간이 흘러도 화면은 아무것도 재촉하지 않는다. 현재선은 얇은 회색 선일 뿐이고 지연·남은 시간·초과를 그리지 않는다.\n\n실행 시 디자인 값의 기준은 `src/tokens.css`다. 위 YAML은 기본 테마 값의 기록이며, 선택 테마의 값은 tokens.css가 우선한다. 함께 두는 `.impeccable/design.json`의 8단계 색상 램프는 미리보기용으로 합성한 것이라 앱의 색 단계가 아니고, 컴포넌트 예시는 외형과 CSS 상태만 재현한다. 한 화면 구조(위 막대·준비 도크·몰입)는 브랜치 `exp/one-screen`에서 2026-10-13에 채택했으며 master 병합 전이다.",
     "keyCharacteristics": [
-      "짙은 세로 메뉴와 밝은 작업 영역의 대비.",
-      "얇은 경계선과 흰 패널로 구획하는 평면적 화면.",
-      "파란색으로 주요 실행과 현재 선택을 표시.",
-      "작은 시간·건수 표기와 업무 제목을 함께 읽는 밀도.",
-      "주·2주·월의 정보 밀도를 달리하는 계획 화면."
+      "단색 면과 1px 선의 평면 객체, 그림자는 들린 블록과 대화상자에만.",
+      "시간축에서 높이 = 소요시간(몰입·준비 1.2px/분 기준, 1시간 72px).",
+      "파랑 하나가 다음 블록·주 동작·선택을 맡고, 나머지는 회색 위계.",
+      "근무 외·휴식·넘침은 색이 아니라 무늬(점·사선·점선)와 글자로 함께 구별.",
+      "160ms 감속 전환, 지연 없이 손을 따르는 블록, 동작 줄이기에서는 즉시 전환."
     ],
     "rules": [
       {
+        "name": "The One Blue Rule",
+        "body": "넓은 파랑 면은 ‘다음’ 블록과 화면의 주 동작 하나뿐이다. 위 막대에서 action 색 버튼은 ‘몰입’ 하나다.",
+        "section": "colors"
+      },
+      {
+        "name": "The Color-Plus-Form Rule",
+        "body": "선택·완료·고정·근무 외·오류는 색만으로 구별하지 않는다. 글자(‘다음’, ‘근무 외 2h’), 무늬(점·사선), 형태(걸쇠, 취소선, 점선)를 함께 쓴다.",
+        "section": "colors"
+      },
+      {
+        "name": "The Role Token Rule",
+        "body": "컴포넌트는 역할 토큰과 그 `color-mix`만 쓰고 테마를 선택자로 고르지 않는다. 테마별 차이는 tokens.css의 값으로만 만든다.",
+        "section": "colors"
+      },
+      {
+        "name": "The 11px Floor Rule",
+        "body": "11px보다 작은 글자는 쓰지 않는다. 얇은 블록은 글자를 줄이는 대신 체크를 숨기고 제목과 길이만 남긴다.",
+        "section": "typography"
+      },
+      {
+        "name": "The Tabular Time Rule",
+        "body": "시각·길이·배분 수치는 tabular-nums다. 길이는 ‘1시간 30분’, 배분은 ‘7.75 / 8h’ 형식이다. 날짜 입력은 OS 입력을 쓰고 근무 시각은 HH:MM 표기와 시작·종료 조절로 드러낸다.",
+        "section": "typography"
+      },
+      {
+        "name": "The Same Height Rule",
+        "body": "같은 줄에 선 날짜 머리들은 무엇이 붙거나 빠져도 높이가 같다. 든 블록 아래 시간축이 손 밑에서 밀리면 안 된다.",
+        "section": "layout"
+      },
+      {
         "name": "The Flat Surface Rule",
-        "body": "일반 패널에 모달 그림자를 적용하지 않는다.",
+        "body": "일반 패널과 카드에 대화상자 그림자를 쓰지 않는다.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Lift Rule",
+        "body": "블록의 그림자는 들려 있는 동안만 있다. 놓이면 그림자와 함께 평면으로 돌아가고, 반동·찌그러짐을 남기지 않는다.",
         "section": "elevation"
       }
     ],
     "dos": [
-      "**Do** 확정 B/D의 파랑·회색 체계와 기존 글꼴·반경을 유지한다.",
-      "**Do** 선택·완료·금지시간·오류를 색과 글자 또는 형태로 함께 구분한다.",
-      "**Do** 주·2주·월 각각의 시간·제목·작업량 정보 우선순위를 유지한다.",
-      "**Do** 주요 조작의 키보드 포커스와 11px 이상의 글자 크기를 유지한다.",
-      "**Do** 미배치 작업을 사용자 화면에서 ‘보관함’으로 표기한다."
+      "**Do** 블록을 단색 면과 1px 선으로 그리고, 물리감은 160ms 감속과 들림 그림자 같은 움직임으로 낸다.",
+      "**Do** 시간축에서 블록 높이를 소요시간에 맞추고(1.2px/분, 준비 72px/시간), 길이는 15분 단위로 스냅한다.",
+      "**Do** 선택·완료·고정·근무 외·오류를 색과 글자·무늬·형태로 함께 구별한다.",
+      "**Do** 역할 토큰과 `color-mix`만 쓰고 네 테마에서 본문 4.5:1, 조작 단서 3:1을 확인한다.",
+      "**Do** 모든 동작을 키보드로 끝낼 수 있게 하고, 요소가 사라져도 포커스를 가까운 같은 자리로 옮긴다.",
+      "**Do** 날짜 없는 일을 ‘준비’로, 그 안을 들어옴·선반으로 표기한다."
     ],
     "donts": [
-      "**Don't** 사용자 확인 없이 새로운 브랜드 스타일로 교체한다.",
-      "**Don't** 평면 패널에 모달용 그림자를 적용한다.",
-      "**Don't** 제거한 4주 모드·상단 캡처·레일 캡처를 다시 추가한다.",
-      "**Don't** 저장 실패·로딩 실패를 정상 빈 상태나 저장 성공으로 보이게 한다.",
-      "**Don't** 설정 충돌을 사용자의 보관함 이동 동의 없이 처리한다."
+      "**Don't** 그라데이션·광택·두께·글자 그림자로 블록이나 패널을 입체로 꾸미지 않는다(빠른 캡처 창의 재질만 예외).",
+      "**Don't** 클릭·끌기·저장·닫기를 풀이하는 상시 안내 문구, 테마 소개, 빈 목록의 ‘0건’을 두지 않는다.",
+      "**Don't** 시계 기준의 지연·남은 시간·초과·카운트다운을 그리지 않는다. 현재선은 아무것도 바꾸지 않는다.",
+      "**Don't** 도크 폭이나 블록 길이를 사용자의 명시적 조작 없이 바꾸지 않는다.",
+      "**Don't** 일반 패널에 대화상자 그림자를 쓰거나, 놓인 블록에 반동·찌그러짐을 남기지 않는다.",
+      "**Don't** transform scale로 블록 글자를 늘이거나, 테마 선택자로 컴포넌트를 복제하지 않는다.",
+      "**Don't** 없앤 레일·탭·4주 모드·상단 캡처를 다시 들이지 않는다."
     ]
   }
 }

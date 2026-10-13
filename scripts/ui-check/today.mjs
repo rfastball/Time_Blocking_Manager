@@ -1,17 +1,20 @@
 import assert from 'node:assert/strict';
+import {toFocus} from './support/nav.mjs';
 
 // Preview data: §10 example (A 60, B 45, C 30, D 60 flow; workshop 14:00 fixed; E 90, F 120) at 10:20.
 const space='.today-day .space';
+// The app opens on the work screen; these scenarios run on the focus screen (the former 오늘).
+const go=async(page,viewport)=>{await page.goto('/?now=10:20',viewport);await toFocus(page);};
 const find=async(page,text)=>{
   await page.js(`(()=>{const el=[...document.querySelectorAll('.today-day .blk, .tray .tblk')].find(e=>e.textContent.includes(${JSON.stringify(text)}));el?.scrollIntoView({block:'nearest'});})()`);
   return page.rect('.today-day .blk, .tray .tblk',text);
 };
-export default [
+const scenarios=[
   {name:'panel splitter captures pointer input, clamps widths, persists, resets and stacks narrowly',viewport:{width:1440,height:900},run:async page=>{
     const storage='blokky.panel.today',saved=await page.js(`localStorage.getItem('${storage}')`);
     const separator='.today-cols>.panel-separator',width=()=>page.js(`document.querySelector('.today-day').getBoundingClientRect().width`);
     try{
-      await page.js(`localStorage.removeItem('${storage}')`);await page.goto('/?now=10:20',{width:1440,height:900});
+      await page.js(`localStorage.removeItem('${storage}')`);await go(page,{width:1440,height:900});
       const initial=await width(),blocks=await page.blocks(space);
       await page.js(`document.querySelector('${separator}').focus()`);await page.key('ArrowRight');
       assert.ok(await width()>initial+14,'keyboard resizing changes the panel by a visible step');
@@ -27,18 +30,18 @@ export default [
       assert.deepEqual(await page.blocks(space),blocks,'resizing preserves timetable contents');
       assert.equal(await page.js(`document.querySelector('.today-cols').hasAttribute('data-panel-dragging')`),false,'release removes the resizing state');
       const stored=await page.js(`localStorage.getItem('${storage}')`);
-      await page.goto('/?now=10:20',{width:1440,height:900});
+      await go(page,{width:1440,height:900});
       assert.ok(Math.abs(await width()-280)<=1,'a reload restores the device preference');
-      await page.goto('/?now=10:20',{width:720,height:900});
+      await go(page,{width:720,height:900});
       assert.equal(await page.js(`getComputedStyle(document.querySelector('${separator}')).display`),'none');
       const day=await page.rect('.today-day'),flow=await page.rect('.today-flow');
       assert.ok(flow.y>=day.y+day.h,'the narrow view stacks the content');
       assert.equal(await page.js(`localStorage.getItem('${storage}')`),stored,'stacking does not overwrite the desktop ratio');
-      await page.goto('/?now=10:20',{width:1440,height:900});
+      await go(page,{width:1440,height:900});
       await page.js(`document.querySelector('${separator}').dispatchEvent(new MouseEvent('dblclick',{bubbles:true}))`);
       assert.ok(Math.abs(await width()-initial)<=1,'double click restores the default width');
       assert.equal(await page.js(`localStorage.getItem('${storage}')`),null);
-      await page.js(`localStorage.setItem('${storage}','invalid')`);await page.goto('/?now=10:20',{width:1440,height:900});
+      await page.js(`localStorage.setItem('${storage}','invalid')`);await go(page,{width:1440,height:900});
       assert.ok(Math.abs(await width()-initial)<=1,'invalid saved values fall back to the default');
       await page.shot('today-panel-splitter');
     }finally{await page.js(`(()=>{const stored=${JSON.stringify(saved)};if(stored===null)localStorage.removeItem('${storage}');else localStorage.setItem('${storage}',stored);})()`);}
@@ -46,7 +49,7 @@ export default [
   {name:'many completed blocks keep a bounded intake and the last edit and undo accessible',viewport:{width:1440,height:900},run:async page=>{
     const sizes=[];
     for(const viewport of [{width:1440,height:900},{width:960,height:640},{width:760,height:640},{width:720,height:900}]){
-      await page.goto('/?now=10:20',viewport);
+      await go(page,viewport);
       await page.js(`(async()=>{const {getState,setState}=await import('/src/app/store/state.ts');const s=getState(),done=Array.from({length:40},(_,i)=>({id:'completed-'+i,title:'완료 '+(i+1)+' · '+('긴 제목 검토 내용 ').repeat(i%3===0?12:2),body:'완료 메모 '+(i+1),starts_at:null,duration:15,completed:true,revision:1,plan_date:s.today,flow_order:100+i}));setState({snapshot:{...s.snapshot,tasks:[...s.snapshot.tasks,...done]}});})()`);
       await page.sleep(450);
       const size=await page.js(`(()=>{const day=document.querySelector('.today-day'),bin=day.querySelector('.bin'),wrap=day.querySelector('.space-wrap'),r=day.getBoundingClientRect();return {day:day.clientHeight,bottom:r.bottom,bin:bin.clientHeight,binScroll:bin.scrollHeight,timetable:wrap.clientHeight,width:document.documentElement.scrollWidth,viewport:innerWidth};})()`);
@@ -193,7 +196,7 @@ export default [
     assert.match(await page.js(`document.activeElement?.getAttribute('aria-label')`),/신규 입사자 교육 자료, 예상 18:00–19:30/,'Alt+Down keeps focus on the reordered block');
     const focused=await page.rect(space+' [data-task="sample-e"]'),scrollport=await page.rect('.today-day .space-wrap');
     assert.ok(focused.y>=scrollport.y&&focused.y+focused.h<=scrollport.y+scrollport.h,'the focused block stays visible after its reorder motion');
-    await page.goto('/?now=10:20',{width:760,height:640});
+    await go(page,{width:760,height:640});
     const narrowDay=await page.rect('.today-day'),narrowFlow=await page.rect('.today-flow');
     assert.ok(narrowFlow.y>=narrowDay.y+narrowDay.h,'the fallback keeps the same DOM order in one column');
     await page.js(`document.querySelector('.ed-next-open').focus()`);await page.key('Enter',{text:'\r'});await page.sleep(200);
@@ -201,3 +204,4 @@ export default [
     await page.key('Escape');
   }},
 ];
+export default scenarios.map(s=>({...s,run:async page=>{await toFocus(page);await s.run(page);}}));

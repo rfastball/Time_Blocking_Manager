@@ -1,4 +1,4 @@
-/* Plan: week of spaces, 2주/월 calendars, 미계획 drawer. Flat surfaces on role tokens. */
+/* Plan: the calendar half of the work screen — week of spaces, 2주/월 calendars. Flat surfaces on role tokens. */
 .plan{display:flex;flex-direction:column;gap:12px}
 .plan-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
 .plan-bar .grow{flex:1}
@@ -7,19 +7,9 @@
 .segmented button{min-width:48px;height:calc(var(--control-height) - 6px);border:0;border-radius:calc(var(--radius-control) - 2px);background:transparent;cursor:pointer;font-weight:600;color:var(--color-text-muted);transition:background .1s,color .1s}
 .segmented button:hover{background:var(--color-control-hover)}
 .segmented button[aria-checked=true]{background:var(--color-action);color:var(--color-on-action)}
-.btn.drawer-toggle.on{background:var(--color-selection);border-color:var(--color-selection-border)}
-.drawer-toggle .cnt{margin-left:2px}
 
 .plan-desk{display:grid;grid-template-columns:minmax(0,1fr);align-items:start}
-.plan-desk.with-drawer{grid-template-columns:minmax(280px,var(--drawer-first)) 16px minmax(280px,var(--drawer-second))}
-.plan-desk[data-panel-stacked=true]{grid-template-columns:minmax(0,1fr);gap:16px}
-.plan-desk[data-panel-stacked=true] .plan-drawer{position:relative;top:0;max-height:none}
 .plan-main{min-width:0}
-.plan-drawer{position:sticky;top:12px;max-height:calc(100vh - 150px);overflow:auto;border-radius:var(--radius-panel)}
-.plan-drawer[hidden]{display:none}
-.plan-drawer .tray{padding:14px}
-.plan-drawer .tray h2{padding-right:36px}
-.ibtn.drawer-close{position:absolute;top:8px;right:8px;width:30px;height:30px;min-height:30px;border-color:transparent;background:transparent}
 
 /* 주 */
 .card.wk{--wk-bin:44px;padding:0;overflow:hidden}
@@ -31,11 +21,20 @@
 .wk-head{position:sticky;top:0;z-index:30;background:var(--color-panel);border-left:1px solid var(--color-divider);border-bottom:1px solid var(--color-divider);transition:background .15s}
 .wk-date{width:100%;height:100%;border:0;background:transparent;text-align:left;padding:8px 8px 9px;display:flex;flex-direction:column;gap:6px;cursor:pointer;color:inherit}
 .wk-date:hover{background:var(--color-control-hover)}
+.wk-date:focus-visible{outline-offset:-2px}
 .wk-day{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 6px;min-height:22px}
 .wk-day small{font-size:12px;color:var(--color-text-muted)}
 .wk-day strong{font-size:17px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.1}
 .wk-day .pill,.cal-date .pill{align-self:center;font-size:11px;padding:1px 7px}
 .wk-alloc{display:flex;flex-wrap:wrap;gap:0 6px;font-size:11px;line-height:1.3;color:var(--color-text-muted);font-variant-numeric:tabular-nums}
+/* Today's planned end always takes its own line, so the head's height does not change as the end moves. */
+.wk-end{flex-basis:100%}
+/* The fix sits at the end of the bar whose overflow it answers, outside the head's own button.
+   It takes the bar's room, never a line of its own, so the head keeps its height when the fix comes and goes. */
+.wk-head{anchor-scope:--wk-meter}
+.wk-date .pm{anchor-name:--wk-meter}
+.wk-head:has(.wk-return) .wk-date .pm{width:calc(100% - 52px)}
+.wk-return{position:absolute;position-anchor:--wk-meter;top:anchor(center);right:4px;translate:0 -50%;min-height:24px;height:24px;padding:0 6px;font-size:11.5px}
 .wk-head.today strong,.cal-cell.today .cal-date strong{color:var(--color-calendar-today)}
 .wk-head.past{background:color-mix(in srgb,var(--color-text-muted) 6%,var(--color-panel))}
 .wk-head.past .pm{opacity:.65}
@@ -62,7 +61,7 @@
 /* 일: the week as a strip of date heads, the chosen day's space below. */
 .dv{display:flex;flex-direction:column;gap:12px}
 .card.dv-strip{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));padding:0;overflow:hidden}
-.dv-strip .wk-head{position:static;border-bottom:0}
+.dv-strip .wk-head{position:relative;border-bottom:0}
 .dv-strip .wk-head:first-child{border-left:0}
 .card.dv-day{padding:0;overflow:hidden;min-width:0}
 .dv-day .plan-day-head .anchor{margin-left:6px}
@@ -118,24 +117,18 @@
 .pm-fixed{background:color-mix(in srgb,var(--color-structure) 75%,var(--color-surface))}
 .pm-over{position:absolute;top:0;bottom:0;right:0;border-left:1.5px solid var(--color-text);background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--color-surface) 75%,transparent) 0 2px,transparent 2px 4px)}
 
-/* Narrow 2주·월: 미계획 moves under the calendar, beside the date panel, instead of squeezing a third column. */
-@media (max-width:1100px){
-  .plan-desk:not(.week),.plan-desk.with-drawer:not(.week){grid-template-columns:minmax(280px,var(--calendar-first)) 16px minmax(280px,var(--calendar-second));grid-template-rows:auto 1fr;grid-template-areas:"cal split day" "tray split day";row-gap:16px}
-  .plan-desk:not(.week) .plan-main,.plan-desk:not(.week) .cal-layout{display:contents}
-  .plan-desk:not(.week)>.panel-separator{display:none}
-  .plan-desk:not(.week) .cal-layout>.panel-separator{grid-area:split}
-  .plan-desk:not(.week) .cal{grid-area:cal}
-  .plan-desk:not(.week) .plan-day{grid-area:day}
-  .plan-desk:not(.week) .plan-drawer{grid-area:tray;position:relative;top:0;max-height:none}
-  .plan-desk:not(.week) .plan-drawer .well{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));min-height:180px;align-content:start}
-}
-.plan-desk[data-panel-stacked=true]:not(.week){grid-template-columns:minmax(0,1fr);grid-template-rows:none;grid-template-areas:"cal" "day" "tray"}
-.plan-desk[data-panel-stacked=true]:not(.week) .cal-layout>.panel-separator{display:none}
 @media (max-width:760px){
-  .plan-desk.with-drawer,.cal-layout{grid-template-columns:minmax(0,1fr)}
-  .plan-desk,.cal-layout{gap:16px}
-  .plan-desk:not(.week),.plan-desk.with-drawer:not(.week){grid-template-columns:minmax(0,1fr);grid-template-rows:none;grid-template-areas:"cal" "day" "tray"}
-  .plan-drawer{position:relative;top:0;max-height:none}
+  .cal-layout{grid-template-columns:minmax(0,1fr);gap:16px}
+  /* A touch-sized fix does not fit beside the bar: it takes the foot of the head instead. */
+  .wk-head:has(.wk-return){display:flex;flex-direction:column;gap:0}
+  .wk-head:has(.wk-return) .wk-date{flex:1 0 auto;height:auto}
+  .wk-head:has(.wk-return) .wk-date .pm{width:100%}
+  .wk-return{position:static;translate:none;align-self:stretch;justify-content:flex-start;min-height:44px;height:44px;margin-top:-9px}
+  /* The day panel below states the chosen day's 근무 외; a strip head keeps its date, pill and counts unbroken. */
+  .dv-strip .alloc-out{display:none}
+  .dv-strip .wk-day .pill{white-space:nowrap;padding:1px 4px}
+  .cal-date{flex:1 1 auto;min-width:0;min-height:44px}
+  .cal-sum .alloc-out{white-space:normal}
 }
 @media (max-width:680px){
   .cal-grid.two{grid-auto-rows:minmax(160px,auto)}

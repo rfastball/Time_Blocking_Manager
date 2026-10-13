@@ -80,7 +80,7 @@ function DatePanel({date}:{date:string}){
   return <section id="calendar-day" className="card plan-day" aria-label={`${dateLabel(date)} 블록 공간`}>
     <header className="plan-day-head">
       <h2><button type="button" className="plan-day-link" onClick={()=>openDay(date)}>{dateLabel(date)}</button></h2>{tag&&<span className="tag-chip">{tag}</span>}
-      <span className="plan-day-alloc" aria-label={allocationLabel(a)}><Meter a={a}/><span aria-hidden="true">{allocationShort(a)}</span><Outside a={a}/></span>
+      <span className="plan-day-alloc"><span className="sr-only">{allocationLabel(a)}</span><Meter a={a}/><span aria-hidden="true">{allocationShort(a)}</span><Outside a={a}/></span>
     </header>
     <DaySpace date={date} axis={axis} variant="day" bin onOpen={t=>openEditor(t.id,'dialog')} {...nb}/>
   </section>;

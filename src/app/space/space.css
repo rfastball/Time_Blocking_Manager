@@ -33,8 +33,9 @@
 .space{position:relative;overflow:hidden;background:var(--color-surface);touch-action:pan-x pan-y;user-select:none}
 .ruler{position:absolute;left:0;top:0;bottom:0}
 .ruler span{position:absolute;left:14px;transform:translateY(-50%);font-size:11px;font-weight:600;color:var(--color-text-muted);opacity:.8;font-variant-numeric:tabular-nums}
-.rail{position:absolute;top:0;bottom:0;background:var(--sp-rail);border-left:1px solid var(--color-divider);border-right:1px solid var(--color-divider);transition:background .15s}
-.rail::before{content:"";position:absolute;left:calc(50% - 2px);top:0;bottom:0;width:4px;border-radius:2px;background:var(--sp-groove);transition:background .15s,width .15s,left .15s}
+/* Rail and hour lines stay over the after-hours band, which comes after the blocks for keyboard order. */
+.rail{position:absolute;z-index:1;top:0;bottom:0;background:var(--sp-rail);border-left:1px solid var(--color-divider);border-right:1px solid var(--color-divider);transition:background .15s}
+.rail::before{content:"";position:absolute;left:calc(50% - 2px);top:0;bottom:0;width:4px;border-radius:2px;background:var(--sp-groove);transition:background .15s}
 .column .rail::before{width:3px;left:calc(50% - 1.5px)}
 /* While a block is held every rail only hints that it is there; the one it latches to lights up. */
 .space.armed .rail::before{background:color-mix(in srgb,var(--color-action) 35%,var(--sp-groove))}
@@ -45,7 +46,7 @@
 /* Sits just above the anchor, so the first flow block hangs 1px under it. Below blocks: a fixed block crossing the anchor covers it. */
 .ceiling{position:absolute;right:0;height:3px;margin-top:-3px;border-radius:0 2px 2px 0;background:var(--color-structure);z-index:1;pointer-events:none}
 .column .ceiling{height:2px;margin-top:-2px}
-.hl{position:absolute;right:0;height:1px;background:var(--color-divider);opacity:.6;pointer-events:none}
+.hl{position:absolute;z-index:1;right:0;height:1px;background:var(--color-divider);opacity:.6;pointer-events:none}
 /* Scoped to the space: `.off` also marks days off on week columns and calendar cells. */
 .space>.off{position:absolute;right:0;border:0;padding:0;background:radial-gradient(circle,color-mix(in srgb,var(--color-text-muted) 28%,transparent) .8px,transparent 1px) 0 0/7px 7px,var(--color-unavailable-soft);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--color-text-muted);font-size:12px}
 .space>.off:hover{background:color-mix(in srgb,var(--color-unavailable) 70%,var(--color-surface))}
@@ -152,6 +153,7 @@
 .tray h2{margin:0 0 10px;font-size:15px;font-weight:600;display:flex;align-items:center;gap:8px}
 .tray h3{margin:14px 0 8px;font-size:12.5px;font-weight:600;color:var(--color-text-muted);display:flex;gap:6px;align-items:center}
 .capture-line{width:100%;height:38px;border:1px solid var(--color-control-border);border-radius:var(--radius-control);padding:0 11px;font:inherit;margin-bottom:12px;background:var(--color-input);color:var(--color-text)}
+.capture-line::placeholder{color:var(--color-text-muted);opacity:1}
 .well{background:var(--sp-well);border-radius:var(--radius-panel);padding:8px;display:flex;flex-direction:column;gap:5px;min-height:40px;transition:background .2s}
 .tray.hot .well{background:var(--color-text-selection)}
 /* An empty tray shows no box at rest; it opens as a landing area only while a block is held over it. */

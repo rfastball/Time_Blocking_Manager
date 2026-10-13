@@ -14,5 +14,7 @@ export function menuKeys(e:ReactKeyboardEvent<HTMLElement>,close:()=>void){
 export {openCut as requestSplit} from '../store/cut.ts';
 // The block's own button, where focus returns after a menu or chooser closes.
 export const blockButton=(id:string,prefer?:Element|null)=>prefer instanceof HTMLElement&&prefer.isConnected&&prefer.dataset.task===id?prefer:document.querySelector<HTMLElement>(`[data-task="${CSS.escape(id)}"]`);
+// 오늘 opens detail in its side panel; the single-column fallback (≤760px) opens it over the timetable.
+export const editorModeHere=():'panel'|'dialog'=>matchMedia('(max-width:760px)').matches?'dialog':'panel';
 // Keeps a floating box inside the viewport with an 8px margin.
 export function clamp(x:number,y:number,w:number,h:number){return {left:Math.max(8,Math.min(x,innerWidth-w-8)),top:Math.max(8,Math.min(y,innerHeight-h-8))};}

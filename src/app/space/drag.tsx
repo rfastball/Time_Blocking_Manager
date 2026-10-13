@@ -7,7 +7,7 @@ import {insertionBefore} from '../../flow.ts';
 import {placementIssue,resistWorkingBoundary} from '../../placement.ts';
 import {createTimeAxis,timeAxisForDays,type TimeAxis} from '../../time-axis.ts';
 import type {DayLayout,Task} from '../../types.ts';
-import {formatDuration} from '../../format.ts';
+import {formatDuration,quotedObject} from '../../format.ts';
 import {dateOf,time} from '../../dates.ts';
 import {getState,setUi,useApp} from '../store/state.ts';
 import {dayRule,drop,setGesture} from '../store/tasks.ts';
@@ -91,7 +91,7 @@ export function DragProvider({children}:{children:ReactNode}){
   const heldRef=useRef(held);heldRef.current=held;
   // dnd-kit's own English hints and ids are replaced: blocks are lifted by pointer only, and results are announced by the app.
   const accessibility=useMemo(()=>({screenReaderInstructions:{draggable:''},announcements:{
-    onDragStart:({active}:{active:Active})=>{const id=String(active.data.current?.taskId??active.id),t=getState().snapshot?.tasks.find(x=>x.id===id);return t?`‘${t.title}’을 들었어요`:undefined;},
+    onDragStart:({active}:{active:Active})=>{const id=String(active.data.current?.taskId??active.id),t=getState().snapshot?.tasks.find(x=>x.id===id);return t?`${quotedObject(t.title)} 들었어요`:undefined;},
     onDragOver:()=>undefined,onDragMove:()=>undefined,onDragCancel:()=>'',
     onDragEnd:()=>{
       const i=heldRef.current?.intent,s=getState().snapshot;if(i&&!i.ok&&i.reason)return i.reason;

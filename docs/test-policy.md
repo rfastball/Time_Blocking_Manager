@@ -1,5 +1,50 @@
 # 검증 범위
 
+## 한 화면 실험 다듬기: 섹션별 audit·polish (2026-10-13, `exp/one-screen`)
+
+- Unique risk: 섹션 7곳(위 막대, 준비 도크, 캘린더, 몰입, 옆 편집기, 단축키, 설정·검색)의 접근성·반응형·테마 결함. 특히 ‘준비로’가 118px 열에서 ‘오늘’을 덮고 일 보기에서 톱니 위로 빠지던 것, 모든 편집 대화상자·도마·단축키 목록이 닫힌 뒤 포커스를 잃던 것(StrictMode 이중 연결과 모달 중 포커스 실패), G3에서 검색 선택 행·판 손잡이·보조 버튼이 보이지 않던 것, 한 글자 단축키를 끌 수 없던 것(WCAG 2.1.4).
+- Existing owner / selected layer: 섹션별 감사 7개(렌더 측정)와 수정 5묶음. 기존 시나리오 파일에 단언을 더했다: 포커스 복귀(편집기·도마·목록·‘준비로’·검색·기간 키), 머리 겹침과 높이, 막대 한 줄·랜드마크, 도크 위치·단일 스크롤, 설정 그림판 한 탭 정지. 조사 선택은 Node(`format.test.ts`)가 덮는다.
+- 바꾼 단언: keys(설정의 Esc가 이제 작업 화면으로), shell(넓히기 버튼의 `aria-pressed` 없음), editor(삭제 알림 조사 ‘을’→‘를’), search(위 막대 순서를 `.bar-end` 묶음까지 읽음). 시나리오의 상점 import는 HMR 뒤 다른 모듈 인스턴스를 받을 수 있어, 최종 검사는 개발 서버를 새로 띄운 뒤 돌렸다.
+- Added / extended / removed: Node **2 / 0 / 0**(71→73), 전체 UI **104/104**(92→104), `npm run build`·`tsc --noEmit` 통과, Rust 변경 없음.
+- 남김: 입력란 경계 3:1(`--color-input-border` 토큰만 추가, 편집기 제목에만 적용)은 앱 전체 모양이 바뀌어 결정 대기. 실제 Windows 설치본·IME·실제 터치는 미검증이다. ‘준비로’ 자리는 CSS anchor positioning(Chromium 131+)에 기댄다.
+
+## 한 화면 실험 5단계: 블록 옆 편집기 (2026-10-13, `exp/one-screen`)
+
+- Unique risk: 편집기 위치를 바꾸며 닫기 확인·초안·충돌 흐름을 건드리는 것, 편집기가 블록을 가리거나 창 밖으로 나가는 것, 캘린더가 밀리는 것.
+- Existing owner / selected layer: 편집 흐름은 기존 `editor.mjs` 12개가 그대로 덮는다(대화상자 자체는 그대로). 새 `scripts/ui-check/beside.mjs`는 주 블록과 좁은 도크 카드에서 옆에 놓이는지, 블록과 겹치지 않는지, 창 안에 있는지, 캘린더 위치가 그대로인지, 키보드로 열어도 같은지, 720px에서는 가운데인지를 확인한다.
+- 탐침 결과: 주 블록에서 편집기를 닫은 뒤 포커스가 body로 가는 것은 위치 지정을 끈 가운데 대화상자에서도 같아, 기존 문제로 기록하고 이 단계의 단언에서는 뺐다.
+- Added / extended / removed: UI beside **2 / 0 / 0**, 전체 UI **92/92**, Node **71/71**, `npm run build` 통과, Rust 변경 없음.
+- 기본 suite 변화 **0**. Runtime delta **not measured**. 실제 Windows 설치본은 미검증이다.
+
+## 한 화면 실험 4단계: 근무 외 옆 ‘준비로’, 예상 끝 (2026-10-13, `exp/one-screen`)
+
+- Unique risk: 넘침 해결이 고정 예약이나 지난 날짜를 건드리는 것, 넘친 블록의 순서를 잃는 것, 예상 끝 표시가 시계에 따라 움직여 지연 표시가 되는 것, 날짜 머리 높이가 바뀌어 든 블록 아래 시간축이 밀리는 것.
+- Existing owner / selected layer: 새 `scripts/ui-check/overflow.mjs`(오늘 머리의 ‘준비로’ → 선반 맨 위·고정 유지·경고 사라짐, 지난 날짜 없음, 몰입의 예상 끝이 10:20과 17:40에 같음). 기존 plan ‘working lips’ 시나리오가 처음 구현의 머리 높이 변화(끝 시각이 줄바꿈을 바꿔 첫 놓기 뒤 축이 밀림)를 잡았다. 끝 시각은 저장된 하루 기준으로 계산하고 늘 한 줄을 차지한다.
+- Added / extended / removed: UI overflow **2 / 0 / 0**, 전체 UI **90/90**, Node **71/71**, `npm run build` 통과, Rust 변경 없음. 저장은 기존 선반 놓기 명령(`moveTo`)을 그대로 쓴다.
+- 기본 suite 변화 **0**. Runtime delta **not measured**. 실제 Windows 설치본은 미검증이다.
+
+## 한 화면 실험 3단계: 몰입의 ‘다음’ 카드 (2026-10-13, `exp/one-screen`)
+
+- Unique risk: 몰입 화면이 시계 기준의 현재 블록·남은 시간·초과를 보여 ‘지연 표시 없음’ 원칙을 깨는 것, 완료·미루기 뒤 키보드가 사라지는 것, 끝난 날에 준비 칸이 맨 위로 오던 규칙을 새 표시가 밀어내는 것.
+- Existing owner / selected layer: 새 `scripts/ui-check/focus.mjs`가 다룬다. 같은 블록이 17:50에도 ‘다음’이고 카드에 남음·초과·지연 글자가 없음, +15분 저장, 나중에 → 선반 맨 위와 포커스, 완료 연쇄와 ‘오늘 끝’을 확인한다. 기존 `today.mjs`의 ‘빈 주 그룹이면 담기가 실행 흐름 맨 위’ 단언이 처음 시도한 ‘오늘 끝’ 카드의 규칙 위반을 잡았고, 표시를 배분 막대 옆으로 옮겼다.
+- Added / extended / removed: UI focus **3 / 0 / 0**, 전체 UI **88/88**, Node **71/71**, `npm run build` 통과, Rust 변경 없음.
+- 기본 suite 변화 **0**. Runtime delta **not measured**. 실제 Windows 설치본은 미검증이다.
+
+## 한 화면 실험 2단계: 단축키 (2026-10-13, `exp/one-screen`)
+
+- Unique risk: 한 글자 단축키가 입력란·한글 조합·대화상자·검색·도마·옆 편집기의 키를 빼앗는 것, 도크 폭을 키로 바꿀 때 포커스가 사라지는 것.
+- Existing owner / selected layer: 키 판정은 순수 함수 `src/shortcuts.ts`로 두고 Node 테스트로 화면·가드 조합을 덮는다. 실제 포커스·대화상자·한글 자판 위치는 새 `scripts/ui-check/keys.mjs`가 덮는다.
+- Added / extended / removed: Node **5 / 0 / 0**(66→71), UI keys **5 / 0 / 0**, search 위 막대 순서 단언 **0 / 1 / 0**(? 버튼). 전체 UI **85/85**, `npm run build` 통과, Rust 변경 없음.
+- 기본 suite 변화 **0**. Runtime delta **not measured**. 실제 Windows IME와 설치본은 미검증이다.
+
+## 한 화면 실험 1단계: 위 막대·준비 도크 (2026-10-13, `exp/one-screen`)
+
+- Unique risk: 탭을 없애며 한 탭에만 있던 동작(준비 작업대·휴지통·도마 바로 열기·오늘 대기열·검색 이동)을 잃는 것, 도크 폭 전환에서 포커스가 사라지는 것, 붙은 위 막대가 스크롤된 대상을 가리는 것.
+- Existing owner / selected layer: 기존 `scripts/ui-check/*`의 탭 이동만 새 조작(위 막대·도크 버튼)으로 바꾸고 단언 의도는 유지했다. 공용 이동 도우미 `scripts/ui-check/support/nav.mjs`를 두고, 시나리오마다 필요한 도크 상태를 직접 맞춘다(한 실행이 한 브라우저 프로필을 쓰므로 `blokky.dock`이 남는다). 탭 순서·레일 배지·드로어 폭 기억·날짜 기둥 단언은 계획의 ‘일부러 바꾸는 것’에 따라 같은 무게의 새 동작 단언으로 바꿨다.
+- Added / extended / removed: shell **4 / 0 / 0**(시작 화면, 도크 세 폭과 새로 고침 유지, 몰입 왕복, 설정 왕복), inbox·plan·search 단언 **65→72·110→114·27→30**, 다른 파일 단언 수 동일, 시나리오 **76→80**. 전체 UI **80/80**, Node **66/66**, `npm run build` 통과, Rust 변경 없음.
+- 이식 중 찾은 회귀 3건을 고쳤다: 도크 접기·펴기 포커스 소실, 선반 전체를 날짜 위로 들 때 첫 블록만 미리 보임(주 기둥이 묶음 전체를 빈 자리로 그리도록), `.app-shell:has(.today)`가 2주 달력의 오늘 칸에도 걸려 작업 화면이 고정 높이로 안쪽 스크롤되던 문제(오늘 화면 자체로 범위를 좁힘).
+- 기본 suite 변화 **0**. Runtime delta **not measured**. 실제 Windows 설치본은 미검증이다.
+
 ## 준비 후속: 선반 재드래그·천장 손잡이·방금 완료·블록 메뉴 감사 (2026-10-12)
 
 - Unique risk: 들어옴→선반으로 옮긴 카드가 다시 들리지 않는 등록 소실(같은 드래그 식별자를 두 목록이 공유), 천장으로 선반 전체를 옮길 때 순서 손실, 방금 완료의 되돌리기가 원래 자리를 잃는 문제, 메뉴가 자리에 맞지 않는 항목을 보이는 문제.

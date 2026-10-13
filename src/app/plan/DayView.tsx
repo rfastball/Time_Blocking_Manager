@@ -22,7 +22,7 @@ export function DayView({dates}:{dates:string[]}){
     <section className="card dv-day" aria-label={`${dateLabel(date)} 블록 공간`}>
       <header className="plan-day-head">
         <h2>{dateLabel(date)}</h2>{tag&&<span className="tag-chip">{tag}</span>}
-        <span className="plan-day-alloc" aria-label={allocationLabel(a)}><Meter a={a}/><span aria-hidden="true">{allocationShort(a)}</span><Outside a={a}/></span>
+        <span className="plan-day-alloc"><span className="sr-only">{allocationLabel(a)}</span><Meter a={a}/><span aria-hidden="true">{allocationShort(a)}</span><Outside a={a}/></span>
         {date===today&&flows&&<><span className="anchor">{time(anchor)} 기준</span>
           <button type="button" className="btn" onClick={()=>void reflowToday()}><Icon name="reflow" size={15}/>재배치</button></>}
       </header>

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
+import {toBench,toFocus,toPlan} from './support/nav.mjs';
 
-// Preview data at 10:20: A 60 (checklist), B 45 (memo + checklist), C 30, D 60 flow; workshop fixed 14:00; E 90; F 120 unplaced.
+// Runs on the focus screen (the former 오늘), entered with 몰입. Preview data at 10:20: A 60 (checklist), B 45 (memo + checklist), C 30, D 60 flow; workshop fixed 14:00; E 90; F 120 unplaced.
 const space='.today-day .space',panel=".today-main [aria-label='블록 상세']";
 const CTRL=2,SHIFT=8;
 const value=(page,selector)=>page.js(`document.querySelector(${JSON.stringify(selector)})?.value??null`);
@@ -105,7 +106,7 @@ const scenarios=[
     assert.deepEqual(await emptyMenu(space),['근무시간 조정']);
     await page.mouse('mouseMoved',5,5,0);await page.mouse('mousePressed',5,5);await page.mouse('mouseReleased',5,5,0);await page.sleep(150);
     assert.equal(await page.rect('.ctx-menu'),null,'outside press closes');
-    await page.click('.rail-nav .nav-button','계획');await page.sleep(300);await page.click('.segmented [role=radio]','일');await page.sleep(400);
+    await toPlan(page);await page.click('.segmented [role=radio]','일');await page.sleep(400);
     const create=(await emptyMenu('.dv-day .space'))[0];
     assert.match(create,/^\d\d:\d\d에 새 블록$/);
     await page.click('.ctx-menu [role=menuitem]',create);await page.sleep(200);
@@ -120,7 +121,7 @@ const scenarios=[
     await rightClick(page,space+' .blk','회의록 정리');await page.sleep(200);
     await page.click('.ctx-menu [role=menuitem]','삭제');await page.sleep(500);
     assert.ok(!(await page.blocks(space)).some(b=>b.startsWith('회의록 정리')),'left the day');
-    assert.equal(await page.text('[role=status]'),'‘회의록 정리’을 휴지통으로 옮겼어요');
+    assert.equal(await page.text('[role=status]'),'‘회의록 정리’를 휴지통으로 옮겼어요');
     await openBlock(page,'분리망 배포');
     assert.equal(await page.js(`document.querySelector(${JSON.stringify(panel)}).querySelector('[aria-label="더보기"]')`),null);
     await page.click(panel+' .ed-actions button','삭제');await page.sleep(500);
@@ -128,13 +129,13 @@ const scenarios=[
     assert.ok(!(await page.blocks(space)).some(b=>b.startsWith('분리망 배포')));
     assert.ok((await active(page)).task,'focus moves to a remaining block');
     assert.deepEqual(await page.js('window.__asked'),[],'no dialog');
-    await page.click('.rail-nav .nav-button','준비');await page.sleep(300);
+    await toBench(page);
     assert.match(await page.text('.inbox-trash > summary'),/휴지통 2/);
     await page.js(`document.querySelector('.inbox-trash > summary').scrollIntoView({block:'center'})`);
     await page.click('.inbox-trash > summary');await page.sleep(300);
     await page.js(`document.querySelector('button[aria-label="회의록 정리 복원"]').scrollIntoView({block:'center'})`);
     await page.click('button[aria-label="회의록 정리 복원"]');await page.sleep(400);
-    await page.click('.rail-nav .nav-button','오늘');await page.sleep(400);
+    await toFocus(page);
     assert.ok((await page.blocks(space)).includes('회의록 정리, 예상 10:45–11:15'),'back at its old place in the order');
   }},
   {name:'Shift+F10 opens the menu by keyboard; arrows move and Esc returns focus to the block',run:async page=>{
@@ -224,7 +225,7 @@ const scenarios=[
     await page.key('Enter',{text:'\r'});await page.sleep(400);
     assert.equal(await page.rect(panel),null,'deletion clears the unsaved detail');
     assert.equal(await page.js(`!!document.querySelector('.status')?.textContent.includes('이어서 편집')`),false);
-    assert.equal(await page.text('[role=status]'),'‘분리망 배포 의존성 검토’을 휴지통으로 옮겼어요');
+    assert.equal(await page.text('[role=status]'),'‘분리망 배포 의존성 검토’를 휴지통으로 옮겼어요');
   }},
   {name:'the panel keeps to the role tokens in every theme',run:async page=>{
     for(const theme of ['g1','g3','g4']){
@@ -252,7 +253,7 @@ const scenarios=[
   }},
 ];
 export default scenarios.map((s,i)=>({...s,run:async page=>{
-  try{await s.run(page);}
+  try{await toFocus(page);await s.run(page);}
   catch(e){await page.shot('editor-fail-'+(i+1)).catch(()=>{});throw e;}
   finally{await discard(page);}
 }}));

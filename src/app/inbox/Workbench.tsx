@@ -1,17 +1,15 @@
-// 준비: the 들어옴 and the shelf at the timetable's scale, and the next working days to ship to.
-import {useLayoutEffect,useRef,useState,type KeyboardEvent,type MouseEvent as ReactMouseEvent,type PointerEvent as ReactPointerEvent,type ReactNode} from 'react';
+// 준비's bench: the 들어옴 and the shelf at the timetable's scale.
+import {useLayoutEffect,useRef,useState,type CSSProperties,type KeyboardEvent,type MouseEvent as ReactMouseEvent,type PointerEvent as ReactPointerEvent,type ReactNode} from 'react';
 import {AnimatePresence,motion} from 'motion/react';
 import {useDraggable} from '@dnd-kit/core';
 import {inboxCards,shelfCards,type Place} from '../../bench.ts';
 import {memoPreview} from '../../detail.ts';
 import {formatDuration} from '../../format.ts';
 import {dateLabel,dateOf} from '../../dates.ts';
-import {dayPlan} from '../../today.ts';
 import type {Task} from '../../types.ts';
-import {getState,setNav,setUi,useApp} from '../store/state.ts';
-import {dayRule,deleteTask,setGesture} from '../store/tasks.ts';
+import {getState,setUi,useApp} from '../store/state.ts';
+import {deleteTask,setGesture} from '../store/tasks.ts';
 import {completeHere,mergeSelected,moveTo,placeOfCard,readingOrder,selectRange,selectedTasks,setLength,setSelection,shiftInPlace,shipDates,shipTo,shortDate,toggleSelected,undoHere} from '../store/bench.ts';
-import {allocation,allocationLabel,allocationShort,dayTag} from '../plan/day.tsx';
 import {menuKeys,clamp} from '../editor/actions.ts';
 import {useDrag,useRegion,type Form} from '../space/drag.tsx';
 import {reflow,reduced} from '../ui/motion.ts';
@@ -62,12 +60,13 @@ export function ShelfList({onOpen}:{onOpen:Open}){
   const register=useList('shelf',()=>box.current?.clientWidth??300);
   const cards=shelfCards(tasks,getState().snapshot?.piles??[]),sum=total(cards);
   const hot=held&&!held.dropping&&held.intent.zone==='shelf';
-  // The ruler shows whole hours down to a little past what the shelf holds, and at least a working day.
-  const hours=Array.from({length:Math.max(8,Math.ceil(sum/60)+1)},(_,i)=>i+1);
+  // The ruler shows whole hours down to a little past what the shelf holds, and at least a working day (stacked, only the former).
+  const fit=Math.ceil(sum/60)+1,hours=Array.from({length:Math.max(8,fit)},(_,i)=>i+1);
+  const rack={'--rack':`${hours.length*60*SCALE+24}px`,'--rack-fit':`${fit*60*SCALE+24}px`} as CSSProperties;
   return <section className={'jb-panel jb-shelf'+(hot?' hot':'')} aria-label="선반">
     <header className="jb-head"><h2>선반</h2>{cards.length>0&&<><span className="cnt">{cards.length}</span><span className="jb-sum">{formatDuration(sum)}</span></>}</header>
     <div className="jb-scroll">
-      <div className="jb-rack" style={{minHeight:hours.length*60*SCALE+24}}>
+      <div className="jb-rack" style={rack}>
         <div className="jb-ruler" aria-hidden="true">{hours.map(h=><span key={h} style={{top:CEILING+h*60*SCALE}}>{h}h</span>)}</div>
         <div className="jb-stack" data-block="true">
           <Ceiling cards={cards}/>
@@ -144,7 +143,7 @@ function Card({task:t,place,past,onOpen}:{task:Task;place:Place;past?:boolean;on
     if(e.key==='Delete'){e.preventDefault();void remove(picked);return;}
     if(e.key==='Escape'&&sel.length){e.preventDefault();e.stopPropagation();setSelection([]);}
   }
-  function menu(e:{clientX:number;clientY:number}){setUi({contextMenu:{taskId:t.id,date:getState().today,minute:0,x:e.clientX,y:e.clientY}});}
+  function menu(e:{clientX:number;clientY:number}){setUi({contextMenu:{taskId:t.id,date:getState().today,minute:0,x:e.clientX,y:e.clientY,bench:true}});}
   // After a delete the keyboard stays in the lists: the next card, else the one before, else the capture input.
   async function remove(items:Task[]){
     const ids=items.map(x=>x.id),order=readingOrder().map(x=>x.id),at=order.indexOf(t.id);
@@ -229,43 +228,3 @@ function FloatingMenu({label,items,at,onClose}:{label:string;items:Item[];at:{x:
     {items.map(i=><button key={i.label} type="button" role="menuitem" tabIndex={-1} disabled={i.disabled} onClick={()=>{onClose();i.run();}}>{i.label}</button>)}
   </motion.div>;
 }
-
-// The next working days on the shelf's scale: what is already on them, where working time ends, and what runs past it.
-export function DateDock({frozen}:{frozen?:boolean}){
-  return <section className={'jb-panel jb-dock'+(frozen?' jb-dim':'')} inert={frozen||undefined} aria-label="다음 근무일">
-    <div className="jb-days">{shipDates().map(d=><DateColumn key={d} date={d}/>)}</div>
-  </section>;
-}
-
-function DateColumn({date}:{date:string}){
-  const {snapshot,today}=useApp(),{held,tasks}=useDrag(),body=useRef<HTMLDivElement>(null);
-  const ref=useRegion('date',date,{form:(task,ids)=>{
-    const list=ids.map(id=>getState().snapshot!.tasks.find(t=>t.id===id)??task);
-    return {width:(body.current?.clientWidth??80)-6,height:Math.max(16,Math.round(total(list)*SCALE)-2)};
-  }});
-  const rule=dayRule(date),items=dayPlan(date,tasks,rule,snapshot?.layouts??[]).items.filter(i=>!i.task.completed);
-  const start=rule.enabled?rule.start:Math.min(540,...items.map(i=>i.start)),end=rule.enabled?rule.end:start;
-  const last=Math.max(end,...items.map(i=>i.end)),y=(m:number)=>Math.round((m-start)*SCALE);
-  const hot=!!held&&!held.dropping&&held.intent.zone==='date'&&held.intent.date===date,carried=hot?held!.ids:[];
-  const a=allocation(date,tasks),tag=dayTag(date),d=dateOf(date);
-  return <div className={'jb-day'+(hot?' hot':'')+(date===today?' today':'')} data-date={date}>
-    <button type="button" className="jb-dhead" aria-label={`${dateLabel(date)}${tag?', '+tag:''}, ${allocationLabel(a)}, 계획에서 보기`}
-      onClick={()=>setNav({view:'plan',period:'day',selected:date,planAnchor:date})}>
-      <span className="jb-dname"><b>{d.toLocaleDateString('ko-KR',{weekday:'short'})}</b> {d.getDate()}{date===today&&<span className="pill">오늘</span>}{tag&&<span className="tag-chip">{tag}</span>}</span>
-      <span className="jb-dload"><span>{allocationShort(a)}</span>{a.outside>0&&<span className="jb-dover">근무 외 {Math.round(a.outside/60*100)/100}h</span>}</span>
-    </button>
-    <div ref={el=>{body.current=el;ref(el);}} className="jb-dbody" style={{height:y(Math.max(last,end))+72}} aria-hidden="true">
-      <div className="jb-off" style={{top:y(end)}}/>
-      {rule.enabled&&rule.breaks.map((b,i)=><div key={i} className="jb-brk" style={{top:y(b.start),height:y(b.end)-y(b.start)}}/>)}
-      <div className="jb-end" style={{top:y(end)}}/>
-      {items.map(i=>{
-        const slot=carried.includes(i.task.id),over=Math.max(0,i.end-Math.max(i.start,end));
-        return <div key={i.task.id} data-flight={i.task.id} className={'jb-dblk'+(i.fixed?' fixed':'')+(slot?' slot':'')} style={{top:y(i.start)+1,height:Math.max(4,y(i.end)-y(i.start)-2)}}>
-          <span>{i.task.title}</span>
-          {over>0&&<i className="jb-spill" style={{height:Math.min(y(i.end)-y(i.start)-2,Math.round(over*SCALE))}}/>}
-        </div>;
-      })}
-    </div>
-  </div>;
-}
-

@@ -1,10 +1,9 @@
-.today{display:flex;flex:1;min-height:0;min-width:0;flex-direction:column;gap:var(--space-control)}
+.content>.today{display:flex;flex:1;min-height:0;min-width:0;flex-direction:column;gap:var(--space-control)}
 .today-bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px}
 .today-bar .grow{flex:1}
-.cap{display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--color-text-muted);font-variant-numeric:tabular-nums}
-.meter{width:180px;height:10px;border-radius:3px;background:var(--color-divider);display:flex;gap:1px;overflow:hidden}
-.meter i{display:block;height:100%}
-.m-done{background:var(--color-text-muted);opacity:.45}.m-flow{background:var(--color-action)}.m-fixed{background:repeating-linear-gradient(135deg,var(--color-structure) 0 2px,var(--color-text-muted) 2px 4px)}
+.cap{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;font-size:12.5px;color:var(--color-text-muted);font-variant-numeric:tabular-nums}
+.cap>span{white-space:nowrap}
+.cap .pm{width:180px;height:10px}
 .anchor{font-size:12.5px;color:var(--color-text-muted);font-variant-numeric:tabular-nums}
 .multi-bar{display:flex;align-items:center;gap:8px;font-weight:600}
 /* The timetable and execution flow each use the height left by the shell. */
@@ -25,7 +24,7 @@
 .today-flow>*{flex:0 0 auto}
 .today .ed-next-open:focus-visible{outline-offset:calc(-1 * var(--space-focus))}
 .queue{padding:var(--space-section) var(--space-section) var(--space-related)}
-.queue h2{margin:0 0 var(--space-related);font-size:13px;font-weight:600;color:var(--color-text-muted)}
+.queue h2{margin:0 0 var(--space-related);font-size:var(--font-size-summary);font-weight:600;color:var(--color-text-muted)}
 .queue h2 b{color:var(--color-text);font-variant-numeric:tabular-nums}
 .queue ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
 .q-row{display:flex;align-items:center;gap:var(--space-related);border-top:1px solid var(--color-divider);padding:2px 0}
@@ -33,11 +32,11 @@
 .q-row .chk{width:18px;height:18px;color:var(--color-text-muted)}
 .q-main{flex:1;min-width:0;display:grid;grid-template-columns:44px minmax(0,1fr) auto;align-items:center;gap:var(--space-row);border:0;background:none;text-align:left;padding:var(--space-related) var(--space-small);border-radius:var(--radius-control);cursor:pointer;color:inherit;font:inherit}
 .q-main:hover{background:var(--color-control-hover)}
-.q-time{font-size:12px;color:var(--color-text-muted);font-variant-numeric:tabular-nums}
+.q-time{font-size:var(--font-size-label);color:var(--color-text-muted);font-variant-numeric:tabular-nums}
 .q-title{display:flex;align-items:center;gap:var(--space-small);min-width:0;font-weight:600;font-size:13.5px}
 .q-title-text{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .q-title .lock{flex:0 0 auto;color:var(--color-text-muted)}
-.q-dur{font-size:12px;color:var(--color-text-muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.q-dur{font-size:var(--font-size-label);color:var(--color-text-muted);font-variant-numeric:tabular-nums;white-space:nowrap}
 .q-row.next .q-title{color:var(--color-action)}
 .q-row.next .chk{color:var(--color-action)}
 .q-row.over .q-time{color:color-mix(in srgb,var(--color-overdue) 70%,var(--color-text-muted))}
@@ -47,4 +46,7 @@
   .today-cols{flex:none;grid-template-columns:minmax(0,1fr);gap:var(--space-section-loose)}
   .today-day{height:70dvh}
   .today-flow{overflow:visible;scrollbar-gutter:auto}
+  /* Touch-sized targets around the same drawn circle and buttons. */
+  .q-row .chk::after{content:"";position:absolute;inset:-11px;border-radius:50%}
+  .today .ed-next-acts .btn{min-height:44px}
 }

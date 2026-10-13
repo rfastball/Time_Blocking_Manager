@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
+import {toFocus,toSettings} from './support/nav.mjs';
 
 // Preview data: every weekday 09:00–18:00 with lunch 12:00–13:00; today has the fixed workshop at 14:00.
 // Confirmations answer yes, and a draft left by a scenario must not hold the next navigation at the leave-page prompt.
 const guard=page=>page.js(`window.confirm=()=>true;if(!window.__leaveFree){window.__leaveFree=true;const pd=Event.prototype.preventDefault;Event.prototype.preventDefault=function(){if(this.type!=='beforeunload')return pd.call(this);};}`);
-const open=async page=>{await guard(page);await page.click('.nav-button','설정');await page.sleep(400);};
+const open=async page=>{await guard(page);await toSettings(page);};
 // Rect of an element found by a page expression (the first column is Monday).
 const at=(page,expr)=>page.js(`(()=>{const e=${expr};if(!e)return null;e.scrollIntoView({block:'center'});const r=e.getBoundingClientRect();return {x:r.left,y:r.top,w:r.width,h:r.height,cx:r.left+r.width/2,cy:r.top+r.height/2};})()`);
 const col=i=>`document.querySelectorAll('.rh-col')[${i}]`;
@@ -51,6 +52,24 @@ export default [
     await page.key('ArrowDown');await page.sleep(200);
     assert.match(await label(page,`${col(1)}.querySelector('[data-select="1:work"]')`),/08:45–18:00/);
   }},
+  {name:'the rhythm paper is one tab stop that arrows walk through; 날짜별 변경 lands on the date on the work screen',run:async page=>{
+    await open(page);
+    assert.equal(await page.js(`[...document.querySelectorAll('.rh-paper button,.rh-paper [tabindex]')].filter(e=>e.tabIndex===0).length`),1,'one stop in the paper');
+    const stop=()=>page.js(`document.activeElement.dataset.stop`);
+    await page.js(`document.querySelector('.rh-tools .btn:last-child').focus()`);
+    await page.key('Tab');assert.equal(await stop(),'t0','Tab enters at the first head');
+    await page.key('ArrowRight');assert.equal(await stop(),'e0:work:start');
+    await page.key('ArrowRight');assert.equal(await stop(),'b0:work');
+    await page.key('ArrowUp');assert.equal(await stop(),'e0:work:start','up walks back from a band');
+    await page.key('ArrowLeft');assert.equal(await stop(),'t0');
+    await page.key('End');assert.equal(await stop(),'e6:0:end');
+    await page.key('Home');await page.key('ArrowRight');await page.key('ArrowRight');
+    await page.key('Tab');assert.equal(await page.js(`!!document.activeElement.closest('.rh-paper')`),false,'Tab leaves the paper');
+    await page.key('Tab',{modifiers:8});assert.equal(await stop(),'b0:work','Shift+Tab comes back to where it left');
+    await tap(page,`[...document.querySelectorAll('.st-exceptions .btn')].find(b=>b.textContent==='작업 화면에서 선택')`);
+    assert.equal(await page.js(`document.querySelector('.content').dataset.view`),'plan');
+    assert.ok(await page.js(`document.activeElement.matches('.wk-date,.cal-date')`),'focus on the date head');
+  }},
   {name:'the band menu opens with Shift+F10 and adds and deletes a break',run:async page=>{
     await open(page);
     await page.js(`${col(1)}.querySelector('[data-select="1:work"]').focus()`);
@@ -84,13 +103,13 @@ export default [
     assert.equal(await page.js(`!!document.querySelector('.st-conflicts')`),false,'fixed times need no move consent');
     await page.click('.st-savebar .btn.primary');await page.sleep(500);
     assert.equal(await page.js(`!!document.querySelector('.st-savebar.st-dirty')`),false);
-    await page.click('.nav-button','오늘');await page.sleep(500);
+    await toFocus(page);
     const workshop=await page.js(`[...document.querySelectorAll('.today-day .main')].map(b=>b.getAttribute('aria-label')).find(l=>l.startsWith('설계 워크숍'))`);
     assert.match(workshop,/시각 고정 14:00–15:00/,'the workshop keeps its fixed time');
     await page.shot('settings-preserved-fixed-time');
   }},
   {name:'the date popover opens from off-hours, applies an early leave and restores the rhythm',run:async page=>{
-    await guard(page);
+    await guard(page);await toFocus(page);
     await offHours(page,'18:00');await page.sleep(300);
     assert.ok(await page.js(`!!document.querySelector('.ap[role=dialog]')`));
     assert.equal(await page.js(`document.activeElement.dataset.time`),'start','focus on the work start');
@@ -112,7 +131,7 @@ export default [
     assert.ok(await page.rect('.today-day .off[aria-label^="18:00"]'),'back to 18:00');
   }},
   {name:'the popover opened from a break focuses that break',run:async page=>{
-    await guard(page);
+    await guard(page);await toFocus(page);
     await page.click('.today-day .brk');await page.sleep(300);
     assert.equal(await page.js(`document.querySelector('.ap [aria-pressed=true]').textContent`),'점심');
     assert.ok(await page.js(`!!document.querySelector('.ap [data-name]')`));
