@@ -75,13 +75,77 @@ export default [
     assert.equal(await page.js(`!!document.querySelector('.ed-panel')`),false);
     await press(page,'Escape','Escape');assert.equal(await view(page),'plan','Esc returns to the work screen');
   }},
-  {name:'settings answer only F and ?',run:async page=>{
+  // Esc now leads back from settings as it does from focus; before, settings ignored it and the way back was the mouse.
+  {name:'settings answer only F, ? and Esc, which leads back to the work screen with the keyboard on the gear',run:async page=>{
     await toPlan(page);
     await page.click('header.topbar button[aria-label="설정"]');await page.sleep(300);
     assert.equal(await view(page),'settings');
-    await press(page,'[','BracketLeft');await press(page,'d','KeyD');await press(page,'Escape','Escape');
-    assert.equal(await view(page),'settings','no dock, range or Esc keys in settings');
+    await press(page,'[','BracketLeft');await press(page,'d','KeyD');
+    assert.equal(await view(page),'settings','no dock or range keys in settings');
+    await page.js(`document.querySelector('header.topbar button[aria-label="설정"]').focus()`);
+    await press(page,'Escape','Escape');assert.equal(await view(page),'plan','Esc leaves settings');
+    assert.equal(await page.js(`document.activeElement?.getAttribute('aria-label')`),'설정','the gear keeps the keyboard');
+    await page.click('header.topbar button[aria-label="설정"]');await page.sleep(300);
+    await page.click('header.topbar button','작업 화면');await page.sleep(300);
+    assert.equal(await view(page),'plan');
+    assert.equal(await page.js(`document.activeElement?.getAttribute('aria-label')`),'설정','returning by the button leaves the keyboard on the gear, not on 몰입');
+    await page.click('header.topbar button[aria-label="설정"]');await page.sleep(300);
     await press(page,'f','KeyF');assert.equal(await view(page),'today','F still opens focus');
     await setDock(page,'narrow');
+  }},
+  {name:'a range or screen key keeps the keyboard on the same block or the control that did it',run:async page=>{
+    await toPlan(page);
+    const id=await page.js(`(()=>{const b=document.querySelector('.wk-col .blk .main[data-task]');b.focus();return b.dataset.task;})()`);
+    await press(page,'d','KeyD');assert.equal(await period(page),'일');
+    assert.equal(await page.js(`document.activeElement?.dataset.task`),id,'the block keeps the keyboard in the day');
+    await press(page,'w','KeyW');
+    assert.equal(await page.js(`document.activeElement?.dataset.task`),id,'and back in the week');
+    await page.js(`document.querySelector('.segmented [aria-checked=true]').focus()`);
+    await press(page,'m','KeyM');
+    assert.equal(await page.js(`document.activeElement?.getAttribute('aria-checked')`),'true','the keyboard moves to the checked range');
+    assert.equal(await page.js(`document.activeElement?.textContent`),'월');
+    await press(page,'w','KeyW');
+    await page.js(`document.querySelector('#dock .dock-fold').focus()`);
+    await press(page,'f','KeyF');assert.equal(await view(page),'today');
+    assert.match(await active(page),/to-screen/,'leaving the dock, the keyboard lands on the screen button, not the page');
+    await page.js(`document.querySelector('header.topbar .date-nav button').focus()`);
+    await press(page,'Escape','Escape');assert.equal(await view(page),'plan');
+    assert.notEqual(await page.js(`document.activeElement===document.body`),true,'Esc does not drop the keyboard');
+  }},
+  {name:'the ? list returns the keyboard to its button and turns single-character keys off and on',run:async page=>{
+    await toPlan(page);
+    const keysButton='header.topbar button[aria-label="단축키"]',open=()=>page.js(`!!document.querySelector('dialog.key-list[open]')`);
+    await page.click(keysButton);await page.sleep(300);
+    assert.ok(await open(page));
+    await page.key('Escape');await page.sleep(300);
+    assert.equal(await open(page),false);
+    assert.equal(await page.js(`document.activeElement?.getAttribute('aria-label')`),'단축키','Esc returns the keyboard to the ? button');
+    await page.click(keysButton);await page.sleep(300);
+    await page.click('dialog.key-list button[aria-label="닫기"]');await page.sleep(300);
+    assert.equal(await page.js(`document.activeElement?.getAttribute('aria-label')`),'단축키','so does the close button');
+    await page.click(keysButton);await page.sleep(300);
+    const toggle='dialog.key-list input[role=switch]';
+    assert.equal(await page.js(`document.querySelector('${toggle}').checked`),true,'single keys start on');
+    assert.equal((await page.text('dialog.key-list .key-pref')).trim(),'한 글자 단축키');
+    await page.click('dialog.key-list .key-pref');await page.sleep(200);
+    assert.equal(await page.js(`document.querySelector('${toggle}').checked`),false);
+    assert.equal(await page.js(`localStorage.getItem('blokky.single-keys')`),'off','the choice is kept on this device');
+    await page.key('Escape');await page.sleep(300);
+    await page.js(`document.activeElement?.blur()`);
+    await press(page,'d','KeyD');await press(page,'[','BracketLeft');await press(page,'?','Slash',{modifiers:SHIFT});
+    assert.equal(await period(page),'주','D is off');
+    assert.equal(await dockState(page),'narrow','[ is off');
+    assert.equal(await open(page),false,'? is off; its button stays');
+    assert.equal(await page.js(`document.querySelector('${keysButton}').hasAttribute('aria-keyshortcuts')`),false,'the button no longer claims ?');
+    await page.click('header.topbar button','몰입');await page.sleep(400);
+    await page.js(`document.activeElement?.blur()`);
+    await press(page,'Escape','Escape');assert.equal(await view(page),'plan','Esc still answers');
+    await page.click(keysButton);await page.sleep(300);
+    await page.click('dialog.key-list .key-pref');await page.sleep(200);
+    await page.key('Escape');await page.sleep(300);
+    assert.equal(await page.js(`localStorage.getItem('blokky.single-keys')`),'on');
+    await page.js(`document.activeElement?.blur()`);
+    await press(page,'d','KeyD');assert.equal(await period(page),'일','turned on again, D answers');
+    await press(page,'w','KeyW');
   }},
 ];

@@ -32,7 +32,7 @@ export function Dock(){
   return <aside id="dock" className={'dock '+dock} aria-label="준비 도크">
     <div className="dock-tools">
       <button type="button" className="ibtn dock-fold" aria-label="준비 접기" aria-keyshortcuts="[" title="접기" onClick={()=>setDock('hidden')}><Icon name="fold" size={16}/></button>
-      <button type="button" className="ibtn" aria-label={dock==='wide'?'준비 좁히기':'준비 넓히기'} aria-pressed={dock==='wide'} aria-keyshortcuts="]" title={dock==='wide'?'좁히기':'넓히기'}
+      <button type="button" className="ibtn" aria-label={dock==='wide'?'준비 좁히기':'준비 넓히기'} aria-keyshortcuts="]" title={dock==='wide'?'좁히기':'넓히기'}
         onClick={()=>setDock(dock==='wide'?'narrow':'wide')}><Icon name={dock==='wide'?'left':'right'} size={16}/></button>
     </div>
     {dock==='wide'?<Bench/>:<InboxTray scale={WEEK_SCALE} overdue={overdueTasks()} onOpen={t=>openEditor(t.id,'dialog')}/>}

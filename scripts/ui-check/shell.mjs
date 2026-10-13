@@ -28,7 +28,8 @@ export default [
     assert.equal(await dockState(page),'wide');
     assert.ok(await has(page,'#dock .inbox-page #inbox-capture')&&await has(page,'#dock .jb-inbox')&&await has(page,'#dock .jb-shelf'),'wide, the dock is the bench');
     assert.equal(await has(page,'#dock .tray'),false,'the list gives way to the bench');
-    assert.equal(await page.js(`document.querySelector('#dock button[aria-label="준비 좁히기"]').getAttribute('aria-pressed')`),'true');
+    // The label says the next width; a pressed state on top would read the state twice.
+    assert.equal(await page.js(`document.querySelector('#dock button[aria-label="준비 좁히기"]').hasAttribute('aria-pressed')`),false);
     assert.ok((await page.rect('.plan-main')).w<narrowMain,'the calendar gives the bench its room');
     assert.equal(await stored(page),'wide');
     await page.shot('shell-dock-wide');
@@ -89,5 +90,32 @@ export default [
     await page.click('header.topbar button','작업 화면');await page.sleep(400);
     assert.equal(await view(page),'plan');
     assert.ok(await has(page,'#dock'));
+  }},
+  {name:'the bar is the banner beside main, and the status line sits outside main',run:async page=>{
+    await toPlan(page);
+    assert.equal(await page.js(`document.querySelectorAll('main').length`),1);
+    assert.ok(await has(page,'main.content'),'the screen itself is main');
+    assert.equal(await page.js(`!!document.querySelector('main header.topbar')`),false,'the bar is not inside main, so it is the banner');
+    assert.equal(await page.js(`!!document.querySelector('main footer, main .status')`),false);
+  }},
+  ...[905,1440].map(width=>({name:`at ${width}px the sticky bar stays on one row in every theme and scrolling stops below it`,viewport:{width,height:800},run:async page=>{
+    await toPlan(page);
+    for(const theme of ['','g1','g3','g4']){
+      await page.js(`document.documentElement.dataset.theme=${JSON.stringify(theme)}`);await page.sleep(100);
+      const mids=await page.js(`[...document.querySelectorAll('header.topbar > *, header.topbar .bar-end > *')].filter(e=>e.offsetParent).map(e=>{const r=e.getBoundingClientRect();return Math.round(r.top+r.height/2);})`);
+      assert.ok(Math.max(...mids)-Math.min(...mids)<=4,`${theme||'default'}: one row (${mids})`);
+      const bar=(await page.rect('header.topbar')).h,pad=parseFloat(await page.js(`getComputedStyle(document.documentElement).scrollPaddingTop`));
+      assert.ok(pad>=bar,`${theme||'default'}: scroll padding ${pad} covers the ${bar}px bar`);
+    }
+    await page.js(`document.documentElement.dataset.theme=''`);
+  }})),
+  {name:'at 390px the screen controls wrap together, right-aligned and touch-sized',viewport:{width:390,height:800},run:async page=>{
+    await toPlan(page);
+    const group=await page.js(`[...document.querySelectorAll('header.topbar .bar-end > *')].filter(e=>e.offsetParent).map(e=>{const r=e.getBoundingClientRect();return {top:Math.round(r.top),right:Math.round(r.right),h:r.height};})`);
+    assert.ok(group.every(g=>g.top===group[0].top),'one row for the group');
+    const bar=await page.rect('header.topbar');
+    assert.ok(Math.abs(group.at(-1).right-(bar.x+bar.w-12))<=1,'the gear stays at the right edge');
+    assert.ok(group.every(g=>g.h>=40),'touch-sized');
+    assert.ok((await page.rect('.segmented [role=radio]')).h>=36,'the range radios grow with them');
   }},
 ];

@@ -16,6 +16,8 @@ export type KeyContext={
   blocked:boolean;
   // The focus screen's side editor is open; Esc belongs to it.
   editing:boolean;
+  // Single-character keys are on (a device preference, WCAG 2.1.4). Off, only Esc still answers.
+  single:boolean;
 };
 
 // The key's place on the keyboard, so a Korean layout (ㅅ for T) or Caps Lock means the same key.
@@ -24,8 +26,8 @@ const periods:Record<string,Range>={KeyD:'day',KeyW:'week',Digit2:'two',KeyM:'mo
 export function shortcut(e:KeyLike,c:KeyContext):Shortcut|null{
   // Something nearer the focus already answered, or the key is part of a chord or of an unfinished Hangul syllable.
   if(e.defaultPrevented||e.isComposing||e.keyCode===229||e.ctrlKey||e.metaKey||e.altKey||e.repeat||c.blocked)return null;
-  if(e.code==='Escape')return c.screen==='today'&&!c.typing&&!c.editing?{type:'work'}:null;
-  if(c.typing)return null;
+  if(e.code==='Escape')return !c.typing&&(c.screen==='today'&&!c.editing||c.screen==='settings')?{type:'work'}:null;
+  if(c.typing||!c.single)return null;
   if(e.shiftKey)return e.code==='Slash'||e.key==='?'?{type:'keys'}:null;
   if(e.code==='KeyF')return c.screen==='today'?{type:'work'}:{type:'focus'};
   if(c.screen==='settings')return null;
@@ -46,6 +48,6 @@ export const shortcutList:{keys:string;label:string;where:string}[]=[
   {keys:'[',label:'준비 접기 · 펴기',where:'작업 화면'},
   {keys:']',label:'준비 넓히기 · 좁히기',where:'작업 화면'},
   {keys:'A',label:'담기 칸으로',where:'몰입'},
-  {keys:'Esc',label:'작업 화면으로',where:'몰입'},
+  {keys:'Esc',label:'작업 화면으로',where:'몰입 · 설정'},
   {keys:'?',label:'이 목록',where:'어디서나'},
 ];

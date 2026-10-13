@@ -54,6 +54,8 @@ export type AppState={
   nav:{view:View;selected:string;planAnchor:string;period:Period;dock:Dock};
   drafts:Drafts;ui:Ui;
   quitSaving:boolean;draftPending:boolean;gesture:boolean;
+  // Single-character shortcuts on this device.
+  singleKeys:boolean;
 };
 
 const params=new URLSearchParams(location.search);
@@ -77,7 +79,8 @@ let state:AppState={
   nav:{view:'plan',selected:day,planAnchor:day,period:'week',dock:storedDock()},
   drafts:emptyDrafts(),
   ui:{editorMode:null,editorFocus:null,contextMenu:null,availability:null,split:null,pendingShortcut:null,landed:null,benchSelection:[],doneHere:[],search:false,found:null},
-  quitSaving:false,draftPending:false,gesture:false
+  quitSaving:false,draftPending:false,gesture:false,
+  singleKeys:(()=>{try{return localStorage.getItem('blokky.single-keys')!=='off';}catch{return true;}})()
 };
 const listeners=new Set<()=>void>();
 export const getState=()=>state;
@@ -93,8 +96,13 @@ export const setNav=(patch:Partial<AppState['nav']>)=>{
 };
 // 준비's bench is on screen: the work screen with the dock opened wide.
 export const benchShown=(s:AppState)=>s.nav.view==='plan'&&s.nav.dock==='wide';
-// Shape work: the work screen with the full bench.
-export const openBench=()=>setNav({view:'plan',dock:'wide'});
+// Shape work: the work screen with the full bench. A jump here widens the dock for the session only; the stored width stays the person's.
+export const openBench=()=>setState(s=>({nav:{...s.nav,view:'plan',dock:'wide'}}));
+// Single-character shortcuts are a device preference too, and can be turned off (WCAG 2.1.4).
+export function setSingleKeys(on:boolean){
+  try{localStorage.setItem('blokky.single-keys',on?'on':'off');}catch{/* Unsaved, it still holds for this session. */}
+  setState({singleKeys:on});
+}
 const subscribe=(l:()=>void)=>{listeners.add(l);return ()=>{listeners.delete(l);};};
 // The whole state; its identity changes only when something changed.
 export function useApp():AppState{return useSyncExternalStore(subscribe,getState);}

@@ -11,7 +11,7 @@ import {DayView} from './DayView.tsx';
 import {periodDates} from './day.tsx';
 import './plan.css';
 
-const periods:{id:Period;label:string}[]=[{id:'day',label:'일'},{id:'week',label:'주'},{id:'two',label:'2주'},{id:'month',label:'월'}];
+const periods:{id:Period;label:string;key:string}[]=[{id:'day',label:'일',key:'D'},{id:'week',label:'주',key:'W'},{id:'two',label:'2주',key:'2'},{id:'month',label:'월',key:'M'}];
 
 // The routine form lives in settings; follow the button there and land in its first field once it is drawn.
 function goRoutines(){
@@ -35,14 +35,14 @@ export function Plan(){
       <button type="button" className="btn" onClick={goRoutines}>정기 업무</button>
       <button type="button" className="btn text" disabled={!dated} aria-label={`${dateLabel(nav.selected)} 일정 비우기`} onClick={()=>void clearDay(nav.selected)}>{dateOf(nav.selected).getDate()}일 비우기</button>
     </div>
-    <div style={calendarPanels.style} className={'plan-desk '+nav.period+(nav.period==='day'?' week':'')}>
-      <div id="plan-main" className="plan-main">{nav.period==='day'?<DayView dates={dates}/>:nav.period==='week'?<Week dates={dates}/>:<Calendar dates={dates} period={nav.period} panels={calendarPanels}/>}</div>
+    <div style={calendarPanels.style} className={'plan-desk '+nav.period}>
+      <div className="plan-main">{nav.period==='day'?<DayView dates={dates}/>:nav.period==='week'?<Week dates={dates}/>:<Calendar dates={dates} period={nav.period} panels={calendarPanels}/>}</div>
     </div>
   </div>;
 }
 
 // One tab stop; arrows move the choice like any radio group.
-export function Periods({value}:{value:Period}){
+export function Periods({value,keys}:{value:Period;keys:boolean}){
   const refs=useRef<(HTMLButtonElement|null)[]>([]);
   const choose=(p:Period)=>{const {nav}=getState();if(p!==nav.period)setNav({period:p,planAnchor:nav.selected});};
   function key(e:KeyboardEvent<HTMLButtonElement>,i:number){
@@ -51,7 +51,7 @@ export function Periods({value}:{value:Period}){
     e.preventDefault();const j=(to+n)%n;choose(periods[j].id);refs.current[j]?.focus();
   }
   return <div className="segmented" role="radiogroup" aria-label="계획 기간">
-    {periods.map((p,i)=><button key={p.id} ref={el=>{refs.current[i]=el;}} type="button" role="radio" aria-checked={value===p.id} tabIndex={value===p.id?0:-1}
+    {periods.map((p,i)=><button key={p.id} ref={el=>{refs.current[i]=el;}} type="button" role="radio" aria-checked={value===p.id} tabIndex={value===p.id?0:-1} aria-keyshortcuts={keys?p.key:undefined}
       onClick={()=>choose(p.id)} onKeyDown={e=>key(e,i)}>{p.label}</button>)}
   </div>;
 }

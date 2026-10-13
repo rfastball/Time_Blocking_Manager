@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {shortcut,type KeyContext,type KeyLike} from './shortcuts.ts';
 
 const key=(code:string,extra:Partial<KeyLike>={}):KeyLike=>({code,key:code.replace(/^Key/,'').toLowerCase(),ctrlKey:false,metaKey:false,altKey:false,shiftKey:false,isComposing:false,keyCode:65,defaultPrevented:false,repeat:false,...extra});
-const work:KeyContext={screen:'plan',typing:false,blocked:false,editing:false};
+const work:KeyContext={screen:'plan',typing:false,blocked:false,editing:false,single:true};
 const focus:KeyContext={...work,screen:'today'};
 
 test('on the work screen single keys move the range, the dock and the screen',()=>{
@@ -28,11 +28,22 @@ test('on the focus screen only its own keys answer, and Esc returns unless the s
   for(const code of ['KeyD','KeyW','Digit2','KeyM','BracketLeft','BracketRight'])assert.equal(shortcut(key(code),focus),null,code+' has no dock or range here');
 });
 
-test('settings take only the screen keys',()=>{
+test('settings take only the screen keys, and Esc leads back to the work screen',()=>{
   const settings:KeyContext={...work,screen:'settings'};
   assert.deepEqual(shortcut(key('KeyF'),settings),{type:'focus'});
   assert.deepEqual(shortcut(key('Slash',{shiftKey:true,key:'?'}),settings),{type:'keys'});
-  for(const code of ['KeyT','KeyD','BracketLeft','Escape'])assert.equal(shortcut(key(code),settings),null,code);
+  assert.deepEqual(shortcut(key('Escape'),settings),{type:'work'});
+  assert.equal(shortcut(key('Escape'),{...settings,typing:true}),null,'Esc in a settings field is the field’s');
+  for(const code of ['KeyT','KeyD','BracketLeft'])assert.equal(shortcut(key(code),settings),null,code);
+});
+
+test('with single-character keys turned off only Esc still answers',()=>{
+  const off={...work,single:false};
+  for(const code of ['KeyT','KeyD','KeyW','Digit2','KeyM','BracketLeft','BracketRight','KeyF'])assert.equal(shortcut(key(code),off),null,code);
+  assert.equal(shortcut(key('Slash',{shiftKey:true,key:'?'}),off),null,'? is a character too; its button stays');
+  assert.equal(shortcut(key('KeyA'),{...focus,single:false}),null);
+  assert.deepEqual(shortcut(key('Escape'),{...focus,single:false}),{type:'work'});
+  assert.deepEqual(shortcut(key('Escape'),{...off,screen:'settings'}),{type:'work'});
 });
 
 test('the physical key decides, so a Korean layout or Caps Lock means the same',()=>{

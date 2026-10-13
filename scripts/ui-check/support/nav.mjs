@@ -15,7 +15,7 @@ export async function ready(page){
   }
   throw Error('the app did not finish loading');
 }
-// The top bar scrolls with the page (the rail it replaced was sticky), so bring it into view before pressing it.
+// The top bar is sticky above 900px but wraps and scrolls with the page below it, so bring it into view before pressing it.
 const reveal=page=>page.js(`document.querySelector('header.topbar')?.scrollIntoView({block:'nearest'})`);
 const topbar=async(page,text)=>{await reveal(page);await page.click('header.topbar button',text);};
 
