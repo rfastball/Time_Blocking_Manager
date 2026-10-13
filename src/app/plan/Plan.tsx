@@ -1,9 +1,7 @@
 import {useRef,type KeyboardEvent} from 'react';
 import {weekCapacity} from '../../settings.ts';
 import {formatDuration} from '../../format.ts';
-import {dateLabel,dateOf} from '../../dates.ts';
 import {getState,setNav,useApp,type Period} from '../store/state.ts';
-import {clearDay} from '../store/tasks.ts';
 import {usePanelResize} from '../ui/PanelResize.tsx';
 import {Week} from './Week.tsx';
 import {Calendar} from './Calendar.tsx';
@@ -13,27 +11,15 @@ import './plan.css';
 
 const periods:{id:Period;label:string;key:string}[]=[{id:'day',label:'일',key:'D'},{id:'week',label:'주',key:'W'},{id:'two',label:'2주',key:'2'},{id:'month',label:'월',key:'M'}];
 
-// The routine form lives in settings; follow the button there and land in its first field once it is drawn.
-function goRoutines(){
-  setNav({view:'settings'});
-  let tries=0;
-  const find=()=>{const el=document.querySelector<HTMLElement>('#routine-title');if(el){el.focus();el.scrollIntoView({block:'center'});}else if(++tries<90)requestAnimationFrame(find);};
-  requestAnimationFrame(find);
-}
-
 // The calendar half of the work screen; the 준비 dock beside it belongs to the shell.
 export function Plan(){
   const {nav,snapshot,drafts}=useApp();
   const settings=drafts.settingsDraft??snapshot!.settings,week=weekCapacity(settings,nav.selected);
-  const dated=snapshot!.tasks.some(t=>t.plan_date===nav.selected&&!t.completed);
   const dates=periodDates(nav.period,nav.planAnchor);
   const calendarPanels=usePanelResize(`plan-${nav.period}-calendar`,.67,'달력과 선택 날짜 패널 크기','calendar-summary calendar-day',nav.period==='two'||nav.period==='month','calendar');
   return <div className="plan">
     <div className="plan-bar">
       <span className="week-summary">선택한 주 근무 {formatDuration(week.minutes)} / {formatDuration(settings.weekly_target??2400)} · {week.days} / {settings.work_days??5}일</span>
-      <span className="grow"/>
-      <button type="button" className="btn" onClick={goRoutines}>정기 업무</button>
-      <button type="button" className="btn text" disabled={!dated} aria-label={`${dateLabel(nav.selected)} 일정 비우기`} onClick={()=>void clearDay(nav.selected)}>{dateOf(nav.selected).getDate()}일 비우기</button>
     </div>
     <div style={calendarPanels.style} className={'plan-desk '+nav.period}>
       <div className="plan-main">{nav.period==='day'?<DayView dates={dates}/>:nav.period==='week'?<Week dates={dates}/>:<Calendar dates={dates} period={nav.period} panels={calendarPanels}/>}</div>

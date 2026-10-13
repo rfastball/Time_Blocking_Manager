@@ -10,7 +10,7 @@ import {createCommand} from '../../capture.ts';
 import type {Action,Task,Trashed,WorkingDay} from '../../types.ts';
 import {getState,setDrafts,setState,setUi} from './state.ts';
 import {fly} from '../ui/flight.ts';
-import {acknowledgeCapture,afterIdle,announce,ask,dispatch,draftChanged,persistDraft,queue,showError,stamp} from './session.ts';
+import {acknowledgeCapture,afterIdle,announce,dispatch,draftChanged,persistDraft,queue,showError,stamp} from './session.ts';
 
 const snap=()=>getState().snapshot!;
 const find=(id:string)=>snap().tasks.find(t=>t.id===id);
@@ -110,14 +110,6 @@ export function restoreTrashed(t:Trashed){
 export function purgeTrashed(items:Trashed[]){
   if(!items.length)return Promise.resolve(false);
   return dispatch({type:'purge_trashed',ids:items.map(t=>t.id)},{done:()=>announce(items.length>1?'휴지통을 비웠어요':`${quotedObject(items[0].title)} 영구 삭제했어요`)});
-}
-export async function clearDay(date:string){
-  const s=getState(),d=s.drafts;
-  if(queue.busy||queue.failed)return false;
-  if(d.capture||d.editorDirty||d.settingsDraft||d.routineDraft||Object.keys(d.rawSchedules).length){showError(Error('작성 중인 내용을 저장하거나 되돌린 뒤 하루 일정을 비워 주세요.'));return false;}
-  const epoch=snap().epoch,dated=snap().tasks.filter(t=>t.plan_date===date),expected_tasks=dated.map(({id,revision})=>({id,revision})),open=dated.filter(t=>!t.completed).length;
-  if(!open||!await ask(`${dateLabel(date)}의 블록 ${open}개를 준비 선반으로 돌릴까요? 제목·메모는 유지되고, 완료한 블록은 이 날짜에 남습니다.`))return false;
-  return dispatch({type:'clear_day',date,expected_tasks},{epoch,done:()=>announce('하루 일정을 비웠습니다. 작업은 준비 선반 맨 위에 두었습니다.')});
 }
 
 // ── 담기·새 블록 ──
