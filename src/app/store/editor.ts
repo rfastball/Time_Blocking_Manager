@@ -67,7 +67,6 @@ export async function rebaseEditor(){
   setDrafts({editor:{...e,revision:current.revision,epoch:s.snapshot!.epoch}});
   return saveEditor();
 }
-export async function discardEditorDraft(){if(await ask('작성 중인 변경을 버리고 저장된 내용으로 돌아갈까요?'))closeEditor(true);}
 // Completing from the editor saves typed changes first, then keeps the editor in step with the stored task.
 export async function completeFromEditor(){
   const s=getState(),e=s.drafts.editor;if(!e)return false;
