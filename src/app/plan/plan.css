@@ -21,6 +21,7 @@
 .wk-head{position:sticky;top:0;z-index:30;background:var(--color-panel);border-left:1px solid var(--color-divider);border-bottom:1px solid var(--color-divider);transition:background .15s}
 .wk-date{width:100%;height:100%;border:0;background:transparent;text-align:left;padding:8px 8px 9px;display:flex;flex-direction:column;gap:6px;cursor:pointer;color:inherit}
 .wk-date:hover{background:var(--color-control-hover)}
+.wk-date:focus-visible{outline-offset:-2px}
 .wk-day{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 6px;min-height:22px}
 .wk-day small{font-size:12px;color:var(--color-text-muted)}
 .wk-day strong{font-size:17px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.1}
@@ -28,8 +29,12 @@
 .wk-alloc{display:flex;flex-wrap:wrap;gap:0 6px;font-size:11px;line-height:1.3;color:var(--color-text-muted);font-variant-numeric:tabular-nums}
 /* Today's planned end always takes its own line, so the head's height does not change as the end moves. */
 .wk-end{flex-basis:100%}
-/* The fix sits beside the warning it answers, in the head's top corner, outside the head's own button. */
-.wk-return{position:absolute;top:6px;right:4px;min-height:24px;height:24px;padding:0 7px;font-size:11.5px}
+/* The fix sits at the end of the bar whose overflow it answers, outside the head's own button.
+   It takes the bar's room, never a line of its own, so the head keeps its height when the fix comes and goes. */
+.wk-head{anchor-scope:--wk-meter}
+.wk-date .pm{anchor-name:--wk-meter}
+.wk-head:has(.wk-return) .wk-date .pm{width:calc(100% - 52px)}
+.wk-return{position:absolute;position-anchor:--wk-meter;top:anchor(center);right:4px;translate:0 -50%;min-height:24px;height:24px;padding:0 6px;font-size:11.5px}
 .wk-head.today strong,.cal-cell.today .cal-date strong{color:var(--color-calendar-today)}
 .wk-head.past{background:color-mix(in srgb,var(--color-text-muted) 6%,var(--color-panel))}
 .wk-head.past .pm{opacity:.65}
@@ -56,7 +61,7 @@
 /* 일: the week as a strip of date heads, the chosen day's space below. */
 .dv{display:flex;flex-direction:column;gap:12px}
 .card.dv-strip{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));padding:0;overflow:hidden}
-.dv-strip .wk-head{position:static;border-bottom:0}
+.dv-strip .wk-head{position:relative;border-bottom:0}
 .dv-strip .wk-head:first-child{border-left:0}
 .card.dv-day{padding:0;overflow:hidden;min-width:0}
 .dv-day .plan-day-head .anchor{margin-left:6px}
@@ -114,6 +119,16 @@
 
 @media (max-width:760px){
   .cal-layout{grid-template-columns:minmax(0,1fr);gap:16px}
+  /* A touch-sized fix does not fit beside the bar: it takes the foot of the head instead. */
+  .wk-head:has(.wk-return){display:flex;flex-direction:column;gap:0}
+  .wk-head:has(.wk-return) .wk-date{flex:1 0 auto;height:auto}
+  .wk-head:has(.wk-return) .wk-date .pm{width:100%}
+  .wk-return{position:static;translate:none;align-self:stretch;justify-content:flex-start;min-height:44px;height:44px;margin-top:-9px}
+  /* The day panel below states the chosen day's 근무 외; a strip head keeps its date, pill and counts unbroken. */
+  .dv-strip .alloc-out{display:none}
+  .dv-strip .wk-day .pill{white-space:nowrap;padding:1px 4px}
+  .cal-date{flex:1 1 auto;min-width:0;min-height:44px}
+  .cal-sum .alloc-out{white-space:normal}
 }
 @media (max-width:680px){
   .cal-grid.two{grid-auto-rows:minmax(160px,auto)}

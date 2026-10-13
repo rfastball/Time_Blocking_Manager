@@ -6,7 +6,7 @@
 .range.bad .range-label{color:var(--color-error)}
 .composer{position:absolute;z-index:22;width:236px;max-width:calc(100vw - 32px);display:flex;flex-direction:column;gap:8px;padding:8px 10px 10px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-control);box-shadow:var(--sp-lift)}
 .cm-head{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12px;font-weight:600;color:var(--color-text-muted);font-variant-numeric:tabular-nums}
-.cm-over{font-style:normal;color:var(--color-warning)}
+.cm-over{font-style:normal;color:color-mix(in srgb,var(--color-overdue) 70%,var(--color-text-muted))}
 .cm-x{width:26px;height:26px;border:0;border-radius:5px;background:none;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;color:var(--color-text-muted)}
 .cm-x:hover{background:var(--color-control-hover)}
 .composer .cm-title{width:100%;font-size:var(--font-size-composer);border:0;border-bottom:1px solid var(--color-control-border);border-radius:0;padding:2px 0 4px;background:transparent;color:var(--color-text);caret-color:var(--color-caret)}

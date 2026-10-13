@@ -114,6 +114,7 @@ export function DaySpace({date,axis,variant,bin,selected,multi=[],onOpen,onMulti
           onOpen={e=>{if((e.shiftKey||e.ctrlKey||e.metaKey)&&onMulti){onMulti(byId(item.task.id));return;}onOpen(byId(item.task.id));}}
           onMenu={e=>menu(e,byId(item.task.id),item.start)}/>)}
       </AnimatePresence>
+      {rule.enabled&&<AfterHours axis={axis} rule={rule} geometry={geometry} date={date}/>}
       {holding?.intent.zone==='rail'&&holding.intent.date===date&&<span className={'railtag'+(holding.intent.ok?'':' bad')} style={{top:axis.position(holding.intent.start!),left:geometry.railLeft-46}}>{time(holding.intent.start!)}</span>}
       {date===today&&now>=axis.start&&now<=axis.end&&<div className="nowline" style={{top:axis.position(now),left:Math.max(0,geometry.railLeft-22)}}>{variant==='day'&&<span>{time(now)}</span>}</div>}
       {children}
@@ -123,14 +124,14 @@ export function DaySpace({date,axis,variant,bin,selected,multi=[],onOpen,onMulti
   </div>;
 }
 
-function Ground({axis,rule,geometry:g,date}:{axis:TimeAxis;rule:ReturnType<typeof dayRule>;geometry:Geometry;date:string}){
+type GroundProps={axis:TimeAxis;rule:ReturnType<typeof dayRule>;geometry:Geometry;date:string};
+const bandOf=(axis:TimeAxis,start:number,end:number)=>({top:axis.position(start),height:Math.max(0,axis.position(end)-axis.position(start))});
+function Ground({axis,rule,geometry:g,date}:GroundProps){
   const hours=Array.from({length:25},(_,i)=>i*60).filter(m=>m>=axis.start-60&&m<=axis.end+60);
-  const band=(start:number,end:number)=>({top:axis.position(start),height:Math.max(0,axis.position(end)-axis.position(start))});
+  const band=(start:number,end:number)=>bandOf(axis,start,end);
   return <>
-    {rule.enabled?<>
-      <button type="button" className="off" style={{left:g.bodyLeft-4,...band(0,rule.start)}} aria-label={`${time(rule.start)} 이전 근무 외 시간 조정`} onClick={e=>openAvailability(date,'work',e.clientX,e.clientY)}/>
-      <button type="button" className="off" style={{left:g.bodyLeft-4,...band(rule.end,1440)}} aria-label={`${time(rule.end)} 이후 근무 외 시간 조정`} onClick={e=>openAvailability(date,'work',e.clientX,e.clientY)}/>
-    </>:<button type="button" className="off" style={{left:g.bodyLeft-4,...band(0,1440)}} aria-label="휴무일 근무시간 조정" onClick={e=>openAvailability(date,'work',e.clientX,e.clientY)}><span>휴무</span></button>}
+    {rule.enabled?<button type="button" className="off" style={{left:g.bodyLeft-4,...band(0,rule.start)}} aria-label={`${time(rule.start)} 이전 근무 외 시간 조정`} onClick={e=>openAvailability(date,'work',e.clientX,e.clientY)}/>
+    :<button type="button" className="off" style={{left:g.bodyLeft-4,...band(0,1440)}} aria-label="휴무일 근무시간 조정" onClick={e=>openAvailability(date,'work',e.clientX,e.clientY)}><span>휴무</span></button>}
     {hours.map(m=><div key={m} className="hl" style={{top:axis.position(m),left:g.bodyLeft}}/>)}
     {g.ruler>0&&<div className="ruler" aria-hidden="true" style={{width:g.ruler}}>{hours.map(m=><span key={m} style={{top:axis.position(m)}}>{String(m/60).padStart(2,'0')}</span>)}</div>}
     <div className="rail" data-surface="true" aria-hidden="true" style={{left:g.railLeft,width:g.railWidth}}/>
@@ -138,6 +139,10 @@ function Ground({axis,rule,geometry:g,date}:{axis:TimeAxis;rule:ReturnType<typeo
       aria-label={`${b.label} ${time(b.start)}–${time(b.end)} 조정`} onClick={e=>openAvailability(date,i,e.clientX,e.clientY)}><span>{b.label}</span></button>)}
     {rule.enabled&&<div className="floor" style={{left:g.railLeft,top:axis.position(rule.end)}}/>}
   </>;
+}
+// After the blocks in the DOM, so the keyboard reaches the evening after the day's work.
+function AfterHours({axis,rule,geometry:g,date}:GroundProps){
+  return <button type="button" className="off" style={{left:g.bodyLeft-4,...bandOf(axis,rule.end,1440)}} aria-label={`${time(rule.end)} 이후 근무 외 시간 조정`} onClick={e=>openAvailability(date,'work',e.clientX,e.clientY)}/>;
 }
 
 function AnchorFlash({top,left,anchor}:{top:number;left:number;anchor:number}){
@@ -197,7 +202,7 @@ function Block({date,item,pushed,axis,geometry:g,variant,next,hollow,resizing,se
       <OffHours start={item.start} end={item.end} rule={dayRule(t.plan_date!)} position={axis.position}/>
       {item.fixed&&<Latch clack={!!landed?.clack}/>}
       <button type="button" className="chk" aria-label={t.title+(t.completed?' 완료 취소':' 완료')} aria-pressed={t.completed} onPointerDown={e=>e.stopPropagation()} onTouchStart={e=>e.stopPropagation()} onClick={onCheck}><Icon name="check" size={12} stroke={3}/></button>
-      <button type="button" className="main" aria-label={`${t.title}, ${item.fixed?'시각 고정':'예상'} ${range}, ${formatDuration(t.duration)}${item.over?', 근무 외 '+formatDuration(item.outside):''}${next?', 다음':''}${t.completed?', 완료':''}`} onClick={onOpen} onKeyDown={key} aria-keyshortcuts={keys} data-task={t.id}>
+      <button type="button" className="main" aria-label={`${t.title}, ${item.fixed?'시각 고정':'예상'} ${range}, ${formatDuration(t.duration)}${item.over?', 근무 외 '+formatDuration(item.outside):''}${next?', 다음':''}${t.completed?', 완료':''}${multi?', 선택됨':''}`} onClick={onOpen} onKeyDown={key} aria-keyshortcuts={keys} data-task={t.id}>
         <span className="ttl-row">{next&&<span className="tag">다음</span>}<span className="ttl">{t.title}</span></span>
         <span className="meta"><span className="tm">{item.fixed?range:'예상 '+range}</span><span>{formatDuration(t.duration)}</span></span>
       </button>

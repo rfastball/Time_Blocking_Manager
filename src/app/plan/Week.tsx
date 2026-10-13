@@ -45,7 +45,7 @@ export function Week({dates}:{dates:string[]}){
 
 // A date head: its allocation at a glance, a place to drop work, and the way into that day's 일 view.
 export function Head({date}:{date:string}){
-  const {today,nav}=useApp(),{held,tasks}=useDrag(),box=useRef<HTMLDivElement|null>(null);
+  const {today,nav}=useApp(),{held,tasks}=useDrag(),box=useRef<HTMLDivElement|null>(null),head=useRef<HTMLButtonElement>(null);
   // Work dropped on a head goes to the end of that day's column, so it takes the column's shape on the week's scale.
   const ref=useRegion('date',date,{form:(task,ids)=>{
     const minutes=ids.reduce((n,id)=>n+(getState().snapshot!.tasks.find(t=>t.id===id)??task).duration,0);
@@ -53,20 +53,21 @@ export function Head({date}:{date:string}){
   }});
   const a=allocation(date,tasks),tag=dayTag(date),off=!dayRule(date).enabled;
   const hot=!!held&&!held.dropping&&held.intent.zone==='date'&&held.intent.ok&&held.intent.date===date;
-  const d=dateOf(date),past=date<today;
+  const d=dateOf(date),past=date<today,saved=past?null:planOf(date);
   // Today says when its remaining plan ends, as planned: the last unfinished block's end, not a countdown.
   // From the saved day, not a held block's preview, so the head keeps its height and the axis stays put under the hand.
-  const end=date===today?planOf(date).items.filter(i=>!i.task.completed).reduce<number|null>((e,i)=>Math.max(e??0,i.end),null):null;
-  // While a block is held the head previews; the fix belongs to the saved day.
-  const spill=!past&&!held?overflowOf(date):[];
+  const end=date===today?saved!.items.filter(i=>!i.task.completed).reduce<number|null>((e,i)=>Math.max(e??0,i.end),null):null;
+  // The fix belongs to the saved day: while a block is held it keeps its place in the head but steps out of sight.
+  const spill=saved?overflowOf(date,saved):[];
+  const fix=()=>void returnOverflow(date).then(ok=>{if(ok)head.current?.focus({preventScroll:true});});
   return <div ref={el=>{box.current=el;ref(el);}} data-date={date} className={'wk-head'+(date===today?' today':'')+(past?' past':'')+(date===nav.selected?' sel':'')+(off?' off':'')+(hot?' hot':'')}>
-    <button type="button" className="wk-date" onClick={()=>openDay(date)}
+    <button ref={head} type="button" className="wk-date" onClick={()=>openDay(date)}
       aria-label={`${dateLabel(date)}${date===today?', 오늘':''}${past?', 지난 날짜':''}${tag?', '+tag:''}, ${allocationLabel(a)}${end!==null?`, 예상 끝 ${time(end)}`:''}`}>
       <span className="wk-day"><small>{d.toLocaleDateString('ko-KR',{weekday:'short'})}</small><strong>{d.getDate()}</strong>{date===today&&<span className="pill">오늘</span>}{tag&&<span className="tag-chip">{tag}</span>}</span>
       <Meter a={a}/>
       <span className="wk-alloc"><span>{allocationShort(a)}</span><Outside a={a}/>{end!==null&&<span className="wk-end" aria-hidden="true">끝 {time(end)}</span>}</span>
     </button>
-    {spill.length>0&&<button type="button" className="btn text wk-return" aria-label={`${dateLabel(date)} 근무 외 블록 ${spill.length}개 준비로`} onClick={()=>void returnOverflow(date)}>준비로</button>}
+    {spill.length>0&&<button type="button" className="btn text wk-return" aria-label={`${dateLabel(date)} 근무 외 블록 ${spill.length}개 준비로`} style={held?{visibility:'hidden'}:undefined} onClick={fix}>준비로</button>}
   </div>;
 }
 

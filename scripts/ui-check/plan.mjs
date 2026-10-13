@@ -106,6 +106,8 @@ export default [
     assert.equal(new Set(boxes).size,1,'every column starts at the same top with the same height');
     const {today}=await days(page),first=await block(page,today,'설계 문서 자료 조사');
     assert.ok(Math.abs(first.y-1-await hourY(page,9))<=2,'the shared ruler lines up with the blocks');
+    assert.ok(await page.js(`(()=>{const s=document.querySelector('${sp(today)}'),after=[...s.querySelectorAll('.off')].at(-1),last=[...s.querySelectorAll('.blk .main')].at(-1);
+      return after.getAttribute('aria-label').includes('이후')&&!!(last.compareDocumentPosition(after)&Node.DOCUMENT_POSITION_FOLLOWING);})()`),'the keyboard reaches the evening after the day’s blocks');
     assert.match(await page.text('.wk-head.today'),/오늘.*[\d.]+ \/ [\d.]+h/);
     assert.match(await page.text('.plan-bar .week-summary'),/선택한 주 근무 .+ \/ .+ · \d \/ \d일/);
     // The drawer and its toggle became the narrow dock beside the week.
