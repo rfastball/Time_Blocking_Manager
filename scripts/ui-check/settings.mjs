@@ -52,6 +52,24 @@ export default [
     await page.key('ArrowDown');await page.sleep(200);
     assert.match(await label(page,`${col(1)}.querySelector('[data-select="1:work"]')`),/08:45–18:00/);
   }},
+  {name:'the rhythm paper is one tab stop that arrows walk through; 날짜별 변경 lands on the date on the work screen',run:async page=>{
+    await open(page);
+    assert.equal(await page.js(`[...document.querySelectorAll('.rh-paper button,.rh-paper [tabindex]')].filter(e=>e.tabIndex===0).length`),1,'one stop in the paper');
+    const stop=()=>page.js(`document.activeElement.dataset.stop`);
+    await page.js(`document.querySelector('.rh-tools .btn:last-child').focus()`);
+    await page.key('Tab');assert.equal(await stop(),'t0','Tab enters at the first head');
+    await page.key('ArrowRight');assert.equal(await stop(),'e0:work:start');
+    await page.key('ArrowRight');assert.equal(await stop(),'b0:work');
+    await page.key('ArrowUp');assert.equal(await stop(),'e0:work:start','up walks back from a band');
+    await page.key('ArrowLeft');assert.equal(await stop(),'t0');
+    await page.key('End');assert.equal(await stop(),'e6:0:end');
+    await page.key('Home');await page.key('ArrowRight');await page.key('ArrowRight');
+    await page.key('Tab');assert.equal(await page.js(`!!document.activeElement.closest('.rh-paper')`),false,'Tab leaves the paper');
+    await page.key('Tab',{modifiers:8});assert.equal(await stop(),'b0:work','Shift+Tab comes back to where it left');
+    await tap(page,`[...document.querySelectorAll('.st-exceptions .btn')].find(b=>b.textContent==='작업 화면에서 선택')`);
+    assert.equal(await page.js(`document.querySelector('.content').dataset.view`),'plan');
+    assert.ok(await page.js(`document.activeElement.matches('.wk-date,.cal-date')`),'focus on the date head');
+  }},
   {name:'the band menu opens with Shift+F10 and adds and deletes a break',run:async page=>{
     await open(page);
     await page.js(`${col(1)}.querySelector('[data-select="1:work"]').focus()`);

@@ -12,7 +12,7 @@ const scenarios=[
     // The rail is gone: the top bar carries the way home, the dates, the range, search, focus and the gear, in that order.
     await toPlan(page);
     assert.equal(await page.js(`!!document.querySelector('.rail-nav')`),false);
-    const bar=await page.js(`[...document.querySelector('header.topbar').children].map(e=>e.matches('.brand')?'로고':e.matches('.date-nav')?'날짜':e.matches('h1')?'제목':e.matches('.segmented')?'기간':e.matches('.search-open')?'검색':e.matches('button[aria-label="단축키"]')?'단축키':e.matches('button[aria-label="설정"]')?'설정':e.matches('button')?e.textContent.trim():null).filter(Boolean)`);
+    const bar=await page.js(`[...document.querySelectorAll('header.topbar>*,header.topbar>.bar-end>*')].map(e=>e.matches('.brand')?'로고':e.matches('.date-nav')?'날짜':e.matches('h1')?'제목':e.matches('.segmented')?'기간':e.matches('.search-open')?'검색':e.matches('button[aria-label="단축키"]')?'단축키':e.matches('button[aria-label="설정"]')?'설정':e.matches('button')?e.textContent.trim():null).filter(Boolean)`);
     assert.deepEqual(bar,['로고','날짜','제목','기간','검색','몰입','단축키','설정']);
     assert.equal(await page.js(`document.querySelector('.search-open').getAttribute('aria-keyshortcuts')`),'Control+K');
     await page.js(`document.querySelector('#tray-capture').focus()`);
@@ -25,6 +25,11 @@ const scenarios=[
     await page.click('header.topbar .search-open');
     assert.equal(await active(page),'검색');
     await page.key('Escape');
+    // Tab closes the panel too and, like Esc, gives focus back rather than letting it fall to the page.
+    await page.js(`document.querySelector('#tray-capture').focus()`);
+    await open(page);await page.key('Tab');await page.sleep(150);
+    assert.equal(await page.js('!!document.querySelector(".search-panel")'),false,'Tab closes search');
+    assert.equal(await active(page),'tray-capture');
   }},
   {name:'results show the title and where the work is now; arrows choose and Enter goes to the block in 계획 일',run:async page=>{
     await open(page);await page.type('설계');await page.sleep(150);
@@ -33,6 +38,7 @@ const scenarios=[
     await page.key('ArrowDown');
     assert.equal(await page.js(`document.querySelector('.search-hit[aria-selected=true] .hit-title').textContent`),'설계 문서 초안 작성');
     assert.equal(await page.js(`document.querySelector('[role=combobox]').getAttribute('aria-activedescendant')`),'hit-sample-b');
+    assert.notEqual(await page.js(`getComputedStyle(document.querySelector('.search-hit.active')).boxShadow`),'none','the chosen result has an edge');
     await page.shot('search-results');
     await page.key('Enter');await page.sleep(900);
     assert.equal(await page.js(`document.querySelector('.content').dataset.view`),'plan');
@@ -66,6 +72,8 @@ const scenarios=[
   {name:'nothing found is said in the panel; at 720px the panel fits the window',viewport:{width:720,height:900},run:async page=>{
     await open(page);await page.type('없는 일');await page.sleep(100);
     assert.equal(await page.text('.search-none'),'찾은 일이 없어요');
+    assert.equal(await page.js(`document.getElementById(document.querySelector('[role=combobox]').getAttribute('aria-controls'))?.hidden`),true,'the controlled list is there, hidden');
+    assert.equal(await page.js(`document.querySelectorAll('.search-panel [role=status]').length`),1);
     const r=await page.rect('.search-panel');assert.ok(r.x>=8&&r.x+r.w<=712,'inside the window');
     await page.key('Escape');
   }},

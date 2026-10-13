@@ -30,6 +30,7 @@ export function BandEditor({days,names,short=names,compact=false,initial=null,au
   const [menu,setMenu]=useState<Menu|null>(null);
   const [preview,setPreview]=useState<{day:number;value:WorkingDay}|null>(null);
   const [gestureAxis,setGestureAxis]=useState<TimeAxis|null>(null);
+  const [stop,setStop]=useState('');
   const root=useRef<HTMLDivElement>(null),scroll=useRef<HTMLDivElement>(null);
   const fresh=timeAxisForDays(days,SCALE),baseAxis=useMemo(()=>fresh,[fresh.start,fresh.end]);
   const axis=gestureAxis??baseAxis;
@@ -99,6 +100,14 @@ export function BandEditor({days,names,short=names,compact=false,initial=null,au
     e.preventDefault();const r=e.currentTarget.getBoundingClientRect();
     setSelected({day:i,target});setMenu({day:i,target,x:r.left+8,y:Math.max(8,r.top+8)});
   }
+  // The paper is one tab stop: arrows walk day by day through each head, then its bands top to bottom with their edges.
+  function walk(e:ReactKeyboardEvent<HTMLDivElement>){
+    const step={ArrowLeft:-1,ArrowUp:-1,ArrowRight:1,ArrowDown:1}[e.key],at=stops.indexOf((e.target as HTMLElement).dataset.stop??'');
+    if(at<0||!step&&e.key!=='Home'&&e.key!=='End')return;
+    e.preventDefault();
+    const next=stops[e.key==='Home'?0:e.key==='End'?stops.length-1:Math.max(0,Math.min(stops.length-1,at+step!))];
+    root.current?.querySelector<HTMLElement>(`[data-stop="${next}"]`)?.focus();
+  }
   function context(e:ReactMouseEvent<HTMLDivElement>,i:number){
     e.preventDefault();const band=(e.target as HTMLElement).closest<HTMLElement>('[data-band]'),target=band?targetOf(band.dataset.band!):'work';
     if(days[i].enabled)setSelected({day:i,target});
@@ -121,6 +130,8 @@ export function BandEditor({days,names,short=names,compact=false,initial=null,au
       {detail}
     </div>;
   }
+  const stops=days.flatMap((d,i)=>[`t${i}`,...d.enabled?(['work',...d.breaks.map((_,j)=>j)] as AvailabilityTarget[]).flatMap(t=>[`e${i}:${t}:start`,`b${i}:${t}`,`e${i}:${t}:end`]):[]]);
+  const tab=stops.includes(stop)?stop:selected?`b${selected.day}:${selected.target}`:'t0';
   // Lines follow the labels in the compressed tails and every half hour in the open range.
   const hours=hourLabels(axis),lines=[...new Set([...hours,...Array.from({length:49},(_,k)=>k*30).filter(m=>m>=axis.start&&m<=axis.end)])];
   return <div className="rh" ref={root}>
@@ -128,10 +139,10 @@ export function BandEditor({days,names,short=names,compact=false,initial=null,au
       {(['work','break'] as const).map(m=><button key={m} type="button" className="btn" aria-pressed={mode===m} onClick={()=>setMode(m)}><i className={'rh-swatch rh-swatch-'+m} aria-hidden="true"/>{m==='work'?'근무 그리기':'휴식 그리기'}</button>)}
     </div>
     <div className="rh-scroll" ref={scroll}>
-      <div className="rh-paper" style={{'--rh-days':days.length} as CSSProperties}>
+      <div className="rh-paper" style={{'--rh-days':days.length} as CSSProperties} onKeyDown={walk} onFocus={e=>{const k=(e.target as HTMLElement).dataset.stop;if(k)setStop(k);}}>
         <div className="rh-head">
           <span aria-hidden="true"/>
-          {days.map((d,i)=><button key={i} type="button" data-toggle={i} aria-pressed={d.enabled} aria-label={`${names[i]} 근무`} onClick={()=>toggle(i)}>
+          {days.map((d,i)=><button key={i} type="button" data-toggle={i} data-stop={`t${i}`} tabIndex={tab===`t${i}`?0:-1} aria-pressed={d.enabled} aria-label={`${names[i]} 근무`} onClick={()=>toggle(i)}>
             <strong>{short[i]}</strong><small>{d.enabled?'근무':'휴무'}</small></button>)}
         </div>
         <div className="rh-body" style={{height:axis.height}}>
@@ -142,7 +153,7 @@ export function BandEditor({days,names,short=names,compact=false,initial=null,au
             return <div key={i} className={'rh-col'+(d.enabled?'':' rh-dayoff')+(preview?.day===i?' rh-editing':'')} role="group" aria-label={`${names[i]} 시간 밴드`}
               onPointerDown={e=>press(e,i)} onContextMenu={e=>context(e,i)}>
               {d.enabled?(['work',...d.breaks.map((_,j)=>j)] as AvailabilityTarget[]).map(target=>
-                <Band key={String(target)} day={d} i={i} name={names[i]} target={target} axis={axis} live={preview?.day===i} active={selected?.day===i&&selected.target===target}
+                <Band key={String(target)} day={d} i={i} name={names[i]} target={target} axis={axis} tab={tab} live={preview?.day===i} active={selected?.day===i&&selected.target===target}
                   onSelect={()=>setSelected({day:i,target})} onKey={e=>bandKey(e,i,target)} onEdgeKey={(e,edge)=>edgeKey(e,i,target,edge)}/>)
               :<span className="rh-offday" style={{top:axis.position(axis.start)+24}}>휴무</span>}
             </div>;
@@ -166,17 +177,17 @@ function swallowClick(){
   setTimeout(()=>window.removeEventListener('click',stop,{capture:true}),0);
 }
 
-type BandProps={day:WorkingDay;i:number;name:string;target:AvailabilityTarget;axis:TimeAxis;live:boolean;active:boolean;
+type BandProps={day:WorkingDay;i:number;name:string;target:AvailabilityTarget;axis:TimeAxis;tab:string;live:boolean;active:boolean;
   onSelect:()=>void;onKey:(e:ReactKeyboardEvent<HTMLElement>)=>void;onEdgeKey:(e:ReactKeyboardEvent,edge:'start'|'end')=>void};
-function Band({day,i,name,target,axis,live,active,onSelect,onKey,onEdgeKey}:BandProps){
+function Band({day,i,name,target,axis,tab,live,active,onSelect,onKey,onEdgeKey}:BandProps){
   const b=bandOf(day,target),label=bandLabel(day,target),range=`${time(b.start)}–${time(b.end)}`;
   const top=axis.position(b.start),height=Math.max(6,axis.position(b.end)-top),short=height<48;
   return <motion.div data-band={String(target)} className={'rh-band '+(target==='work'?'rh-work':'rh-rest')+(active?' rh-selected':'')+(short?' rh-short':'')}
     initial={false} animate={{top,height}} transition={live?follow:settle} onKeyDown={onKey}>
-    <button type="button" data-select={`${i}:${target}`} aria-pressed={active} aria-label={`${name} ${label||'이름 없음'} ${range}`} title={`${label} ${range}`} onClick={onSelect}>
+    <button type="button" data-select={`${i}:${target}`} data-stop={`b${i}:${target}`} tabIndex={tab===`b${i}:${target}`?0:-1} aria-pressed={active} aria-label={`${name} ${label||'이름 없음'} ${range}`} title={`${label} ${range}`} onClick={onSelect}>
       <span className="rh-cap"><strong>{label}</strong>{target==='work'&&!short&&<small>{time(b.start)}<br/>{time(b.end)}</small>}</span>
     </button>
-    {(['start','end'] as const).map(edge=><span key={edge} className={'rh-edge '+edge} data-edge={edge} role="separator" tabIndex={0} aria-orientation="horizontal"
+    {(['start','end'] as const).map(edge=><span key={edge} className={'rh-edge '+edge} data-edge={edge} data-stop={`e${i}:${target}:${edge}`} role="separator" tabIndex={tab===`e${i}:${target}:${edge}`?0:-1} aria-orientation="horizontal"
       aria-label={`${name} ${label} ${edge==='start'?'시작':'종료'} 조절`} aria-valuemin={0} aria-valuemax={1440} aria-valuenow={b[edge]} aria-valuetext={time(b[edge])}
       onKeyDown={e=>onEdgeKey(e,edge)}/>)}
   </motion.div>;

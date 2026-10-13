@@ -1,4 +1,4 @@
-// Global search: Ctrl+K or the menu's 검색 opens an input and its results at the top centre. Esc gives focus back.
+// Global search: Ctrl+K or the top bar's 검색 opens an input and its results at the top centre. Esc gives focus back.
 import {useEffect,useLayoutEffect,useMemo,useRef,useState,type KeyboardEvent} from 'react';
 import {motion} from 'motion/react';
 import {isCompositionKey} from '../../capture.ts';
@@ -8,7 +8,8 @@ import {reduced} from '../ui/motion.ts';
 import {Icon} from '../ui/icons.tsx';
 import './search.css';
 
-export const openSearch=()=>{const s=getState();if(s.ready&&s.snapshot&&s.draftLoaded)setUi({search:true,contextMenu:null});};
+// Asked again while open, the panel takes the keyboard back.
+export const openSearch=()=>{const s=getState();if(s.ui.search)document.querySelector<HTMLInputElement>('.search-panel input')?.focus();else if(s.ready&&s.snapshot&&s.draftLoaded)setUi({search:true,contextMenu:null});};
 
 export function SearchHost(){
   const {ui}=useApp();
@@ -36,26 +37,31 @@ function SearchPanel(){
     document.addEventListener('pointerdown',outside,true);return ()=>document.removeEventListener('pointerdown',outside,true);
   },[]);
   function close(refocus=true){setUi({search:false});if(refocus&&opener instanceof HTMLElement&&opener.isConnected)opener.focus({preventScroll:true});}
+  // Focus leaving the panel closes it, as a press outside does; focus that fell to the page goes back to the opener.
+  // Leaving the window keeps it open.
+  function left(){requestAnimationFrame(()=>{const at=document.activeElement;if(document.hasFocus()&&getState().ui.search&&!panel.current?.contains(at))close(!at||at===document.body);});}
   function keys(e:KeyboardEvent<HTMLInputElement>){
-    if(e.key==='Escape'){e.preventDefault();e.stopPropagation();close();return;}
+    if(e.key==='Escape'||e.key==='Tab'){e.preventDefault();e.stopPropagation();close();return;}
     if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();if(hits.length)setActive(i=>(i+(e.key==='ArrowDown'?1:-1)+hits.length)%hits.length);return;}
     if(e.key==='Enter'&&!isCompositionKey(e.nativeEvent)){e.preventDefault();const hit=hits[active];if(hit)goTo(hit);}
   }
   const typed=!!query.trim();
   return <div className="search-layer">
-    <motion.div ref={panel} className="search-panel" role="dialog" aria-label="검색" initial={{opacity:0,y:-6}} animate={{opacity:1,y:0}} transition={{duration:reduced()?0:.12}}>
+    <motion.div ref={panel} className="search-panel" role="dialog" aria-label="검색" initial={{opacity:0,y:-6}} animate={{opacity:1,y:0}} transition={{duration:reduced()?0:.12}}
+      onBlur={left} onMouseDown={e=>{if(e.target!==input.current)e.preventDefault();}}>
       <div className="search-box">
         <Icon name="search" size={18}/>
         <input ref={input} type="text" role="combobox" aria-label="검색" aria-expanded={typed&&hits.length>0} aria-controls="search-results" aria-autocomplete="list"
           aria-activedescendant={hits[active]?'hit-'+hits[active].id:undefined} autoComplete="off" maxLength={200} placeholder="검색"
           value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={keys}/>
       </div>
-      {typed&&(hits.length?<ul id="search-results" role="listbox" aria-label="검색 결과" className="search-results">
-        {hits.map((h,i)=><li key={h.kind+h.id} id={'hit-'+h.id} role="option" aria-selected={i===active} className={'search-hit'+(i===active?' active':'')}
+      <ul id="search-results" role="listbox" aria-label="검색 결과" className="search-results" hidden={!typed||!hits.length}>
+        {typed&&hits.map((h,i)=><li key={h.kind+h.id} id={'hit-'+h.id} role="option" aria-selected={i===active} className={'search-hit'+(i===active?' active':'')}
           onPointerDown={e=>e.preventDefault()} onPointerMove={()=>{if(i!==active)setActive(i);}} onClick={()=>goTo(h)}>
           <span className="hit-title">{h.title}</span><span className="hit-where">{h.where}</span>
         </li>)}
-      </ul>:<p className="search-none" role="status">찾은 일이 없어요</p>)}
+      </ul>
+      <p className="search-none" role="status">{typed&&!hits.length?'찾은 일이 없어요':''}</p>
     </motion.div>
   </div>;
 }

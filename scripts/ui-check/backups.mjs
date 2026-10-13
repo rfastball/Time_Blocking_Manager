@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import {toSettings} from './support/nav.mjs';
 
 // Backups need the native store; the browser preview only says where they are managed.
+// Modules are imported at the URL the app loaded them from: after a hot update that carries a ?t= stamp, and the bare path would be a second copy.
+const mod=`(p=>performance.getEntriesByType('resource').map(r=>r.name).findLast(n=>new URL(n).pathname===p)??p)`;
 export default [
   {name:'the preview shows where backups are managed and offers no actions',run:async page=>{
     await toSettings(page);
@@ -15,7 +17,7 @@ export default [
     await toSettings(page);
     try{
       await page.js(`(async()=>{
-        const [{setState},{setOpen}]=await Promise.all([import('/src/app/store/state.ts'),import('/src/app/backups/backups.ts')]);
+        const [{setState},{setOpen}]=await Promise.all([import(${mod}('/src/app/store/state.ts')),import(${mod}('/src/app/backups/backups.ts'))]);
         window.backupCheckPreviousIPC=window.__TAURI_INTERNALS__;
         const info={created_at:'2026-10-12T01:00:00Z',tasks:2,scheduled:1,completed:0};
         const mock=window.backupCheckMock={info,mode:'waiting',pending:[]};
@@ -41,7 +43,7 @@ export default [
       assert.equal(await page.js(`!!document.querySelector('.restore-review')`),false,'keyboard cancel closes the pending review');
       assert.equal(await page.js(`document.activeElement===document.querySelector('details.backups > summary')`),true,'cancel returns keyboard focus');
       await page.js(`window.backupCheckMock.pending.shift()(window.backupCheckMock.info)`);
-      assert.deepEqual(await page.js(`(async()=>{const {getBackups}=await import('/src/app/backups/backups.ts');const b=getBackups();return {selected:b.selected,inspection:b.inspection,inspecting:b.inspecting};})()`),{selected:null,inspection:null,inspecting:false},'late inspection result cannot reopen or repopulate the canceled review');
+      assert.deepEqual(await page.js(`(async()=>{const {getBackups}=await import(${mod}('/src/app/backups/backups.ts'));const b=getBackups();return {selected:b.selected,inspection:b.inspection,inspecting:b.inspecting};})()`),{selected:null,inspection:null,inspecting:false},'late inspection result cannot reopen or repopulate the canceled review');
       await page.js(`window.backupCheckMock.mode='error'`);
       await page.click('.backups-list button');
       assert.match(await page.text('.restore-review [role=alert]'),/백업 검사 실패/);
@@ -54,7 +56,7 @@ export default [
       assert.equal(await page.js(`!!document.querySelector('[data-key=restore]')`),true,'successful inspection still offers restore');
       await page.click('[data-key=cancel]');
     }finally{
-      await page.js(`(async()=>{const [{setState},{cancelReview,setOpen}]=await Promise.all([import('/src/app/store/state.ts'),import('/src/app/backups/backups.ts')]);cancelReview();setOpen(false,false);setState({native:false});if(window.backupCheckPreviousIPC)window.__TAURI_INTERNALS__=window.backupCheckPreviousIPC;else delete window.__TAURI_INTERNALS__;delete window.backupCheckMock;delete window.backupCheckPreviousIPC;})()`);
+      await page.js(`(async()=>{const [{setState},{cancelReview,setOpen}]=await Promise.all([import(${mod}('/src/app/store/state.ts')),import(${mod}('/src/app/backups/backups.ts'))]);cancelReview();setOpen(false,false);setState({native:false});if(window.backupCheckPreviousIPC)window.__TAURI_INTERNALS__=window.backupCheckPreviousIPC;else delete window.__TAURI_INTERNALS__;delete window.backupCheckMock;delete window.backupCheckPreviousIPC;})()`);
     }
   }},
 ];
