@@ -39,6 +39,29 @@ const scenarios=[
     await setDock(page,'hidden');
     assert.equal(await page.js(`document.querySelector('.dock-unfold').getAttribute('aria-label')`),'준비 펴기, 6건');
     assert.equal(await page.text('.dock-unfold .cnt'),'6');
+    await setDock(page,'narrow');
+    assert.equal(await page.text('#dock .tray h2 .cnt'),'6','the list heading counts the same 준비 as the folded dock');
+  }},
+  {name:'the dock starts where it sticks at every width and is the only scroller in it',viewport:{width:1100,height:700},run:async page=>{
+    const dock=()=>page.js(`(()=>{const d=document.getElementById('dock'),r=d.getBoundingClientRect();return {top:Math.round(r.top),bottom:Math.round(r.bottom),scrollers:[d,...d.querySelectorAll('*')].filter(e=>/auto|scroll/.test(getComputedStyle(e).overflowY)&&e.scrollHeight>e.clientHeight+1).length};})()`);
+    await setDock(page,'narrow');const narrow=await dock();
+    await open(page);const wide=await dock();
+    assert.equal(wide.top,narrow.top,'widening does not move the dock');
+    assert.ok(wide.bottom<=700,'the dock ends inside the window');
+    assert.equal(wide.scrollers,1,'stacked, the lists scroll with the dock');
+    await page.js(`document.getElementById('inbox-capture').focus()`);
+    assert.ok(await page.js(`(()=>{const d=document.getElementById('dock').getBoundingClientRect(),e=document.querySelector('.inbox-entry').getBoundingClientRect();return e.left-4>=d.left&&e.top-4>=d.top;})()`),'the capture row has room for its focus ring');
+  }},
+  {name:'away from the bench the cutting board is a dialog that gives the keyboard back to its block',run:async page=>{
+    await setDock(page,'narrow');
+    await page.js(`document.querySelector('.wk-col .blk.flow .main').focus()`);
+    const block=await page.js('document.activeElement.getAttribute("aria-label")');
+    await page.js(`(()=>{const c=document.querySelector('.wk-col .blk.flow'),r=c.getBoundingClientRect();c.dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,clientX:r.left+20,clientY:r.top+10}));})()`);await page.sleep(200);
+    await page.click('[role=menuitem]','나누기');await page.sleep(500);
+    assert.ok(await page.js('!!document.querySelector(".cut-dialog[open]")'));
+    await page.key('Escape');await page.sleep(500);
+    assert.equal(await page.js('!!document.querySelector(".cut-dialog")'),false);
+    assert.equal(await page.js('document.activeElement.getAttribute("aria-label")'),block);
   }},
   {name:'pulling a sheet gives it thickness in place; arrows size it too, and nothing moves',run:async page=>{
     await open(page);

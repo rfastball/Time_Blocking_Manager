@@ -3,12 +3,12 @@
 .jb-work{margin-top:4px}
 .jb-bench{position:relative;min-width:0}
 .jb-layer{display:grid;grid-template-columns:minmax(240px,300px) minmax(280px,1fr);gap:16px;align-items:start}
-.jb-dim{opacity:.35}
 .jb-panel{min-width:0;background:var(--color-panel);border:var(--border-panel-width) solid var(--color-border);border-radius:var(--radius-panel);padding:14px 12px 10px;display:flex;flex-direction:column;gap:8px}
 .jb-head{display:flex;align-items:center;gap:8px;min-height:28px;padding:0 2px}
 .jb-head h2{margin:0;font-size:var(--font-size-title);font-weight:var(--font-weight-heading);font-family:var(--font-heading)}
 .jb-sum{font-size:var(--font-size-label);color:var(--color-text-muted);font-variant-numeric:tabular-nums}
-.jb-scroll{max-height:max(360px,calc(100vh - 220px));overflow:auto;margin:0 -6px;padding:6px 6px 56px}
+/* Side by side each list scrolls inside the dock's height, so the dock itself never has to. */
+.jb-scroll{max-height:calc(100vh - 220px);overflow:auto;margin:0 -6px;padding:6px 6px 56px}
 .jb-sub{margin:14px 2px 6px;font-size:var(--font-size-label);font-weight:600;color:var(--color-text-muted)}
 
 /* 들어옴: a grey well; sheets and blocks rest on it in arrival order. */
@@ -23,9 +23,9 @@
 .jb-chips .chip-title .ttl{overflow:hidden;text-overflow:ellipsis;font-weight:500}
 
 /* 선반: blocks hang from a black ceiling in one order; the ruler counts what they hold. */
-.jb-rack{position:relative;display:grid;grid-template-columns:30px minmax(0,1fr)}
-.jb-ruler{position:relative}
-.jb-ruler span{position:absolute;left:0;margin-top:-4px;font-size:11px;font-weight:600;color:var(--color-text-muted);opacity:.85;font-variant-numeric:tabular-nums}
+.jb-rack{position:relative;display:grid;grid-template-columns:30px minmax(0,1fr);min-height:var(--rack)}
+.jb-ruler{position:relative;overflow:hidden}
+.jb-ruler span{position:absolute;left:0;margin-top:-4px;font-size:var(--font-size-micro);font-weight:600;color:var(--color-text-muted);font-variant-numeric:tabular-nums}
 /* The ceiling is the shelf's handle: a black bar the blocks hang from; it thickens under the hand. */
 .jb-stack{position:relative;display:flex;flex-direction:column}
 .jb-ceiling{position:relative;height:10px;min-height:0;padding:0;border:0;background:transparent;cursor:grab;touch-action:manipulation}
@@ -39,11 +39,15 @@
 /* A card: a sheet with no thickness yet, or a block whose height is its length. */
 .jb-card{position:relative;flex:0 0 auto;touch-action:manipulation;-webkit-touch-callout:none;cursor:grab;scroll-margin-block:24px}
 .jb-card>.tile{position:absolute;inset:0;border-radius:var(--radius-block);display:flex;align-items:flex-start;gap:6px;padding:6px 6px 6px 6px;overflow:hidden;background:var(--sp-flow);border:var(--border-block-width) solid var(--sp-flow-edge);color:var(--sp-flow-ink);transition:translate .14s ease,box-shadow .14s ease}
-.jb-card:hover>.tile{translate:0 -1px;box-shadow:0 3px 8px color-mix(in srgb,var(--color-text) 10%,transparent)}
+.jb-card:hover>.tile{translate:0 -1px;box-shadow:var(--shadow-hover)}
+/* The tile clips, so the card's focus ring is drawn inside the tile rather than around its button (a thin block has no room). */
+.jb-card .main:focus-visible{outline:0}
+.jb-card>.tile:has(>.main:focus-visible)::after{content:"";position:absolute;inset:0;border:2px solid var(--color-focus);border-radius:inherit;pointer-events:none}
 .jb-card .chk{width:18px;height:18px}
 .jb-card .main{flex:1;min-width:0;border:0;background:none;padding:1px 0 0;text-align:left;cursor:inherit;display:flex;flex-direction:row;align-items:baseline;gap:8px;color:inherit;font:inherit}
-.jb-card .ttl{flex:1;min-width:0;font-weight:600;font-size:13px;line-height:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.jb-card .meta{flex:none;display:flex;gap:6px;font-size:11.5px;line-height:18px;opacity:.85;font-variant-numeric:tabular-nums}
+.jb-card .ttl{flex:1;min-width:0;font-weight:600;font-size:var(--font-size-summary);line-height:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.jb-card .meta{flex:none;display:flex;gap:6px;font-size:11.5px;line-height:18px;font-variant-numeric:tabular-nums}
+.jb-card .meta>span{opacity:.85}
 .jb-card .from{color:var(--color-overdue);font-weight:600}
 /* Tall enough for two lines: the title, then where it came from and its length. */
 .jb-card.tall .main{flex-direction:column;align-items:flex-start;gap:2px}
@@ -51,7 +55,7 @@
 .jb-card.thin>.tile{padding:0 6px;align-items:center}
 .jb-card.thin .chk,.jb-card.thin .jb-acts{display:none}
 .jb-card.thin .main{padding:0;align-items:center}
-.jb-card.thin .ttl,.jb-card.thin .meta{font-size:11px;line-height:1}
+.jb-card.thin .ttl,.jb-card.thin .meta{font-size:var(--font-size-micro);line-height:1}
 .jb-card.sheet>.tile{background:var(--color-surface);border:1.5px dashed var(--sp-fixed-edge);color:var(--color-text);align-items:center;padding:0 6px 0 10px}
 .jb-card.sheet .main{padding:0}
 .jb-card.sel>.tile{outline:var(--border-selected-width) solid var(--color-selection-border);outline-offset:2px}
@@ -66,11 +70,11 @@
 
 /* The bottom lip: a sheet's pull tab is always there; a block's resize grip shows on hover. */
 .jb-lip{position:absolute;left:0;right:0;bottom:-5px;z-index:3;height:10px;cursor:ns-resize;touch-action:none}
-.jb-lip::after{content:"";position:absolute;left:50%;top:2px;width:24px;height:6px;margin-left:-12px;border-radius:3px;background:var(--sp-fixed-edge);opacity:0;transition:opacity .1s,background-color .1s}
+.jb-lip::after{content:"";position:absolute;left:50%;top:2px;width:24px;height:6px;margin-left:-12px;border-radius:min(3px,var(--radius-block));background:var(--sp-fixed-edge);opacity:0;transition:opacity .1s,background-color .1s}
 .jb-card:hover .jb-lip::after{opacity:.7}
-.jb-lip.tab::after{opacity:1;background:var(--color-border)}
+.jb-lip.tab::after{opacity:1;background:color-mix(in srgb,var(--color-text-muted) 80%,transparent)}
 .jb-card.sheet:hover .jb-lip.tab::after,.jb-card.sheet:focus-within .jb-lip.tab::after{background:var(--color-action)}
-.jb-len{position:absolute;right:8px;bottom:-10px;z-index:5;pointer-events:none;background:var(--color-action);color:var(--color-on-action);font-size:11px;font-weight:700;border-radius:4px;padding:1px 5px;font-variant-numeric:tabular-nums}
+.jb-len{position:absolute;right:8px;bottom:-10px;z-index:5;pointer-events:none;background:var(--color-action);color:var(--color-on-action);font-size:var(--font-size-micro);font-weight:700;border-radius:min(4px,var(--radius-block));padding:1px 5px;font-variant-numeric:tabular-nums}
 
 /* What the picked cards can do: one bar over the bottom of the lists. */
 .jb-selbar{position:fixed;left:50%;bottom:20px;z-index:20;translate:-50% 0;width:max-content;max-width:calc(100vw - 48px);display:flex;flex-wrap:wrap;align-items:center;gap:4px;padding:6px;background:var(--color-surface);border:1px solid var(--color-divider);border-radius:var(--radius-control);box-shadow:var(--shadow-dialog)}
@@ -81,11 +85,29 @@
 .jb-menu{position:fixed;min-width:160px;max-width:280px}
 
 .held.proto>.tile{background:var(--color-surface);border:1.5px dashed var(--sp-fixed-edge);color:var(--color-text-muted)}
-.held-more{flex:0 0 auto;font-size:11px;font-weight:700;font-variant-numeric:tabular-nums}
+.held-more{flex:0 0 auto;font-size:var(--font-size-micro);font-weight:700;font-variant-numeric:tabular-nums}
 .held-why.where{background:var(--color-text)}
 
 @media (max-width:760px){
   .jb-layer{grid-template-columns:minmax(0,1fr)}
   .jb-scroll{max-height:none}
+  /* Stacked, the rack ends an hour past what the shelf holds instead of a working day of empty shelf. */
+  .jb-rack{min-height:var(--rack-fit)}
+}
+/* Touch: what hides until hover is shown, and small handles get a finger-sized target. */
+@media (pointer:coarse){
+  .jb-acts{opacity:1}
+  .jb-card .jb-lip::after{opacity:.7}
+  .jb-lip.tab::after{opacity:1}
+  .jb-lip{height:24px;bottom:-12px}
+  .jb-lip::after{top:9px}
+  .jb-card .chk::before,.jb-acts .jb-delete::before,.jb-chips .chip-undo::before{content:"";position:absolute;inset:-11px}
+  .jb-card .chk::before{inset:-14.5px}
+  .jb-chips .chip-undo::before{inset:-9px}
+  .jb-acts .jb-delete,.jb-chips .chip-undo{position:relative}
+  .jb-shelf .jb-scroll{padding-top:40px}
+  .jb-ceiling{height:44px;margin-top:-34px}
+  .jb-selbar .btn,.jb-selbar .ibtn{min-height:44px}
+  .jb-selbar .ibtn{width:44px}
 }
 @media (prefers-reduced-motion:reduce){.jb-card>.tile,.jb-lip::after,.jb-well,.jb-hang,.jb-ceiling::after{transition:none}}

@@ -30,7 +30,7 @@ export function Bench(){
   useEffect(()=>{const live=ui.benchSelection.filter(id=>snapshot!.tasks.some(t=>t.id===id&&!t.completed&&(!t.plan_date||t.plan_date<today)));if(live.length!==ui.benchSelection.length)setSelection(live);},[snapshot,ui.benchSelection,today]);
   const cutting=!!(ui.split&&drafts.cut),open=(t:Task)=>openEditor(t.id);
   return <section className="inbox-page jb" aria-label="준비" onClick={e=>{
-    if(!(e.target as HTMLElement).closest('button,input,textarea,select,a,summary,[data-card],.cut,.jb-dock,.jb-selbar,.menu'))setSelection([]);
+    if(!(e.target as HTMLElement).closest('button,input,textarea,select,a,summary,[data-card],.cut,.jb-selbar,.menu'))setSelection([]);
   }}>
     <div className="inbox-entry">
       <Icon name="plus" size={18}/>

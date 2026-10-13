@@ -1,5 +1,5 @@
 // 준비's bench: the 들어옴 and the shelf at the timetable's scale.
-import {useLayoutEffect,useRef,useState,type KeyboardEvent,type MouseEvent as ReactMouseEvent,type PointerEvent as ReactPointerEvent,type ReactNode} from 'react';
+import {useLayoutEffect,useRef,useState,type CSSProperties,type KeyboardEvent,type MouseEvent as ReactMouseEvent,type PointerEvent as ReactPointerEvent,type ReactNode} from 'react';
 import {AnimatePresence,motion} from 'motion/react';
 import {useDraggable} from '@dnd-kit/core';
 import {inboxCards,shelfCards,type Place} from '../../bench.ts';
@@ -60,12 +60,13 @@ export function ShelfList({onOpen}:{onOpen:Open}){
   const register=useList('shelf',()=>box.current?.clientWidth??300);
   const cards=shelfCards(tasks,getState().snapshot?.piles??[]),sum=total(cards);
   const hot=held&&!held.dropping&&held.intent.zone==='shelf';
-  // The ruler shows whole hours down to a little past what the shelf holds, and at least a working day.
-  const hours=Array.from({length:Math.max(8,Math.ceil(sum/60)+1)},(_,i)=>i+1);
+  // The ruler shows whole hours down to a little past what the shelf holds, and at least a working day (stacked, only the former).
+  const fit=Math.ceil(sum/60)+1,hours=Array.from({length:Math.max(8,fit)},(_,i)=>i+1);
+  const rack={'--rack':`${hours.length*60*SCALE+24}px`,'--rack-fit':`${fit*60*SCALE+24}px`} as CSSProperties;
   return <section className={'jb-panel jb-shelf'+(hot?' hot':'')} aria-label="선반">
     <header className="jb-head"><h2>선반</h2>{cards.length>0&&<><span className="cnt">{cards.length}</span><span className="jb-sum">{formatDuration(sum)}</span></>}</header>
     <div className="jb-scroll">
-      <div className="jb-rack" style={{minHeight:hours.length*60*SCALE+24}}>
+      <div className="jb-rack" style={rack}>
         <div className="jb-ruler" aria-hidden="true">{hours.map(h=><span key={h} style={{top:CEILING+h*60*SCALE}}>{h}h</span>)}</div>
         <div className="jb-stack" data-block="true">
           <Ceiling cards={cards}/>

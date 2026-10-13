@@ -135,10 +135,16 @@ export function CutHost(){
   return <CutDialog key={drafts.cut.taskId}/>;
 }
 function CutDialog(){
+  const opening=useRef<{dialog:HTMLDialogElement;opener:Element|null}|null>(null);
   const attach=useCallback((d:HTMLDialogElement|null)=>{
     if(!d)return;
-    const opener=document.activeElement;if(!d.open)d.showModal();
-    return ()=>{if(opener instanceof HTMLElement&&opener.isConnected)opener.focus({preventScroll:true});};
+    // StrictMode reattaches the same node after the board has already taken focus.
+    if(opening.current?.dialog!==d)opening.current={dialog:d,opener:document.activeElement};
+    const opener=opening.current.opener;if(!d.open)d.showModal();
+    return ()=>{
+      if(!d.contains(document.activeElement))return;
+      requestAnimationFrame(()=>{if(!d.isConnected&&document.activeElement===document.body&&opener instanceof HTMLElement&&opener.isConnected)opener.focus({preventScroll:true});});
+    };
   },[]);
   return <dialog ref={attach} className="cut-dialog" aria-label="블록 쪼개기" onCancel={e=>{e.preventDefault();void commitCut();}}>
     <CutBoard mode="dialog"/>
