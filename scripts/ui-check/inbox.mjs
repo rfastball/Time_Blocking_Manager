@@ -187,7 +187,7 @@ const scenarios=[
     await page.key('Escape');await page.click('.jb-head h2','선반');await page.sleep(100);
     // The date columns are gone: the shelf goes onto a date head of the calendar beside the dock.
     const day=await laterDay(page),ceiling=await page.rect('.jb-ceiling'),head=await page.rect(`.wk-head[data-date="${day}"]`);
-    const during=await page.drag({x:ceiling.cx,y:ceiling.cy},{x:head.cx,y:head.cy},{before:()=>page.js(`({shelf:document.querySelectorAll(".jb-shelf .jb-card").length,hot:document.querySelector('.wk-head[data-date="${day}"]').classList.contains('hot'),height:Math.round(document.querySelector('.held')?.getBoundingClientRect().height??0),slots:[...document.querySelectorAll('.wk-col[data-date="${day}"] .blk.hollow .ttl')].map(e=>e.textContent)})`)});
+    const during=await page.drag({x:ceiling.cx,y:ceiling.cy},{x:head.cx,y:head.cy},{hold:450,before:()=>page.js(`({shelf:document.querySelectorAll(".jb-shelf .jb-card").length,hot:document.querySelector('.wk-head[data-date="${day}"]').classList.contains('hot'),height:Math.round(document.querySelector('.held')?.getBoundingClientRect().height??0),slots:[...document.querySelectorAll('.wk-col[data-date="${day}"] .blk.hollow .ttl')].map(e=>e.textContent)})`)});
     assert.deepEqual({shelf:during.shelf,hot:during.hot,height:during.height},{shelf:0,hot:true,height:103},'over a date the whole shelf is carried there as its 1시간 45분');
     assert.deepEqual(during.slots,shelf,'over a day the whole shelf previews there, in order');
     assert.deepEqual(await titles(page,'.jb-shelf'),[]);

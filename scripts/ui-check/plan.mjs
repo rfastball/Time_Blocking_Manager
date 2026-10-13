@@ -137,6 +137,22 @@ export default [
     await page.drag({x:a.x+40,y:a.y+6},{x:col.x+60,y:placed.y-40});
     assert.deepEqual(await titles(page,sp(other)),['설계 문서 자료 조사','회의록 정리']);
   }},
+  {name:'a block swept across the week keeps its shape; it takes a column\'s shape only where it comes to rest',run:async page=>{
+    await toPlan(page);
+    const c=await page.rect('#dock .tblk'),{dates}=await days(page),last=await page.rect(sp(dates[6])),mid=await page.rect(sp(dates[3]));
+    const held=()=>page.js(`(()=>{const h=document.querySelector('.held');return h?{w:Math.round(h.getBoundingClientRect().width),column:h.classList.contains('column')}:null})()`);
+    await page.mouse('mouseMoved',c.x+40,c.y+8,0);await page.mouse('mousePressed',c.x+40,c.y+8);await page.mouse('mouseMoved',c.x+50,c.y+8);await page.sleep(40);
+    const lifted=await held(),y=mid.y+400,seen=[];
+    for(let x=c.x+50;x<=last.cx;x+=30){await page.mouse('mouseMoved',x,y);await page.sleep(16);seen.push(await held());}
+    assert.ok(seen.every(h=>h&&h.w===lifted.w&&!h.column),'crossing the columns at speed leaves the lifted shape as it was');
+    await page.sleep(400);
+    const rested=await held();
+    assert.equal(rested.column,true,'resting on a column takes its shape');
+    assert.ok(rested.w<lifted.w);
+    await page.mouse('mouseMoved',c.x+50,c.y+40);await page.sleep(40);
+    assert.deepEqual(await held(),rested,'leaving at once keeps the column shape while passing');
+    await page.mouse('mouseReleased',c.x+50,c.y+40,0);await page.sleep(700);
+  }},
   {name:'a fast date round trip keeps the block draggable after release and cancellation',run:async page=>{
     await setDock(page,'hidden');
     const {today,other}=await days(page),source=await page.rect(sp(today)),target=await page.rect(sp(other));

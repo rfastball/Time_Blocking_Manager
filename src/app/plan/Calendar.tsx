@@ -39,7 +39,7 @@ function Cell({date,period,outside}:{date:string;period:Exclude<Period,'week'>;o
     return {width:Math.max(6,Math.min(track,Math.round(track*minutes/avail))),height:6,density:'bar'};
   }});
   const a=allocation(date,tasks),tag=dayTag(date),d=dateOf(date),sel=date===nav.selected,past=date<today;
-  const hot=!!held&&!held.dropping&&held.intent.zone==='date'&&held.intent.ok&&held.intent.date===date;
+  const hot=!!held&&!held.dropping&&!held.passing&&held.intent.zone==='date'&&held.intent.ok&&held.intent.date===date;
   const select=()=>setNav({selected:date});
   return <div ref={el=>{box.current=el;ref(el);}} data-date={date} onClick={select}
     className={'cal-cell'+(date===today?' today':'')+(past?' past':'')+(sel?' sel':'')+(outside?' outside':'')+(tag==='휴무'||tag==='휴가'?' off':'')+(hot?' hot':'')}>

@@ -39,7 +39,9 @@ type Region={key:string;kind:'space'|'date'|'tray'|'inbox'|'shelf';date:string|n
 // The hollow marks the body slot; the held copy follows the hand until it latches onto a rail tick.
 type Slot={start:number;end:number;over:boolean};
 // `ids`: every block carried (a selection), in order.
-export type Held={task:Task;ids:string[];intent:Intent;slot:Slot|null;column:boolean;density?:Density;boundary?:boolean;axis?:TimeAxis;startRect:{left:number;top:number;width:number;height:number};grabX:number;grabY:number;width:number;height:number;dropping?:boolean};
+// `passing`: the hand is crossing a place it has not come to rest on; the copy keeps the shape and `look` (the zone it was
+// last shaped by) of the place before, and that place's preview stays, while `intent` already says where a release would land.
+export type Held={task:Task;ids:string[];intent:Intent;slot:Slot|null;column:boolean;density?:Density;boundary?:boolean;axis?:TimeAxis;startRect:{left:number;top:number;width:number;height:number};grabX:number;grabY:number;width:number;height:number;dropping?:boolean;passing?:boolean;look?:Intent['zone']};
 // `pushed`: blocks the shown change would newly put past working time.
 type Ctx={held:Held|null;pending:Intent|null;tasks:Task[];pushed:string[];register:(r:Region)=>()=>void};
 const DragCtx=createContext<Ctx>({held:null,pending:null,tasks:[],pushed:[],register:()=>()=>{}});
@@ -86,7 +88,10 @@ export function DragProvider({children}:{children:ReactNode}){
   const landing=useRef<Landing|null>(null);
   const start=useRef<Held['startRect']|null>(null);
   const pointer=useRef<{x:number;y:number}|null>(null);
-  useEffect(()=>()=>{const dropped=landing.current;if(dropped)void saveLanding(dropped);landing.current=null;snap.current=null;setGesture(false);},[]);
+  // The place the copy is shaped by (`at`, a region key or 'none'), and the one the hand has been crossing toward since `since`.
+  const passage=useRef<{at?:string;to?:string;since:number}>({since:0});
+  const watching=useRef(0);
+  useEffect(()=>()=>{const dropped=landing.current;if(dropped)void saveLanding(dropped);landing.current=null;snap.current=null;cancelAnimationFrame(watching.current);setGesture(false);},[]);
   const sensors=useSensors(useSensor(MousePenSensor,{activationConstraint:{distance:5}}),useSensor(TouchSensor,{activationConstraint:{delay:250,tolerance:6}}));
   const heldRef=useRef(held);heldRef.current=held;
   // dnd-kit's own English hints and ids are replaced: blocks are lifted by pointer only, and results are announced by the app.
@@ -103,7 +108,7 @@ export function DragProvider({children}:{children:ReactNode}){
   // A time on the rail is passed over, not chosen, until the hand rests on it: only then do the days make way for it.
   // Anything else, and the drop itself, shows at once. A rejected place is never previewed: the days stay as they are while the copy shows why.
   const live=held&&!held.dropping?held.intent:null;
-  const resting=useDwell(live,live?`${live.zone}|${live.date}|${live.before}|${live.start}|${live.ok}`:'',live?.zone==='rail');
+  const resting=useDwell(live,live?`${live.zone}|${live.date}|${live.before}|${live.start}|${live.ok}`:'',live?.zone==='rail'||!!held?.passing);
   const shown=held&&!held.dropping?resting:pending;
   const tasks=useMemo(()=>applyIntent(base,shown?.ok?shown:null),[base,shown]);
   const pushed=useMemo(()=>held&&!held.dropping?pushedBy(base,snapshot?.layouts??[],shown):[],[held,shown,base,snapshot]);
@@ -179,7 +184,7 @@ export function DragProvider({children}:{children:ReactNode}){
     const {x:px,y:py}=point(e.activatorEvent!);
     pointer.current={x:px,y:py};
     start.current={left:r.left,top:r.top,width:r.width,height:r.height};
-    snap.current=null;
+    snap.current=null;passage.current={since:0};
     travel.current={x:0,y:0,px,py,t:performance.now()};
     stretch.current=1;
     setGesture(true);setUi({contextMenu:null});
@@ -191,22 +196,40 @@ export function DragProvider({children}:{children:ReactNode}){
     stretch.current=steadiness(travel.current,px,py);
     moveHeld(h,s,px,py);
   }
+  // True once the hand has come to `key`'s place: the place it was shaped by, or one it has stayed in a little while moving
+  // slowly, or a while longer at any pace. Until then it is passing through, and a frame later it asks again.
+  function arrived(key:string){
+    const p=passage.current,t=performance.now();
+    if(p.at===undefined||p.at===key){p.at=key;p.to=undefined;return true;}
+    if(p.to!==key){p.to=key;p.since=t;}
+    const stay=t-p.since;
+    if(stay>=SETTLE_MAX_MS||stay>=SETTLE_MS&&pace(travel.current,t)<CALM){p.at=key;p.to=undefined;return true;}
+    watching.current||=requestAnimationFrame(()=>{
+      watching.current=0;const h=heldRef.current,s=start.current,q=pointer.current;
+      if(h&&!h.dropping&&s&&q)moveRef.current(h,s,q.x,q.y);
+    });
+    return false;
+  }
   function moveHeld(h:Held,s:Held['startRect'],px:number,py:number){
     const {intent,region,slot=null,near=0,boundary=false}=zoneAt(h.task,px,py,h.grabY/s.height,h.grabX/s.width,h.intent,stretch.current,h.ids,s);
+    const passing=!arrived(region?.key??'none');
     const rect=region?.el.getBoundingClientRect(),g=region?.geometry,axis=region?.axis;
     // Only the rail constrains the hand to a 15-minute tick; the hollow carries the projected order slot.
-    snap.current=rect&&g&&axis&&intent.zone==='rail'?{left:rect.left+g.fixedLeft+near*g.give,top:rect.top+axis.position(intent.start!)+1}:null;
+    snap.current=!passing&&rect&&g&&axis&&intent.zone==='rail'?{left:rect.left+g.fixedLeft+near*g.give,top:rect.top+axis.position(intent.start!)+1}:null;
     const form=region?.form?.(h.task,h.ids)??null;
     const width=form?form.width:rect&&g?(intent.zone==='rail'?rect.width-g.fixedLeft-g.right:intent.zone==='body'?rect.width-g.flowLeft-g.right:s.width):s.width;
     const at=intent.zone==='rail'?intent.start:null;
     const duration=h.ids.reduce((n,id)=>n+(base.find(t=>t.id===id)?.duration??0),0);
     const height=form?form.height:axis?Math.max(10,at!==null?axis.position(at+duration)-axis.position(at)-2:duration*axis.scale-2):s.height;
     const column=g?.ruler===0,density:Density=form?.density??(column?'narrow':'full');
+    // Passing through, the copy stays as the last place made it.
+    const shape=passing?{column:h.column,density:h.density,width:h.width,height:h.height,axis:h.axis,look:h.look}:{column,density,width,height,axis,look:intent.zone};
     const i=h.intent;
-    if(h.column!==column||h.density!==density||i.zone!==intent.zone||i.date!==intent.date||i.before!==intent.before||i.start!==intent.start||i.ok!==intent.ok||width!==h.width||height!==h.height||h.boundary!==boundary
-      ||i.index!==intent.index
-      ||h.slot?.start!==slot?.start||h.slot?.end!==slot?.end)setHeld({...h,intent,slot,column,density,width,height,boundary,axis});
+    if(h.column!==shape.column||h.density!==shape.density||i.zone!==intent.zone||i.date!==intent.date||i.before!==intent.before||i.start!==intent.start||i.ok!==intent.ok||shape.width!==h.width||shape.height!==h.height||h.boundary!==boundary
+      ||i.index!==intent.index||h.passing!==passing||h.look!==shape.look
+      ||h.slot?.start!==slot?.start||h.slot?.end!==slot?.end)setHeld({...h,intent,slot,boundary,passing,...shape});
   }
+  const moveRef=useRef(moveHeld);moveRef.current=moveHeld;
   useEffect(()=>{
     const track=(e:Event)=>{if(heldRef.current&&!heldRef.current.dropping)pointer.current=point(e);};
     const scroll=()=>{const h=heldRef.current,s=start.current,p=pointer.current;if(h&&!h.dropping&&s&&p)moveHeld(h,s,p.x,p.y);};
@@ -295,34 +318,39 @@ function steadiness(m:{x:number;y:number;px:number;py:number;t:number},px:number
   m.x+=k*(Math.abs(px-m.px)*frame-m.x);m.y+=k*(Math.abs(py-m.py)*frame-m.y);m.px=px;m.py=py;m.t=t;
   return 1+(STRETCH-1)*m.y/(m.x+m.y+REST);
 }
+// The hand's recent speed, px per frame, fading out quickly once it stops sending moves: a fast sweep that stops reads
+// as still within about 90ms.
+const pace=(m:{x:number;y:number;t:number},t:number)=>(m.x+m.y)*Math.exp(-Math.max(0,t-m.t)/STOP_MS);
 
 function HeldBlock({held,out,outside}:{held:Held;out:number;outside:number}){
-  const {task,intent,slot,width,height,density='full'}=held,rail=intent.zone==='rail',fixedLook=rail||(!!task.starts_at&&intent.zone==='none'),bad=!intent.ok;
+  // Passing through, it looks as the last place made it and says nothing about the place under the hand.
+  const {task,intent,slot,width,height,density='full',passing=false}=held,zone=passing?held.look??'none':intent.zone;
+  const rail=zone==='rail',snapped=rail&&!passing,fixedLook=rail||(!!task.starts_at&&zone==='none'),bad=!intent.ok&&!passing;
   const many=held.ids.length,total=held.ids.reduce((n,id)=>n+(getState().snapshot?.tasks.find(t=>t.id===id)?.duration??0),0);
   // Where it lands, said only where the place itself does not show it: a date column's end.
-  const place=intent.zone==='date'&&intent.date&&held.ids.length&&!held.column&&!held.axis?`${dateOf(intent.date).getMonth()+1}월 ${dateOf(intent.date).getDate()}일 순서 끝${outside?` · 근무 외 ${Math.round(outside/60*100)/100}h`:''}`:'';
+  const place=!passing&&intent.zone==='date'&&intent.date&&held.ids.length&&!held.column&&!held.axis?`${dateOf(intent.date).getMonth()+1}월 ${dateOf(intent.date).getDate()}일 순서 끝${outside?` · 근무 외 ${Math.round(outside/60*100)/100}h`:''}`:'';
   // Still a proto only where it stays one: lifted, in the 들어옴, or headed back to 준비.
-  const proto=task.proto&&many===1&&['none','inbox','tray'].includes(intent.zone);
-  const at=rail?{start:intent.start!,end:intent.start!+task.duration}:intent.zone==='body'?slot:null;
+  const proto=task.proto&&many===1&&['none','inbox','tray'].includes(zone);
+  const at=passing?null:rail?{start:intent.start!,end:intent.start!+task.duration}:intent.zone==='body'?slot:null;
   // Keep the same point under the pointer as the copy changes width or height between surfaces.
-  const shiftX=rail?0:-held.grabX*(width/held.startRect.width-1),shiftY=rail?0:-held.grabY*(height/held.startRect.height-1);
+  const shiftX=snapped?0:-held.grabX*(width/held.startRect.width-1),shiftY=snapped?0:-held.grabY*(height/held.startRect.height-1);
   // The place follows the hand at once; only the shape eases into the destination's: width first, height a little after.
   const shape=reduced()?{duration:0}:{duration:MORPH_MS/1000,ease:MORPH_EASE},late={...shape,delay:reduced()?0:MORPH_MS/4000};
-  return <motion.div className={'blk held '+(held.column?'column ':'')+(fixedLook?'fixed':'flow')+(height<(held.column?47:56)?' compact':'')+(density!=='full'?' '+density:'')+(bad?' bad':'')+(!rail&&slot?.over&&intent.zone==='body'?' over':'')+(proto?' proto':'')}
+  return <motion.div className={'blk held '+(held.column?'column ':'')+(fixedLook?'fixed':'flow')+(height<(held.column?47:56)?' compact':'')+(density!=='full'?' '+density:'')+(bad?' bad':'')+(!rail&&!passing&&slot?.over&&intent.zone==='body'?' over':'')+(proto?' proto':'')}
     initial={false} animate={{x:bad?[0,-4,3,-2,0]:0,width,height,marginLeft:shiftX,marginTop:shiftY}}
     transition={{x:{duration:reduced()?0:.18},width:shape,marginLeft:shape,height:late,marginTop:late}}>
     <div className="tile">
       {at&&intent.date&&<OffHours start={at.start} end={at.end} rule={dayRule(intent.date)} position={rail?held.axis?.position:undefined}/>}
       {/* Latching, the clasp shoots out of the runner and seats on the rail: fast, no overshoot. */}
-      {fixedLook&&<motion.span className="latch" style={{transformOrigin:'0 50%'}} initial={rail?{scaleX:.15}:false} animate={{scaleX:1}} transition={{duration:.09,ease:[.2,.9,.3,1]}}><Lock open/></motion.span>}
+      {fixedLook&&<motion.span className="latch" style={{transformOrigin:'0 50%'}} initial={snapped?{scaleX:.15}:false} animate={{scaleX:1}} transition={{duration:.09,ease:[.2,.9,.3,1]}}><Lock open/></motion.span>}
       <span className="chk"/>
       <span className="main"><span className="ttl-row"><span className="ttl">{task.title}</span>{many>1&&<b className="held-more">+{many-1}</b>}</span>
         <span className="meta">{at?`${time(at.start)}–${time(at.end)}`:proto?'':formatDuration(many>1?total:task.duration)}</span></span>
     </div>
     {place&&!bad&&!held.dropping&&<span className="held-why where">{place}</span>}
     {bad&&!held.dropping&&<span className="held-why">{intent.reason}</span>}
-    {!bad&&held.boundary&&!held.dropping&&<span className="held-why boundary">근무시간 경계</span>}
-    {!bad&&!held.boundary&&!place&&out>0&&!held.dropping&&<span className="held-why out">근무 외 {out}개</span>}
+    {!bad&&!passing&&held.boundary&&!held.dropping&&<span className="held-why boundary">근무시간 경계</span>}
+    {!bad&&!passing&&!held.boundary&&!place&&out>0&&!held.dropping&&<span className="held-why out">근무 외 {out}개</span>}
   </motion.div>;
 }
 export const isGestureActive=()=>getState().gesture;
@@ -343,8 +371,11 @@ function pushedBy(tasks:Task[],layouts:DayLayout[],intent:Intent|null){
 // A held block's shape change toward its destination, and a drop settling into its saved box.
 export const MORPH_MS=150,LAND_MS=160;
 const MORPH_EASE=[.2,.8,.2,1] as const;
-// How far into a place the block must come before it takes that place's shape.
+// How far into a place the block must come before it counts as there.
 const EDGE=4;
+// A place the hand crosses does not reshape the copy. It takes the place's shape once the hand has stayed SETTLE_MS there
+// slower than CALM px per frame (about 190px/s), or SETTLE_MAX_MS at any pace.
+const SETTLE_MS=70,SETTLE_MAX_MS=260,CALM=3,STOP_MS=40;
 // How long a held change must stay put before the blocks around it move.
 const DWELL_MS=200;
 // `value` while `dwell` is off; while it is on, the last value that held still (same `key`) for DWELL_MS.

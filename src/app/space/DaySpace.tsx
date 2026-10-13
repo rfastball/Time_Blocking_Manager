@@ -97,7 +97,7 @@ export function DaySpace({date,axis,variant,bin,selected,multi=[],onOpen,onMulti
   return <div className={'dayspace '+variant}>
     {bin&&<Bin tasks={plan.completed} onOpen={onOpen}/>}
     <div className="space-wrap">
-    <div ref={spaceRef} data-surface="true" className={'space'+(holding?' armed':'')+(holding?.intent.zone==='rail'&&holding.intent.date===date?' latched':'')} style={{height:axis.height}} onPointerDown={background}
+    <div ref={spaceRef} data-surface="true" className={'space'+(holding?' armed':'')+(!holding?.passing&&holding?.intent.zone==='rail'&&holding.intent.date===date?' latched':'')} style={{height:axis.height}} onPointerDown={background}
       onContextMenu={e=>{if(e.target!==e.currentTarget)return;e.preventDefault();const r=e.currentTarget.getBoundingClientRect();menu(e,null,Math.round(axis.minute(e.clientY-r.top)/15)*15);}}>
       <Ground axis={axis} rule={rule} geometry={geometry} date={date}/>
       <motion.div className="shutter" aria-hidden="true" style={{left:geometry.railLeft+1,width:geometry.railWidth-2,top:axis.position(rule.start),visibility:anchor>rule.start?'visible':'hidden'}}
@@ -115,7 +115,7 @@ export function DaySpace({date,axis,variant,bin,selected,multi=[],onOpen,onMulti
           onMenu={e=>menu(e,byId(item.task.id),item.start)}/>)}
       </AnimatePresence>
       {rule.enabled&&<AfterHours axis={axis} rule={rule} geometry={geometry} date={date}/>}
-      {holding?.intent.zone==='rail'&&holding.intent.date===date&&<span className={'railtag'+(holding.intent.ok?'':' bad')} style={{top:axis.position(holding.intent.start!),left:geometry.railLeft-46}}>{time(holding.intent.start!)}</span>}
+      {!holding?.passing&&holding?.intent.zone==='rail'&&holding.intent.date===date&&<span className={'railtag'+(holding.intent.ok?'':' bad')} style={{top:axis.position(holding.intent.start!),left:geometry.railLeft-46}}>{time(holding.intent.start!)}</span>}
       {date===today&&now>=axis.start&&now<=axis.end&&<div className="nowline" style={{top:axis.position(now),left:Math.max(0,geometry.railLeft-22)}}>{variant==='day'&&<span>{time(now)}</span>}</div>}
       {children}
     </div>

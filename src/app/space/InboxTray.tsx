@@ -21,7 +21,7 @@ export function InboxTray({scale,overdue=[],onOpen,selected,heading='준비',cla
   // The shelf first (sized work ready to fill a gap), then the 들어옴.
   const inbox=benchOrder(tasks,snapshot?.piles??[]);
   const holding=held;
-  return <section ref={ref} className={'card tray'+(holding?.intent.zone==='tray'?' hot':'')+(className?' '+className:'')} aria-label={heading}>
+  return <section ref={ref} className={'card tray'+(!holding?.passing&&holding?.intent.zone==='tray'?' hot':'')+(className?' '+className:'')} aria-label={heading}>
     <h2>{heading} {inbox.length+overdue.length>0&&<span className="cnt">{inbox.length+overdue.length}</span>}</h2>
     <label className="sr-only" htmlFor="tray-capture">준비에 담기</label>
     <input id="tray-capture" className="capture-line" aria-keyshortcuts={nav.view==='today'?'A':undefined} autoComplete="off" maxLength={650} placeholder="새 할 일" value={drafts.composer?'':drafts.capture} disabled={!ready||!draftLoaded}
