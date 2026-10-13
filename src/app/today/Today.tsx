@@ -44,6 +44,7 @@ export function Today(){
       <div className="cap" aria-label={allocationLabel(load)}>
         <span className="meter" aria-hidden="true">{([['done',aDone],['flow',aFlow],['fixed',aFixed]] as const).map(([k,n])=><motion.i key={k} className={'m-'+k} animate={{width:pct(n)}} transition={settle}/>)}</span>
         <span aria-hidden="true">{allocationShort(load)}</span><Outside a={load}/>
+        {queue.length>0&&<span className="plan-end">예상 끝 {time(Math.max(...queue.map(i=>i.end)))}</span>}
       </div>
       {finished>0&&<span className="pill day-end" role="status">오늘 끝 · 완료 {finished}</span>}
       <span className="grow"/>

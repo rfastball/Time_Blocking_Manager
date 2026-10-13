@@ -6,7 +6,7 @@ import {dateLabel,dateOf,plusDays} from '../../dates.ts';
 import type {Task} from '../../types.ts';
 import {getState,setUi} from './state.ts';
 import {announce,dispatch} from './session.ts';
-import {completeTasks,dayRule,land,overdueTasks,uncomplete} from './tasks.ts';
+import {completeTasks,dayRule,land,overdueTasks,planOf,uncomplete} from './tasks.ts';
 import {openEditor} from './editor.ts';
 import {fly} from '../ui/flight.ts';
 
@@ -65,6 +65,13 @@ export function moveTo(ids:string[],to:Place,index:number){
     ids.forEach(id=>land(id));
     if(placeOfCard(one!)!==to||one?.plan_date)announce(`${ids.length>1?`${ids.length}개를`:`‘${one?.title}’을`} ${to==='shelf'?'선반':'들어옴'}에 놓았어요`);
   }}));
+}
+// Flow work that runs past a day's working time, as the day orders it; fixed work keeps its reservation.
+export const overflowOf=(date:string)=>planOf(date).items.filter(i=>i.over&&!i.fixed&&!i.task.completed).map(i=>i.task);
+// The fix beside a day's 근무 외: what runs past working time goes back to the top of the shelf in that order, as one save.
+export function returnOverflow(date:string){
+  const ids=overflowOf(date).map(t=>t.id);
+  return ids.length?moveTo(ids,'shelf',0):Promise.resolve(false);
 }
 // One step up or down in its own place (Alt+↑/↓).
 export function shiftInPlace(t:Task,delta:number){

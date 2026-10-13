@@ -1,10 +1,11 @@
 import {useLayoutEffect,useRef} from 'react';
 import type {TimeAxis} from '../../time-axis.ts';
-import {dateLabel,dateOf} from '../../dates.ts';
+import {dateLabel,dateOf,time} from '../../dates.ts';
 import type {Task} from '../../types.ts';
 import {getState,setNav,useApp} from '../store/state.ts';
-import {dayRule} from '../store/tasks.ts';
+import {dayRule,planOf} from '../store/tasks.ts';
 import {openEditor} from '../store/editor.ts';
+import {overflowOf,returnOverflow} from '../store/bench.ts';
 import {DaySpace} from '../space/DaySpace.tsx';
 import {COLUMN_GEOMETRY,useDaysAxis,useDrag,useRegion} from '../space/drag.tsx';
 import {useNewBlock} from './Composer.tsx';
@@ -53,13 +54,19 @@ export function Head({date}:{date:string}){
   const a=allocation(date,tasks),tag=dayTag(date),off=!dayRule(date).enabled;
   const hot=!!held&&!held.dropping&&held.intent.zone==='date'&&held.intent.ok&&held.intent.date===date;
   const d=dateOf(date),past=date<today;
+  // Today says when its remaining plan ends, as planned: the last unfinished block's end, not a countdown.
+  // From the saved day, not a held block's preview, so the head keeps its height and the axis stays put under the hand.
+  const end=date===today?planOf(date).items.filter(i=>!i.task.completed).reduce<number|null>((e,i)=>Math.max(e??0,i.end),null):null;
+  // While a block is held the head previews; the fix belongs to the saved day.
+  const spill=!past&&!held?overflowOf(date):[];
   return <div ref={el=>{box.current=el;ref(el);}} data-date={date} className={'wk-head'+(date===today?' today':'')+(past?' past':'')+(date===nav.selected?' sel':'')+(off?' off':'')+(hot?' hot':'')}>
     <button type="button" className="wk-date" onClick={()=>openDay(date)}
-      aria-label={`${dateLabel(date)}${date===today?', 오늘':''}${past?', 지난 날짜':''}${tag?', '+tag:''}, ${allocationLabel(a)}`}>
+      aria-label={`${dateLabel(date)}${date===today?', 오늘':''}${past?', 지난 날짜':''}${tag?', '+tag:''}, ${allocationLabel(a)}${end!==null?`, 예상 끝 ${time(end)}`:''}`}>
       <span className="wk-day"><small>{d.toLocaleDateString('ko-KR',{weekday:'short'})}</small><strong>{d.getDate()}</strong>{date===today&&<span className="pill">오늘</span>}{tag&&<span className="tag-chip">{tag}</span>}</span>
       <Meter a={a}/>
-      <span className="wk-alloc"><span>{allocationShort(a)}</span><Outside a={a}/></span>
+      <span className="wk-alloc"><span>{allocationShort(a)}</span><Outside a={a}/>{end!==null&&<span className="wk-end" aria-hidden="true">끝 {time(end)}</span>}</span>
     </button>
+    {spill.length>0&&<button type="button" className="btn text wk-return" aria-label={`${dateLabel(date)} 근무 외 블록 ${spill.length}개 준비로`} onClick={()=>void returnOverflow(date)}>준비로</button>}
   </div>;
 }
 

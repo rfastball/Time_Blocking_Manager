@@ -26,6 +26,10 @@
 .wk-day strong{font-size:17px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.1}
 .wk-day .pill,.cal-date .pill{align-self:center;font-size:11px;padding:1px 7px}
 .wk-alloc{display:flex;flex-wrap:wrap;gap:0 6px;font-size:11px;line-height:1.3;color:var(--color-text-muted);font-variant-numeric:tabular-nums}
+/* Today's planned end always takes its own line, so the head's height does not change as the end moves. */
+.wk-end{flex-basis:100%}
+/* The fix sits beside the warning it answers, in the head's top corner, outside the head's own button. */
+.wk-return{position:absolute;top:6px;right:4px;min-height:24px;height:24px;padding:0 7px;font-size:11.5px}
 .wk-head.today strong,.cal-cell.today .cal-date strong{color:var(--color-calendar-today)}
 .wk-head.past{background:color-mix(in srgb,var(--color-text-muted) 6%,var(--color-panel))}
 .wk-head.past .pm{opacity:.65}
