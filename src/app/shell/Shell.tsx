@@ -41,6 +41,11 @@ export function Shell(){
       <div className="workspace">
         <header className="topbar">
           <button type="button" className="brand" aria-label="BLOKKY 오늘로 이동" title="오늘로 이동" onClick={()=>setNav({view:focus?'today':'plan',selected:s.today,planAnchor:s.today})}><Logo/></button>
+          {/* The way between the two screens comes first, where the eye lands. The settings way back is its own button,
+              so returning leaves the keyboard on the gear rather than on 몰입. */}
+          {work?<button key="screen" type="button" className="btn primary to-screen" aria-keyshortcuts={s.singleKeys?'F':undefined} onClick={toFocus}><Icon name="focus" size={16}/>몰입</button>
+            :focus?<button key="screen" type="button" className="btn to-screen" aria-keyshortcuts={s.singleKeys?'F Escape':'Escape'} onClick={toWork}>작업 화면</button>
+            :<button key="back" type="button" className="btn to-screen" aria-keyshortcuts="Escape" onClick={()=>{toWork();requestAnimationFrame(()=>document.querySelector<HTMLElement>('header.topbar [aria-label="설정"]')?.focus({preventScroll:true}));}}>작업 화면</button>}
           {(work||focus)&&<div className="date-nav">
             <button type="button" className="ibtn" aria-label={'이전 '+unit} onClick={()=>step(-1)}><Icon name="left"/></button>
             <button type="button" className="ibtn" aria-label={'다음 '+unit} onClick={()=>step(1)}><Icon name="right"/></button>
@@ -49,16 +54,12 @@ export function Shell(){
           <h1>{heading}</h1>
           {focus&&nav.selected===s.today&&<span className="pill">오늘</span>}
           {work&&<Periods value={nav.period} keys={s.singleKeys}/>}
-          {/* One group, so when the bar wraps the screen controls move together and stay right. */}
+          {/* One group, so when the bar wraps the tools move together and stay right. */}
           <div className="bar-end">
             {!s.native&&<span className="notice">미리보기 · 예시 데이터</span>}
             {s.native&&s.info.warning&&<span className="notice warning">{s.info.warning}</span>}
-            {/* Search finds work everywhere, so it sits with the screen controls rather than in any one place. */}
+            {/* Search finds work everywhere, so it sits with the tools rather than in any one place. */}
             <button type="button" className="btn search-open" aria-label="검색" aria-keyshortcuts="Control+K" aria-expanded={ui.search} onClick={openSearch}><Icon name="search" size={16}/><span className="label">검색</span><kbd>Ctrl K</kbd></button>
-            {/* The settings way back is its own button, so returning leaves the keyboard on the gear rather than on 몰입. */}
-            {work?<button key="screen" type="button" className="btn primary to-screen" aria-keyshortcuts={s.singleKeys?'F':undefined} onClick={toFocus}><Icon name="focus" size={16}/>몰입</button>
-              :focus?<button key="screen" type="button" className="btn to-screen" aria-keyshortcuts={s.singleKeys?'F Escape':'Escape'} onClick={toWork}>작업 화면</button>
-              :<button key="back" type="button" className="btn to-screen" aria-keyshortcuts="Escape" onClick={()=>{toWork();requestAnimationFrame(()=>document.querySelector<HTMLElement>('header.topbar [aria-label="설정"]')?.focus({preventScroll:true}));}}>작업 화면</button>}
             <button type="button" className="ibtn" aria-label="단축키" aria-keyshortcuts={s.singleKeys?'?':undefined} aria-haspopup="dialog" onClick={openKeys}>?</button>
             <button type="button" className={'ibtn'+(nav.view==='settings'?' on':'')} aria-label="설정" aria-pressed={nav.view==='settings'} onClick={()=>nav.view==='settings'?toWork():setNav({view:'settings'})}><Icon name="settings" size={18}/></button>
           </div>

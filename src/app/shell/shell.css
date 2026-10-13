@@ -3,10 +3,12 @@
 /* The bar replaces the sticky rail, so it stays in reach at any scroll; scrolling a target into view stops below it. */
 html{scroll-padding-top:80px}
 .topbar{position:sticky;top:0;z-index:30;background:var(--color-canvas);display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;padding:14px 24px 12px}
-/* No rail: the bar holds the way home, the range, search, focus and the gear. */
+/* No rail: the bar holds the way home, the way between screens, the range, search and the gear. */
 .topbar .brand{width:36px;height:36px;border:0;background:transparent;border-radius:9px;cursor:pointer;padding:0;flex:none}
 .topbar .brand .logo{width:34px;height:34px;fill:var(--color-on-action);background:var(--color-action);border-radius:8px}
-/* The screen controls are one group: when the bar wraps they move as a unit and stay right. */
+/* The screen switch never gives way to a long range title. */
+.topbar .to-screen{flex:none}
+/* The tools are one group: when the bar wraps they move as a unit and stay right. */
 .bar-end{display:flex;flex-wrap:wrap;justify-content:flex-end;align-items:center;gap:10px 14px;margin-left:auto;min-width:0}
 .search-open{display:inline-flex;align-items:center;gap:6px;color:var(--color-text-muted)}
 .search-open kbd{margin-left:4px}

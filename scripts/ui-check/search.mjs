@@ -9,11 +9,11 @@ const open=async page=>{await page.key('k',{code:'KeyK',modifiers:CTRL});await p
 
 const scenarios=[
   {name:'Ctrl+K and the top bar button open search; Esc closes it and gives focus back',run:async page=>{
-    // The rail is gone: the top bar carries the way home, the dates, the range, search, focus and the gear, in that order.
+    // The rail is gone: the top bar carries the way home, 몰입, the dates, the range, search and the gear, in that order.
     await toPlan(page);
     assert.equal(await page.js(`!!document.querySelector('.rail-nav')`),false);
     const bar=await page.js(`[...document.querySelectorAll('header.topbar>*,header.topbar>.bar-end>*')].map(e=>e.matches('.brand')?'로고':e.matches('.date-nav')?'날짜':e.matches('h1')?'제목':e.matches('.segmented')?'기간':e.matches('.search-open')?'검색':e.matches('button[aria-label="단축키"]')?'단축키':e.matches('button[aria-label="설정"]')?'설정':e.matches('button')?e.textContent.trim():null).filter(Boolean)`);
-    assert.deepEqual(bar,['로고','날짜','제목','기간','검색','몰입','단축키','설정']);
+    assert.deepEqual(bar,['로고','몰입','날짜','제목','기간','검색','단축키','설정']);
     assert.equal(await page.js(`document.querySelector('.search-open').getAttribute('aria-keyshortcuts')`),'Control+K');
     await page.js(`document.querySelector('#tray-capture').focus()`);
     await open(page);
