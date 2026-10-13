@@ -1,6 +1,6 @@
 # 한 화면·몰입 실험 구현 계획 (2026-10-13)
 
-브랜치 `exp/one-screen`(워크트리 `.claude/worktrees/one-screen`)의 실험이다. master에 합치기 전까지 PRODUCT·DESIGN의 현행 규칙은 바뀌지 않는다. 합칠 때 이 문서의 결정을 [decisions.md](decisions.md)에 옮긴다.
+브랜치 `exp/one-screen`(워크트리 `.claude/worktrees/one-screen`)에서 진행한 실험이다. 2026-10-13 사용자가 채택해 master에 합쳤고, 이 문서의 결정은 [decisions.md](decisions.md)의 ‘2026-10-13 한 화면과 몰입’으로 옮겼다. 아래는 진행 기록으로 남긴다.
 
 근거: [상용 플래너 조사](commercial-planner-research-2026-10-13.md), [한 화면 시안 2판](https://claude.ai/artifact/ADfbhaDuo9neEpWeEfVyyn).
 
