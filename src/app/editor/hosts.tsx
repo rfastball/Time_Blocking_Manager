@@ -3,17 +3,19 @@
 import {useCallback,useEffect,useRef} from 'react';
 import {animate,motion} from 'motion/react';
 import {time} from '../../dates.ts';
+import {formatDuration} from '../../format.ts';
+import type {Task} from '../../types.ts';
 import {memoPreview} from '../../detail.ts';
 import {getState,useApp} from '../store/state.ts';
 import {closeEditor,openEditor} from '../store/editor.ts';
-import {planOf} from '../store/tasks.ts';
+import {completeTasks,planOf,resize,unplan} from '../store/tasks.ts';
 import {reduced} from '../ui/motion.ts';
 import {Editor} from './Editor.tsx';
 import './editor.css';
 
 export {ContextMenuHost} from './Menus.tsx';
 
-// Today's side: the open task when the editor is in panel mode, otherwise a glance at the next block.
+// Today's side: the open task when the editor is in panel mode, otherwise the next block with what can be done to it.
 export function EditorPanel({nextId}:{nextId:string|null}){
   const {drafts,ui,snapshot}=useApp(),e=ui.editorMode==='panel'?drafts.editor:null;
   const nextButton=useRef<HTMLButtonElement|null>(null);
@@ -39,15 +41,26 @@ export function EditorPanel({nextId}:{nextId:string|null}){
   const next=nextId?snapshot!.tasks.find(t=>t.id===nextId):null;
   if(!next)return null;
   const item=next.plan_date?planOf(next.plan_date).items.find(i=>i.task.id===next.id):null;
+  // The next block is the first remaining flow block whatever the clock says, so nothing here counts down or turns late.
   return <section className="card ed-next" aria-label="다음 블록">
     <button type="button" className="ed-next-open" onClick={event=>{nextButton.current=event.currentTarget;openEditor(next.id,matchMedia('(max-width:760px)').matches?'dialog':'panel');}}>
       <span className="pill">다음</span>
       <span className="ed-next-title">{next.title}</span>
       {next.body.trim()&&<span className="ed-next-memo">{memoPreview(next.body)}</span>}
-      {item&&<span className="ed-next-time">예상 {time(item.start)}–{time(item.end)}</span>}
+      {item&&<span className="ed-next-time">예상 {time(item.start)}–{time(item.end)} · {formatDuration(next.duration)}</span>}
     </button>
+    <div className="ed-next-acts" role="group" aria-label={next.title+' 처리'}>
+      <button type="button" className="btn primary ed-next-done" onClick={()=>void doNext(next)}>완료</button>
+      <button type="button" className="btn" aria-label={`${next.title} 15분 늘리기`} onClick={()=>void resize(next,next.duration+15)}>+15분</button>
+      <button type="button" className="btn" aria-label={`${next.title} 나중에, 준비 선반 맨 위로`} onClick={()=>void later(next)}>나중에</button>
+    </div>
   </section>;
 }
+
+// Done or put off from the card, the keyboard stays on the card: the next block's 완료, or the capture field when the day is through.
+const keepOnCard=()=>requestAnimationFrame(()=>(document.querySelector<HTMLElement>('.ed-next .ed-next-done')??document.querySelector<HTMLElement>('#tray-capture'))?.focus({preventScroll:true}));
+async function doNext(t:Task){if(await completeTasks([t]))keepOnCard();}
+async function later(t:Task){if(await unplan(t))keepOnCard();}
 
 export function EditorHost(){
   const {drafts,ui,nav}=useApp();

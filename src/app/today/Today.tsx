@@ -37,12 +37,15 @@ export function Today(){
   const toggleMulti=(t:Task)=>{if(!t.completed)setMulti(m=>m.includes(t.id)?m.filter(x=>x!==t.id):[...m,t.id]);};
   const load={used:aDone+aFlow+aFixed,avail,outside:outsideOf(plan.items)};
   const nextId=nextFlowId(plan.items),queue=plan.items.filter(i=>!i.task.completed);
+  // Today with nothing left says so beside the meter; the side keeps 준비 at its top, as it always has with nothing queued.
+  const finished=date===today&&!queue.length?dayTasks.filter(t=>t.completed).length:0;
   return <div className="today">
     <div className="today-bar">
       <div className="cap" aria-label={allocationLabel(load)}>
         <span className="meter" aria-hidden="true">{([['done',aDone],['flow',aFlow],['fixed',aFixed]] as const).map(([k,n])=><motion.i key={k} className={'m-'+k} animate={{width:pct(n)}} transition={settle}/>)}</span>
         <span aria-hidden="true">{allocationShort(load)}</span><Outside a={load}/>
       </div>
+      {finished>0&&<span className="pill day-end" role="status">오늘 끝 · 완료 {finished}</span>}
       <span className="grow"/>
       {multi.length>0?<div className="multi-bar"><span>{multi.length}개 선택</span>
         <button type="button" className="btn primary" onClick={()=>{const tasks=snapshot!.tasks.filter(t=>multi.includes(t.id));setMulti([]);void completeTasks(tasks);}}>완료</button>

@@ -91,4 +91,6 @@
 .ed-next-title{font-size:var(--font-size-title);font-weight:var(--font-weight-heading);overflow-wrap:anywhere}
 .ed-next-memo{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-line;font-size:var(--font-size-summary);color:var(--color-text-muted)}
 .ed-next-time{font-size:var(--font-size-label);color:var(--color-text-muted);font-variant-numeric:tabular-nums}
+/* What the next block can have done to it, under the card that opens it. */
+.ed-next-acts{display:flex;flex-wrap:wrap;gap:6px;padding:0 16px 14px}
 @media (prefers-reduced-motion:reduce){.ed-dialog::backdrop{animation:none}.ed-fold>summary::before,.ed-ruler span{transition:none}}
