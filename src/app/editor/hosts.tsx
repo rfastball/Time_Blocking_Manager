@@ -70,13 +70,26 @@ export function EditorHost(){
   return <EditorDialog id={drafts.editor.id}/>;
 }
 
+// On the work screen the editor opens beside the block it came from, so the calendar stays where it was and the block stays in sight.
+// It is the same modal dialog (confirmations, drafts and conflicts unchanged); only where it stands differs.
+// Anywhere else, from the status bar, or when there is no room beside the block, it stays centred.
+function beside(d:HTMLDialogElement,opener:Element|null){
+  if(getState().nav.view!=='plan'||innerWidth<=760||!(opener instanceof HTMLElement)||!opener.closest('.content'))return;
+  const r=(opener.closest<HTMLElement>('[data-block],.jb-card,.tblk,.cal-cell')??opener).getBoundingClientRect(),w=d.offsetWidth,gap=12,edge=16;
+  const left=r.right+gap+w<=innerWidth-edge?r.right+gap:r.left-gap-w>=edge?r.left-gap-w:null;
+  if(left===null)return;
+  const top=Math.max(edge,Math.min(r.top-8,innerHeight-edge-Math.min(d.offsetHeight,innerHeight*.6)));
+  d.classList.add('beside');
+  Object.assign(d.style,{margin:'0',left:left+'px',top:top+'px',maxHeight:`calc(100vh - ${top+edge}px)`});
+}
+
 function EditorDialog({id}:{id:string}){
   const closer=useRef<(()=>void)|null>(null);
   // Opens modally on attach and gives focus back to whatever opened it when it goes away.
   const attach=useCallback((d:HTMLDialogElement|null)=>{
     if(!d)return;
     const opener=document.activeElement;
-    if(!d.open){d.showModal();if(!reduced())animate(d,{opacity:[0,1],y:[6,0]},{type:'spring',visualDuration:.22,bounce:.2});}
+    if(!d.open){d.showModal();beside(d,opener);if(!reduced())animate(d,{opacity:[0,1],y:[6,0]},{type:'spring',visualDuration:.22,bounce:.2});}
     return ()=>{if(opener instanceof HTMLElement&&opener.isConnected&&!opener.closest('dialog'))opener.focus({preventScroll:true});};
   },[]);
   return <dialog ref={attach} className="ed-dialog" aria-label="항목 상세"

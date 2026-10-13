@@ -78,6 +78,9 @@
 .ed-dialog{width:min(510px,calc(100vw - 32px));max-width:none;max-height:95vh;padding:0;border:0;border-radius:var(--radius-dialog);background:var(--color-surface);color:var(--color-text);box-shadow:var(--shadow-dialog);overflow:hidden}
 .ed-dialog[open]{display:flex;flex-direction:column}
 .ed-dialog::backdrop{background:var(--color-backdrop);animation:ed-fade var(--duration-dialog) var(--ease-feedback)}
+/* Beside its block on the work screen: a lighter veil, so the block and its day stay readable behind it. */
+.ed-dialog.beside{position:fixed;inset:auto}
+.ed-dialog.beside::backdrop{background:color-mix(in srgb,var(--color-backdrop) 35%,transparent)}
 .ed-dialog .ed{flex:1 1 auto}
 .ed-dialog .ed-head{padding:18px 16px 0 22px}
 .ed-dialog .ed-body{flex:1 1 auto;min-height:0;overflow:auto;padding:10px 22px 6px}
