@@ -266,6 +266,25 @@ export default [
     await page.drag({x:c.x+40,y:c.y+6},{x:rail.cx,y:y16+6},{before:()=>page.shot('plan-held-rail')});
     assert.deepEqual(await page.blocks(sp(other)),['회의록 정리, 시각 고정 16:00–16:30']);
   }},
+  {name:'beside the wide dock the calendar and date panel fill the row and nothing leaves a narrow cell',viewport:{width:1300,height:900},run:async page=>{
+    // A ratio kept from a wider window must not leave the pair short of the row.
+    await page.js(`localStorage.setItem('blokky.panel.plan-two-calendar','0.85');localStorage.setItem('blokky.panel.plan-month-calendar','0.85')`);
+    await setDock(page,'wide');
+    await page.js(`(async()=>{const [{getState},{drop}]=await Promise.all([import('/src/app/store/state.ts'),import('/src/app/store/tasks.ts')]);
+      const s=getState(),{today}=s,next=[1,2,3].map(n=>{const d=new Date(today+'T00:00');d.setDate(d.getDate()+n);return d.toLocaleDateString('sv');});
+      for(const [n,t] of s.snapshot.tasks.filter(t=>t.plan_date===today&&!t.completed).slice(0,5).entries())
+        await drop({id:t.id,ids:[t.id],zone:'date',date:next[n%3],before:null,start:null,ok:true,reason:null});})()`);
+    for(const period of ['2주','월']){
+      await page.click('.segmented button',period);await page.sleep(500);
+      const r=await page.js(`(()=>{const main=document.querySelector('.plan-main').getBoundingClientRect(),day=document.querySelector('#calendar-day').getBoundingClientRect();
+        const over=[...document.querySelectorAll('.cal-cell')].flatMap(c=>{const b=c.getBoundingClientRect();return [...c.querySelectorAll('*')].filter(e=>{const x=e.getBoundingClientRect();return x.width&&(x.right>b.right+.5||x.left<b.left-.5);}).map(e=>c.dataset.date+' '+e.className);});
+        return {gap:Math.round(main.right-day.right),cell:document.querySelector('.cal-cell').getBoundingClientRect().width,over};})()`);
+      assert.ok(r.cell<40,`${period}: the cells are squeezed (${r.cell}px)`);
+      assert.equal(r.gap,0,`${period}: the date panel reaches the end of the row`);
+      assert.deepEqual(r.over,[],`${period}: everything stays inside its cell`);
+    }
+    await page.js(`localStorage.removeItem('blokky.panel.plan-two-calendar');localStorage.removeItem('blokky.panel.plan-month-calendar')`);
+  }},
   {name:'2주 keeps its rows while a date is chosen; arrows switch to 월',run:async page=>{
     await toPlan(page);
     await page.click('.segmented [role=radio]','2주');

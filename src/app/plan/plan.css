@@ -69,14 +69,14 @@
 
 /* 2주·월 */
 /* The calendar takes the larger share; titles in 2주 cells need the width more than the date panel does. */
-.cal-layout{display:grid;grid-template-columns:minmax(280px,var(--calendar-first)) 16px minmax(280px,var(--calendar-second));align-items:start}
+.cal-layout{display:grid;grid-template-columns:clamp(280px,var(--calendar-first),calc(100% - 296px)) 16px minmax(280px,1fr);align-items:start}
 .cal-layout[data-panel-stacked=true]{grid-template-columns:minmax(0,1fr);gap:16px}
 .card.cal{padding:12px;min-width:0}
 .cal-weekdays,.cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
 .cal-weekdays{margin-bottom:6px;font-size:12px;font-weight:600;color:var(--color-text-muted);text-align:center}
 .cal-grid.two{grid-auto-rows:minmax(190px,auto)}
 .cal-grid.month{grid-auto-rows:minmax(92px,auto)}
-.cal-cell{min-width:0;display:flex;flex-direction:column;gap:6px;padding:5px;border:1px solid var(--color-divider);border-radius:var(--radius-control);background:var(--color-surface);cursor:pointer;transition:background .12s}
+.cal-cell{container:cal-cell/inline-size;min-width:0;display:flex;flex-direction:column;gap:6px;padding:5px;border:1px solid var(--color-divider);border-radius:var(--radius-control);background:var(--color-surface);cursor:pointer;transition:background .12s}
 .cal-cell.past{background:color-mix(in srgb,var(--color-text-muted) 6%,var(--color-surface))}
 .cal-cell:hover{background:var(--color-control-hover)}
 .cal-cell.off{background:var(--color-unavailable-soft)}
@@ -100,6 +100,28 @@
 .cal-more{font-size:11.5px;color:var(--color-text-muted);padding-left:4px;font-variant-numeric:tabular-nums}
 .cal-load{margin-top:auto;display:flex;flex-direction:column;gap:5px}
 .cal-sum{display:flex;flex-wrap:wrap;gap:0 4px;font-size:12px;color:var(--color-text-muted);font-variant-numeric:tabular-nums;word-break:keep-all}
+.cal-sum .short{display:none}
+/* A cell narrower than its longest words keeps every word whole: titles take one line, the load its short hours, and
+   근무 외 is left to the bar's hatch and the date panel. Narrower still, 오늘 is an underline, titles are bare blocks and
+   the load is its bar alone; every cell still names all of it to a screen reader. */
+@container cal-cell (max-width:58px){
+  .mini-t{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .mini small{display:none}
+  .mini button{padding:3px 4px}
+  .cal-sum .long,.cal-sum .alloc-out{display:none}
+  .cal-sum .short{display:inline}
+}
+@container cal-cell (max-width:38px){
+  .cal-date{padding:1px 2px}
+  .cal-date .pill{display:none}
+  .cal-cell.today .cal-date strong{text-decoration:underline 2px;text-underline-offset:3px}
+  .cal-top .tag-chip{font-size:10px;padding:0 2px}
+}
+@container cal-cell (max-width:30px){
+  .cal-mon,.cal-sum{display:none}
+  .mini-t{visibility:hidden}
+  .mini button{min-height:14px;height:14px;padding:0;overflow:hidden}
+}
 .card.plan-day{padding:0;overflow:hidden;min-width:0}
 .plan-day-head{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:12px 14px 10px}
 .plan-day-head h2{margin:0;font-size:15px;font-weight:600}

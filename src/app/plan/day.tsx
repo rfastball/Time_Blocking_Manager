@@ -38,7 +38,7 @@ export function allocation(date:string,tasks:Task[]):Allocation{
 type Load={used:number;avail:number;outside?:number};
 export const allocationLabel=(a:Load)=>`배분 ${formatDuration(a.used)} / 가용 ${formatDuration(a.avail)}${a.outside?`, 근무 외 ${formatDuration(a.outside)}`:''}`;
 // The same pair as numbers only, in hours: "7.75 / 8h".
-const hours=(minutes:number)=>String(Math.round(minutes/60*100)/100);
+export const hours=(minutes:number)=>String(Math.round(minutes/60*100)/100);
 export const allocationShort=(a:Load)=>`${hours(a.used)} / ${hours(a.avail)}h`;
 // Work running past the end of the day, beside the pair: "근무 외 2.5h". Nothing when it all fits.
 export const Outside=({a}:{a:{outside?:number}})=>a.outside?<span className="alloc-out" aria-hidden="true">근무 외 {hours(a.outside)}h</span>:null;

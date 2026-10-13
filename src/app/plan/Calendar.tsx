@@ -11,7 +11,7 @@ import {DaySpace} from '../space/DaySpace.tsx';
 import {useDaysAxis,useDrag,useRegion,type Form} from '../space/drag.tsx';
 import {useNewBlock} from './Composer.tsx';
 import {openDay} from './Week.tsx';
-import {allocation,allocationLabel,allocationShort,dayTag,Meter,Outside} from './day.tsx';
+import {allocation,allocationLabel,allocationShort,dayTag,hours,Meter,Outside} from './day.tsx';
 
 const DAY_SCALE=1.05;
 const weekdays=['월','화','수','목','금','토','일'];
@@ -46,7 +46,7 @@ function Cell({date,period,outside}:{date:string;period:Exclude<Period,'week'>;o
     <div className="cal-top">
       <button type="button" className="cal-date" aria-pressed={sel} onClick={e=>{e.stopPropagation();select();}}
         aria-label={`${dateLabel(date)}${date===today?', 오늘':''}${past?', 지난 날짜':''}${tag?', '+tag:''}, 작업 ${a.count}건, ${allocationLabel(a)}`}>
-        <strong>{d.getDate()===1?`${d.getMonth()+1}/`:''}{d.getDate()}</strong>{date===today&&<span className="pill">오늘</span>}
+        <strong>{d.getDate()===1&&<span className="cal-mon">{d.getMonth()+1}/</span>}{d.getDate()}</strong>{date===today&&<span className="pill">오늘</span>}
       </button>
       {tag&&<span className="tag-chip">{tag}</span>}
     </div>
@@ -54,7 +54,7 @@ function Cell({date,period,outside}:{date:string;period:Exclude<Period,'week'>;o
       {a.tasks.slice(0,4).map(t=><Mini key={t.id} task={t}/>)}
       {a.tasks.length>4&&<small className="cal-more">+{a.tasks.length-4}건</small>}
     </div>:<div className="cal-load">
-      {a.count>0&&<span className="cal-sum"><span>{a.count}건</span><span>{formatDuration(a.used)}</span><Outside a={a}/></span>}
+      {a.count>0&&<span className="cal-sum"><span>{a.count}건</span><span className="long">{formatDuration(a.used)}</span><span className="short">{hours(a.used)}h</span><Outside a={a}/></span>}
       {a.used>0&&<Meter a={a} className="thin"/>}
     </div>}
   </div>;

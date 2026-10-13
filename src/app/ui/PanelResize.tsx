@@ -27,7 +27,9 @@ export function usePanelResize(key:string,defaultRatio:number,label:string,contr
     try{localStorage.setItem(storageName(key),String(n));}catch{/* A storage restriction must not disable resizing. */}
   }
   function reset(){setValue({key,ratio:defaultRatio});try{localStorage.removeItem(storageName(key));}catch{}}
-  const style={[`--${variable}-first`]:`${ratio}fr`,[`--${variable}-second`]:`${1-ratio}fr`} as CSSProperties;
+  // The first panel's share of the width; the grid holds it between the two minimums and gives the second the rest,
+  // so the pair always fills the row even when the measured width is stale.
+  const style={[`--${variable}-first`]:`calc((100% - ${SPLITTER}px) * ${ratio})`} as CSSProperties;
   return {ref,style,stacked:width>0&&width<MIN_PANEL*2+SPLITTER,
     separator:enabled?<PanelSeparator key={key} container={ref} width={width} ratio={ratio} label={label} controls={controls} change={change} reset={reset}/>:null};
 }
