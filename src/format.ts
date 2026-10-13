@@ -1,4 +1,9 @@
 export const formatDuration=(minutes:number)=>minutes<60?`${minutes}분`: `${Math.floor(minutes/60)}시간${minutes%60?` ${minutes%60}분`:''}`;
+// ‘제목’을 / ‘제목’를 by the last syllable's final consonant; non-Hangul endings keep both.
+export function quotedObject(title:string){
+  const c=title.trim().slice(-1).charCodeAt(0)-0xac00;
+  return `‘${title}’${c>=0&&c<11172?(c%28?'을':'를'):'을(를)'}`;
+}
 export function rangeTitle(mode:string,anchor:string){
   const start=new Date(anchor+'T12:00:00');
   if(mode==='month')return `${start.getFullYear()}년 ${start.getMonth()+1}월`;

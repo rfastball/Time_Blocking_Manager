@@ -4,6 +4,7 @@ import {effectiveDay} from '../../settings.ts';
 import {byFlowOrder,moveInOrder} from '../../flow.ts';
 import {placementIssue} from '../../placement.ts';
 import {dateKey,dateLabel,dateOf,plusDays,time} from '../../dates.ts';
+import {formatDuration,quotedObject} from '../../format.ts';
 import {intentAction,updateAction,type Intent} from '../../intent.ts';
 import {createCommand} from '../../capture.ts';
 import type {Action,Task,Trashed,WorkingDay} from '../../types.ts';
@@ -24,18 +25,20 @@ export const issueAt=(id:string,date:string,start:number,duration:number)=>place
 export function land(id:string,clack=false){setUi({landed:{id,clack}});setTimeout(()=>{if(getState().ui.landed?.id===id)setUi({landed:null});},520);}
 
 // ── 완료 ──
+// Finishing the last of today's blocks says so in the same announcement.
+const dayEnd=(date:string)=>date===getState().today&&!planOf(date).items.some(i=>!i.task.completed)?' · 오늘 끝':'';
 // Completed flow work leaves the time space; today's remaining flow is laid out again from now.
 export async function completeTasks(tasks:Task[]){
   const flow=tasks.filter(t=>!t.completed&&t.plan_date&&!t.starts_at),other=tasks.filter(t=>!t.completed&&!flow.includes(t));
   let ok=true;
   for(const date of [...new Set(flow.map(t=>t.plan_date!))]){
     const items=flow.filter(t=>t.plan_date===date).map(({id,revision})=>({id,revision}));
-    ok=await dispatch({type:'complete_flow',date,items,at:date===getState().today?stamp():null},{done:()=>announce(items.length>1?`${items.length}개를 완료했어요`:'완료했어요')})&&ok;
+    ok=await dispatch({type:'complete_flow',date,items,at:date===getState().today?stamp():null},{done:()=>announce((items.length>1?`${items.length}개를 완료했어요`:'완료했어요')+dayEnd(date))})&&ok;
   }
   // 준비 work done now is recorded as today's completion; nothing is laid out again.
   const today=getState().today,unplanned=other.filter(t=>!t.plan_date);
   for(const t of other)ok=await dispatch({type:'set_completed',id:t.id,expected_revision:t.revision,completed:true,...(t.plan_date?{}:{date:today})},
-    {done:()=>{if(!t.plan_date&&unplanned.length===1)announce(`‘${t.title}’을 오늘 완료로 기록했어요`);}})&&ok;
+    {done:()=>{if(!t.plan_date&&unplanned.length===1)announce(`${quotedObject(t.title)} 오늘 완료로 기록했어요`);else if(t.plan_date)announce('완료했어요'+dayEnd(t.plan_date));}})&&ok;
   if(unplanned.length>1&&ok)announce(`${unplanned.length}개를 오늘 완료로 기록했어요`);
   return ok;
 }
@@ -74,7 +77,7 @@ export function unfix(t:Task){
 export function resize(t:Task,duration:number){
   if(duration<15||duration===t.duration)return Promise.resolve(false);
   if(t.starts_at){const issue=issueAt(t.id,t.plan_date!,taskMinute(t),duration);if(issue){showError(Error(issue.label));return Promise.resolve(false);}}
-  return dispatch(updateAction(t,t.plan_date,t.starts_at,null,duration),{done:()=>land(t.id)});
+  return dispatch(updateAction(t,t.plan_date,t.starts_at,null,duration),{done:()=>{land(t.id);announce(`‘${t.title}’ ${formatDuration(duration)}`);}});
 }
 export const unplan=(t:Task)=>t.plan_date&&!t.completed?fly([t.id],()=>dispatch(updateAction(t,null,null),{done:()=>announce(`‘${t.title}’ 준비 선반 맨 위로 옮겼어요`)})):Promise.resolve(false);
 // One stored command for a drop: order, date, time or back to 준비.
@@ -88,7 +91,7 @@ export function drop(intent:Intent){
 export function deleteTask(t:Task){
   return dispatch({type:'delete',id:t.id,expected_revision:t.revision},{done:()=>{
     const d=getState().drafts;if(d.editor?.id===t.id){setDrafts({editor:null,editorDirty:false});setUi({editorMode:null});void persistDraft();}
-    announce(`‘${t.title}’을 휴지통으로 옮겼어요`);
+    announce(`${quotedObject(t.title)} 휴지통으로 옮겼어요`);
   }});
 }
 // Completions stored without a date before every completion had one: the user empties them, into the trash.
@@ -101,12 +104,12 @@ export async function clearArchive(items:Task[]){
 export function restoreTrashed(t:Trashed){
   return dispatch({type:'restore_trashed',id:t.id},{done:()=>{
     const back=find(t.id);
-    announce(t.starts_at&&!back?.starts_at?`‘${t.title}’을 복원했어요. 그 시각이 차 있어 고정 없이 그날 순서에 넣었어요`:`‘${t.title}’을 복원했어요`);
+    announce(t.starts_at&&!back?.starts_at?`${quotedObject(t.title)} 복원했어요. 그 시각이 차 있어 고정 없이 그날 순서에 넣었어요`:`${quotedObject(t.title)} 복원했어요`);
   }});
 }
 export function purgeTrashed(items:Trashed[]){
   if(!items.length)return Promise.resolve(false);
-  return dispatch({type:'purge_trashed',ids:items.map(t=>t.id)},{done:()=>announce(items.length>1?'휴지통을 비웠어요':`‘${items[0].title}’을 영구 삭제했어요`)});
+  return dispatch({type:'purge_trashed',ids:items.map(t=>t.id)},{done:()=>announce(items.length>1?'휴지통을 비웠어요':`${quotedObject(items[0].title)} 영구 삭제했어요`)});
 }
 export async function clearDay(date:string){
   const s=getState(),d=s.drafts;

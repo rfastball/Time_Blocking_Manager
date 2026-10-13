@@ -14,8 +14,10 @@ export default [
     const title=await next(page),before=await task(page,title);
     assert.ok(title,'there is a next block');
     assert.match(await nextTime(page),/^예상 \d\d:\d\d–\d\d:\d\d · /,'planned slot and length');
+    assert.match(await page.js(`document.querySelector('.ed-next .ed-next-open').getAttribute('aria-label')`),new RegExp(`^${title}, 예상 \\d\\d:\\d\\d–\\d\\d:\\d\\d, \\d`),'the card reads as title, slot, length');
     await act(page,'+15분');
     assert.equal((await task(page,title)).duration,before.duration+15);
+    assert.match(await page.text('[role=status]'),new RegExp(`^‘${title}’ \\d`),'the new length is announced');
     assert.equal(await next(page),title,'still the same next block');
     // Much later, the same block is still next and nothing reads as late.
     await go(page,'17:50');
@@ -26,6 +28,17 @@ export default [
     await page.js(`(async()=>{const {getState}=await import('/src/app/store/state.ts');const {resize}=await import('/src/app/store/tasks.ts');const t=getState().snapshot.tasks.find(t=>t.title===${JSON.stringify(title)});await resize(t,${before.duration});})()`);
     await page.sleep(400);
     assert.equal((await task(page,title)).duration,before.duration);
+  }},
+  {name:'Esc lets go of a selection before it leaves 몰입, and the bar reads its allocation',run:async page=>{
+    await go(page);
+    assert.match(await page.text('.today-bar .cap .sr-only'),/^배분 .+ \/ 가용 /,'the allocation has a spoken label');
+    await page.click('.today-day .blk .main',undefined,{modifiers:8});await page.sleep(200);
+    assert.match(await page.text('.multi-bar'),/^1개 선택/);
+    await page.key('Escape');await page.sleep(300);
+    assert.equal(await page.js(`!!document.querySelector('.multi-bar')`),false,'the selection is let go');
+    assert.equal(await page.js(`document.querySelector('.content').dataset.view`),'today','still on 몰입');
+    await page.key('Escape');await page.sleep(300);
+    assert.equal(await page.js(`document.querySelector('.content').dataset.view`),'plan','the next Esc leaves');
   }},
   {name:'나중에 sends the next block to the top of the shelf and the keyboard stays on the card',run:async page=>{
     await go(page);
@@ -50,6 +63,8 @@ export default [
     // Fixed blocks are not "next"; finish them from the queue so nothing is left.
     while(await page.js(`!!document.querySelector('.queue .chk')`)&&guard++<40){await page.click('.queue .chk');await page.sleep(600);}
     assert.match(await page.text('.today-bar .day-end'),/^오늘 끝 · 완료 \d+$/,'오늘 끝 shows beside the meter');
+    assert.equal(await page.js(`document.querySelector('.today-bar .day-end').textContent.match(/\\d+$/)[0]`),await page.js(`document.querySelector('.today-day .bin-label b').textContent`),'the same count as the 완료 bin');
+    assert.match(await page.text('[role=status]'),/오늘 끝$/,'finishing the day is said once, with the completion');
     assert.equal(await page.js(`!!document.querySelector('.today-main .ed-next')`),false,'the side keeps 준비 on top');
     await page.shot('focus-day-done');
   }},
