@@ -117,6 +117,7 @@
   --color-wait-tag: #d6dae2;
   --color-wait-tag-text: #3a414e;
   --color-wait-body: #fafbfc;
+  --color-wait-edge: transparent;
   --color-wait-handle: #6b7280;
   --color-wait-shade: #1b1e231a;
   --color-wait-tray: #f2f3f6;
@@ -330,15 +331,18 @@
   --now-dot-size: 0px;
 }
 
-/* The other themes take the band's greys from their own ink and paper. */
+/* The other themes take the band's greys from their own ink and paper, and edge its blocks like their other blocks. */
 [data-theme="g1"], [data-theme="g3"], [data-theme="g4"] {
   --color-wait-band: color-mix(in srgb, var(--color-text) 6%, var(--color-canvas));
   --color-wait-band-hot: color-mix(in srgb, var(--color-action) 10%, var(--color-canvas));
   --color-wait-band-border: color-mix(in srgb, var(--color-text) 22%, var(--color-canvas));
   --color-wait-tag: color-mix(in srgb, var(--color-text) 15%, var(--color-panel));
   --color-wait-tag-text: color-mix(in srgb, var(--color-text) 85%, var(--color-panel));
-  --color-wait-body: color-mix(in srgb, var(--color-text) 2%, var(--color-panel));
+  --color-wait-body: color-mix(in srgb, var(--color-text) 2%, var(--color-surface));
+  --color-wait-edge: var(--color-border);
   --color-wait-handle: var(--color-text-muted);
   --color-wait-tray: color-mix(in srgb, var(--color-text) 5%, var(--color-panel));
   --color-wait-ready: color-mix(in srgb, var(--color-action) 55%, var(--color-text));
+  --color-on-wait-ready: var(--color-on-action);
+  --color-wait-shade: color-mix(in srgb, var(--color-text) 10%, transparent);
 }

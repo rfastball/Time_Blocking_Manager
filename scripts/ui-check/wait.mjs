@@ -121,6 +121,28 @@ const scenarios=[
     for(let i=0;i<3;i++){await page.key('Enter');await page.sleep(250);}
     assert.equal(await page.js(`!!document.querySelector('#wait-rename')`),false,'Enter walks the revived blocks, then lets go');
   }},
+  {name:'the band and its blocks take each theme’s corners, edges and ink',run:async page=>{
+    await toPlan(page);await openBand(page);
+    const pile=await page.rect('#wait .wpile'),off=[];
+    try{
+      for(const theme of ['default','g1','g3','g4']){
+        await page.js(`document.documentElement.dataset.theme=${JSON.stringify(theme)}`);await page.sleep(150);
+        const look=await page.js(`(()=>{const s=e=>getComputedStyle(document.querySelector(e)),root=getComputedStyle(document.documentElement);
+          return {block:root.getPropertyValue('--radius-block').trim(),panel:root.getPropertyValue('--radius-panel').trim(),edge:root.getPropertyValue('--border-panel-width').trim(),
+            tag:s('#wait .wrow:not(.ready) .wtag').borderTopLeftRadius,body:s('#wait .wrow:not(.ready) .wbody').borderBottomRightRadius,
+            band:s('#wait').borderTopLeftRadius,bandEdge:s('#wait').borderTopWidth};})()`);
+        const px=v=>parseFloat(v)||0;
+        for(const [a,b,what] of [[look.tag,look.block,'a tag rounds like a block'],[look.body,look.block,'a body rounds like a block'],[look.band,look.panel,'the band rounds like a panel'],[look.bandEdge,look.edge,'the band’s edge is the panel’s']])
+          if(px(a)!==px(b))off.push(`${theme}: ${what} (${a} vs ${b})`);
+        await page.shot('wait-theme-'+theme);
+        await page.mouse('mouseMoved',pile.cx,pile.y+40,0);await page.sleep(500);
+        await page.click('.wpile-layer .wcard.front .wbody');await page.sleep(700);
+        await page.shot('wait-theme-open-'+theme);
+        await page.key('Escape');await page.mouse('mouseMoved',pile.x-200,pile.y,0);await page.sleep(700);
+      }
+    }finally{await page.js(`document.documentElement.dataset.theme='default'`);}
+    assert.deepEqual(off,[]);
+  }},
   {name:'on the focus screen B pushes the next block and the field floats beside it',run:async page=>{
     await toFocus(page);
     await page.js(`document.querySelector('.ed-next .ed-next-open')?.focus()`);

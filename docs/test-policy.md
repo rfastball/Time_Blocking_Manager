@@ -1,5 +1,13 @@
 # 검증 범위
 
+## 기다림 띠 테마 형상 Test delta (2026-10-15)
+
+- Unique risk: 띠·블록의 모서리·경계가 고정값이라 G1·G3·G4에서 준비의 블록과 다른 형상으로 보이는 것.
+- Owner / layer: 기존 `scripts/ui-check/wait.mjs`. 네 테마에서 꼬리표·몸통 반경을 `--radius-block`과, 띠 반경·경계를 panel 값과 비교하고 쉬는·펼친 묶음을 캡처한다.
+- Added / extended / removed: UI **1 / 0 / 0**(수집 115→116). 새 의존성·lane·coverage floor 변화 **0**.
+- 수정 전 9건 불일치(네 테마 블록 반경 5px 고정, G3 띠 1px 경계)로 실패, 수정 후 통과. `npm test` **81/81**, TypeScript·Vite 빌드와 `git diff --check` 통과, wait·shell·settings·plan **51/51**.
+- Runtime delta: 추가 사례 약 12초. 기본 Node suite 비용 변화는 없다.
+
 ## 기다림 Test delta (2026-10-14)
 
 - Unique risk: 밀기·충족·트리거 수정이 저장과 어긋나는 것(날짜·준비·기다림을 동시에 갖는 작업), 되살아난 블록이 선반 맨 위가 아닌 곳에 놓이는 것, 묶음의 들림·접힘 중 포커스·클릭이 사라지는 것, 띠가 캘린더 폭을 빼앗아 기존 배치가 깨지는 것.

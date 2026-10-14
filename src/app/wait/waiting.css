@@ -1,6 +1,6 @@
 /* The 기다림 band: right of the calendar, sticking like the dock. Quiet greys; only a met date takes the full tag colour. */
 .waitband{--wait-w:208px;position:sticky;top:var(--dock-top,62px);flex:none;width:var(--wait-w);max-height:calc(100vh - var(--dock-top,62px) - 24px);display:flex;flex-direction:column;
-  box-sizing:border-box;padding:12px 12px 0;border-radius:var(--radius-panel);background:var(--color-wait-band);border:1px solid var(--color-wait-band-border);transition:background .12s,border-color .12s}
+  box-sizing:border-box;padding:12px 12px 0;border-radius:var(--radius-panel);background:var(--color-wait-band);border:var(--border-panel-width) solid var(--color-wait-band-border);transition:background .12s,border-color .12s}
 .waitband.hot{background:var(--color-wait-band-hot);border-color:var(--color-selection-border)}
 .waitband>header{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:30px}
 .waitband h2{margin:0;font-size:var(--font-size-body);font-weight:var(--font-weight-heading)}
@@ -9,31 +9,33 @@
 /* The list scrolls; it reaches left past the band so a met date can poke over the band's edge. */
 .wait-list{flex:1 1 auto;min-height:48px;overflow-y:auto;overflow-x:hidden;margin:6px -12px 0 -34px;padding:2px 12px 16px 34px;display:flex;flex-direction:column;gap:6px;scrollbar-width:thin}
 .waitband.closed{width:40px;padding:0;background:transparent;border:0;align-items:center;overflow:visible}
-.wait-unfold{position:relative;width:40px;min-height:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:8px 0;border:1px solid var(--color-wait-band-border);
+.wait-unfold{position:relative;width:40px;min-height:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:8px 0;border:var(--border-panel-width) solid var(--color-wait-band-border);
   border-radius:var(--radius-panel);background:var(--color-wait-band);color:var(--color-text-muted);cursor:pointer}
 .wait-unfold:hover{color:var(--color-text);background:var(--color-control-hover)}
 .waitband.closed.hot .wait-unfold{border-color:var(--color-selection-border);background:var(--color-wait-band-hot)}
-.wait-ready{position:absolute;left:-12px;top:68px;min-width:22px;height:24px;box-sizing:border-box;padding:0 6px;border-radius:4px;background:var(--color-wait-ready);color:var(--color-on-wait-ready);font-size:11px;font-weight:600;line-height:24px;text-align:center}
+.wait-ready{position:absolute;left:-12px;top:68px;min-width:22px;height:24px;box-sizing:border-box;padding:0 6px;border-radius:var(--radius-chip);background:var(--color-wait-ready);color:var(--color-on-wait-ready);font-size:11px;font-weight:600;line-height:24px;text-align:center}
 
 /* One waiting block: the trigger as a tag on top, the task as a paper body below. */
-.wrow{display:flex;flex-direction:column;gap:1px;flex-shrink:0;border-radius:5px;transition:opacity .22s}
+.wrow{display:flex;flex-direction:column;gap:1px;flex-shrink:0;border-radius:var(--radius-block);transition:opacity .22s}
 .wrow.ready{gap:3px;margin-left:-22px}
 .wrow.hollow,.wpile.hollow{outline:1px dashed var(--color-text-muted);outline-offset:-1px}
 .wrow.hollow>*,.wpile.hollow>.wpile-rest{visibility:hidden}
 .dim{opacity:.4}
-.wtag{height:30px;display:flex;align-items:center;border-radius:5px 5px 0 0;background:var(--color-wait-tag);color:var(--color-wait-tag-text);transition:transform .14s ease-in,opacity .14s ease-in}
-.ready>.wtag,.wtag.ready{border-radius:5px;background:var(--color-wait-ready);color:var(--color-on-wait-ready)}
+/* A theme with edged blocks draws them as an outline, so the tag and body keep their heights and share one seam. */
+.wtag,.wbody,.wslice{outline:var(--border-block-width) solid var(--color-wait-edge)}
+.wtag{height:30px;display:flex;align-items:center;border-radius:var(--radius-block) var(--radius-block) 0 0;background:var(--color-wait-tag);color:var(--color-wait-tag-text);transition:transform .14s ease-in,opacity .14s ease-in}
+.ready>.wtag,.wtag.ready{border-radius:var(--radius-block);background:var(--color-wait-ready);color:var(--color-on-wait-ready)}
 .wtag.off,.wslice.off{transform:translateX(26px);opacity:0}
 .wtag-text{flex:1 1 auto;min-width:0;height:100%;display:flex;align-items:center;gap:6px;padding:0 4px 0 8px;border:0;background:transparent;color:inherit;font:inherit;font-size:12.5px;font-weight:600;text-align:left;cursor:pointer;border-radius:inherit}
 .wtag-text .trig{flex:1 1 auto;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 .wtag-text .trig.unnamed{font-weight:400;opacity:.75}
 .wtag-text .since{flex-shrink:0;font-size:10.5px;font-weight:400;opacity:.78}
-.wtag-text .count{flex-shrink:0;min-width:20px;height:18px;box-sizing:border-box;padding:0 6px;border-radius:9px;background:color-mix(in srgb,var(--color-surface) 70%,transparent);color:var(--color-wait-tag-text);font-size:11px;line-height:18px;text-align:center}
-.handle{flex-shrink:0;box-sizing:border-box;width:18px;height:18px;margin-right:6px;padding:0;border-radius:3px;border:1.5px solid var(--color-wait-handle);background:transparent;color:var(--color-wait-handle);display:grid;place-items:center;cursor:pointer}
+.wtag-text .count{flex-shrink:0;min-width:20px;height:18px;box-sizing:border-box;padding:0 6px;border-radius:var(--radius-chip);background:color-mix(in srgb,var(--color-surface) 70%,transparent);color:var(--color-wait-tag-text);font-size:11px;line-height:18px;text-align:center}
+.handle{flex-shrink:0;box-sizing:border-box;width:18px;height:18px;margin-right:6px;padding:0;border-radius:min(3px,var(--radius-block));border:1.5px solid var(--color-wait-handle);background:transparent;color:var(--color-wait-handle);display:grid;place-items:center;cursor:pointer}
 .handle:hover,.handle:focus-visible,.wslice:hover .handle{background:var(--color-surface);color:var(--color-action);border-color:var(--color-action)}
 .ready .handle{background:var(--color-surface);color:var(--color-action);border-color:var(--color-surface)}
-.wbody{min-height:32px;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 9px;border:0;border-radius:0 0 5px 5px;background:var(--color-wait-body);color:var(--color-wait-tag-text);font:inherit;font-size:12px;line-height:18px;text-align:left;cursor:grab;min-width:0}
-.ready>.wbody,.wcard.ready .wbody{border-radius:5px;background:var(--color-wait-ready-body);color:var(--color-text)}
+.wbody{min-height:32px;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 9px;border:0;border-radius:0 0 var(--radius-block) var(--radius-block);background:var(--color-wait-body);color:var(--color-wait-tag-text);font:inherit;font-size:12px;line-height:18px;text-align:left;cursor:grab;min-width:0}
+.ready>.wbody,.wcard.ready .wbody{border-radius:var(--radius-block);background:var(--color-wait-ready-body);color:var(--color-text)}
 .wbody .ttl{min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 .wbody .since{flex-shrink:0;font-size:10.5px;color:var(--color-text-muted)}
 .wbody:focus-visible{outline-offset:-2px}
@@ -45,43 +47,43 @@
 .wface{position:absolute;left:0;top:0;width:100%;height:0}
 .wpile-layer{position:fixed;z-index:30;height:0}
 .wpile-layer .wface{width:100%}
-.wtray{position:absolute;left:0;top:0;border-radius:10px;background:var(--color-wait-tray);pointer-events:none}
+.wtray{position:absolute;left:0;top:0;border-radius:var(--radius-panel);background:var(--color-wait-tray);pointer-events:none}
 .whead{position:absolute;left:0;right:0;top:0}
-.wcard{position:absolute;left:0;right:0;top:0;display:flex;gap:1px;border-radius:5px}
-.wcard .wbody{flex:1 1 auto;border-radius:0 5px 5px 0}
-.wcard.front .wbody{border-radius:0 0 5px 0}
-.wcard.ready .wbody{border-radius:0 5px 5px 0}
-.wslice{width:30px;flex-shrink:0;border:0;border-radius:5px 0 0 5px;padding:0;background:var(--color-wait-tag);display:grid;place-items:center;cursor:pointer;transition:transform .14s ease-in,opacity .14s ease-in}
-.wcard.front .wslice{border-radius:0 0 0 5px}
+.wcard{position:absolute;left:0;right:0;top:0;display:flex;gap:1px;border-radius:var(--radius-block)}
+.wcard .wbody{flex:1 1 auto;border-radius:0 var(--radius-block) var(--radius-block) 0}
+.wcard.front .wbody{border-radius:0 0 var(--radius-block) 0}
+.wcard.ready .wbody{border-radius:0 var(--radius-block) var(--radius-block) 0}
+.wslice{width:30px;flex-shrink:0;border:0;border-radius:var(--radius-block) 0 0 var(--radius-block);padding:0;background:var(--color-wait-tag);display:grid;place-items:center;cursor:pointer;transition:transform .14s ease-in,opacity .14s ease-in}
+.wcard.front .wslice{border-radius:0 0 0 var(--radius-block)}
 .wcard.ready .wslice{background:var(--color-wait-ready)}
 .wslice .handle{margin:0}
 .wcard.hollow{outline:1px dashed var(--color-text-muted);outline-offset:-1px}
 .wcard.hollow>*{visibility:hidden}
 /* Slivers behind the front are darker with depth; on the tray each block takes its own colour. */
 .wshade{position:absolute;inset:0;border-radius:inherit;background:var(--color-wait-shade);pointer-events:none}
-.wfold{position:absolute;top:0;width:44px;height:22px;border:0;border-radius:11px;background:var(--color-surface);color:var(--color-text-muted);display:grid;place-items:center;cursor:pointer;
-  box-shadow:0 12px 24px #1b1e2333,0 3px 7px #1b1e2322}
+.wfold{position:absolute;top:0;width:44px;height:22px;border:0;border-radius:var(--radius-chip);background:var(--color-surface);color:var(--color-text-muted);display:grid;place-items:center;cursor:pointer;
+  box-shadow:var(--sp-lift)}
 /* While a pile is raised, the rest of the band steps back. */
 .waitband.raised .wait-list>.wrow,.waitband.raised .wait-list>.wpile.dim{opacity:.4}
 
 /* The trigger field, where the pushed blocks are, or floating where they were. */
-.wname{flex-shrink:0;display:flex;flex-direction:column;gap:5px;padding:6px 8px 8px;border:2px solid var(--color-focus);border-radius:6px;background:var(--color-surface)}
+.wname{flex-shrink:0;display:flex;flex-direction:column;gap:5px;padding:6px 8px 8px;border:2px solid var(--color-focus);border-radius:var(--radius-control);background:var(--color-surface)}
 .waitband>.wname{margin-top:6px}
-.wname.floating{position:fixed;z-index:40;width:236px;box-sizing:border-box;box-shadow:0 14px 28px #1b1e232e,0 4px 8px #1b1e231f}
+.wname.floating{position:fixed;z-index:40;width:236px;box-sizing:border-box;box-shadow:var(--sp-lift)}
 .wname-title{font-size:12px;font-weight:600;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
-.wname input{box-sizing:border-box;width:100%;height:28px;border:1px solid var(--color-input-border);border-radius:4px;padding:0 7px;font:inherit;font-size:12px;color:var(--color-text);background:var(--color-input)}
+.wname input{box-sizing:border-box;width:100%;height:28px;border:1px solid var(--color-input-border);border-radius:min(4px,var(--radius-control));padding:0 7px;font:inherit;font-size:12px;color:var(--color-text);background:var(--color-input)}
 .wname [role=listbox]{display:flex;flex-direction:column;gap:1px}
-.wname [role=option]{height:26px;border:0;border-radius:4px;padding:0 7px;background:transparent;font:inherit;font-size:12px;text-align:left;color:var(--color-text);display:flex;justify-content:space-between;align-items:center;gap:8px;cursor:pointer}
+.wname [role=option]{height:26px;border:0;border-radius:min(4px,var(--radius-control));padding:0 7px;background:transparent;font:inherit;font-size:12px;text-align:left;color:var(--color-text);display:flex;justify-content:space-between;align-items:center;gap:8px;cursor:pointer}
 .wname [role=option]:hover,.wname [role=option].on{background:var(--color-text-selection)}
 .wname [role=option] small{font-size:11px;color:var(--color-text-muted)}
 
 /* Over a revived block wherever it landed. */
-.wrename{position:fixed;z-index:40;box-sizing:border-box;padding:3px;border-radius:6px;background:var(--color-focus)}
-.wrename input{box-sizing:border-box;width:100%;height:24px;border:0;border-radius:4px;padding:0 6px;font:inherit;font-size:12px;color:var(--color-text);background:var(--color-surface)}
+.wrename{position:fixed;z-index:40;box-sizing:border-box;padding:3px;border-radius:var(--radius-control);background:var(--color-focus)}
+.wrename input{box-sizing:border-box;width:100%;height:24px;border:0;border-radius:min(4px,var(--radius-control));padding:0 6px;font:inherit;font-size:12px;color:var(--color-text);background:var(--color-surface)}
 
-.wtoast{position:fixed;z-index:45;left:50%;bottom:24px;transform:translateX(-50%);height:40px;display:flex;align-items:center;gap:14px;padding:0 8px 0 14px;border-radius:8px;background:var(--color-nav);color:var(--color-on-action);font-size:13px;max-width:calc(100vw - 32px)}
+.wtoast{position:fixed;z-index:45;left:50%;bottom:24px;transform:translateX(-50%);height:40px;display:flex;align-items:center;gap:14px;padding:0 8px 0 14px;border-radius:var(--radius-panel);background:var(--color-nav);color:var(--color-on-action);font-size:13px;max-width:calc(100vw - 32px)}
 .wtoast span{min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
-.wtoast button{flex-shrink:0;height:28px;padding:0 10px;border:0;border-radius:5px;background:#ffffff1f;color:inherit;font:inherit;font-size:13px;font-weight:600;cursor:pointer}
+.wtoast button{flex-shrink:0;height:28px;padding:0 10px;border:0;border-radius:var(--radius-control);background:#ffffff1f;color:inherit;font:inherit;font-size:13px;font-weight:600;cursor:pointer}
 
 /* Headed out to the band, a held block is a waiting token: a tag line over a paper body, no time. */
 .held.waits>.tile{background:var(--color-wait-body);border:1px solid var(--color-wait-tag);border-top:8px solid var(--color-wait-tag);color:var(--color-wait-tag-text)}
