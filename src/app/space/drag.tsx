@@ -336,9 +336,11 @@ function HeldBlock({held,out,outside}:{held:Held;out:number;outside:number}){
   const shiftX=snapped?0:-held.grabX*(width/held.startRect.width-1),shiftY=snapped?0:-held.grabY*(height/held.startRect.height-1);
   // The place follows the hand at once; only the shape eases into the destination's: width first, height a little after.
   const shape=reduced()?{duration:0}:{duration:MORPH_MS/1000,ease:MORPH_EASE},late={...shape,delay:reduced()?0:MORPH_MS/4000};
+  // Bypass the animated grab offsets while snapped, including the first frame on the rail.
   return <motion.div className={'blk held '+(held.column?'column ':'')+(fixedLook?'fixed':'flow')+(height<(held.column?47:56)?' compact':'')+(density!=='full'?' '+density:'')+(bad?' bad':'')+(!rail&&!passing&&slot?.over&&intent.zone==='body'?' over':'')+(proto?' proto':'')}
-    initial={false} animate={{x:bad?[0,-4,3,-2,0]:0,width,height,marginLeft:shiftX,marginTop:shiftY}}
-    transition={{x:{duration:reduced()?0:.18},width:shape,marginLeft:shape,height:late,marginTop:late}}>
+    style={{marginLeft:snapped?0:'var(--grab-x)',marginTop:snapped?0:'var(--grab-y)'}}
+    initial={false} animate={{x:bad?[0,-4,3,-2,0]:0,width,height,'--grab-x':shiftX+'px','--grab-y':shiftY+'px'}}
+    transition={{x:{duration:reduced()?0:.18},width:shape,'--grab-x':shape,height:late,'--grab-y':late}}>
     <div className="tile">
       {at&&intent.date&&<OffHours start={at.start} end={at.end} rule={dayRule(intent.date)} position={rail?held.axis?.position:undefined}/>}
       {/* Latching, the clasp shoots out of the runner and seats on the rail: fast, no overshoot. */}

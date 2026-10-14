@@ -71,6 +71,23 @@ export default [
       assert.ok(Math.abs((await page.rect('.plan-main')).w-widths['주'])<=1,'unfolding returns to the same narrow width');
     }finally{await page.js(`(()=>{const saved=${JSON.stringify(saved)};for(const [key,value] of Object.entries(saved)){if(value===null)localStorage.removeItem(key);else localStorage.setItem(key,value);}})()`);}
   }},
+  {name:'latching a reshaped block keeps its left edge on the rail in every frame',run:async page=>{
+    await toPlan(page);await page.click('.segmented [role=radio]','일');await page.sleep(400);
+    const source=await page.rect('#dock .tblk','SQLite'),space=await page.rect('.dv-day .space');
+    const y=(await page.rect('.dv-day .ruler span','16')).cy+8,x=space.x+space.w*.7;
+    await page.mouse('mouseMoved',source.cx,source.cy,0);await page.mouse('mousePressed',source.cx,source.cy);
+    await page.mouse('mouseMoved',source.cx+8,source.cy);await page.sleep(50);
+    await page.mouse('mouseMoved',x,y);await page.sleep(450);
+    assert.ok((await page.rect('.held')).w>source.w,'the day widens the lifted card before latching');
+    await page.js(`window.railFrames=[];window.trackRail=true;requestAnimationFrame(function sample(){const h=document.querySelector('.held.fixed');if(h)window.railFrames.push(h.getBoundingClientRect().left);if(window.trackRail)requestAnimationFrame(sample);})`);
+    const rail=await page.rect('.dv-day .rail');
+    await page.mouse('mouseMoved',rail.cx,y);await page.sleep(300);
+    const frames=await page.js(`window.trackRail=false;window.railFrames`);
+    assert.ok(frames.length>=3,'sample the latch transition, not just its final position');
+    assert.ok(Math.min(...frames)>=space.x+55,'the held block never protrudes left of its fixed position: '+JSON.stringify(frames));
+    await page.mouse('mouseReleased',rail.cx,y,0);await page.sleep(700);
+    assert.match((await page.blocks('.dv-day .space')).find(b=>b.startsWith('SQLite')),/시각 고정/);
+  }},
   {name:'working lips yield to deliberate rail drags and only unavailable slices are hatched',run:async page=>{
     await toPlan(page);
     const {today}=await days(page),scope=sp(today),workshop=await block(page,today,'설계 워크숍');
