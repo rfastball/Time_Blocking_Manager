@@ -33,7 +33,7 @@
 .jb-ceiling:hover::after,.jb-ceiling:focus-visible::after{height:6px}
 .jb-ceiling:disabled{cursor:default}
 .jb-ceiling:disabled::after{height:3px}
-.jb-hang{position:relative;display:flex;flex-direction:column;gap:2px;background:repeating-linear-gradient(to bottom,transparent 0 71px,var(--color-divider) 71px 72px);transition:background-color .2s}
+.jb-hang{position:relative;display:flex;flex:1;flex-direction:column;gap:2px;background:repeating-linear-gradient(to bottom,transparent 0 71px,var(--color-divider) 71px 72px);transition:background-color .2s}
 .jb-shelf.hot .jb-hang{background-color:var(--color-text-selection)}
 
 /* A card: a sheet with no thickness yet, or a block whose height is its length. */

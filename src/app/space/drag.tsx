@@ -33,7 +33,7 @@ export const runnerReach=(g:Geometry)=>g.flowLeft-(g.railLeft+g.railWidth/2);
 // `density`: how much of the block its destination shows — full, narrow (a week column), line (a 2주 title), bar (a 월 load segment).
 export type Form={width:number;height:number;density?:Density};
 export type Density='full'|'narrow'|'line'|'bar';
-export type ListModel={gap:number;items:()=>{id:string;height:number}[]};
+export type ListModel={gap:number;items:()=>{id:string;height:number}[];top?:()=>number};
 type RegionExtra={axis?:TimeAxis;geometry?:Geometry;list?:ListModel;form?:(task:Task,ids:string[])=>Form|null};
 type Region={key:string;kind:'space'|'date'|'tray'|'inbox'|'shelf';date:string|null;el:HTMLElement}&RegionExtra;
 // The hollow marks the body slot; the held copy follows the hand until it latches onto a rail tick.
@@ -160,7 +160,7 @@ export function DragProvider({children}:{children:ReactNode}){
       if((kind==='inbox'||kind==='shelf')&&region.list){
         // Before the first remaining card whose middle is below the held block's middle, as the list draws them.
         const items=region.list.items().filter(i=>!ids.includes(i.id)),h=(region.form?.(task,ids)??lifted)?.height??0;
-        const centre=py-r.top-grabY*h+h/2;
+        const centre=py-(region.list.top?.()??r.top)-grabY*h+h/2;
         let top=0,index=items.length;
         for(const [n,item] of items.entries()){if(centre<top+item.height/2){index=n;break;}top+=item.height+region.list.gap;}
         return {intent:{...intent,zone:kind,index},region};

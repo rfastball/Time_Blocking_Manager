@@ -25,14 +25,14 @@ const total=(list:Task[])=>list.reduce((n,t)=>n+t.duration,0);
 type Open=(t:Task)=>void;
 
 // A list in 준비: what it holds, as drawn, for the drop index; held blocks take its width and their own height on it.
-function useList(place:Place,width:()=>number){
+function useList(place:Place,width:()=>number,top?:()=>number){
   const gap=place==='shelf'?SHELF_GAP:INBOX_GAP;
   const items=()=>{const s=getState().snapshot!;return (place==='shelf'?shelfCards(s.tasks,s.piles??[]):inboxCards(s.tasks)).map(t=>({id:t.id,height:cardHeight(t,place)}));};
   const form=(task:Task,ids:string[]):Form=>{
     const list=ids.map(id=>getState().snapshot!.tasks.find(t=>t.id===id)??task);
     return {width:width(),height:list.reduce((n,t)=>n+cardHeight(t,place),0)+(list.length-1)*gap};
   };
-  return useRegion(place,null,{list:{gap,items},form});
+  return useRegion(place,null,{list:{gap,items,top},form});
 }
 
 export function InboxList({onOpen,children}:{onOpen:Open;children?:ReactNode}){
@@ -57,20 +57,20 @@ export function InboxList({onOpen,children}:{onOpen:Open;children?:ReactNode}){
 
 export function ShelfList({onOpen}:{onOpen:Open}){
   const {held,tasks}=useDrag(),box=useRef<HTMLDivElement>(null);
-  const register=useList('shelf',()=>box.current?.clientWidth??300);
+  const register=useList('shelf',()=>box.current?.clientWidth??300,()=>box.current?.getBoundingClientRect().top??0);
   const cards=shelfCards(tasks,getState().snapshot?.piles??[]),sum=total(cards);
   const hot=held&&!held.dropping&&!held.passing&&held.intent.zone==='shelf';
   // The ruler shows whole hours down to a little past what the shelf holds, and at least a working day (stacked, only the former).
   const fit=Math.ceil(sum/60)+1,hours=Array.from({length:Math.max(8,fit)},(_,i)=>i+1);
   const rack={'--rack':`${hours.length*60*SCALE+24}px`,'--rack-fit':`${fit*60*SCALE+24}px`} as CSSProperties;
-  return <section className={'jb-panel jb-shelf'+(hot?' hot':'')} aria-label="선반">
+  return <section ref={register} className={'jb-panel jb-shelf'+(hot?' hot':'')} aria-label="선반">
     <header className="jb-head"><h2>선반</h2>{cards.length>0&&<><span className="cnt">{cards.length}</span><span className="jb-sum">{formatDuration(sum)}</span></>}</header>
     <div className="jb-scroll">
       <div className="jb-rack" style={rack}>
         <div className="jb-ruler" aria-hidden="true">{hours.map(h=><span key={h} style={{top:CEILING+h*60*SCALE}}>{h}h</span>)}</div>
         <div className="jb-stack" data-block="true">
           <Ceiling cards={cards}/>
-          <div ref={el=>{box.current=el;register(el);}} className="jb-hang">
+          <div ref={box} className="jb-hang">
             <AnimatePresence initial={false}>{cards.map(t=><Card key={t.id} task={t} place="shelf" onOpen={onOpen}/>)}</AnimatePresence>
           </div>
         </div>

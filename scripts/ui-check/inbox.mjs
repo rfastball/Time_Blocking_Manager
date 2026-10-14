@@ -103,6 +103,37 @@ const scenarios=[
     assert.deepEqual((await titles(page,'.jb-shelf')).slice(0,3),['회의록 템플릿 업데이트','메일 답장','SQLite 백업 방식 조사']);
     assert.equal(await page.js('document.activeElement?.textContent'),'메일 답장15분');
   }},
+  {name:'the whole shelf accepts empty and blank drops, including its ruler and margins, and keeps scrolled insertion order',viewport:{width:1440,height:900},run:async page=>{
+    await open(page);
+    await page.js(`(async()=>{const {getState}=await import('/src/app/store/state.ts');const {moveTo}=await import('/src/app/store/bench.ts');await moveTo(getState().snapshot.tasks.filter(t=>t.pile_id==='shelf').map(t=>t.id),'inbox',0);})()`);await page.sleep(400);
+    assert.deepEqual(await titles(page,'.jb-shelf'),[]);
+    await page.shot('junbi-empty-shelf');
+    const drop=async(title,to)=>{
+      const from=await page.rect('.jb-inbox .jb-card',title);
+      const during=await page.drag({x:from.cx,y:from.cy},to,{before:()=>page.js(`(()=>{const shelf=document.querySelector('.jb-shelf'),held=document.querySelector('.held')?.getBoundingClientRect();return {hot:shelf.classList.contains('hot'),width:held&&Math.round(held.width),target:Math.round(shelf.querySelector('.jb-hang').clientWidth)};})()`)});
+      assert.equal(during.hot,true,`${title}: the whole shelf accepts the pointer`);
+      assert.equal(during.width,during.target,`${title}: the copy takes the card width`);
+    };
+    const scroll=await page.rect('.jb-shelf .jb-scroll'),panel=await page.rect('.jb-shelf');
+    await drop('주간 보고',{x:scroll.cx,y:scroll.cy});
+    assert.deepEqual(await titles(page,'.jb-shelf'),['주간 보고 초안'],'the empty shelf receives a drop in blank space');
+    await drop('회의록',{x:panel.x+panel.w-6,y:scroll.cy});
+    assert.deepEqual(await titles(page,'.jb-shelf'),['주간 보고 초안','회의록 템플릿 업데이트'],'the side margin appends below the cards');
+    const ruler=await page.rect('.jb-ruler'),hang=await page.rect('.jb-hang');
+    await drop('SQLite',{x:ruler.cx,y:hang.y+8});
+    assert.deepEqual(await titles(page,'.jb-shelf'),['SQLite 백업 방식 조사','주간 보고 초안','회의록 템플릿 업데이트'],'the ruler uses the cards for its insertion position');
+    const head=await page.rect('.jb-shelf .jb-head');
+    await drop('메일',{x:head.cx,y:head.cy});
+    assert.equal((await titles(page,'.jb-shelf'))[0],'메일 답장','the header also receives a drop before the first card');
+    await page.js(`(async()=>{const {getState}=await import('/src/app/store/state.ts');const {setLength}=await import('/src/app/store/bench.ts');await setLength(getState().snapshot.tasks.find(t=>t.title==='SQLite 백업 방식 조사'),600);})()`);await page.sleep(400);
+    await page.js(`document.querySelector('.jb-shelf .jb-scroll').scrollTop=600`);await page.sleep(200);
+    assert.ok(await page.js(`document.querySelector('.jb-shelf .jb-scroll').scrollTop>0`),'the shelf is scrolled');
+    const meeting=await page.rect('.jb-shelf .jb-card','회의록');
+    await drop('경쟁사 동향',{x:meeting.cx,y:meeting.y+4});
+    assert.deepEqual(await titles(page,'.jb-shelf'),['메일 답장','SQLite 백업 방식 조사','주간 보고 초안','경쟁사 동향 정리','회의록 템플릿 업데이트'],'a scrolled drop stays before the card under the pointer');
+    assert.deepEqual(await task(page,'경쟁사 동향 정리'),{proto:false,duration:60,pile:'shelf',date:null});
+    await page.shot('junbi-shelf-scrolled-drop');
+  }},
   // The date columns are gone: a bench card goes onto a date head of the calendar beside the dock (docs/one-screen-plan.md, 날짜 기둥에 놓기·머리로 일 보기).
   {name:'dropping on a date shows the landing at its real size and ships to the end of that day',run:async page=>{
     await open(page);

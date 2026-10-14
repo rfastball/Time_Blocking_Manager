@@ -1,5 +1,15 @@
 # 검증 범위
 
+## 선반 전체 드롭 영역 Test delta (2026-10-14)
+
+- Unique risk: 빈 선반과 카드 아래 빈 공간·눈금·옆 여백이 드롭을 거절하거나, 받는 영역을 넓힌 뒤 스크롤된 카드 앞에 놓아도 잘못된 순서에 저장되는 문제. 기존 선반 드롭은 카드 가까이에만 놓아 이 결함을 검출하지 못한다.
+- Existing owner / selected layer: 기존 `scripts/ui-check/inbox.mjs`의 실제 포인터·DOM 배치 owner에 하나의 시나리오를 추가한다. CSS 영역과 스크롤 좌표의 연결이므로 순수 저장 규칙 테스트로 대체할 수 없다.
+- Added / extended / removed: **1 / 0 / 0**, 수집 변화 **+1**. 기존 카드 근처 드롭·목적지 크기·착지 검사는 별도 위험을 맡아 유지한다.
+- Expected cost / evidence to retire: 기존 Edge 세션·fixture를 공유한다. 새 테스트 파일·dependency·lane·기본 Node suite heavy-resource launch·coverage floor 변화 **0**. 퇴역할 중복 증거는 없다.
+- 검증: `npm test` **73/73 · 254.841ms**, `npm run build` TypeScript·Vite 통과(Vite **2.11초**), 시나리오 문법·`git diff --check` 통과. inbox UI **14/15**이며 새 선반 회귀 사례는 **10.714초**로 통과했다. 빈 선반·스크롤 후 착지 스크린샷도 확인했다.
+- 남은 실패: 기존 도마 닫기 포커스 사례에서 달력 블록 대신 같은 작업의 좁은 도크 복사본으로 포커스가 돌아갔다. 해당 사례는 선반이 마운트되지 않는 좁은 도크에서 드래그 없이 실행된다. `store/cut.ts`의 전역 첫 `data-task` 선택과 도크가 달력보다 앞서는 DOM 순서가 원인으로 확인됐으며 이번 수정에는 포함하지 않았다. 변경 없는 HEAD 아카이브와 별도 Vite 서버(1421)에서도 같은 aria-label 불일치로 실패해 기존 결함임을 확인했다.
+- Runtime delta: **not measured**. 동일 조건의 변경 전 통과 baseline이 없다. 새 UI 사례 하나가 기존 브라우저 실행을 공유하며 기본 suite 비용 변화는 없다. 실제 Windows 설치본·실제 터치는 별도 미검증이다.
+
 ## 한 화면 실험 다듬기: 섹션별 audit·polish (2026-10-13, `exp/one-screen`)
 
 - Unique risk: 섹션 7곳(위 막대, 준비 도크, 캘린더, 몰입, 옆 편집기, 단축키, 설정·검색)의 접근성·반응형·테마 결함. 특히 ‘준비로’가 118px 열에서 ‘오늘’을 덮고 일 보기에서 톱니 위로 빠지던 것, 모든 편집 대화상자·도마·단축키 목록이 닫힌 뒤 포커스를 잃던 것(StrictMode 이중 연결과 모달 중 포커스 실패), G3에서 검색 선택 행·판 손잡이·보조 버튼이 보이지 않던 것, 한 글자 단축키를 끌 수 없던 것(WCAG 2.1.4).
