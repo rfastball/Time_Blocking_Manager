@@ -6,7 +6,9 @@ import {formatDuration} from './format.ts';
 export const SHELF='shelf';
 export type Place='inbox'|'shelf';
 
-export const onBench=(t:Task)=>!t.plan_date&&!t.completed;
+export const onBench=(t:Task)=>!t.plan_date&&!t.completed&&!t.wait_since;
+// 기다림: open dateless work set aside with its trigger, in no pile.
+export const waiting=(t:Task)=>!!t.wait_since&&!t.plan_date&&!t.completed;
 export const placeOf=(t:Task):Place=>t.pile_id?'shelf':'inbox';
 export const pileOf=(place:Place):string|null=>place==='shelf'?SHELF:null;
 const byPileOrder=(a:Task,b:Task)=>(a.pile_order==null?0:1)-(b.pile_order==null?0:1)||(a.pile_order??0)-(b.pile_order??0)||(a.id<b.id?-1:a.id>b.id?1:0);
@@ -16,12 +18,20 @@ export function shelfCards(tasks:Task[],piles:Pile[]=[]):Task[]{
   const rank=(t:Task)=>t.pile_id===SHELF?0:piles.find(p=>p.id===t.pile_id)?.position??Infinity;
   return tasks.filter(t=>onBench(t)&&!!t.pile_id).sort((a,b)=>rank(a)-rank(b)||byPileOrder(a,b));
 }
+export function waitCards(tasks:Task[]):Task[]{return tasks.filter(waiting);}
 export const cardsIn=(place:Place,tasks:Task[],piles:Pile[]=[])=>place==='shelf'?shelfCards(tasks,piles):inboxCards(tasks);
 // The 준비 cell elsewhere reads the shelf first (work ready to fill a gap), then the 들어옴.
 export const benchOrder=(tasks:Task[],piles:Pile[]=[])=>[...shelfCards(tasks,piles),...inboxCards(tasks)];
 
+// What waiting work waits on: the text, then the day it may come back from ('10/20 이후'); '' when neither.
+export function triggerText(t:Task){
+  const text=t.wait_for?.trim()??'',until=t.wait_until?`${Number(t.wait_until.slice(5,7))}/${Number(t.wait_until.slice(8,10))} 이후`:'';
+  return [text,until].filter(Boolean).join(' · ');
+}
+
 // Where a card sits, in the words the screens use.
 export function placeLabel(t:Task,tasks:Task[],piles:Pile[]=[]){
+  if(waiting(t))return `기다림 · ${triggerText(t)||'정하지 않음'}`;
   if(placeOf(t)==='inbox')return '들어옴';
   return `선반 · ${shelfCards(tasks,piles).findIndex(x=>x.id===t.id)+1}번째`;
 }
@@ -40,10 +50,12 @@ export function place(tasks:Task[],ids:string[],pile:string|null,index:number):T
   return tasks.map(t=>slot.has(t.id)?{...t,pile_id:pile,pile_order:slot.get(t.id)!}:t);
 }
 
-// After every change, as the store does: only open unplanned work has a place or a proto mark; sized work that lost its date
-// without a chosen place goes on top of the shelf; the shelf holds no protos; empty piles go; numbers count from 1.
+// After every change, as the store does: a date or a completion ends a wait; only open unplanned work has a place and only it
+// (or waiting work) a proto mark; sized work that lost its date without a chosen place goes on top of the shelf; the shelf holds
+// no protos; empty piles go; numbers count from 1.
 export function normalize(tasks:Task[],piles:Pile[]):{tasks:Task[];piles:Pile[]}{
-  let next=tasks.map(t=>onBench(t)?t:t.pile_id!=null||t.pile_order!=null||t.proto?{...t,pile_id:null,pile_order:null,proto:false}:t);
+  let next=tasks.map(t=>t.wait_since&&(t.plan_date||t.completed)?{...t,wait_for:null,wait_until:null,wait_since:null}:t);
+  next=next.map(t=>onBench(t)?t:t.pile_id!=null||t.pile_order!=null||t.proto&&!t.wait_since?{...t,pile_id:null,pile_order:null,proto:!!t.proto&&!!t.wait_since}:t);
   const orphan=(t:Task)=>onBench(t)&&!t.proto&&t.pile_id==null&&t.pile_order==null;
   if(next.some(orphan)){
     if(!piles.some(p=>p.id===SHELF))piles=[...piles,{id:SHELF,position:Math.max(0,...piles.map(p=>p.position))+1}];

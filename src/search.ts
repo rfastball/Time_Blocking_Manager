@@ -1,7 +1,7 @@
 // Global search: a plain partial match on titles and memos across 준비, every date, completions and the trash.
 // No filters or syntax. Each hit says where the work is now, in the words the screens use.
 import type {Pile,Task,Trashed} from './types.ts';
-import {inboxCards,placeLabel,shelfCards} from './bench.ts';
+import {inboxCards,placeLabel,shelfCards,waitCards} from './bench.ts';
 import {byFlowOrder} from './flow.ts';
 import {dateOf} from './dates.ts';
 
@@ -14,8 +14,8 @@ const rank:Record<HitKind,number>={bench:0,dated:1,done:2,archive:3,trash:4};
 
 export function search(source:{tasks:Task[];piles?:Pile[];trash?:Trashed[]},query:string,limit=50):Hit[]{
   const q=fold(query.trim());if(!q)return [];
-  // 준비 reads as its screen does: the 들어옴, then the shelf.
-  const piles=source.piles??[],order=new Map<string,number>(),reading=new Map([...inboxCards(source.tasks),...shelfCards(source.tasks,piles)].map((t,n)=>[t.id,n]));
+  // 준비 reads as its screen does: the 들어옴, then the shelf; 기다림 after it.
+  const piles=source.piles??[],order=new Map<string,number>(),reading=new Map([...inboxCards(source.tasks),...shelfCards(source.tasks,piles),...waitCards(source.tasks)].map((t,n)=>[t.id,n]));
   for(const date of new Set(source.tasks.filter(t=>t.plan_date&&!t.starts_at&&!t.completed).map(t=>t.plan_date!)))
     source.tasks.filter(t=>t.plan_date===date&&!t.starts_at&&!t.completed).sort(byFlowOrder).forEach((t,n)=>order.set(t.id,n+1));
   const where=(t:Task):[HitKind,string]=>{

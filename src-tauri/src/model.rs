@@ -21,6 +21,11 @@ pub struct Task {
     // The last logical workbench place survives scheduling and trash.
     #[serde(default)] pub board_x: Option<i64>,
     #[serde(default)] pub board_y: Option<i64>,
+    // Pushed out to 기다림 (wait_since: the local day it was first pushed): open, dateless and in no pile until revived.
+    // wait_for: what it waits on ('' unnamed); wait_until: the day from which it may come back. Time alone never revives it.
+    #[serde(default)] pub wait_for: Option<String>,
+    #[serde(default)] pub wait_until: Option<String>,
+    #[serde(default)] pub wait_since: Option<String>,
 }
 
 // One piece from the cutting board. The first keeps the original task's id; the others are new tasks.
@@ -153,6 +158,10 @@ pub enum Action {
     MovePile { pile:String, position:i64 },
     // In the given order before a flow task, or onto the end of the date's order.
     ShipFlow { date:String, items:Vec<TaskRevision>, #[serde(default, skip_serializing_if="Option::is_none")] before:Option<String> },
+    // Out to 기다림 in the given order, or a new trigger for work already there; `since` only marks a first push.
+    Wait { items:Vec<TaskRevision>, trigger:String, #[serde(default)] until:Option<String>, since:String },
+    // Back from 기다림: sized work on top of the shelf, protos on top of the 들어옴, each in the given order.
+    Revive { items:Vec<TaskRevision> },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -239,6 +248,12 @@ pub fn parse_start(value: &str) -> Result<NaiveDateTime> {
 }
 
 pub fn validate_task(task: &Task, tasks: &[Task]) -> Result<()> {
+    // Only waiting work carries a trigger; the place rules are checked with the bench.
+    let wait_day=|d:&Option<String>|d.as_deref().map_or(true,|d|parse_start(&format!("{d}T00:00")).is_ok());
+    if task.wait_since.is_none()&&(task.wait_for.is_some()||task.wait_until.is_some())
+        || task.wait_for.as_ref().is_some_and(|w|w.len()>200||w.trim()!=w) || !wait_day(&task.wait_since) || !wait_day(&task.wait_until) {
+        return Err(error("validation","기다림 조건을 확인하세요."));
+    }
     match (task.board_x,task.board_y) {
         (None,None) => {},
         (Some(x),Some(y)) if (-100_000..=100_000).contains(&x)&&(-100_000..=100_000).contains(&y) => {},

@@ -78,7 +78,8 @@ CREATE TABLE tasks (
  body TEXT NOT NULL DEFAULT '', starts_at TEXT, duration INTEGER NOT NULL DEFAULT 30 CHECK(duration >= 15 AND duration % 15 = 0),
  completed INTEGER NOT NULL DEFAULT 0 CHECK(completed IN (0,1)), revision INTEGER NOT NULL DEFAULT 1 CHECK(revision > 0),
  plan_date TEXT, flow_order INTEGER, deleted_at TEXT,
- proto INTEGER NOT NULL DEFAULT 0 CHECK(proto IN (0,1)), pile_id TEXT, pile_order INTEGER, board_x INTEGER, board_y INTEGER
+ proto INTEGER NOT NULL DEFAULT 0 CHECK(proto IN (0,1)), pile_id TEXT, pile_order INTEGER, board_x INTEGER, board_y INTEGER,
+ wait_for TEXT, wait_until TEXT, wait_since TEXT
 );
 CREATE INDEX task_start ON tasks(starts_at);
 CREATE TABLE receipts (id TEXT PRIMARY KEY, payload TEXT NOT NULL, accepted_at INTEGER NOT NULL CHECK(accepted_at>=0));
@@ -87,15 +88,17 @@ CREATE TABLE drafts (slot TEXT PRIMARY KEY, sequence INTEGER NOT NULL, content T
 CREATE TABLE routine_occurrences (routine_id TEXT NOT NULL, date TEXT NOT NULL, PRIMARY KEY(routine_id,date));
 CREATE TABLE day_layouts (date TEXT PRIMARY KEY, anchor INTEGER NOT NULL);
 CREATE TABLE piles (id TEXT PRIMARY KEY, position INTEGER NOT NULL);
-PRAGMA user_version = 9;";
+PRAGMA user_version = 10;";
 
-const SCHEMA_VERSION: i64 = 9;
+const SCHEMA_VERSION: i64 = 10;
 // The 준비 shelf: the one pile left once the free board went away (v9).
 const SHELF: &str = "shelf";
 const BASE_TASK_COLUMNS: &str = "id,title,body,starts_at,duration,completed,revision,plan_date,flow_order,proto,pile_id,pile_order";
-const TASK_COLUMNS: &str = "id,title,body,starts_at,duration,completed,revision,plan_date,flow_order,proto,pile_id,pile_order,board_x,board_y";
-// Open unplanned work: the only tasks that sit in a pile.
-const BENCH: &str = "deleted_at IS NULL AND plan_date IS NULL AND completed=0";
+const BOARD_TASK_COLUMNS: &str = "id,title,body,starts_at,duration,completed,revision,plan_date,flow_order,proto,pile_id,pile_order,board_x,board_y";
+const TASK_COLUMNS: &str = "id,title,body,starts_at,duration,completed,revision,plan_date,flow_order,proto,pile_id,pile_order,board_x,board_y,wait_for,wait_until,wait_since";
+// Open unplanned work that is not waiting: the only tasks that sit in a pile.
+const BENCH: &str = "deleted_at IS NULL AND plan_date IS NULL AND completed=0 AND wait_since IS NULL";
+fn on_bench(t: &Task) -> bool { t.plan_date.is_none() && !t.completed && t.wait_since.is_none() }
 /// Trashed tasks older than this are removed for good on open and by the hourly pass.
 pub const TRASH_RETENTION_DAYS: i64 = 30;
 
@@ -103,8 +106,8 @@ pub const TRASH_RETENTION_DAYS: i64 = 30;
 fn trash_stamp(at: chrono::DateTime<chrono::Utc>) -> String { at.to_rfc3339_opts(chrono::SecondsFormat::Secs,true) }
 
 fn insert_task(conn: &Connection, t: &Task, deleted_at: Option<&str>) -> Result<()> {
-    conn.execute(&format!("INSERT INTO tasks({TASK_COLUMNS},deleted_at) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15)"),
-        params![t.id,t.title,t.body,t.starts_at,t.duration,t.completed,t.revision,t.plan_date,t.flow_order,t.proto,t.pile_id,t.pile_order,t.board_x,t.board_y,deleted_at])?;
+    conn.execute(&format!("INSERT INTO tasks({TASK_COLUMNS},deleted_at) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18)"),
+        params![t.id,t.title,t.body,t.starts_at,t.duration,t.completed,t.revision,t.plan_date,t.flow_order,t.proto,t.pile_id,t.pile_order,t.board_x,t.board_y,t.wait_for,t.wait_until,t.wait_since,deleted_at])?;
     Ok(())
 }
 
@@ -156,6 +159,8 @@ fn shelve_legacy(conn: &Connection) -> Result<()> {
 
 // After every write: piles hold only open unplanned work, empty piles go, and orders and positions count from 1.
 fn normalize_piles(conn: &Connection) -> Result<()> {
+    // A date or a completion ends the wait: dating waiting work revives it.
+    conn.execute("UPDATE tasks SET wait_for=NULL,wait_until=NULL,wait_since=NULL WHERE deleted_at IS NULL AND wait_since IS NOT NULL AND (plan_date IS NOT NULL OR completed=1)",[])?;
     // Sized work that lost its date without a chosen place goes on top of the shelf; a proto stays in the 들어옴.
     let orphans:i64=conn.query_row(&format!("SELECT count(*) FROM tasks WHERE {BENCH} AND proto=0 AND pile_id IS NULL AND pile_order IS NULL"),[],|r|r.get(0))?;
     if orphans>0 {
@@ -166,7 +171,7 @@ fn normalize_piles(conn: &Connection) -> Result<()> {
     conn.execute(&format!("UPDATE tasks SET proto=0 WHERE {BENCH} AND proto=1 AND pile_id=?1"),[SHELF])?;
     conn.execute_batch(&format!("
         UPDATE tasks SET pile_id=NULL,pile_order=NULL WHERE deleted_at IS NULL AND NOT ({BENCH}) AND (pile_id IS NOT NULL OR pile_order IS NOT NULL);
-        UPDATE tasks SET proto=0 WHERE deleted_at IS NULL AND proto=1 AND NOT ({BENCH});
+        UPDATE tasks SET proto=0 WHERE deleted_at IS NULL AND proto=1 AND NOT ({BENCH}) AND wait_since IS NULL;
         UPDATE tasks SET pile_id=NULL WHERE {BENCH} AND pile_id IS NOT NULL AND pile_id NOT IN (SELECT id FROM piles);
         DELETE FROM piles WHERE id NOT IN (SELECT pile_id FROM tasks WHERE {BENCH} AND pile_id IS NOT NULL);"))?;
     let rows={
@@ -310,12 +315,14 @@ fn read(conn: &Connection) -> Result<Snapshot> {
     let raw: String = conn.query_row("SELECT value FROM meta WHERE key='settings'", [], |r| r.get(0))?;
     let version:i64=conn.query_row("PRAGMA user_version",[],|r|r.get(0))?;
     // Earlier schemas only had exact placements, so their dated tasks are fixed plans.
-    let columns=if version>=8 {TASK_COLUMNS.to_string()} else if version>=6 {format!("{BASE_TASK_COLUMNS},NULL,NULL")} else if version>=4 {"id,title,body,starts_at,duration,completed,revision,plan_date,flow_order,0,NULL,NULL,NULL,NULL".into()}
-        else {"id,title,body,starts_at,duration,completed,revision,substr(starts_at,1,10),NULL,0,NULL,NULL,NULL,NULL".into()};
+    let columns=if version>=10 {TASK_COLUMNS.to_string()} else if version>=8 {format!("{BOARD_TASK_COLUMNS},NULL,NULL,NULL")} else if version>=6 {format!("{BASE_TASK_COLUMNS},NULL,NULL,NULL,NULL,NULL")}
+        else if version>=4 {"id,title,body,starts_at,duration,completed,revision,plan_date,flow_order,0,NULL,NULL,NULL,NULL,NULL,NULL,NULL".into()}
+        else {"id,title,body,starts_at,duration,completed,revision,substr(starts_at,1,10),NULL,0,NULL,NULL,NULL,NULL,NULL,NULL,NULL".into()};
     let deleted=if version>=5 {"deleted_at"} else {"NULL"};
     let mut stmt = conn.prepare(&format!("SELECT {columns},{deleted} FROM tasks ORDER BY starts_at,id"))?;
     let mut rows = stmt.query_map([], |r| Ok((Task { id: r.get(0)?, title: r.get(1)?, body: r.get(2)?, starts_at: r.get(3)?, duration: r.get(4)?, completed: r.get(5)?, revision: r.get(6)?,
-        plan_date: r.get(7)?, flow_order: r.get(8)?, proto: r.get(9)?, pile_id: r.get(10)?, pile_order: r.get(11)?, board_x:r.get(12)?,board_y:r.get(13)? },r.get::<_,Option<String>>(14)?)))?.collect::<std::result::Result<Vec<_>, _>>()?;
+        plan_date: r.get(7)?, flow_order: r.get(8)?, proto: r.get(9)?, pile_id: r.get(10)?, pile_order: r.get(11)?, board_x:r.get(12)?,board_y:r.get(13)?,
+        wait_for:r.get(14)?,wait_until:r.get(15)?,wait_since:r.get(16)? },r.get::<_,Option<String>>(17)?)))?.collect::<std::result::Result<Vec<_>, _>>()?;
     // Before piles, open unplanned work was one list in id order; it stays that list, as the 투입구.
     if version<6 {
         let mut n=0;
@@ -336,7 +343,8 @@ fn read(conn: &Connection) -> Result<Snapshot> {
     Ok(Snapshot { epoch, tasks, settings: serde_json::from_str(&raw)?, layouts, trash, piles })
 }
 
-// Only open unplanned work has a pile place and only it can be a proto; every pile holds some of it.
+// Only open unplanned work has a pile place and only it (or waiting work) can be a proto; every pile holds some of it.
+// Waiting work is open, dateless and in no pile.
 fn validate_bench(s: &Snapshot) -> Result<()> {
     use std::collections::HashSet;
     let bad=||error("schema","준비 작업의 위치 정보가 올바르지 않습니다.");
@@ -345,6 +353,10 @@ fn validate_bench(s: &Snapshot) -> Result<()> {
         if pile.id.is_empty() || pile.id.len()>100 || pile.position<1 || !piles.insert(pile.id.as_str()) || !positions.insert(pile.position) {return Err(bad());}
     }
     for t in &s.tasks {
+        if t.wait_since.is_some() {
+            if t.plan_date.is_some()||t.starts_at.is_some()||t.flow_order.is_some()||t.completed||t.pile_id.is_some()||t.pile_order.is_some() {return Err(bad());}
+            continue;
+        }
         let bench=t.plan_date.is_none()&&!t.completed;
         if t.proto&&!bench {return Err(bad());}
         if !bench {
@@ -357,7 +369,8 @@ fn validate_bench(s: &Snapshot) -> Result<()> {
     }
     if used.len()!=piles.len() {return Err(bad());}
     for t in &s.trash {
-        if t.task.proto&&t.task.plan_date.is_some() || t.task.pile_id.as_ref().is_some_and(|p|p.is_empty()||p.len()>100) {return Err(bad());}
+        if t.task.proto&&t.task.plan_date.is_some() || t.task.pile_id.as_ref().is_some_and(|p|p.is_empty()||p.len()>100)
+            || t.task.wait_since.is_some()&&(t.task.plan_date.is_some()||t.task.completed||t.task.pile_id.is_some()) {return Err(bad());}
     }
     Ok(())
 }
@@ -491,6 +504,7 @@ impl Store {
             add("deleted_at","TEXT")?;
             add("proto","INTEGER NOT NULL DEFAULT 0 CHECK(proto IN (0,1))")?;add("pile_id","TEXT")?;add("pile_order","INTEGER")?;
             add("board_x","INTEGER")?;add("board_y","INTEGER")?;
+            add("wait_for","TEXT")?;add("wait_until","TEXT")?;add("wait_since","TEXT")?;
             if version<6 {
                 // Only older list-based stores need the inbox backfill; v6 piles keep their own order.
                 tx.execute_batch(&format!("CREATE TABLE IF NOT EXISTS piles (id TEXT PRIMARY KEY, position INTEGER NOT NULL);
@@ -661,7 +675,8 @@ impl Store {
                 validate_task(&task,&snapshot.tasks)?;
                 tx.execute("UPDATE tasks SET starts_at=?1,flow_order=?2,revision=?3,deleted_at=NULL WHERE id=?4",params![task.starts_at,task.flow_order,task.revision,id])?;
                 // Open unplanned work returns to its place on the shelf or the top of the 들어옴; sized work whose pile is gone goes on top of the shelf.
-                if task.plan_date.is_none()&&!task.completed {
+                // Waiting work returns to 기다림 with its trigger.
+                if on_bench(&task) {
                     let pile=match task.pile_id.as_deref() {
                         Some(p) if p==SHELF||snapshot.piles.iter().any(|x|x.id==p) => Some(p),
                         Some(_) if !task.proto => Some(SHELF),
@@ -690,9 +705,9 @@ impl Store {
                     (Some(id),None) if !exists(id) => return Err(error("conflict","더미가 바뀌었습니다. 다시 확인하세요.")),
                     _ => {},
                 }
-                // Dated work coming back loses its date; moving within the bench is a property of the bench, like a day's order.
+                // Dated work coming back loses its date and waiting work its trigger; moving within the bench is a property of the bench, like a day's order.
                 for t in &moving {
-                    if t.plan_date.is_some() {tx.execute("UPDATE tasks SET starts_at=NULL,plan_date=NULL,flow_order=NULL,revision=revision+1 WHERE id=?1",[&t.id])?;}
+                    if t.plan_date.is_some()||t.wait_since.is_some() {tx.execute("UPDATE tasks SET starts_at=NULL,plan_date=NULL,flow_order=NULL,wait_for=NULL,wait_until=NULL,wait_since=NULL,revision=revision+1 WHERE id=?1",[&t.id])?;}
                 }
                 place(&tx,&moving.iter().map(|t|t.id.clone()).collect::<Vec<_>>(),pile.as_deref(),*index as usize)?;
             }
@@ -726,6 +741,32 @@ impl Store {
                     tx.execute("UPDATE tasks SET starts_at=NULL,plan_date=?1,flow_order=?2,proto=0,pile_id=NULL,pile_order=NULL,revision=revision+1 WHERE id=?3",params![date,order,item.id])?;
                 }
             }
+            Action::Wait {items,trigger,until,since} => {
+                let revisions=unique_revisions(items,"기다릴 항목 정보를 확인하세요.")?;
+                if revisions.is_empty() {return Err(error("validation","기다릴 작업을 선택하세요."));}
+                let trigger=trigger.trim();
+                if trigger.len()>200 {return Err(error("validation","기다림 조건을 확인하세요."));}
+                parse_date(since)?;if let Some(until)=until {parse_date(until)?;}
+                let waiting:Vec<&Task>=items.iter().map(|i|snapshot.tasks.iter().find(|t|t.id==i.id&&t.revision==i.revision&&!t.completed)).collect::<Option<_>>()
+                    .ok_or_else(||error("conflict","다른 창에서 작업이 변경됐습니다. 다시 확인하세요."))?;
+                // Out of its day, pile or 기다림 trigger; the day keeps its other order numbers, as when work goes back to 준비.
+                for t in waiting {
+                    tx.execute("UPDATE tasks SET starts_at=NULL,plan_date=NULL,flow_order=NULL,pile_id=NULL,pile_order=NULL,wait_for=?1,wait_until=?2,wait_since=?3,revision=revision+1 WHERE id=?4",
+                        params![trigger,until,t.wait_since.as_deref().unwrap_or(since),t.id])?;
+                }
+            }
+            Action::Revive {items} => {
+                let revisions=unique_revisions(items,"꺼낼 항목 정보를 확인하세요.")?;
+                if revisions.is_empty() {return Err(error("validation","꺼낼 작업을 선택하세요."));}
+                let back:Vec<&Task>=items.iter().map(|i|snapshot.tasks.iter().find(|t|t.id==i.id&&t.revision==i.revision)).collect::<Option<_>>()
+                    .ok_or_else(||error("conflict","다른 창에서 작업이 변경됐습니다. 다시 확인하세요."))?;
+                if back.iter().any(|t|t.wait_since.is_none()) {return Err(error("validation","기다리는 작업만 꺼낼 수 있어요."));}
+                for t in &back {tx.execute("UPDATE tasks SET wait_for=NULL,wait_until=NULL,wait_since=NULL,revision=revision+1 WHERE id=?1",[&t.id])?;}
+                let (protos,sized):(Vec<&Task>,Vec<&Task>)=back.into_iter().partition(|t|t.proto);
+                shelve(&tx,&sized.iter().map(|t|t.id.clone()).collect::<Vec<_>>())?;
+                let protos:Vec<String>=protos.iter().map(|t|t.id.clone()).collect();
+                if !protos.is_empty() {place(&tx,&protos,None,0)?;}
+            }
             Action::PlaceBoard {items} => {
                 let expected:Vec<_>=items.iter().map(|p|TaskRevision{id:p.id.clone(),revision:p.revision}).collect();
                 unique_revisions(&expected,"작업대 항목 정보를 확인하세요.")?;
@@ -736,7 +777,7 @@ impl Store {
             Action::MergeUnplanned {id,items} => {
                 let revisions=unique_revisions(items,"합칠 항목 정보를 확인하세요.")?;
                 if revisions.len()<2 {return Err(error("validation","합칠 준비 작업을 두 개 이상 선택하세요."));}
-                let originals=items.iter().map(|item|snapshot.tasks.iter().find(|t|t.id==item.id&&t.revision==item.revision&&!t.completed&&t.plan_date.is_none()&&t.starts_at.is_none())
+                let originals=items.iter().map(|item|snapshot.tasks.iter().find(|t|t.id==item.id&&t.revision==item.revision&&on_bench(t)&&t.starts_at.is_none())
                     .ok_or_else(||error("conflict","다른 창에서 작업이 변경됐습니다. 다시 확인하세요."))).collect::<Result<Vec<_>>>()?;
                 if snapshot.tasks.iter().chain(snapshot.trash.iter().map(|t|&t.task)).any(|t|&t.id==id) {return Err(error("validation","이미 사용 중인 블록 식별자입니다."));}
                 let first=originals[0];
@@ -749,7 +790,7 @@ impl Store {
                 let task=Task{id:id.clone(),title:first.title.clone(),body,duration,revision:1,board_x:first.board_x,board_y:first.board_y,..Task::default()};
                 validate_task(&task,&snapshot.tasks)?;
                 let pile=first.pile_id.as_deref();
-                let index=snapshot.tasks.iter().filter(|t|t.plan_date.is_none()&&!t.completed&&t.pile_id.as_deref()==pile&&!revisions.contains_key(&t.id)&&t.pile_order<first.pile_order).count();
+                let index=snapshot.tasks.iter().filter(|t|on_bench(t)&&t.pile_id.as_deref()==pile&&!revisions.contains_key(&t.id)&&t.pile_order<first.pile_order).count();
                 let deleted_at=trash_stamp(chrono::Utc::now());
                 for t in originals {tx.execute("UPDATE tasks SET deleted_at=?1 WHERE id=?2 AND revision=?3",params![deleted_at,t.id,t.revision])?;}
                 insert_task(&tx,&task,None)?;
@@ -803,7 +844,9 @@ impl Store {
                             } else if piece.completed {
                                 let date=done_on.clone().unwrap();task.flow_order=Some(next_flow_order(&tasks,&date));task.plan_date=Some(date);
                             } else {
+                                // Open pieces of waiting work keep waiting on the same trigger.
                                 task.proto=piece.proto;open.push(task.id.clone());
+                                (task.wait_for,task.wait_until,task.wait_since)=(current.wait_for.clone(),current.wait_until.clone(),current.wait_since.clone());
                                 if n>0 {let (x,y)=nearest_board_position(&tasks,current.board_x.zip(current.board_y))?;task.board_x=Some(x);task.board_y=Some(y);}
                             }
                             validate_task(&task,&tasks)?;
@@ -814,9 +857,9 @@ impl Store {
                             tasks.push(task);
                         }
                         // On the bench the open pieces take the original's place in its pile, in order.
-                        if bench {
+                        if on_bench(current) {
                             let pile=current.pile_id.as_deref();
-                            let index=snapshot.tasks.iter().filter(|t|t.plan_date.is_none()&&!t.completed&&t.pile_id.as_deref()==pile&&t.pile_order<current.pile_order).count();
+                            let index=snapshot.tasks.iter().filter(|t|on_bench(t)&&t.pile_id.as_deref()==pile&&t.pile_order<current.pile_order).count();
                             place(&tx,&open,pile,index)?;
                         }
                     }

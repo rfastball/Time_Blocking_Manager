@@ -55,6 +55,10 @@ function validateSettings(settings:Settings){
 function validateTask(task:Task,tasks:Task[],settings:Settings){
   if(!task.id||bytes(task.id)>100||!task.title.trim()||bytes(task.title)>2000||bytes(task.body)>200_000||!Number.isInteger(task.duration)||task.duration<15||task.duration>1440||task.duration%15)reject('제목(최대 2,000바이트), 본문(최대 200KB), 소요시간을 확인하세요.');
   if(task.plan_date!==null)parseDate(task.plan_date);
+  // Only waiting work carries a trigger; the place rules hold through normalize.
+  const waitDay=(d:string|null|undefined)=>{if(d==null)return true;try{parseDate(d);return true;}catch{return false;}};
+  if(task.wait_since==null&&(task.wait_for!=null||task.wait_until!=null)||task.wait_for!=null&&(bytes(task.wait_for)>200||task.wait_for.trim()!==task.wait_for)
+    ||!waitDay(task.wait_since)||!waitDay(task.wait_until))reject('기다림 조건을 확인하세요.');
   if(task.starts_at===null){
     if((task.plan_date===null)!==(task.flow_order===null))reject('작업의 날짜·순서·시각 배치 상태가 올바르지 않습니다.');
     return;
@@ -170,7 +174,7 @@ export function previewMutation(snapshot:Snapshot,command:Command,occurrences:Se
       if(!a.pile||bytes(a.pile)>100||s.piles.some(p=>p.id===a.pile)||!Number.isInteger(a.create_at)||a.create_at<1)reject('새 더미 정보를 확인하세요.');
       s.piles=insertPile(s.piles,a.pile,a.create_at);
     }else if(a.pile!==null&&!s.piles.some(p=>p.id===a.pile))reject('더미가 바뀌었습니다. 다시 확인하세요.','conflict');
-    for(const t of moving)if(t!.plan_date){t!.starts_at=null;t!.plan_date=null;t!.flow_order=null;t!.revision++;}
+    for(const t of moving)if(t!.plan_date||t!.wait_since){Object.assign(t!,{starts_at:null,plan_date:null,flow_order:null,wait_for:null,wait_until:null,wait_since:null});t!.revision++;}
     put(moving.map(t=>t!.id),a.pile,a.index);
   }
   else if(a.type==='merge_unplanned'){
@@ -204,6 +208,24 @@ export function previewMutation(snapshot:Snapshot,command:Command,occurrences:Se
       Object.assign(t,{proto:false,pile_id:null,pile_order:null,revision:t.revision+1});
     }
   }
+  else if(a.type==='wait'){
+    uniqueRevisions(a.items);if(!a.items.length)reject('기다릴 작업을 선택하세요.');
+    const trigger=a.trigger.trim();if(bytes(trigger)>200)reject('기다림 조건을 확인하세요.');
+    parseDate(a.since);if(a.until!==null)parseDate(a.until);
+    const moving=a.items.map(item=>s.tasks.find(t=>t.id===item.id&&t.revision===item.revision&&!t.completed));
+    if(moving.some(t=>!t))throw changed();
+    // Out of its day, pile or 기다림 trigger; the day keeps its other order numbers, as when work goes back to 준비.
+    for(const t of moving)Object.assign(t!,{starts_at:null,plan_date:null,flow_order:null,pile_id:null,pile_order:null,wait_for:trigger,wait_until:a.until,wait_since:t!.wait_since??a.since,revision:t!.revision+1});
+  }
+  else if(a.type==='revive'){
+    uniqueRevisions(a.items);if(!a.items.length)reject('꺼낼 작업을 선택하세요.');
+    const back=a.items.map(item=>s.tasks.find(t=>t.id===item.id&&t.revision===item.revision));
+    if(back.some(t=>!t))throw changed();
+    if(back.some(t=>!t!.wait_since))reject('기다리는 작업만 꺼낼 수 있어요.');
+    for(const t of back)Object.assign(t!,{wait_for:null,wait_until:null,wait_since:null,pile_id:null,pile_order:null,revision:t!.revision+1});
+    shelve(back.filter(t=>!t!.proto).map(t=>t!.id));
+    const protos=back.filter(t=>t!.proto).map(t=>t!.id);if(protos.length)put(protos,null,0);
+  }
   else {const t=s.tasks.find(t=>t.id===a.id)!;
     if(!t||t.revision!==a.expected_revision)throw changed();
     if(a.type==='delete'){s.tasks=s.tasks.filter(x=>x!==t);s.trash.unshift({...t,deleted_at:new Date().toISOString().slice(0,19)+'Z'});}
@@ -218,7 +240,7 @@ export function previewMutation(snapshot:Snapshot,command:Command,occurrences:Se
       if(t.completed)reject('완료한 블록은 나눌 수 없어요.');
       if(!a.pieces.length||a.pieces.length>100||a.pieces[0].id!==t.id||new Set(a.pieces.map(p=>p.id)).size!==a.pieces.length||a.pieces.some((p,n)=>!p.id||bytes(p.id)>100||n>0&&[...s.tasks,...s.trash].some(x=>x.id===p.id)))reject('조각 정보를 확인하세요.');
       const bench=!t.plan_date;if(bench&&a.pieces.some(p=>p.completed)){if(!a.date)reject('완료한 날짜를 확인하세요.');parseDate(a.date);}
-      const others=s.tasks.filter(x=>x.id!==t.id),index=bench?others.filter(x=>!x.plan_date&&!x.completed&&(x.pile_id??null)===(t.pile_id??null)&&(x.pile_order??0)<(t.pile_order??0)).length:0;
+      const others=s.tasks.filter(x=>x.id!==t.id),index=onBench(t)?others.filter(x=>onBench(x)&&(x.pile_id??null)===(t.pile_id??null)&&(x.pile_order??0)<(t.pile_order??0)).length:0;
       let minute=t.starts_at?minutes(t.starts_at.slice(11)):null;const order=t.flow_order;
       if(t.plan_date&&!t.starts_at&&order!=null)for(const x of others)if(x.plan_date===t.plan_date&&!x.starts_at&&(x.flow_order??0)>order)x.flow_order=(x.flow_order??0)+a.pieces.length-1;
       const built:Task[]=[],open:string[]=[];
@@ -227,11 +249,12 @@ export function previewMutation(snapshot:Snapshot,command:Command,occurrences:Se
         if(minute!=null){x.starts_at=t.plan_date+'T'+time(minute);minute+=p.duration;}
         else if(order!=null)x.flow_order=order+n;
         else if(p.completed){x.plan_date=a.date!;x.flow_order=Math.max(0,...[...others,...built].filter(y=>y.plan_date===a.date&&!y.starts_at).map(y=>y.flow_order??0))+1;}
-        else {x.proto=p.proto;open.push(x.id);}
+        // Open pieces of waiting work keep waiting on the same trigger.
+        else {x.proto=p.proto;open.push(x.id);if(t.wait_since)Object.assign(x,{wait_for:t.wait_for??null,wait_until:t.wait_until??null,wait_since:t.wait_since});}
         validateTask(x,[...others,...built],s.settings);built.push(x);
       });
       s.tasks=[...others,...built];
-      if(bench)put(open,t.pile_id??null,index);
+      if(onBench(t))put(open,t.pile_id??null,index);
     }
     else {
       if(a.starts_at!==null&&a.plan_date!==null&&a.starts_at.slice(0,10)!==a.plan_date)reject('시각을 고정한 날짜와 계획 날짜가 다릅니다.');
