@@ -189,7 +189,7 @@ export function previewSnapshot():Snapshot{
     card('sample-m','메일 답장',15,'shelf',3),
     card('sample-r','결재 처리',15,'shelf',4),
     // 기다림: two on the same trigger (a pile), one unnamed, one on a date that has come and one still ahead.
-    wait('sample-w1','상신 문서 보완',60,'김부장 결재',null,-5),
+    wait('sample-w1','상신 문서 보완',60,'김부장 결재',null,-9),
     wait('sample-w2','출장비 정산',30,'김부장 결재',null,-3),
     wait('sample-w3','물품 구매 요청',30,'김부장 결재',null,-1),
     wait('sample-w4','협약서 문안',60,'법무팀 검토',null,-4),

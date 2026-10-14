@@ -1,5 +1,13 @@
 # 검증 범위
 
+## 기다림 경과·손잡이 조각·겹 명도 Test delta (2026-10-15)
+
+- Unique risk: 7일 기준 경과 표기가 하루 어긋나거나 처음 민 날이 접근성 이름에서 사라지는 것, 쉬는 묶음에서 손잡이 조각을 숨기며 들린 목록의 블록별 충족 손잡이까지 사라지는 것.
+- Owner / layer: 경과 계산은 `src/waiting.test.ts`, 화면은 기존 `scripts/ui-check/wait.mjs` 첫·셋째 사례(표기 목록, 접근성 이름, 쉼·벌어짐·들림의 조각 폭 0·0·30px). 겹 명도는 네 테마 캡처로 확인했다.
+- Added / extended / removed: Node **1 / 0 / 0**(수집 81→82), UI **0 / 2 / 0**. 미리보기 예시의 묶음 앞 블록을 9일 전으로 옮겨 표기가 보이게 했다. 새 의존성·lane·coverage floor 변화 **0**.
+- 결과: `npm test` **82/82**, TypeScript·Vite 빌드와 `git diff --check` 통과, `wait.mjs` **8/8**.
+- Runtime delta: 확장 단언은 기존 사례 안이라 측정할 만한 변화가 없다.
+
 ## 기다림 띠 테마 형상 Test delta (2026-10-15)
 
 - Unique risk: 띠·블록의 모서리·경계가 고정값이라 G1·G3·G4에서 준비의 블록과 다른 형상으로 보이는 것.

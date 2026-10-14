@@ -49,18 +49,22 @@
 .wpile-layer .wface{width:100%}
 .wtray{position:absolute;left:0;top:0;border-radius:var(--radius-panel);background:var(--color-wait-tray);pointer-events:none}
 .whead{position:absolute;left:0;right:0;top:0}
-.wcard{position:absolute;left:0;right:0;top:0;display:flex;gap:1px;border-radius:var(--radius-block)}
-.wcard .wbody{flex:1 1 auto;border-radius:0 var(--radius-block) var(--radius-block) 0}
-.wcard.front .wbody{border-radius:0 0 var(--radius-block) 0}
-.wcard.ready .wbody{border-radius:0 var(--radius-block) var(--radius-block) 0}
-.wslice{width:30px;flex-shrink:0;border:0;border-radius:var(--radius-block) 0 0 var(--radius-block);padding:0;background:var(--color-wait-tag);display:grid;place-items:center;cursor:pointer;transition:transform .14s ease-in,opacity .14s ease-in}
+/* Resting, a block is its body alone; raised, its tag slice grows in at its left (width set by the springs). */
+.wcard{position:absolute;left:0;right:0;top:0;display:flex;border-radius:var(--radius-block)}
+.wcard .wbody,.wcard.ready .wbody{flex:1 1 auto;border-radius:var(--radius-block)}
+.wcard.front .wbody{border-radius:0 0 var(--radius-block) var(--radius-block)}
+.wcard.split .wbody{border-radius:0 var(--radius-block) var(--radius-block) 0}
+.wcard.split.front .wbody{border-radius:0 0 var(--radius-block) 0}
+.wcard:not(.split) .wslice{outline:0}
+.wslice{width:0;overflow:hidden;flex-shrink:0;border:0;border-radius:var(--radius-block) 0 0 var(--radius-block);padding:0;background:var(--color-wait-tag);display:grid;place-items:center;cursor:pointer;transition:transform .14s ease-in,opacity .14s ease-in}
 .wcard.front .wslice{border-radius:0 0 0 var(--radius-block)}
 .wcard.ready .wslice{background:var(--color-wait-ready)}
 .wslice .handle{margin:0}
 .wcard.hollow{outline:1px dashed var(--color-text-muted);outline-offset:-1px}
 .wcard.hollow>*{visibility:hidden}
-/* Slivers behind the front are darker with depth; on the tray each block takes its own colour. */
-.wshade{position:absolute;inset:0;border-radius:inherit;background:var(--color-wait-shade);pointer-events:none}
+/* Slivers behind the front step down in tone within their own hue (multiplied by their tag colour); on the tray each block takes its own colour. */
+.wshade{position:absolute;inset:0;border-radius:inherit;background:var(--color-wait-shade);mix-blend-mode:multiply;pointer-events:none}
+.wcard.ready .wshade{background:var(--color-wait-ready-shade)}
 .wfold{position:absolute;top:0;width:44px;height:22px;border:0;border-radius:var(--radius-chip);background:var(--color-surface);color:var(--color-text-muted);display:grid;place-items:center;cursor:pointer;
   box-shadow:var(--sp-lift)}
 /* While a pile is raised, the rest of the band steps back. */

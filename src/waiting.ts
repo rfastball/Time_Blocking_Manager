@@ -9,6 +9,11 @@ export type WaitGroup={key:string;kind:WaitKind;text:string;named:boolean;until:
 
 export const md=(date:string)=>{const d=dateOf(date);return `${d.getMonth()+1}/${d.getDate()}`;};
 export const sinceLabel=(t:Task)=>t.wait_since?md(t.wait_since)+'부터':'';
+// A who-trigger has no day of its own; how long it has waited shows only once it is worth a nudge.
+// The day it began stays in its name and tooltip.
+export const STALE=7;
+export const waitedDays=(t:Task,today:string)=>t.wait_since?Math.round((dateOf(today).getTime()-dateOf(t.wait_since).getTime())/864e5):0;
+export const staleLabel=(t:Task,today:string)=>{const d=waitedDays(t,today);return d>=STALE?`${d}일째`:'';};
 export const isReady=(t:Task,today:string)=>!!t.wait_until&&t.wait_until<=today;
 export const triggerLabel=(t:Task)=>triggerText(t)||'정하지 않음';
 

@@ -18,6 +18,9 @@ const scenarios=[
     assert.ok(r.indexOf('김부장 결재 3건')<r.indexOf('법무팀 검토 / 협약서 문안'),'가나다 order');
     assert.ok(/이후 \/ 분기 실적 취합$/.test(r[r.length-1]),'the later date last');
     // The met date pokes over the band's edge; waiting ones stay inside.
+    // How long it has waited shows only from a week on: the pile's oldest (9 days) says so, the 4-day one does not.
+    assert.deepEqual(await page.js(`[...document.querySelectorAll('#wait .since')].map(e=>e.textContent)`),['9일째']);
+    assert.match(await page.js(`document.querySelector('#wait [data-wait="sample-w4"]').getAttribute('aria-label')`),/, \d+\/\d+부터$/,'the day it began stays in its name');
     const bandBox=await page.rect('#wait'),ready=await page.rect('#wait .wrow.ready');
     assert.ok(ready.x<bandBox.x,'a met date pokes out');
     // At 1440px the week still fits beside a narrow dock and the open band.
@@ -53,12 +56,16 @@ const scenarios=[
     await page.mouse('mouseMoved',pile.cx,pile.y+40,0);await page.sleep(700);
     assert.ok(await page.js(`!!document.querySelector('.wpile-layer')`),'peeking lifts it into a layer');
     await page.shot('wait-peek');
+    const slice=sel=>page.js(`Math.round(document.querySelector('${sel} .wcard.front .wslice').getBoundingClientRect().width)`);
+    assert.equal(await slice('.wpile-layer'),0,'peeking, the front still reads as one block');
     await page.click('.wpile-layer .wcard.front .wbody');await page.sleep(700);
+    assert.equal(await slice('.wpile-layer'),30,'raised, each block shows its own handle');
     const cards=await page.js(`[...document.querySelectorAll('.wpile-layer .wcard')].map(c=>Math.round(c.getBoundingClientRect().top))`);
     assert.ok(cards.every((y,i)=>i===0||y-cards[i-1]>=36),'the blocks stand in a list');
     await page.shot('wait-open');
     await page.key('Escape');await page.sleep(700);
     assert.equal(await page.js(`document.querySelectorAll('.wpile-layer').length`),0,'folded back into its row');
+    assert.equal(await slice('#wait .wpile-rest'),0,'resting, no handle column');
   }},
   {name:'dragging a block onto the band pushes it; the band folds to its count',run:async page=>{
     await toPlan(page);await openBand(page);

@@ -110,7 +110,8 @@
   --color-block-border: #e3eafb;
   --color-block-hover: #e3eafb;
   --color-block-completed: #f7f8fa;
-  /* 기다림 stays quiet in its corner: a grey tag over a paper body. Only a met date takes the full tag colour. */
+  /* 기다림 stays quiet in its corner: a grey tag over a paper body. Only a met date takes the full tag colour.
+     A pile's slivers deepen by multiplying with their own tag colour, so depth keeps the hue. */
   --color-wait-band: #eceef2;
   --color-wait-band-hot: #e0e6f3;
   --color-wait-band-border: #c3c8d0;
@@ -119,7 +120,8 @@
   --color-wait-body: #fafbfc;
   --color-wait-edge: transparent;
   --color-wait-handle: #6b7280;
-  --color-wait-shade: #1b1e231a;
+  --color-wait-shade: var(--color-wait-tag);
+  --color-wait-ready-shade: color-mix(in srgb, var(--color-wait-ready) 30%, var(--color-surface));
   --color-wait-tray: #f2f3f6;
   --color-wait-ready: #2b3a67;
   --color-on-wait-ready: #fff;
@@ -344,5 +346,4 @@
   --color-wait-tray: color-mix(in srgb, var(--color-text) 5%, var(--color-panel));
   --color-wait-ready: color-mix(in srgb, var(--color-action) 55%, var(--color-text));
   --color-on-wait-ready: var(--color-on-action);
-  --color-wait-shade: color-mix(in srgb, var(--color-text) 10%, transparent);
 }

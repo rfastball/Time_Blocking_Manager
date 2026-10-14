@@ -4,7 +4,7 @@ import {useDraggable} from '@dnd-kit/core';
 import {motion} from 'motion/react';
 import type {Task} from '../../types.ts';
 import {isCompositionKey} from '../../capture.ts';
-import {jump,keyInitial,sinceLabel,triggerOptions,waitGroups,type WaitGroup} from '../../waiting.ts';
+import {jump,keyInitial,sinceLabel,staleLabel,triggerOptions,waitGroups,type WaitGroup} from '../../waiting.ts';
 import {getState,setUi,useApp} from '../store/state.ts';
 import {closeNaming,commitRename,editTrigger,release,renameTo,setBand,setTrigger} from '../store/wait.ts';
 import {deleteTask} from '../store/tasks.ts';
@@ -23,7 +23,7 @@ type Band={
   cursor:string|null;keyOf:(id:string,e:KeyboardEvent)=>void;focus:(id:string)=>void;
   openKey:string|null;setOpenKey:(key:string|null)=>void;
   unclip:Set<string>;releaseIds:(ids:string[])=>void;scrolled:number;held:Set<string>;
-  openReq:{key:string;id:string}|null;
+  openReq:{key:string;id:string}|null;today:string;
 };
 const BandCtx=createContext<Band|null>(null);
 const useBand=()=>useContext(BandCtx)!;
@@ -96,7 +96,7 @@ export function Waiting(){
     else setOpenReq({key:hit.key,id:hit.id});
   }
 
-  const band:Band={cursor:here,keyOf,focus,openKey,setOpenKey,unclip,releaseIds,scrolled,held:heldIds,openReq};
+  const band:Band={cursor:here,keyOf,focus,openKey,setOpenKey,unclip,releaseIds,scrolled,held:heldIds,openReq,today:s.today};
   if(!open)return <aside ref={ref} id="wait" className={'waitband closed'+(hot?' hot':'')} aria-label="기다림">
     <button type="button" className="wait-unfold" aria-label={`기다림 펴기${count?`, ${count}건`:''}${ready?`, 충족 ${ready}건`:''}`} aria-keyshortcuts="\" onClick={()=>setBand('open')}>
       <Icon name="left" size={16}/>{count>0&&<span className="cnt">{count}</span>}
@@ -141,25 +141,25 @@ function Row({group}:{group:WaitGroup}){
 function Single({group,t}:{group:WaitGroup;t:Task}){
   const b=useBand(),ready=group.kind==='ready',hollow=b.held.has(t.id),{openKey}=b;
   const {listeners,setNodeRef}=useDraggable({id:`wait:${t.id}`,data:{taskId:t.id}});
-  const since=group.kind==='who'?sinceLabel(t):'';
+  const since=group.kind==='who'?sinceLabel(t):'',stale=group.kind==='who'?staleLabel(t,b.today):'';
   return <div ref={setNodeRef} data-block="true" data-flight={t.id} className={'wrow'+(ready?' ready':'')+(hollow?' hollow':'')+(openKey?' dim':'')} {...listeners} tabIndex={-1} role="presentation">
     <div className={'wtag'+(b.unclip.has(t.id)?' off':'')}>
       <button type="button" className="wtag-text" tabIndex={-1} aria-label={`${label(group)}, 바꾸기`} aria-keyshortcuts="F2" onClick={e=>{e.stopPropagation();editTrigger([t.id]);}}>
-        <TriggerIcon group={group}/><span className={'trig'+(group.named?'':' unnamed')}>{label(group)}</span>{since&&<span className="since">{since}</span>}
+        <TriggerIcon group={group}/><span className={'trig'+(group.named?'':' unnamed')}>{label(group)}</span>{stale&&<span className="since">{stale}</span>}
       </button>
       <button type="button" className="handle" tabIndex={-1} aria-label={`${label(group)} 충족`} title="충족" onClick={e=>{e.stopPropagation();b.releaseIds([t.id]);}}><Check/></button>
     </div>
     <button type="button" className="wbody" data-wait={t.id} tabIndex={b.cursor===t.id?0:-1} aria-keyshortcuts="B F2 Delete"
-      aria-label={`${t.title}, 기다림: ${label(group)}${ready?', 충족':''}`} onClick={()=>openEditor(t.id,'dialog')} onKeyDown={e=>b.keyOf(t.id,e)} onFocus={()=>{if(b.cursor!==t.id)b.focus(t.id);}}>
+      aria-label={`${t.title}, 기다림: ${label(group)}${ready?', 충족':''}${since?', '+since:''}`} title={since?since+' 기다림':undefined} onClick={()=>openEditor(t.id,'dialog')} onKeyDown={e=>b.keyOf(t.id,e)} onFocus={()=>{if(b.cursor!==t.id)b.focus(t.id);}}>
       <span className="ttl">{t.title}</span>
     </button>
   </div>;
 }
 
-// A pile rests as its front block with up to two slivers under it, smaller with depth. A resting mouse parts the slivers;
+// A pile rests as its front block with up to two slivers under it, smaller and deeper in tone. A resting mouse parts the slivers;
 // a press drops the blocks into a list on a tray that grows out of the pile's outline. All of it is the same blocks moving
 // on springs, so hovering, pressing and leaving can cut into one another. A lifted pile is drawn in a layer over the page.
-const SHOW=2,SLIVER=6,ROW=38,HEAD=30,CARD=32;
+const SHOW=2,SLIVER=6,ROW=38,HEAD=30,CARD=32,SLICE=30;
 const SPRING:Record<Mode,{stiffness:number;damping:number}>={open:{stiffness:182,damping:22.7},peek:{stiffness:324,damping:32.4},rest:{stiffness:289,damping:32.3}};
 const RANK:Record<Mode,number>={rest:0,peek:1,open:2};
 const restHeight=(n:number,ready:boolean)=>HEAD+(ready?3:1)+CARD+Math.ceil(4.4*Math.min(n-1,SHOW));
@@ -178,11 +178,11 @@ function themeInk(){
 function lift(L:number){const e=Math.sqrt(Math.max(0,Math.min(1,L))),f=(v:number)=>(v*e).toFixed(2),c=themeInk();return `0 ${f(12)}px ${f(24)}px rgba(${c},${f(.2)}), 0 ${f(3)}px ${f(7)}px rgba(${c},${f(.13)})`;}
 function pose(n:number,mode:Mode,ready:boolean,width:number,top:number){
   const base=HEAD+(ready?3:1),step=mode==='peek'?10:SLIVER,sk=mode==='peek'?.04:.05;
-  const cards=Array.from({length:n},(_,i)=>{const k=Math.min(i,SHOW);return {y:base+step*k,scale:1-sk*k,opacity:i>SHOW?0:1,shadow:mode==='peek'&&i===0?.3:0,shade:k===0?0:k===1?.55:1,handle:0};});
+  const cards=Array.from({length:n},(_,i)=>{const k=Math.min(i,SHOW);return {y:base+step*k,scale:1-sk*k,opacity:i>SHOW?0:1,shadow:mode==='peek'&&i===0?.3:0,shade:k===0?0:k===1?.55:1,handle:0,slice:0};});
   const head={y:0,shadow:mode==='peek'?.3:0};
   let tray={x:-6,y:-6,width:width+12,height:base+CARD+21,opacity:0,shadow:0},fold={y:base+42,opacity:0};
   if(mode==='open'){
-    cards.forEach((c,i)=>Object.assign(c,{y:base+i*ROW,scale:1,opacity:1,shadow:0,shade:0,handle:1}));
+    cards.forEach((c,i)=>Object.assign(c,{y:base+i*ROW,scale:1,opacity:1,shadow:0,shade:0,handle:1,slice:SLICE}));
     const end=base+n*ROW-6;
     fold={y:end+8,opacity:1};tray={x:-8,y:-8,width:width+16,height:end+38,opacity:1,shadow:1};
     // A pile low on the screen lifts as a whole until its tray fits.
@@ -272,25 +272,27 @@ function PileFace({group,mode,width,top,openUp,close,static:still=false,drag}:{g
   </div>;
 }
 
-type CardPose={y:number;scale:number;opacity:number;shadow:number;shade:number;handle:number};
+type CardPose={y:number;scale:number;opacity:number;shadow:number;shade:number;handle:number;slice:number};
 function PileCard({t,i,n,group,pose:p,from,transition,still,full,openUp}:{t:Task;i:number;n:number;group:WaitGroup;pose:CardPose;from:CardPose;transition:object;still:boolean;full:boolean;openUp:(id?:string)=>void}){
   const b=useBand(),ready=group.kind==='ready',corner=i===0&&!ready;
   // Raised, each block is its own: dragged alone, its own tag slice meets its own trigger.
   const one=useDraggable({id:`wait:${t.id}`,data:{taskId:t.id},disabled:!full});
-  const since=group.kind==='who'?sinceLabel(t):'';
+  const since=group.kind==='who'?sinceLabel(t):'',stale=group.kind==='who'?staleLabel(t,b.today):'';
   const focusable=still?i===0&&b.openKey!==group.key:full;
   return <motion.div ref={full?one.setNodeRef:undefined} data-block={full?'true':undefined} data-flight={full?t.id:undefined} {...(full?one.listeners:{})}
-    className={'wcard'+(corner?' front':'')+(ready?' ready':'')+(full&&b.held.has(t.id)?' hollow':'')} style={{zIndex:n-i,transformOrigin:'50% 0'}}
+    className={'wcard'+(corner?' front':'')+(ready?' ready':'')+(p.slice?' split':'')+(full&&b.held.has(t.id)?' hollow':'')} style={{zIndex:n-i,transformOrigin:'50% 0'}}
     initial={still?false:{y:from.y,scale:from.scale,opacity:from.opacity,boxShadow:lift(0)}} animate={{y:p.y,scale:p.scale,opacity:p.opacity,boxShadow:lift(p.shadow)}} transition={transition}>
-    <button type="button" className={'wslice'+(b.unclip.has(t.id)?' off':'')} tabIndex={-1} aria-label={full?`${t.title}, ${label(group)} 충족`:`${label(group)} ${n}건 펴기`} title={full?'충족':undefined}
+    {/* Each block's own handle is there only while the pile is raised; resting, the front reads like a single block. */}
+    <motion.button type="button" className={'wslice'+(b.unclip.has(t.id)?' off':'')} tabIndex={-1}
+      initial={still?false:{width:from.slice,marginRight:from.slice?1:0}} animate={{width:p.slice,marginRight:p.slice?1:0}} transition={transition} aria-label={full?`${t.title}, ${label(group)} 충족`:`${label(group)} ${n}건 펴기`} title={full?'충족':undefined}
       onClick={e=>{e.stopPropagation();if(full)b.releaseIds([t.id]);else openUp(t.id);}}>
       <motion.span className="handle" aria-hidden="true" initial={false} animate={{opacity:p.handle}} transition={{duration:still?0:.18}}><Check/></motion.span>
-    </button>
+    </motion.button>
     <button type="button" className="wbody" data-wait={focusable?t.id:undefined} tabIndex={focusable&&b.cursor===t.id?0:-1} aria-keyshortcuts={full?'B F2 Delete':'Enter B F2'}
-      aria-label={!full&&i===0?`${t.title} 외 ${n-1}건, 기다림: ${label(group)}${ready?', 충족':''}`:`${t.title}, 기다림: ${label(group)}, ${n}건 중 ${i+1}`}
+      aria-label={!full&&i===0?`${t.title} 외 ${n-1}건, 기다림: ${label(group)}${ready?', 충족':''}`:`${t.title}, 기다림: ${label(group)}${since?', '+since:''}, ${n}건 중 ${i+1}`} title={full&&since?since+' 기다림':undefined}
       aria-expanded={!full&&i===0?false:undefined}
       onClick={e=>{e.stopPropagation();if(full)openEditor(t.id,'dialog');else openUp(t.id);}} onKeyDown={e=>b.keyOf(t.id,e)} onFocus={()=>{if(b.cursor!==t.id)b.focus(t.id);}}>
-      <span className="ttl">{t.title}</span>{since&&<span className="since">{since}</span>}
+      <span className="ttl">{t.title}</span>{stale&&<span className="since">{stale}</span>}
     </button>
     <motion.span className="wshade" aria-hidden="true" initial={still?false:{opacity:from.shade}} animate={{opacity:p.shade}} transition={transition}/>
   </motion.div>;

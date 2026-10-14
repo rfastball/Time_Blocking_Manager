@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {initials,jump,keyInitial,parseTrigger,triggerOptions,waitGroups} from './waiting.ts';
+import {initials,jump,keyInitial,parseTrigger,staleLabel,triggerOptions,waitGroups} from './waiting.ts';
 import type {Task} from './types.ts';
 
 const TODAY='2026-10-14';
@@ -13,6 +13,11 @@ test('the band reads met dates, then triggers in 가나다 order with the unname
   const groups=waitGroups(tasks,TODAY);
   assert.deepEqual(groups.map(g=>[g.kind,g.text,g.items.map(t=>t.id).join('')]),[
     ['ready','10/14 이후','d'],['who','','e'],['who','김부장 결재','fb'],['who','법무팀 검토','a'],['date','10/16 이후','g'],['date','10/20 이후','c']]);
+});
+
+test('how long a block has waited shows only from a week on',()=>{
+  assert.deepEqual(['2026-10-14','2026-10-08','2026-10-07','2026-09-14'].map(since=>staleLabel(w('a',since,{for:'회신'}),TODAY)),['','','7일째','30일째']);
+  assert.equal(staleLabel(w('a','2026-10-07',{for:'회신'},{wait_since:null}),TODAY),'');
 });
 
 test('a typed trigger is a date when it reads as one, else the text itself',()=>{
