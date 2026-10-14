@@ -6,7 +6,8 @@ export type Shortcut=
   |{type:'period';period:Range}
   |{type:'fold'}|{type:'widen'}
   |{type:'focus'}|{type:'work'}
-  |{type:'keys'}|{type:'capture'};
+  |{type:'keys'}|{type:'capture'}
+  |{type:'wait'}|{type:'band'};
 export type KeyLike={code:string;key:string;ctrlKey:boolean;metaKey:boolean;altKey:boolean;shiftKey:boolean;isComposing:boolean;keyCode:number;defaultPrevented:boolean;repeat:boolean};
 export type KeyContext={
   screen:Screen;
@@ -32,10 +33,13 @@ export function shortcut(e:KeyLike,c:KeyContext):Shortcut|null{
   if(e.code==='KeyF')return c.screen==='today'?{type:'work'}:{type:'focus'};
   if(c.screen==='settings')return null;
   if(e.code==='KeyT')return {type:'today'};
+  // B pushes the focused block out to 기다림 (on the band itself it is the band's own key: meeting the trigger).
+  if(e.code==='KeyB')return {type:'wait'};
   if(c.screen==='today')return e.code==='KeyA'?{type:'capture'}:null;
   if(periods[e.code])return {type:'period',period:periods[e.code]};
   if(e.code==='BracketLeft')return {type:'fold'};
   if(e.code==='BracketRight')return {type:'widen'};
+  if(e.code==='Backslash'||e.code==='IntlYen')return {type:'band'};
   return null;
 }
 
@@ -47,6 +51,8 @@ export const shortcutList:{keys:string;label:string;where:string}[]=[
   {keys:'D · W · 2 · M',label:'일 · 주 · 2주 · 월',where:'작업 화면'},
   {keys:'[',label:'준비 접기 · 펴기',where:'작업 화면'},
   {keys:']',label:'준비 넓히기 · 좁히기',where:'작업 화면'},
+  {keys:'\\',label:'기다림 접기 · 펴기',where:'작업 화면'},
+  {keys:'B',label:'기다림으로 · 기다림에서 충족',where:'작업 화면 · 몰입'},
   {keys:'A',label:'담기 칸으로',where:'몰입'},
   {keys:'Esc',label:'작업 화면으로',where:'몰입 · 설정'},
   {keys:'?',label:'이 목록',where:'어디서나'},

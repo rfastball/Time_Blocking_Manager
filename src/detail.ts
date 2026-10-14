@@ -27,7 +27,7 @@ export function mergeBody(tasks:Pick<Task,'title'|'body'>[]){
   return tasks.map(t=>`- [ ] ${t.title.replace(/[\r\n]/g,' ')}${t.body?'\n\n'+t.body:''}`).join('\n\n');
 }
 
-export const taskState=(t:Pick<Task,'completed'|'plan_date'|'starts_at'>)=>t.completed?'완료':!t.plan_date?'준비':t.starts_at?'시각 고정':'계획';
+export const taskState=(t:Pick<Task,'completed'|'plan_date'|'starts_at'|'wait_since'>)=>t.completed?'완료':!t.plan_date?t.wait_since?'기다림':'준비':t.starts_at?'시각 고정':'계획';
 export const quarter=(minute:number)=>Math.round(minute/15)*15;
 const startOf=(starts_at:string)=>Number(starts_at.slice(11,13))*60+Number(starts_at.slice(14,16));
 export const shortDate=(date:string)=>`${Number(date.slice(5,7))}월 ${Number(date.slice(8,10))}일`;

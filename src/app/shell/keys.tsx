@@ -2,6 +2,8 @@ import {useCallback,useEffect,useRef} from 'react';
 import {shortcut,shortcutList} from '../../shortcuts.ts';
 import {getState,setNav,setSingleKeys,useApp} from '../store/state.ts';
 import {setDock} from '../dock/Dock.tsx';
+import {pushOut,setBand} from '../store/wait.ts';
+import {selectedTasks} from '../store/bench.ts';
 import {Icon} from '../ui/icons.tsx';
 
 const typingIn=(el:Element|null)=>!!el&&(el.matches('input,textarea,select,[contenteditable=""],[contenteditable="true"]')||el.id==='shortcut');
@@ -19,6 +21,17 @@ function keepFocus(fallback:()=>HTMLElement|null){
     block?.focus({preventScroll:true});
     if(document.activeElement!==block)fallback()?.focus({preventScroll:true});
   });
+}
+
+// B on a block: out to 기다림, with the 준비 selection it belongs to. Where the band does not show the trigger field,
+// the field floats beside the block (the focus screen) or beside the folded band.
+function pushFocused(){
+  const was=document.activeElement as HTMLElement|null,id=was?.closest<HTMLElement>('[data-task]')?.dataset.task??was?.closest<HTMLElement>('[data-card]')?.dataset.card;
+  if(!was||!id)return;
+  const s=getState(),sel=s.ui.benchSelection,ids=sel.length>1&&sel.includes(id)?selectedTasks().map(t=>t.id):[id];
+  const r=(was.closest<HTMLElement>('[data-block],[data-card],li')??was).getBoundingClientRect(),band=document.getElementById('wait')?.getBoundingClientRect();
+  const at=s.nav.view==='today'?{x:r.right+8,y:r.top}:band?{x:band.left-244,y:r.top}:{x:r.right+8,y:r.top};
+  void pushOut(ids,{at});
 }
 
 // Single-key shortcuts for the main window. Anything that owns the keyboard (a dialog, menu, search, drag, the cutting board,
@@ -42,6 +55,8 @@ export function useShortcuts(openKeys:()=>void){
         case 'work':keepFocus(nav.view==='settings'?()=>find('header.topbar [aria-label="설정"]'):toggle);setNav({view:'plan',planAnchor:nav.selected});break;
         case 'keys':openKeys();break;
         case 'capture':find('#tray-capture')?.focus();break;
+        case 'band':setBand(nav.band==='open'?'closed':'open');break;
+        case 'wait':pushFocused();break;
       }
     };
     addEventListener('keydown',onKey);return ()=>removeEventListener('keydown',onKey);

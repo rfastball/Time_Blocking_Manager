@@ -44,7 +44,7 @@ export function EditorPanel({nextId}:{nextId:string|null}){
   const item=next.plan_date?planOf(next.plan_date).items.find(i=>i.task.id===next.id):null;
   // The next block is the first remaining flow block whatever the clock says, so nothing here counts down or turns late.
   const memo=next.body.trim()?memoPreview(next.body):'';
-  return <section className="card ed-next" aria-label="다음 블록">
+  return <section className="card ed-next" aria-label="다음 블록" data-task={next.id}>
     <button type="button" className="ed-next-open" aria-label={[next.title,item&&`예상 ${time(item.start)}–${time(item.end)}`,formatDuration(next.duration)].filter(Boolean).join(', ')}
       aria-describedby={memo?memoId:undefined} onClick={event=>{nextButton.current=event.currentTarget;openEditor(next.id,editorModeHere());}}>
       <span className="pill">다음</span>

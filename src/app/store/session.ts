@@ -172,6 +172,7 @@ export function previewSnapshot():Snapshot{
   const days=Array.from({length:7},()=>({enabled:true,start:540,end:1080,breaks:[{start:720,end:780,label:'점심'}]})),day=todayKey();
   const flow=(id:string,title:string,duration:number,order:number,body=''):Task=>({id,title,body,starts_at:null,duration,completed:false,revision:1,plan_date:day,flow_order:order});
   // 준비: a fresh capture in the 들어옴 and four sized blocks on the shelf.
+  const wait=(id:string,title:string,duration:number,wait_for:string,wait_until:string|null,since:number):Task=>({id,title,body:'',starts_at:null,duration,completed:false,revision:1,plan_date:null,flow_order:null,wait_for,wait_until,wait_since:plusDays(day,since)});
   const card=(id:string,title:string,duration:number,pile_id:string|null,pile_order:number,proto=false):Task=>({id,title,body:'',starts_at:null,duration,completed:false,revision:1,plan_date:null,flow_order:null,proto,pile_id,pile_order});
   return {epoch:'preview',layouts:[],trash:[],settings:{revision:1,days},piles:[{id:'shelf',position:1}],tasks:[
     flow('sample-a','설계 문서 자료 조사',60,1,'[x] 요구사항 확인\n[ ] 초안에 반영'),
@@ -186,7 +187,14 @@ export function previewSnapshot():Snapshot{
     card('sample-4','회의록 템플릿 업데이트',30,'shelf',1),
     card('sample-5','SQLite 백업 방식 조사',45,'shelf',2),
     card('sample-m','메일 답장',15,'shelf',3),
-    card('sample-r','결재 처리',15,'shelf',4)
+    card('sample-r','결재 처리',15,'shelf',4),
+    // 기다림: two on the same trigger (a pile), one unnamed, one on a date that has come and one still ahead.
+    wait('sample-w1','상신 문서 보완',60,'김부장 결재',null,-5),
+    wait('sample-w2','출장비 정산',30,'김부장 결재',null,-3),
+    wait('sample-w3','물품 구매 요청',30,'김부장 결재',null,-1),
+    wait('sample-w4','협약서 문안',60,'법무팀 검토',null,-4),
+    wait('sample-w5','교육 결과 보고',45,'',day,-6),
+    wait('sample-w6','분기 실적 취합',90,'',plusDays(day,6),-1)
   ]};
 }
 export const resetDrafts=()=>setDrafts(emptyDrafts());

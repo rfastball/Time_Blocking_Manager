@@ -12,6 +12,7 @@ import {dateOf,time} from '../../dates.ts';
 import {getState,setUi,useApp} from '../store/state.ts';
 import {dayRule,drop,setGesture} from '../store/tasks.ts';
 import {selectedTasks} from '../store/bench.ts';
+import {waiting} from '../../bench.ts';
 import {reduced} from '../ui/motion.ts';
 import {Lock} from '../ui/icons.tsx';
 import {OffHours} from './OffHours.tsx';
@@ -35,7 +36,7 @@ export type Form={width:number;height:number;density?:Density};
 export type Density='full'|'narrow'|'line'|'bar';
 export type ListModel={gap:number;items:()=>{id:string;height:number}[];top?:()=>number};
 type RegionExtra={axis?:TimeAxis;geometry?:Geometry;list?:ListModel;form?:(task:Task,ids:string[])=>Form|null};
-type Region={key:string;kind:'space'|'date'|'tray'|'inbox'|'shelf';date:string|null;el:HTMLElement}&RegionExtra;
+type Region={key:string;kind:'space'|'date'|'tray'|'inbox'|'shelf'|'wait';date:string|null;el:HTMLElement}&RegionExtra;
 // The hollow marks the body slot; the held copy follows the hand until it latches onto a rail tick.
 type Slot={start:number;end:number;over:boolean};
 // `ids`: every block carried (a selection), in order.
@@ -131,7 +132,9 @@ export function DragProvider({children}:{children:ReactNode}){
       return r;
     };
     const all=[...regions.current.values()];
-    for(const region of all.filter(r=>r.kind==='space')){
+    // A pile from the band goes back to 준비 whole; its blocks reach a day one at a time.
+    const pile=ids.length>1&&ids.every(id=>{const t=base.find(x=>x.id===id);return !!t&&waiting(t);});
+    for(const region of pile?[]:all.filter(r=>r.kind==='space')){
       const r=inside(region.el);if(!r||!region.axis||!region.geometry||!region.date)continue;
       const duration=ids.reduce((n,id)=>n+(base.find(t=>t.id===id)?.duration??0),0);
       const {axis,geometry:g,date}=region,topIn=py-r.top-grabY*Math.max(10,duration*axis.scale-2),rule=dayRule(date),layouts=snapshot!.layouts??[];
@@ -155,7 +158,7 @@ export function DragProvider({children}:{children:ReactNode}){
       return {intent:body,region,near,slot:items.length?{start:items[0].start,end:items[items.length-1].end,over:items.some(i=>i.over)}:undefined};
     }
     const current=(region:Region)=>region.kind==='date'?prev.zone==='date'&&prev.date===region.date:prev.zone===region.kind;
-    for(const kind of ['inbox','shelf','date','tray'] as const)for(const region of all.filter(r=>r.kind===kind)){
+    for(const kind of ['inbox','shelf','date','tray','wait'] as const)for(const region of all.filter(r=>r.kind===kind&&!(pile&&kind==='date'))){
       const r=inside(region.el,current(region)?0:EDGE);if(!r)continue;
       if((kind==='inbox'||kind==='shelf')&&region.list){
         // Before the first remaining card whose middle is below the held block's middle, as the list draws them.
@@ -165,7 +168,9 @@ export function DragProvider({children}:{children:ReactNode}){
         for(const [n,item] of items.entries()){if(centre<top+item.height/2){index=n;break;}top+=item.height+region.list.gap;}
         return {intent:{...intent,zone:kind,index},region};
       }
-      if(kind==='tray')return task.plan_date&&!task.completed&&ids.length===1?{intent:{...intent,zone:'tray'}}:{intent};
+      if(kind==='tray')return waiting(task)||task.plan_date&&!task.completed&&ids.length===1?{intent:{...intent,zone:'tray'}}:{intent};
+      // Out to the band: anything open that is not already waiting there.
+      if(kind==='wait')return !waiting(task)&&ids.every(id=>!base.find(t=>t.id===id)?.completed)?{intent:{...intent,zone:'wait',since:getState().today},region}:{intent,region};
       return {intent:{...intent,zone:'date',date:region.date},region};
     }
     return {intent};
@@ -267,6 +272,7 @@ export function DragProvider({children}:{children:ReactNode}){
     const id=CSS.escape(task.id),all=[...regions.current.values()];
     for(const r of all){
       if(r.kind==='inbox'||r.kind==='shelf'){const card=r.el.querySelector<HTMLElement>(`[data-card="${id}"]`);if(card)return card;continue;}
+      if(r.kind==='wait'){const card=r.el.querySelector<HTMLElement>(`[data-flight="${id}"]`);if(card)return card;continue;}
       if((r.kind==='space'||r.kind==='date')&&r.date!==task.plan_date)continue;
       const block=r.el.querySelector<HTMLElement>(`[data-task="${id}"]`)?.closest<HTMLElement>('[data-block]');if(block)return block;
     }
@@ -330,14 +336,14 @@ function HeldBlock({held,out,outside}:{held:Held;out:number;outside:number}){
   // Where it lands, said only where the place itself does not show it: a date column's end.
   const place=!passing&&intent.zone==='date'&&intent.date&&held.ids.length&&!held.column&&!held.axis?`${dateOf(intent.date).getMonth()+1}월 ${dateOf(intent.date).getDate()}일 순서 끝${outside?` · 근무 외 ${Math.round(outside/60*100)/100}h`:''}`:'';
   // Still a proto only where it stays one: lifted, in the 들어옴, or headed back to 준비.
-  const proto=task.proto&&many===1&&['none','inbox','tray'].includes(zone);
+  const proto=task.proto&&many===1&&['none','inbox','tray','wait'].includes(zone);
   const at=passing?null:rail?{start:intent.start!,end:intent.start!+task.duration}:intent.zone==='body'?slot:null;
   // Keep the same point under the pointer as the copy changes width or height between surfaces.
   const shiftX=snapped?0:-held.grabX*(width/held.startRect.width-1),shiftY=snapped?0:-held.grabY*(height/held.startRect.height-1);
   // The place follows the hand at once; only the shape eases into the destination's: width first, height a little after.
   const shape=reduced()?{duration:0}:{duration:MORPH_MS/1000,ease:MORPH_EASE},late={...shape,delay:reduced()?0:MORPH_MS/4000};
   // Bypass the animated grab offsets while snapped, including the first frame on the rail.
-  return <motion.div className={'blk held '+(held.column?'column ':'')+(fixedLook?'fixed':'flow')+(height<(held.column?47:56)?' compact':'')+(density!=='full'?' '+density:'')+(bad?' bad':'')+(!rail&&!passing&&slot?.over&&intent.zone==='body'?' over':'')+(proto?' proto':'')}
+  return <motion.div className={'blk held '+(zone==='wait'?'waits ':'')+(held.column?'column ':'')+(fixedLook?'fixed':'flow')+(height<(held.column?47:56)?' compact':'')+(density!=='full'?' '+density:'')+(bad?' bad':'')+(!rail&&!passing&&slot?.over&&intent.zone==='body'?' over':'')+(proto?' proto':'')}
     style={{marginLeft:snapped?0:'var(--grab-x)',marginTop:snapped?0:'var(--grab-y)'}}
     initial={false} animate={{x:bad?[0,-4,3,-2,0]:0,width,height,'--grab-x':shiftX+'px','--grab-y':shiftY+'px'}}
     transition={{x:{duration:reduced()?0:.18},width:shape,'--grab-x':shape,height:late,'--grab-y':late}}>

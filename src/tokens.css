@@ -110,6 +110,19 @@
   --color-block-border: #e3eafb;
   --color-block-hover: #e3eafb;
   --color-block-completed: #f7f8fa;
+  /* 기다림 stays quiet in its corner: a grey tag over a paper body. Only a met date takes the full tag colour. */
+  --color-wait-band: #eceef2;
+  --color-wait-band-hot: #e0e6f3;
+  --color-wait-band-border: #c3c8d0;
+  --color-wait-tag: #d6dae2;
+  --color-wait-tag-text: #3a414e;
+  --color-wait-body: #fafbfc;
+  --color-wait-handle: #6b7280;
+  --color-wait-shade: #1b1e231a;
+  --color-wait-tray: #f2f3f6;
+  --color-wait-ready: #2b3a67;
+  --color-on-wait-ready: #fff;
+  --color-wait-ready-body: var(--color-block);
   --color-now: #ac351d;
   --color-error: #ac351d;
   --color-error-surface: #fbf3ef;
@@ -315,4 +328,17 @@
   --shadow-dialog: none;
   --timeline-axis-width: 1px;
   --now-dot-size: 0px;
+}
+
+/* The other themes take the band's greys from their own ink and paper. */
+[data-theme="g1"], [data-theme="g3"], [data-theme="g4"] {
+  --color-wait-band: color-mix(in srgb, var(--color-text) 6%, var(--color-canvas));
+  --color-wait-band-hot: color-mix(in srgb, var(--color-action) 10%, var(--color-canvas));
+  --color-wait-band-border: color-mix(in srgb, var(--color-text) 22%, var(--color-canvas));
+  --color-wait-tag: color-mix(in srgb, var(--color-text) 15%, var(--color-panel));
+  --color-wait-tag-text: color-mix(in srgb, var(--color-text) 85%, var(--color-panel));
+  --color-wait-body: color-mix(in srgb, var(--color-text) 2%, var(--color-panel));
+  --color-wait-handle: var(--color-text-muted);
+  --color-wait-tray: color-mix(in srgb, var(--color-text) 5%, var(--color-panel));
+  --color-wait-ready: color-mix(in srgb, var(--color-action) 55%, var(--color-text));
 }

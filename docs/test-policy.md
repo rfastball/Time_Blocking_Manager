@@ -1,5 +1,13 @@
 # 검증 범위
 
+## 기다림 Test delta (2026-10-14)
+
+- Unique risk: 밀기·충족·트리거 수정이 저장과 어긋나는 것(날짜·준비·기다림을 동시에 갖는 작업), 되살아난 블록이 선반 맨 위가 아닌 곳에 놓이는 것, 묶음의 들림·접힘 중 포커스·클릭이 사라지는 것, 띠가 캘린더 폭을 빼앗아 기존 배치가 깨지는 것.
+- Owner / layer: 저장 규칙은 Rust `src-tauri/tests/storage.rs`와 미리보기 짝 `src/wait.test.ts`(같은 시나리오를 두 저장소에), 묶음 순서·트리거 해석·초성 건너뛰기는 `src/waiting.test.ts`, 화면 동작은 새 `scripts/ui-check/wait.mjs`(실제 포인터·키보드).
+- Added / extended / removed: Rust **4 / 2 / 0**(버전·옛 표 모양), Node **8 / 0 / 0**(수집 73→81), UI **7 / 2 / 0**(수집 108→115). 확장 2개는 `plan.mjs`의 2주 배치 사례로, 접힌 띠 56px만큼 창을 넓혀(1300→1356, 1024→1080) 원래 전제(달력과 날짜 패널이 최소 폭으로 나란히)를 지키고 단언은 그대로 두었다. `support/nav.mjs`의 `ready`가 띠를 접어 다른 영역은 접힌 띠 옆 캘린더를 잰다. 새 의존성·lane·coverage floor 변화 **0**.
+- 결과: `npm test` **81/81**, Rust storage **33/33**, TypeScript·Vite 빌드와 `git diff --check` 통과. `wait.mjs` **7/7**. 전체 UI **113/115**이며 실패 2개(`beside` 761px 좁힘, `inbox` 도마 대화상자의 블록 표기)는 띠 없는 기준 커밋(d27ecc4)에서도 같은 단언으로 실패한다.
+- Runtime delta: `wait.mjs` 약 38초. 기본 Node suite 비용 변화는 미미하다. 실제 Windows 설치본·한글 입력기·터치 끌기는 미검증이다.
+
 ## 레일 고정 순간 위치 보정 Test delta (2026-10-14)
 
 - Unique risk: 준비에서 넓은 시간표로 형태를 바꾼 블록을 레일에 붙이면, 이전 잡기 여백이 남아 첫 프레임부터 왼쪽으로 튀는 문제. 기존 검사는 애니메이션이 끝난 위치만 확인했다.

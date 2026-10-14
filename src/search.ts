@@ -1,16 +1,16 @@
 // Global search: a plain partial match on titles and memos across 준비, every date, completions and the trash.
 // No filters or syntax. Each hit says where the work is now, in the words the screens use.
 import type {Pile,Task,Trashed} from './types.ts';
-import {inboxCards,placeLabel,shelfCards,waitCards} from './bench.ts';
+import {inboxCards,placeLabel,shelfCards,waitCards,waiting} from './bench.ts';
 import {byFlowOrder} from './flow.ts';
 import {dateOf} from './dates.ts';
 
-export type HitKind='bench'|'dated'|'done'|'archive'|'trash';
+export type HitKind='bench'|'wait'|'dated'|'done'|'archive'|'trash';
 export type Hit={id:string;title:string;where:string;kind:HitKind;date:string|null;inTitle:boolean};
 
 const fold=(s:string)=>s.normalize('NFC').toLocaleLowerCase('ko-KR');
 const day=(date:string)=>{const d=dateOf(date);return `${d.getMonth()+1}월 ${d.getDate()}일`;};
-const rank:Record<HitKind,number>={bench:0,dated:1,done:2,archive:3,trash:4};
+const rank:Record<HitKind,number>={bench:0,wait:1,dated:2,done:3,archive:4,trash:5};
 
 export function search(source:{tasks:Task[];piles?:Pile[];trash?:Trashed[]},query:string,limit=50):Hit[]{
   const q=fold(query.trim());if(!q)return [];
@@ -19,7 +19,7 @@ export function search(source:{tasks:Task[];piles?:Pile[];trash?:Trashed[]},quer
   for(const date of new Set(source.tasks.filter(t=>t.plan_date&&!t.starts_at&&!t.completed).map(t=>t.plan_date!)))
     source.tasks.filter(t=>t.plan_date===date&&!t.starts_at&&!t.completed).sort(byFlowOrder).forEach((t,n)=>order.set(t.id,n+1));
   const where=(t:Task):[HitKind,string]=>{
-    if(!t.plan_date)return t.completed?['archive','날짜 없는 완료']:['bench',placeLabel(t,source.tasks,piles)];
+    if(!t.plan_date)return t.completed?['archive','날짜 없는 완료']:[waiting(t)?'wait':'bench',placeLabel(t,source.tasks,piles)];
     if(t.completed)return ['done',`${day(t.plan_date)} · 완료`];
     return ['dated',`${day(t.plan_date)} · ${t.starts_at?t.starts_at.slice(11,16):`순서 ${order.get(t.id)}`}`];
   };

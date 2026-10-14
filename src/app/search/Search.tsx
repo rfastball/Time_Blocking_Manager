@@ -70,17 +70,20 @@ function SearchPanel(){
 function goTo(hit:Hit){
   setUi({search:false});
   if(hit.kind==='dated'||hit.kind==='done')setNav({view:'plan',period:'day',selected:hit.date!,planAnchor:hit.date!});
+  // Waiting work opens the band where it stands.
+  else if(hit.kind==='wait')setNav({view:'plan',band:'open'});
   else openBench();
   setUi({found:{id:hit.id,kind:hit.kind,at:Date.now()}});
 }
 const targets:Record<Hit['kind'],(id:string)=>string>={
   bench:id=>`.jb [data-card="${id}"]`,
+  wait:id=>`#wait [data-flight="${id}"]`,
   dated:id=>`.dv-day [data-task="${id}"]`,
   done:id=>`.dv-day [data-task="${id}"]`,
   archive:id=>`.inbox-archive [data-task="${id}"]`,
   trash:id=>`[data-trash="${id}"]`,
 };
-const focusIn:Record<Hit['kind'],string>={bench:'.main',dated:'',done:'',archive:'.irow-restore',trash:'.irow-restore'};
+const focusIn:Record<Hit['kind'],string>={bench:'.main',wait:'.wbody',dated:'',done:'',archive:'.irow-restore',trash:'.irow-restore'};
 
 // A brief ring on the found block, once it is drawn and scrolled into view; focus moves to it for the keyboard.
 function FoundRing(){

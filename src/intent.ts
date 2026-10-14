@@ -1,14 +1,14 @@
 import type {Action,Pile,Task} from './types.ts';
 import {time} from './dates.ts';
 import {byFlowOrder} from './flow.ts';
-import {SHELF,cardsIn,pileOf,place} from './bench.ts';
+import {SHELF,cardsIn,pileOf,place,waiting} from './bench.ts';
 
 // Where a held block would go if it were let go right now.
 // body: into that day's order before `before` · rail: fixed at `start` · below/date: end of that day's order · tray: back to 준비 (top of the shelf)
-// · inbox/shelf: into the 준비 tab's 들어옴 or shelf, before the card now at `index` among the others.
-export type Zone='none'|'body'|'rail'|'below'|'date'|'tray'|'inbox'|'shelf';
-// `ids`: every block carried, in order (a selection).
-export type Intent={id:string;zone:Zone;date:string|null;before:string|null;start:number|null;ok:boolean;reason:string|null;ids?:string[];index?:number};
+// · inbox/shelf: into the 준비 tab's 들어옴 or shelf, before the card now at `index` among the others · wait: out to the 기다림 band.
+export type Zone='none'|'body'|'rail'|'below'|'date'|'tray'|'inbox'|'shelf'|'wait';
+// `ids`: every block carried, in order (a selection). `since`: today, for a push to the band.
+export type Intent={id:string;zone:Zone;date:string|null;before:string|null;start:number|null;ok:boolean;reason:string|null;ids?:string[];index?:number;since?:string};
 export const noIntent=(id:string):Intent=>({id,zone:'none',date:null,before:null,start:null,ok:true,reason:null});
 export const carried=(i:Intent)=>i.ids?.length?i.ids:[i.id];
 const toBench=(z:Zone):z is 'inbox'|'shelf'=>z==='inbox'||z==='shelf';
@@ -19,28 +19,31 @@ function orderWith(tasks:Task[],date:string,id:string,before:string|null){
   ids.splice(at<0?ids.length:at,0,id);
   return ids;
 }
-const lands=(i:Intent)=>i.zone!=='none'&&!(i.zone==='rail'&&!i.ok)&&(i.zone==='tray'||toBench(i.zone)||!!i.date);
+const lands=(i:Intent)=>i.zone!=='none'&&!(i.zone==='rail'&&!i.ok)&&(i.zone==='tray'||i.zone==='wait'||toBench(i.zone)||!!i.date);
+const unwaited=(t:Task):Task=>t.wait_since?{...t,wait_for:null,wait_until:null,wait_since:null}:t;
 
 // The tasks as they would be after the drop. Used to lay the days and the 준비 lists out while the block is held.
 export function applyIntent(tasks:Task[],intent:Intent|null):Task[]{
   if(!intent||!lands(intent))return tasks;
   const {id,date}=intent,ids=carried(intent);
-  const undated=(list:Task[])=>list.map(t=>ids.includes(t.id)&&t.plan_date?{...t,plan_date:null,starts_at:null,flow_order:null}:t);
+  // Leaving a date or the band: no date, no trigger.
+  const undated=(list:Task[])=>list.map(t=>!ids.includes(t.id)?t:unwaited(t.plan_date?{...t,plan_date:null,starts_at:null,flow_order:null}:t));
+  if(intent.zone==='wait')return tasks.map(t=>ids.includes(t.id)&&!waiting(t)&&!t.completed?{...t,plan_date:null,starts_at:null,flow_order:null,pile_id:null,pile_order:null,wait_for:'',wait_until:null,wait_since:intent.since??''}:t);
   if(toBench(intent.zone)){
     const next=place(undated(tasks),ids,pileOf(intent.zone),intent.index??Infinity);
     return intent.zone==='shelf'?next.map(t=>ids.includes(t.id)&&t.proto?{...t,proto:false}:t):next;
   }
-  if(intent.zone==='tray')return place(undated(tasks),[id],SHELF,0);
-  if(intent.zone==='rail')return tasks.map(t=>t.id===id?{...t,plan_date:date,starts_at:date+'T'+time(intent.start!),flow_order:null}:t);
+  if(intent.zone==='tray')return place(undated(tasks),ids,SHELF,0);
+  if(intent.zone==='rail')return tasks.map(t=>t.id===id?unwaited({...t,plan_date:date,starts_at:date+'T'+time(intent.start!),flow_order:null}):t);
   if(ids.length>1){
     const next=flowsOn(tasks,date!).map(t=>t.id).filter(x=>!ids.includes(x));
     const at=intent.zone==='body'&&intent.before?next.indexOf(intent.before):-1;
     next.splice(at<0?next.length:at,0,...ids);
     const order=new Map(next.map((x,n)=>[x,n+1]));
-    return tasks.map(t=>order.has(t.id)?{...t,plan_date:date,starts_at:null,flow_order:order.get(t.id)!}:t);
+    return tasks.map(t=>order.has(t.id)?unwaited({...t,plan_date:date,starts_at:null,flow_order:order.get(t.id)!}):t);
   }
   const order=new Map(orderWith(tasks,date!,id,intent.zone==='body'?intent.before:null).map((x,n)=>[x,n+1]));
-  return tasks.map(t=>order.has(t.id)?{...t,plan_date:date,starts_at:null,flow_order:order.get(t.id)!}:t);
+  return tasks.map(t=>order.has(t.id)?unwaited({...t,plan_date:date,starts_at:null,flow_order:order.get(t.id)!}):t);
 }
 
 export const updateAction=(t:Task,plan_date:string|null,starts_at:string|null,before:string|null=null,duration=t.duration):Extract<Action,{type:'update'}>=>
@@ -62,7 +65,9 @@ export function intentAction(tasks:Task[],intent:Intent,piles:Pile[]=[]):Action|
   const t=tasks.find(x=>x.id===intent.id);
   if(!t||!lands(intent))return null;
   if(toBench(intent.zone))return benchAction(tasks,piles,carried(intent),intent.zone,intent.index??Infinity);
-  if(intent.zone==='tray')return t.plan_date&&!t.completed?updateAction(t,null,null):null;
+  // The band's own moves (push out, revive to the shelf's top) go through the waiting store, not a single command here.
+  if(intent.zone==='wait')return null;
+  if(intent.zone==='tray')return waiting(t)?{type:'revive',items:revisions(tasks,carried(intent))}:t.plan_date&&!t.completed?updateAction(t,null,null):null;
   const date=intent.date!,ids=carried(intent);
   // Several at once retain their order at the pointed slot; date heads append.
   if(ids.length>1)return {type:'ship_flow',date,items:revisions(tasks,ids),...(intent.zone==='body'?{before:intent.before}:{})};

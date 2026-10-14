@@ -18,7 +18,7 @@ test('waiting work is out of 준비 and says what it waits on',()=>{
   assert.deepEqual(tasks.map(triggerText),['','김부장 결재','10/20 이후','회신 · 1/5 이후','']);
   assert.deepEqual(tasks.map(t=>placeLabel(t,tasks)),['들어옴','기다림 · 김부장 결재','기다림 · 10/20 이후','기다림 · 회신 · 1/5 이후','기다림 · 정하지 않음']);
   assert.equal(waiting(card('dated',null,null,{wait_since:today,plan_date:day})),false);
-  assert.deepEqual(search({tasks},'w').map(h=>[h.where,h.kind]),[['기다림 · 김부장 결재','bench']]);
+  assert.deepEqual(search({tasks},'w').map(h=>[h.where,h.kind]),[['기다림 · 김부장 결재','wait']]);
 });
 
 test('normalizing ends a wait on a date or a completion and keeps waiting protos out of every pile',()=>{

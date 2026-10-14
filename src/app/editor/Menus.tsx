@@ -10,7 +10,7 @@ import {completeHere,moveTo,placeOfCard,shipTo} from '../store/bench.ts';
 
 // 준비 shows undated work and overdue work; both are still being placed there.
 // A 준비 card offers 준비's menu; the same task on a date offers the date menu.
-const inPrep=(t:Task,bench:boolean,today:string)=>bench&&!t.completed&&(!t.plan_date||t.plan_date<today);
+const inPrep=(t:Task,bench:boolean,today:string)=>bench&&!t.completed&&!t.wait_since&&(!t.plan_date||t.plan_date<today);
 import {blockButton,clamp,editorModeHere,menuKeys,requestSplit} from './actions.ts';
 
 type Item={label:string;run:()=>void;danger?:boolean;disabled?:boolean};

@@ -15,7 +15,7 @@
 /* Until something is completed this week, the bins stay a slim well. */
 .card.wk:not(:has(.bin .chip)){--wk-bin:8px}
 .wk-scroll{overflow:auto;max-height:calc(100vh - 160px);overscroll-behavior:contain}
-.wk-grid{display:grid;grid-template-columns:46px repeat(7,minmax(118px,1fr))}
+.wk-grid{display:grid;grid-template-columns:46px repeat(7,minmax(110px,1fr))}
 .wk-corner{position:sticky;top:0;left:0;z-index:32;background:var(--color-panel);border-bottom:1px solid var(--color-divider)}
 .wk-head{position:sticky;top:0;z-index:30;background:var(--color-panel);border-left:1px solid var(--color-divider);border-bottom:1px solid var(--color-divider);transition:background .15s}
 .wk-date{width:100%;height:100%;border:0;background:transparent;text-align:left;padding:8px 8px 9px;display:flex;flex-direction:column;gap:6px;cursor:pointer;color:inherit}

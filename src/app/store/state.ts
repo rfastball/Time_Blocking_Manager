@@ -9,6 +9,8 @@ import type {Seg} from '../../cut.ts';
 export type View='today'|'plan'|'settings';
 // The 준비 dock: a list beside the calendar, the full bench for shaping work, or folded to its counts.
 export type Dock='narrow'|'wide'|'hidden';
+// The 기다림 band at the right edge: open, or folded to its count. Like the dock, only its own control changes it.
+export type Band='open'|'closed';
 // 일 is one day's editor with its week as a strip above it, so it spans the same seven dates as 주.
 export type Period='day'|'week'|'two'|'month';
 // The task as typed in the editor. epoch/revision are the saved state it started from.
@@ -41,7 +43,14 @@ export type Ui={
   // Work completed on 준비 this session, newest first, with where it stood (null: overdue work, which keeps its date).
   doneHere:{id:string;place:'inbox'|'shelf'|null;index:number}[];
   // Global search: the panel, and the block a chosen result points at while it is briefly ringed.
-  search:boolean;found:{id:string;kind:'bench'|'dated'|'done'|'archive'|'trash';at:number}|null;
+  search:boolean;found:{id:string;kind:'bench'|'dated'|'done'|'archive'|'trash'|'wait';at:number}|null;
+  // The trigger field for blocks just pushed out (fresh) or whose trigger is being changed. `at`: where it floats when the band
+  // does not show it (folded, or the focus screen), in viewport px.
+  naming:{ids:string[];value:string;hi:number;fresh:boolean;at:{x:number;y:number}|null}|null;
+  // Revived blocks are renamed to their next action in turn, in place: the one being named and the ones after it.
+  renaming:{id:string;value:string;queue:string[]}|null;
+  // The last push or revival, undoable for a few seconds.
+  waitToast:{text:string;undo:()=>void;at:number}|null;
 };
 export type Info={dbPath:string;warning:string;lastBackup:string;autoStart:boolean;shortcut:string;exitOnClose:boolean;failed:boolean};
 export type AppState={
@@ -51,7 +60,7 @@ export type AppState={
   busy:boolean;failed:AppError|null;error:string;message:string;
   info:Info;
   now:number;today:string;
-  nav:{view:View;selected:string;planAnchor:string;period:Period;dock:Dock};
+  nav:{view:View;selected:string;planAnchor:string;period:Period;dock:Dock;band:Band};
   drafts:Drafts;ui:Ui;
   quitSaving:boolean;draftPending:boolean;gesture:boolean;
   // Single-character shortcuts on this device.
@@ -68,6 +77,7 @@ export const pinnedClock=!!mockNow;
 const day=today();
 // The dock width is a device preference, like panel widths.
 const storedDock=():Dock=>{try{const v=localStorage.getItem('blokky.dock');return v==='wide'||v==='hidden'?v:'narrow';}catch{return 'narrow';}};
+const storedBand=():Band=>{try{return localStorage.getItem('blokky.band')==='closed'?'closed':'open';}catch{return 'open';}};
 export const emptyDrafts=():Drafts=>({capture:'',captureCommand:null,composer:null,editor:null,editorDirty:false,editorSequence:0,pendingEditorId:null,rawSchedules:{},settingsBase:null,settingsDraft:null,routineDraft:null,cut:null});
 let state:AppState={
   native,captureWindow:params.has('capture'),
@@ -76,9 +86,9 @@ let state:AppState={
   busy:false,failed:null,error:'',message:'',
   info:{dbPath:'',warning:'',lastBackup:'',autoStart:false,shortcut:'Ctrl+Shift+Space',exitOnClose:false,failed:false},
   now:clockMinute(),today:day,
-  nav:{view:'plan',selected:day,planAnchor:day,period:'week',dock:storedDock()},
+  nav:{view:'plan',selected:day,planAnchor:day,period:'week',dock:storedDock(),band:storedBand()},
   drafts:emptyDrafts(),
-  ui:{editorMode:null,editorFocus:null,contextMenu:null,availability:null,split:null,pendingShortcut:null,landed:null,benchSelection:[],doneHere:[],search:false,found:null},
+  ui:{editorMode:null,editorFocus:null,contextMenu:null,availability:null,split:null,pendingShortcut:null,landed:null,benchSelection:[],doneHere:[],search:false,found:null,naming:null,renaming:null,waitToast:null},
   quitSaving:false,draftPending:false,gesture:false,
   singleKeys:(()=>{try{return localStorage.getItem('blokky.single-keys')!=='off';}catch{return true;}})()
 };
@@ -92,6 +102,7 @@ export const setDrafts=(patch:Partial<Drafts>)=>setState(s=>({drafts:{...s.draft
 export const setUi=(patch:Partial<Ui>)=>setState(s=>({ui:{...s.ui,...patch}}));
 export const setNav=(patch:Partial<AppState['nav']>)=>{
   if(patch.dock)try{localStorage.setItem('blokky.dock',patch.dock);}catch{/* A storage restriction must not block the dock. */}
+  if(patch.band)try{localStorage.setItem('blokky.band',patch.band);}catch{/* Unsaved, it still holds for this session. */}
   setState(s=>({nav:{...s.nav,...patch}}));
 };
 // 준비's bench is on screen: the work screen with the dock opened wide.

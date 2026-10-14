@@ -10,6 +10,7 @@ import {DragProvider} from '../space/drag.tsx';
 import {Today} from '../today/Today.tsx';
 import {Periods,Plan} from '../plan/Plan.tsx';
 import {Dock} from '../dock/Dock.tsx';
+import {Waiting,WaitHosts} from '../wait/Waiting.tsx';
 import {KeyList,useShortcuts} from './keys.tsx';
 import {Settings} from '../settings/Settings.tsx';
 import {AvailabilityPopover} from '../settings/AvailabilityPopover.tsx';
@@ -65,12 +66,12 @@ export function Shell(){
           </div>
         </header>
         <main className="content" data-view={nav.view}>
-          {!ready||!snapshot?<LoadState/>:!s.draftLoaded?<DraftState/>:focus?<Today/>:work?<div className={'work-screen'+(cutting?' cutting':'')}><Dock/><div className="plan-wrap" inert={cutting||undefined}><Plan/></div></div>:<Settings/>}
+          {!ready||!snapshot?<LoadState/>:!s.draftLoaded?<DraftState/>:focus?<Today/>:work?<div className={'work-screen'+(cutting?' cutting':'')}><Dock/><div className="plan-wrap" inert={cutting||undefined}><Plan/></div><Waiting/></div>:<Settings/>}
         </main>
         <StatusBar/>
       </div>
     </div>
-    {ready&&snapshot&&s.draftLoaded&&<><EditorHost/><ContextMenuHost/><CutHost/><AvailabilityPopover/><SearchHost/></>}
+    {ready&&snapshot&&s.draftLoaded&&<><EditorHost/><ContextMenuHost/><CutHost/><AvailabilityPopover/><SearchHost/><WaitHosts/></>}
     {keys&&<KeyList onClose={()=>setKeys(false)}/>}
     <div className="sr-only" role="status" aria-live="polite">{s.message}</div>
   </DragProvider>;

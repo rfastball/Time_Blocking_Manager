@@ -5,11 +5,13 @@ import {byFlowOrder,moveInOrder} from '../../flow.ts';
 import {placementIssue} from '../../placement.ts';
 import {dateKey,dateLabel,dateOf,plusDays,time} from '../../dates.ts';
 import {formatDuration,quotedObject} from '../../format.ts';
-import {intentAction,updateAction,type Intent} from '../../intent.ts';
+import {carried,intentAction,updateAction,type Intent} from '../../intent.ts';
+import {onBench,waiting} from '../../bench.ts';
 import {createCommand} from '../../capture.ts';
 import type {Action,Task,Trashed,WorkingDay} from '../../types.ts';
 import {getState,setDrafts,setState,setUi} from './state.ts';
 import {fly} from '../ui/flight.ts';
+import {pushOut,release,revived} from './wait.ts';
 import {acknowledgeCapture,afterIdle,announce,dispatch,draftChanged,persistDraft,queue,showError,stamp} from './session.ts';
 
 const snap=()=>getState().snapshot!;
@@ -18,7 +20,7 @@ export const taskMinute=(t:Task)=>Number(t.starts_at!.slice(11,13))*60+Number(t.
 export function dayRule(date:string):WorkingDay{const s=getState();return effectiveDay(s.drafts.settingsDraft??s.snapshot!.settings,date);}
 export const planOf=(date:string,tasks=snap().tasks)=>dayPlan(date,tasks,dayRule(date),snap().layouts??[]);
 export const flowOrderOn=(date:string)=>snap().tasks.filter(t=>t.plan_date===date&&!t.starts_at&&!t.completed).sort(byFlowOrder);
-export const inboxTasks=()=>snap().tasks.filter(t=>!t.plan_date&&!t.completed);
+export const inboxTasks=()=>snap().tasks.filter(onBench);
 export const overdueTasks=()=>{const day=getState().today;return snap().tasks.filter(t=>!t.completed&&t.plan_date&&t.plan_date<day);};
 export function available(date:string){const d=dayRule(date);return d.enabled?d.end-d.start-d.breaks.reduce((n,b)=>n+b.end-b.start,0):0;}
 export const issueAt=(id:string,date:string,start:number,duration:number)=>placementIssue(id,date,start,duration,dayRule(date),snap().tasks);
@@ -80,11 +82,17 @@ export function resize(t:Task,duration:number){
   return dispatch(updateAction(t,t.plan_date,t.starts_at,null,duration),{done:()=>{land(t.id);announce(`‘${t.title}’ ${formatDuration(duration)}`);}});
 }
 export const unplan=(t:Task)=>t.plan_date&&!t.completed?fly([t.id],()=>dispatch(updateAction(t,null,null),{done:()=>announce(`‘${t.title}’ 준비 선반 맨 위로 옮겼어요`)})):Promise.resolve(false);
-// One stored command for a drop: order, date, time or back to 준비.
+// One stored command for a drop: order, date, time or back to 준비. Out to the band, or back from it, goes through the waiting store.
 export function drop(intent:Intent){
+  if(intent.zone==='wait')return pushOut(carried(intent),{flown:true});
+  const from=carried(intent).map(find).filter((t):t is Task=>!!t&&waiting(t));
+  if(from.length&&intent.zone==='tray')return release(from.map(t=>t.id),{flown:true});
   const action=intentAction(snap().tasks,intent,snap().piles??[]);
   if(!action)return Promise.resolve(false);
-  return dispatch(action,{done:()=>land(intent.id,intent.zone==='rail')});
+  return dispatch(action,{done:()=>{
+    land(intent.id,intent.zone==='rail');
+    if(from.length)revived(from,intent.date?`${dateLabel(intent.date)}에`:intent.zone==='inbox'?'들어옴으로':'선반으로');
+  }});
 }
 // ── 휴지통 ──
 // Deleting needs no question: the task waits in the trash (store retention) until restored or removed.

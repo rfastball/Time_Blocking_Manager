@@ -8,9 +8,13 @@ export const view=page=>page.js(`document.querySelector('.content')?.dataset.vie
 export const dockState=page=>page.js(`(()=>{const d=document.querySelector('#dock');return d?['narrow','wide','hidden'].find(c=>d.classList.contains(c))??null:null;})()`);
 
 // A cold dev server may still be compiling on the first load.
+// The 기다림 band is folded for every area but its own (wait.mjs opens it), so layouts measure the calendar beside the folded band.
 export async function ready(page){
   for(let i=0;i<60;i++){
-    if(await page.js(`!!document.querySelector('header.topbar')&&!!document.querySelector('.content')?.firstElementChild&&!document.querySelector('.content .load-state')`))return;
+    if(await page.js(`!!document.querySelector('header.topbar')&&!!document.querySelector('.content')?.firstElementChild&&!document.querySelector('.content .load-state')`)){
+      if(await page.js(`(()=>{const b=document.querySelector('#wait .wait-fold');if(b)b.click();return !!b;})()`))await page.sleep(300);
+      return;
+    }
     await page.sleep(250);
   }
   throw Error('the app did not finish loading');

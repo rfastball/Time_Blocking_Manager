@@ -283,7 +283,8 @@ export default [
     await page.drag({x:c.x+40,y:c.y+6},{x:rail.cx,y:y16+6},{before:()=>page.shot('plan-held-rail')});
     assert.deepEqual(await page.blocks(sp(other)),['회의록 정리, 시각 고정 16:00–16:30']);
   }},
-  {name:'beside the wide dock the calendar and date panel fill the row and nothing leaves a narrow cell',viewport:{width:1300,height:900},run:async page=>{
+  // Viewports here leave the folded 기다림 band its 56px (40 + gap) on top of the widths these layouts were set at.
+  {name:'beside the wide dock the calendar and date panel fill the row and nothing leaves a narrow cell',viewport:{width:1356,height:900},run:async page=>{
     // A ratio kept from a wider window must not leave the pair short of the row.
     await page.js(`localStorage.setItem('blokky.panel.plan-two-calendar','0.85');localStorage.setItem('blokky.panel.plan-month-calendar','0.85')`);
     await setDock(page,'wide');
@@ -322,7 +323,7 @@ export default [
     await page.shot('plan-month');
   }},
   // The drawer that moved under the calendar is now the narrow dock, which stays left of it.
-  {name:'at 1024px 2주 keeps 준비 beside the calendar and the date panel takes a new block',viewport:{width:1024,height:900},run:async page=>{
+  {name:'at 1024px (+ the folded band) 2주 keeps 준비 beside the calendar and the date panel takes a new block',viewport:{width:1080,height:900},run:async page=>{
     await toPlan(page);
     await page.click('.segmented [role=radio]','2주');
     const cal=await page.rect('.cal'),dock=await page.rect('#dock'),day=await page.rect('.plan-day');
