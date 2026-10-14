@@ -1,5 +1,12 @@
 # 검증 범위
 
+## 넓은 도크 옆 오늘 머리 Test delta (2026-10-15)
+
+- Unique risk: 넓은 도크와 접힌 기다림 띠 옆에서 주가 가로로 스크롤되어, 목요일 이후에는 오늘 머리가 화면 밖에 있어 `overflow.mjs` 118px 머리 사례가 요일에 따라 실패한 것.
+- Owner / layer: 기존 `scripts/ui-check/overflow.mjs`. 오늘 머리를 눌러 일 보기로 가기 전에 화면 안으로 스크롤한다. 단언은 그대로다.
+- Added / extended / removed: UI **0 / 1 / 0**. 결과: `overflow.mjs` **3/3**.
+- Runtime delta: 약 0.15초.
+
 ## 기다림 경과·손잡이 조각·겹 명도 Test delta (2026-10-15)
 
 - Unique risk: 7일 기준 경과 표기가 하루 어긋나거나 처음 민 날이 접근성 이름에서 사라지는 것, 쉬는 묶음에서 손잡이 조각을 숨기며 들린 목록의 블록별 충족 손잡이까지 사라지는 것.

@@ -37,6 +37,8 @@ export default [
     const heights=await page.js(`new Set([...document.querySelectorAll('.wk-head')].map(e=>e.offsetHeight)).size`);
     assert.equal(heights,1,'all seven heads keep one height');
     await page.shot('overflow-head-1180-wide');
+    // Beside the wide dock and the folded 기다림 band the week scrolls sideways, so a late weekday is brought in first.
+    await page.js(`document.querySelector('.wk-head.today').scrollIntoView({block:'nearest',inline:'center'})`);await page.sleep(150);
     await page.click('.wk-head.today .wk-date');await page.sleep(500);
     for(const width of [1180,390]){
       if(width===390){
