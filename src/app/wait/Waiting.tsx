@@ -99,7 +99,7 @@ export function Waiting(){
   const band:Band={cursor:here,keyOf,focus,openKey,setOpenKey,unclip,releaseIds,scrolled,held:heldIds,openReq,today:s.today};
   if(!open)return <aside ref={ref} id="wait" className={'waitband closed'+(hot?' hot':'')} aria-label="기다림">
     <button type="button" className="wait-unfold" aria-label={`기다림 펴기${count?`, ${count}건`:''}${ready?`, 충족 ${ready}건`:''}`} aria-keyshortcuts="\" onClick={()=>setBand('open')}>
-      <Icon name="left" size={16}/>{count>0&&<span className="cnt">{count}</span>}
+      <Icon name="wait" size={18}/>{count>0&&<span className="cnt">{count}</span>}
     </button>
     {ready>0&&<span className="wait-ready" aria-hidden="true">{ready}</span>}
   </aside>;
@@ -117,7 +117,7 @@ export function Waiting(){
   return <BandCtx.Provider value={band}>
     <aside ref={ref} id="wait" className={'waitband'+(hot?' hot':'')+(raised?' raised':'')} aria-label="기다림">
       <header><h2>기다림 {count>0&&<span className="cnt">{count}</span>}</h2>
-        <button type="button" className="ibtn wait-fold" aria-label="기다림 접기" aria-keyshortcuts="\" title="접기" onClick={()=>setBand('closed')}><Icon name="right" size={16}/></button></header>
+        <button type="button" className="ibtn wait-fold" aria-label="기다림 접기" aria-keyshortcuts="\" title="접기" onClick={()=>setBand('closed')}><Icon name="foldRight" size={16}/></button></header>
       {naming_&&!fieldShown&&<NamingField/>}
       <div ref={list} className="wait-list" onScroll={()=>setScrolled(n=>n+1)}>{rows}</div>
     </aside>
