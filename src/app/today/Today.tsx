@@ -15,8 +15,9 @@ import {InboxTray} from '../space/InboxTray.tsx';
 import {EditorPanel} from '../editor/hosts.tsx';
 import {editorModeHere} from '../editor/actions.ts';
 import './today.css';
+import {SCALE as SCALES} from '../ui/scales.ts';
 
-const SCALE=1.2;
+const SCALE=SCALES.focus;
 const open=(t:Task)=>openEditor(t.id,editorModeHere());
 
 // 오늘 is for doing the day, not planning it: a slim timetable strip, what comes next, and the queue of what is left.

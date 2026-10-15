@@ -11,6 +11,7 @@ import {settle} from '../ui/motion.ts';
 import {follow as followPointer} from '../ui/gesture.ts';
 import {focusLater} from '../ui/focus.ts';
 import {clamp,useDismiss} from '../ui/dismiss.ts';
+import {SCALE as SCALES} from '../ui/scales.ts';
 
 export type Selection={day:number;target:AvailabilityTarget};
 type Props={
@@ -21,7 +22,7 @@ type Props={
   onChange:(index:number,day:WorkingDay)=>void;onError:(message:string)=>void;
 };
 type Menu={day:number;target:AvailabilityTarget;x:number;y:number};
-const SCALE=1.1;
+const SCALE=SCALES.rhythm;
 const follow={type:'spring' as const,visualDuration:.16,bounce:.18};
 const targetOf=(v:string):AvailabilityTarget=>v==='work'?'work':Number(v);
 const exists=(days:WorkingDay[],s:Selection|null)=>!!s&&!!days[s.day]?.enabled&&(s.target==='work'||!!days[s.day].breaks[s.target]);

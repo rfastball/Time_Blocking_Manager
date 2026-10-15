@@ -347,3 +347,14 @@
   --color-wait-ready: color-mix(in srgb, var(--color-action) 55%, var(--color-text));
   --color-on-wait-ready: var(--color-on-action);
 }
+
+/* Layers above the page, bottom to top. Inside a surface, small local z-indexes order its own parts. */
+:root {
+  --z-sticky: 30;  /* top bar, week heads, an open 기다림 pile */
+  --z-float: 40;   /* status, floating 기다림 fields */
+  --z-toast: 45;
+  --z-menu: 60;    /* menus, and a block flying to its new place */
+  --z-ring: 65;    /* the ring on a found block */
+  --z-popover: 70; /* search, the availability popover */
+  --z-submenu: 90; /* a menu opened from a popover */
+}

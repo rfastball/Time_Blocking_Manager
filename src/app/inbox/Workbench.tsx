@@ -17,9 +17,10 @@ import {follow} from '../ui/gesture.ts';
 import {Icon} from '../ui/icons.tsx';
 import {focusLater,taskSelector} from '../ui/focus.ts';
 import {clamp,useDismiss} from '../ui/dismiss.ts';
+import {SCALE as SCALES} from '../ui/scales.ts';
 
 // One hour is 72px, as on 오늘, so a block on the shelf is the size it will be on a day.
-export const SCALE=1.2;
+const SCALE=SCALES.bench;
 const SHEET=34,INBOX_GAP=6,SHELF_GAP=2,CEILING=10;
 const blockHeight=(minutes:number)=>Math.max(16,Math.round(minutes*SCALE)-SHELF_GAP);
 // A proto in the 들어옴 is a sheet with no thickness; anywhere else it is drawn at its default length.

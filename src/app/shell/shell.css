@@ -2,7 +2,7 @@
 .workspace{flex:1 1 auto;min-width:0;display:flex;flex-direction:column}
 /* The bar replaces the sticky rail, so it stays in reach at any scroll; scrolling a target into view stops below it. */
 html{scroll-padding-top:80px}
-.topbar{position:sticky;top:0;z-index:30;background:var(--color-canvas);display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;padding:14px 24px 12px}
+.topbar{position:sticky;top:0;z-index:var(--z-sticky);background:var(--color-canvas);display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;padding:14px 24px 12px}
 /* No rail: the bar holds the way home, the way between screens, the range, search and the gear. */
 .topbar .brand{width:36px;height:36px;border:0;background:transparent;border-radius:9px;cursor:pointer;padding:0;flex:none}
 .topbar .brand .logo{width:34px;height:34px;fill:var(--color-on-action);background:var(--color-action);border-radius:8px}
@@ -24,7 +24,7 @@ html{scroll-padding-top:80px}
 .workspace:has(.content>.today){min-height:0}
 .content:has(>.today){display:flex;min-height:0;overflow:hidden}
 .topbar,.status{flex:0 0 auto}
-.status{position:sticky;bottom:0;z-index:40;display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:8px 24px;background:var(--color-surface);border-top:1px solid var(--color-divider);font-size:var(--font-size-summary)}
+.status{position:sticky;bottom:0;z-index:var(--z-float);display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:8px 24px;background:var(--color-surface);border-top:1px solid var(--color-divider);font-size:var(--font-size-summary)}
 .status .error{font-weight:600}
 .load-state{max-width:720px;margin:48px auto;display:flex;flex-direction:column;gap:12px;align-items:flex-start}
 .load-state h2{margin:0;font-size:var(--font-size-heading)}

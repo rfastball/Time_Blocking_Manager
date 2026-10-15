@@ -79,7 +79,7 @@
 .rh.rh-compact .rh-choices{display:flex;flex-wrap:wrap;gap:6px}
 .rh.rh-compact .rh-choices .btn.text{margin-left:auto}
 .rh.rh-compact .rh-detail{margin-top:10px;padding:0;border:0;background:none}
-.rh-menu{position:fixed;z-index:90;min-width:180px;padding:5px;border:1px solid var(--color-border);border-radius:var(--radius-control);background:var(--color-surface);color:var(--color-text);box-shadow:var(--shadow-dialog)}
+.rh-menu{position:fixed;z-index:var(--z-submenu);min-width:180px;padding:5px;border:1px solid var(--color-border);border-radius:var(--radius-control);background:var(--color-surface);color:var(--color-text);box-shadow:var(--shadow-dialog)}
 .rh-menu button{display:block;width:100%;padding:8px 12px;border:0;border-radius:calc(var(--radius-control) - 2px);background:transparent;text-align:left;font-size:var(--font-size-summary);cursor:pointer}
 .rh-menu button:hover,.rh-menu button:focus-visible{background:var(--color-selection);outline:0}
 .rh-menu hr{margin:4px;border:0;border-top:1px solid var(--color-divider)}
@@ -152,7 +152,7 @@
 .st-diagnostics p{margin:8px 0 0;font-size:var(--font-size-label);color:var(--color-text-muted)}
 
 /* 날짜 근무시간 팝오버 */
-.ap{position:fixed;z-index:70;display:flex;flex-direction:column;gap:12px;width:min(360px,calc(100vw - 16px));max-height:calc(100vh - 16px);overflow:auto;padding:14px 16px 16px;background:var(--color-panel);color:var(--color-text);border:1px solid var(--color-border);border-radius:var(--radius-dialog);box-shadow:var(--shadow-dialog)}
+.ap{position:fixed;z-index:var(--z-popover);display:flex;flex-direction:column;gap:12px;width:min(360px,calc(100vw - 16px));max-height:calc(100vh - 16px);overflow:auto;padding:14px 16px 16px;background:var(--color-panel);color:var(--color-text);border:1px solid var(--color-border);border-radius:var(--radius-dialog);box-shadow:var(--shadow-dialog)}
 .ap-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .ap-head h2{margin:0}
 .ap-head .ibtn{border-color:transparent;background:transparent}

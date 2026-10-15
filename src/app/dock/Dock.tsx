@@ -3,7 +3,7 @@ import {inboxTasks,overdueTasks} from '../store/tasks.ts';
 import {openEditor} from '../store/editor.ts';
 import {Icon} from '../ui/icons.tsx';
 import {InboxTray} from '../space/InboxTray.tsx';
-import {WEEK_SCALE} from '../plan/Week.tsx';
+import {SCALE} from '../ui/scales.ts';
 import {Bench} from '../inbox/InboxPage.tsx';
 import './dock.css';
 
@@ -35,6 +35,6 @@ export function Dock(){
       <button type="button" className="ibtn" aria-label={dock==='wide'?'준비 좁히기':'준비 넓히기'} aria-keyshortcuts="]" title={dock==='wide'?'좁히기':'넓히기'}
         onClick={()=>setDock(dock==='wide'?'narrow':'wide')}><Icon name={dock==='wide'?'left':'right'} size={16}/></button>
     </div>
-    {dock==='wide'?<Bench/>:<InboxTray scale={WEEK_SCALE} overdue={overdueTasks()} onOpen={t=>openEditor(t.id,'dialog')}/>}
+    {dock==='wide'?<Bench/>:<InboxTray scale={SCALE.week} overdue={overdueTasks()} onOpen={t=>openEditor(t.id,'dialog')}/>}
   </aside>;
 }

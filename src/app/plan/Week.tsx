@@ -11,15 +11,16 @@ import {aimedAt,useDaysAxis,useDrag,useRegion} from '../space/drag.tsx';
 import {COLUMN_GEOMETRY} from '../../drag-zone.ts';
 import {useNewBlock} from './Composer.tsx';
 import {allocation,allocationLabel,allocationShort,dayTag,Meter,Outside} from './day.tsx';
+import {SCALE} from '../ui/scales.ts';
+import {axisHours} from '../../time-axis.ts';
 
-export const WEEK_SCALE=1;
 export const openDay=(date:string)=>setNav({view:'plan',period:'day',selected:date,planAnchor:date});
 const open=(t:Task)=>openEditor(t.id,'dialog');
 
 // Seven day spaces on one time axis. The hour ruler is shared; each date head is also a place to drop work.
 export function Week({dates}:{dates:string[]}){
-  const axis=useDaysAxis(dates,WEEK_SCALE);
-  const hours=Array.from({length:25},(_,i)=>i*60).filter(m=>m>=axis.start-60&&m<=axis.end+60);
+  const axis=useDaysAxis(dates,SCALE.week);
+  const hours=axisHours(axis);
   const {today,nav}=useApp(),scroll=useRef<HTMLDivElement>(null),shown=useRef(false);
   const target=dates.includes(today)?today:dates.includes(nav.selected)?nav.selected:null;
   // A grid wider than the card would start with today cut off: bring its column in sideways, never vertically.
@@ -50,7 +51,7 @@ export function Head({date}:{date:string}){
   // Work dropped on a head goes to the end of that day's column, so it takes the column's shape on the week's scale.
   const ref=useRegion('date',date,{form:(task,ids)=>{
     const minutes=ids.reduce((n,id)=>n+(getState().snapshot!.tasks.find(t=>t.id===id)??task).duration,0);
-    return {width:(box.current?.clientWidth??100)-COLUMN_GEOMETRY.flowLeft-COLUMN_GEOMETRY.right,height:Math.max(10,minutes*WEEK_SCALE-2),density:'narrow'};
+    return {width:(box.current?.clientWidth??100)-COLUMN_GEOMETRY.flowLeft-COLUMN_GEOMETRY.right,height:Math.max(10,minutes*SCALE.week-2),density:'narrow'};
   }});
   const a=allocation(date,tasks),tag=dayTag(date),off=!dayRule(date).enabled;
   const hot=aimedAt(held,'date',date);

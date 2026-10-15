@@ -45,7 +45,7 @@
 .wpile.ready{margin-left:-22px}
 .wpile-rest{position:absolute;inset:0}
 .wface{position:absolute;left:0;top:0;width:100%;height:0}
-.wpile-layer{position:fixed;z-index:30;height:0}
+.wpile-layer{position:fixed;z-index:var(--z-sticky);height:0}
 .wpile-layer .wface{width:100%}
 .wtray{position:absolute;left:0;top:0;border-radius:var(--radius-panel);background:var(--color-wait-tray);pointer-events:none}
 .whead{position:absolute;left:0;right:0;top:0}
@@ -73,7 +73,7 @@
 /* The trigger field, where the pushed blocks are, or floating where they were. */
 .wname{flex-shrink:0;display:flex;flex-direction:column;gap:5px;padding:6px 8px 8px;border:2px solid var(--color-focus);border-radius:var(--radius-control);background:var(--color-surface)}
 .waitband>.wname{margin-top:6px}
-.wname.floating{position:fixed;z-index:40;width:236px;box-sizing:border-box;box-shadow:var(--sp-lift)}
+.wname.floating{position:fixed;z-index:var(--z-float);width:236px;box-sizing:border-box;box-shadow:var(--sp-lift)}
 .wname-title{font-size:12px;font-weight:600;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 .wname input{box-sizing:border-box;width:100%;height:28px;border:1px solid var(--color-input-border);border-radius:min(4px,var(--radius-control));padding:0 7px;font:inherit;font-size:12px;color:var(--color-text);background:var(--color-input)}
 .wname [role=listbox]{display:flex;flex-direction:column;gap:1px}
@@ -82,10 +82,10 @@
 .wname [role=option] small{font-size:11px;color:var(--color-text-muted)}
 
 /* Over a revived block wherever it landed. */
-.wrename{position:fixed;z-index:40;box-sizing:border-box;padding:3px;border-radius:var(--radius-control);background:var(--color-focus)}
+.wrename{position:fixed;z-index:var(--z-float);box-sizing:border-box;padding:3px;border-radius:var(--radius-control);background:var(--color-focus)}
 .wrename input{box-sizing:border-box;width:100%;height:24px;border:0;border-radius:min(4px,var(--radius-control));padding:0 6px;font:inherit;font-size:12px;color:var(--color-text);background:var(--color-surface)}
 
-.wtoast{position:fixed;z-index:45;left:50%;bottom:24px;transform:translateX(-50%);height:40px;display:flex;align-items:center;gap:14px;padding:0 8px 0 14px;border-radius:var(--radius-panel);background:var(--color-nav);color:var(--color-on-action);font-size:13px;max-width:calc(100vw - 32px)}
+.wtoast{position:fixed;z-index:var(--z-toast);left:50%;bottom:24px;transform:translateX(-50%);height:40px;display:flex;align-items:center;gap:14px;padding:0 8px 0 14px;border-radius:var(--radius-panel);background:var(--color-nav);color:var(--color-on-action);font-size:13px;max-width:calc(100vw - 32px)}
 .wtoast span{min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 .wtoast button{flex-shrink:0;height:28px;padding:0 10px;border:0;border-radius:var(--radius-control);background:#ffffff1f;color:inherit;font:inherit;font-size:13px;font-weight:600;cursor:pointer}
 

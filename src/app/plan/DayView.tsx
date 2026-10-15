@@ -8,13 +8,13 @@ import {useDaysAxis,useDrag} from '../space/drag.tsx';
 import {useNewBlock} from './Composer.tsx';
 import {Head} from './Week.tsx';
 import {allocation,allocationLabel,allocationShort,dayTag,Meter,Outside} from './day.tsx';
+import {SCALE} from '../ui/scales.ts';
 
-const DAY_SCALE=1.2;
 
 // One day to plan in full: its week as a strip of date heads to move between and drop onto, and the day's space below.
 export function DayView({dates}:{dates:string[]}){
   const {nav,today}=useApp(),{tasks}=useDrag(),date=nav.selected;
-  const axis=useDaysAxis([date],DAY_SCALE),nb=useNewBlock(date,axis,'day');
+  const axis=useDaysAxis([date],SCALE.day),nb=useNewBlock(date,axis,'day');
   const a=allocation(date,tasks),tag=dayTag(date),plan=planOf(date),rule=dayRule(date);
   const anchor=Math.max(rule.start,plan.anchor??rule.start),flows=plan.items.some(i=>!i.fixed);
   return <div className="dv">

@@ -55,7 +55,7 @@
 .ed-confirm p{margin:0 0 8px;font-size:var(--font-size-summary);font-weight:var(--font-weight-heading)}
 
 /* Floating layers */
-.menu{z-index:60;padding:5px;background:var(--color-surface);color:var(--color-text);border:1px solid var(--color-border);border-radius:var(--radius-panel);box-shadow:var(--shadow-dialog)}
+.menu{z-index:var(--z-menu);padding:5px;background:var(--color-surface);color:var(--color-text);border:1px solid var(--color-border);border-radius:var(--radius-panel);box-shadow:var(--shadow-dialog)}
 .menu [role=menuitem]{display:block;width:100%;padding:7px 12px;border:0;border-radius:var(--radius-control);background:transparent;text-align:left;font-size:var(--font-size-summary);white-space:nowrap;cursor:pointer}
 .menu [role=menuitem]:hover{background:var(--color-control-hover)}
 .menu [role=menuitem]:focus-visible{background:var(--color-selection);outline-offset:-2px}

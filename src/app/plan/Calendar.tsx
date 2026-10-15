@@ -12,8 +12,8 @@ import {aimedAt,useDaysAxis,useDrag,useRegion,type Form} from '../space/drag.tsx
 import {useNewBlock} from './Composer.tsx';
 import {openDay} from './Week.tsx';
 import {allocation,allocationLabel,allocationShort,dayTag,hours,Meter,Outside} from './day.tsx';
+import {SCALE} from '../ui/scales.ts';
 
-const DAY_SCALE=1.05;
 const weekdays=['월','화','수','목','금','토','일'];
 
 // 2주 shows titles, 월 shows load. The grid keeps its rows while a date is chosen; the chosen date opens beside it.
@@ -75,7 +75,7 @@ function Mini({task}:{task:Task}){
 
 function DatePanel({date}:{date:string}){
   const {tasks}=useDrag();
-  const axis=useDaysAxis([date],DAY_SCALE),nb=useNewBlock(date,axis,'day');
+  const axis=useDaysAxis([date],SCALE.datePanel),nb=useNewBlock(date,axis,'day');
   const a=allocation(date,tasks),tag=dayTag(date);
   return <section id="calendar-day" className="card plan-day" aria-label={`${dateLabel(date)} 블록 공간`}>
     <header className="plan-day-head">

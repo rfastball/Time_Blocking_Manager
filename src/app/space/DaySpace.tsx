@@ -19,6 +19,7 @@ import {isGestureActive,useDrag,useDwell,useRegion} from './drag.tsx';
 import {COLUMN_GEOMETRY,DAY_GEOMETRY,runnerReach,type Geometry} from '../../drag-zone.ts';
 import './space.css';
 import {OffHours} from './OffHours.tsx';
+import {axisHours} from '../../time-axis.ts';
 
 type Props={
   date:string;axis:TimeAxis;variant:'day'|'column';
@@ -130,7 +131,7 @@ export function DaySpace({date,axis,variant,bin,selected,multi=[],onOpen,onMulti
 type GroundProps={axis:TimeAxis;rule:ReturnType<typeof dayRule>;geometry:Geometry;date:string};
 const bandOf=(axis:TimeAxis,start:number,end:number)=>({top:axis.position(start),height:Math.max(0,axis.position(end)-axis.position(start))});
 function Ground({axis,rule,geometry:g,date}:GroundProps){
-  const hours=Array.from({length:25},(_,i)=>i*60).filter(m=>m>=axis.start-60&&m<=axis.end+60);
+  const hours=axisHours(axis);
   const band=(start:number,end:number)=>bandOf(axis,start,end);
   return <>
     {rule.enabled?<button type="button" className="off" style={{left:g.bodyLeft-4,...band(0,rule.start)}} aria-label={`${time(rule.start)} 이전 근무 외 시간 조정`} onClick={e=>openAvailability(date,'work',e.clientX,e.clientY)}/>
