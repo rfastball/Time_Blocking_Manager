@@ -56,6 +56,26 @@ export default [
     assert.ok(await has(page,'#dock .tray #tray-capture'));
     assert.equal(await stored(page),'narrow');
   }},
+  {name:'switching the period slides one thumb and keeps the tabs in place while the title changes length',run:async page=>{
+    await toPlan(page);
+    // Every frame after a press: where the tabs sit, whether any tab fills its own background, and where the thumb is.
+    const frames=label=>page.js(`new Promise(resolve=>{
+      const tabs=()=>[...document.querySelectorAll('.segmented button')],out=[];
+      const snap=()=>out.push({left:Math.round(document.querySelector('.segmented').getBoundingClientRect().left),
+        filled:tabs().filter(b=>getComputedStyle(b).backgroundColor!=='rgba(0, 0, 0, 0)').length,thumb:document.querySelector('.seg-thumb')?.getBoundingClientRect().left??null});
+      tabs().find(b=>b.textContent===${JSON.stringify(label)})?.click();
+      let n=0;const tick=()=>{snap();if(++n<24)requestAnimationFrame(tick);else resolve(out);};requestAnimationFrame(tick);
+    })`);
+    const start=await page.js(`Math.round(document.querySelector('.segmented').getBoundingClientRect().left)`);
+    for(const label of ['일','월','2주','주']){
+      const f=await frames(label);
+      assert.ok(f.every(x=>x.left===start),`${label}: the tabs stay at ${start}px (${[...new Set(f.map(x=>x.left))]})`);
+      assert.ok(f.every(x=>x.filled===0),`${label}: no tab fades its own fill`);
+      const target=await page.js(`(()=>{const b=document.querySelector('.segmented [aria-checked=true]');return b.textContent+':'+Math.round(b.getBoundingClientRect().left);})()`);
+      assert.equal(target.split(':')[0],label);
+      assert.ok(Math.abs(f[f.length-1].thumb-Number(target.split(':')[1]))<=1,`${label}: the thumb lands on the chosen tab`);
+    }
+  }},
   {name:'몰입 opens the focus screen and 작업 화면 returns to the work screen as it was left',run:async page=>{
     await toPlan(page);
     await page.click('.segmented [role=radio]','2주');await page.sleep(300);

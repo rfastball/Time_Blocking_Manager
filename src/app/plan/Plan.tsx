@@ -1,14 +1,18 @@
 import {useRef,type KeyboardEvent} from 'react';
+import {LayoutGroup,motion} from 'motion/react';
 import {weekCapacity,WEEKLY_TARGET,WORK_DAYS} from '../../settings.ts';
 import {formatDuration} from '../../format.ts';
 import {getState,setNav,useApp,type Period} from '../store/state.ts';
 import {usePanelResize} from '../ui/PanelResize.tsx';
+import {reduced} from '../ui/motion.ts';
 import {Week} from './Week.tsx';
 import {Calendar} from './Calendar.tsx';
 import {DayView} from './DayView.tsx';
 import {periodDates} from '../../dates.ts';
 import './plan.css';
 
+// Quick and without overshoot: the thumb lands while the new period is already drawn.
+const THUMB={type:'spring' as const,visualDuration:.18,bounce:0};
 const periods:{id:Period;label:string;key:string}[]=[{id:'day',label:'일',key:'D'},{id:'week',label:'주',key:'W'},{id:'two',label:'2주',key:'2'},{id:'month',label:'월',key:'M'}];
 
 // The calendar half of the work screen; the 준비 dock beside it belongs to the shell.
@@ -36,8 +40,12 @@ export function Periods({value,keys}:{value:Period;keys:boolean}){
     if(to===undefined)return;
     e.preventDefault();const j=(to+n)%n;choose(periods[j].id);refs.current[j]?.focus();
   }
-  return <div className="segmented" role="radiogroup" aria-label="계획 기간">
+  // One thumb slides to the chosen period; the buttons never fade their own fills, so no two look half chosen.
+  return <LayoutGroup id="periods"><div className="segmented" role="radiogroup" aria-label="계획 기간">
     {periods.map((p,i)=><button key={p.id} ref={el=>{refs.current[i]=el;}} type="button" role="radio" aria-checked={value===p.id} tabIndex={value===p.id?0:-1} aria-keyshortcuts={keys?p.key:undefined}
-      onClick={()=>choose(p.id)} onKeyDown={e=>key(e,i)}>{p.label}</button>)}
-  </div>;
+      onClick={()=>choose(p.id)} onKeyDown={e=>key(e,i)}>
+      {value===p.id&&<motion.span layoutId="period-thumb" className="seg-thumb" aria-hidden="true" transition={reduced()?{duration:0}:THUMB}/>}
+      <span className="seg-label">{p.label}</span>
+    </button>)}
+  </div></LayoutGroup>;
 }
