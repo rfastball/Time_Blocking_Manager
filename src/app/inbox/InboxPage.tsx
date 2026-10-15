@@ -12,6 +12,7 @@ import {Icon} from '../ui/icons.tsx';
 import {DoneHere,InboxList,SelectionBar,ShelfList} from './Workbench.tsx';
 import './inbox.css';
 import './workbench.css';
+import {focusLater} from '../ui/focus.ts';
 
 // The archive and 휴지통 disclosures keep the user's choice while they visit other views.
 let archiveOpenMemory=false,trashOpenMemory=false;
@@ -74,7 +75,7 @@ export function Bench(){
 
 // After a row leaves, keep the keyboard in the list: the neighbour's same button, else the disclosure.
 function refocus(next:Trashed|undefined,action:'restore'|'purge'){
-  requestAnimationFrame(()=>(document.querySelector<HTMLElement>(next?`[data-trash="${CSS.escape(next.id)}"] .irow-${action}`:'.inbox-trash>summary')??document.getElementById('inbox-capture'))?.focus());
+  focusLater([next?`[data-trash="${CSS.escape(next.id)}"] .irow-${action}`:'.inbox-trash>summary','#inbox-capture'],{scroll:true});
 }
 
 function TrashRow({item:t,next}:{item:Trashed;next:Trashed|undefined}){
@@ -98,7 +99,7 @@ function ArchiveRow({task:t}:{task:Task}){
 function EmptyTrash({items}:{items:Trashed[]}){
   const [confirming,setConfirming]=useState(false),sure=useRef<HTMLButtonElement>(null),start=useRef<HTMLButtonElement>(null);
   useEffect(()=>{if(confirming)sure.current?.focus();},[confirming]);
-  const cancel=()=>{setConfirming(false);requestAnimationFrame(()=>start.current?.focus());};
+  const cancel=()=>{setConfirming(false);focusLater(()=>start.current,{scroll:true});};
   if(!confirming)return <div className="inbox-trash-foot"><button ref={start} type="button" className="btn text danger" onClick={()=>setConfirming(true)}>휴지통 비우기</button></div>;
   return <motion.div className="inbox-trash-foot" role="group" aria-label="휴지통 비우기 확인" initial={{opacity:0,y:4}} animate={{opacity:1,y:0}} transition={{duration:.14}}
     onKeyDown={e=>{if(e.key==='Escape'){e.preventDefault();e.stopPropagation();cancel();}}}>

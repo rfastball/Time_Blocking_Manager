@@ -13,6 +13,7 @@ import {reduced} from '../ui/motion.ts';
 import {Editor} from './Editor.tsx';
 import {blockButton,editorModeHere} from './actions.ts';
 import './editor.css';
+import {focusLater} from '../ui/focus.ts';
 
 export {ContextMenuHost} from './Menus.tsx';
 
@@ -61,7 +62,7 @@ export function EditorPanel({nextId}:{nextId:string|null}){
 }
 
 // Done or put off from the card, the keyboard stays on the card: the next block's 완료, or the capture field when the day is through.
-const keepOnCard=()=>requestAnimationFrame(()=>(document.querySelector<HTMLElement>('.ed-next .ed-next-done')??document.querySelector<HTMLElement>('#tray-capture'))?.focus({preventScroll:true}));
+const keepOnCard=()=>focusLater(['.ed-next .ed-next-done','#tray-capture']);
 async function doNext(t:Task){if(await completeTasks([t]))keepOnCard();}
 async function later(t:Task){if(await unplan(t))keepOnCard();}
 

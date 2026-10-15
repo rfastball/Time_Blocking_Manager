@@ -9,12 +9,13 @@ import {dateLabel,dateOf,monthDay} from '../../dates.ts';
 import type {Task} from '../../types.ts';
 import {getState,setUi,useApp} from '../store/state.ts';
 import {deleteTask,setGesture} from '../store/tasks.ts';
-import {completeHere,mergeSelected,moveTo,placeOfCard,readingOrder,selectRange,selectedTasks,setLength,setSelection,shiftInPlace,shipDates,shipTo,toggleSelected,undoHere} from '../store/bench.ts';
+import {completeHere,mergeSelected,refocus,moveTo,placeOfCard,readingOrder,selectRange,selectedTasks,setLength,setSelection,shiftInPlace,shipDates,shipTo,toggleSelected,undoHere} from '../store/bench.ts';
 import {menuKeys,clamp} from '../editor/actions.ts';
 import {aimedAt,useDrag,useRegion,type Form} from '../space/drag.tsx';
 import {reflow,reduced} from '../ui/motion.ts';
 import {follow} from '../ui/gesture.ts';
 import {Icon} from '../ui/icons.tsx';
+import {focusLater,taskSelector} from '../ui/focus.ts';
 
 // One hour is 72px, as on 오늘, so a block on the shelf is the size it will be on a day.
 export const SCALE=1.2;
@@ -138,7 +139,7 @@ function Card({task:t,place,past,onOpen}:{task:Task;place:Place;past?:boolean;on
     if(e.altKey&&(e.key==='ArrowRight'||e.key==='ArrowLeft')){
       e.preventDefault();
       const to:Place=e.key==='ArrowRight'?'shelf':'inbox',ids=picked.filter(x=>placeOfCard(x)!==to||x.plan_date).map(x=>x.id);
-      if(ids.length)void moveTo(ids,to,to==='shelf'?Infinity:0).then(ok=>{if(ok)focusCard(t.id);});
+      if(ids.length)void moveTo(ids,to,to==='shelf'?Infinity:0).then(ok=>{if(ok)refocus(t.id);});
       return;
     }
     if(e.key==='Delete'){e.preventDefault();void remove(picked);return;}
@@ -151,7 +152,7 @@ function Card({task:t,place,past,onOpen}:{task:Task;place:Place;past?:boolean;on
     const next=order.slice(at+1).find(id=>!ids.includes(id))??order.slice(0,at).reverse().find(id=>!ids.includes(id));
     setSelection(getState().ui.benchSelection.filter(id=>!ids.includes(id)));
     let ok=true;for(const task of items)ok=await deleteTask(task)&&ok;
-    if(ok)requestAnimationFrame(()=>(next?document.querySelector<HTMLElement>(`.jb [data-task="${CSS.escape(next)}"]`):document.getElementById('inbox-capture'))?.focus({preventScroll:true}));
+    if(ok)focusLater(next?`.jb ${taskSelector(next)}`:'#inbox-capture');
   }
   const cls=['jb-card',sheet?'sheet':'block',past?'past':'',sel?'sel':'',hollow?'hollow':'',ui.landed?.id===t.id?'landed':'',ui.split===t.id?'onboard':'',height<30?'thin':'',height>=48?'tall':''].filter(Boolean).join(' ');
   return <motion.div ref={setNodeRef} data-card={t.id} data-block="true" className={cls} style={{height}} {...listeners} tabIndex={-1} role="presentation"
@@ -172,7 +173,6 @@ function Card({task:t,place,past,onOpen}:{task:Task;place:Place;past?:boolean;on
     {!past&&<div className={'jb-lip'+(sheet?' tab':'')} aria-hidden="true" onPointerDown={pull}/>}
   </motion.div>;
 }
-const focusCard=(id:string)=>requestAnimationFrame(()=>document.querySelector<HTMLElement>(`.jb [data-task="${CSS.escape(id)}"]`)?.focus({preventScroll:false}));
 
 // What the picked cards can do at once. Shipping is always to the end of a day's order.
 // What was completed here this session, newest first; each can go back to where it stood.

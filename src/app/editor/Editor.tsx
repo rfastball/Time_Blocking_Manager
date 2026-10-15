@@ -10,6 +10,7 @@ import {changeEditor,closeEditor,completeFromEditor,editorConflict,rebaseEditor,
 import {release,retry,showError} from '../store/session.ts';
 import {dayRule,deleteTask,issueAt,planOf,taskMinute} from '../store/tasks.ts';
 import {Icon,Lock} from '../ui/icons.tsx';
+import {focusLater} from '../ui/focus.ts';
 
 const SIZES=[15,30,60,90,120];
 type Want='title'|'time'|'date'|'duration'|'confirm'|null;
@@ -81,7 +82,7 @@ export function Editor({mode,closer}:{mode:'panel'|'dialog';closer?:MutableRefOb
     const buttons=[...document.querySelectorAll<HTMLElement>('[data-task]')],at=buttons.findIndex(b=>b.dataset.task===saved.id);
     const next=buttons.slice(at+1).find(b=>b.dataset.task!==saved.id)??buttons.slice(0,at).reverse().find(b=>b.dataset.task!==saved.id);
     setBusy(true);
-    if(await deleteTask(saved))requestAnimationFrame(()=>(next?.isConnected?next:document.querySelector<HTMLElement>('.ed-next-open, .nav-button[aria-current="page"]'))?.focus({preventScroll:true}));
+    if(await deleteTask(saved))focusLater([next,'.ed-next-open, .nav-button[aria-current="page"]']);
     else setBusy(false);
   }
   function keys(ev:ReactKeyboardEvent<HTMLFormElement>){

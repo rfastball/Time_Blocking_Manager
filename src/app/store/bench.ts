@@ -9,6 +9,7 @@ import {announce,dispatch} from './session.ts';
 import {completeTasks,dayRule,land,overdueTasks,planOf,uncomplete} from './tasks.ts';
 import {openEditor} from './editor.ts';
 import {fly} from '../ui/flight.ts';
+import {focusLater,taskSelector} from '../ui/focus.ts';
 
 const snap=()=>getState().snapshot!;
 const revisions=(ids:string[])=>ids.map(id=>({id,revision:snap().tasks.find(t=>t.id===id)!.revision}));
@@ -25,7 +26,7 @@ export const pastWork=()=>overdueTasks().sort((a,b)=>a.plan_date!.localeCompare(
 // Every card in 준비 in screen order: the 들어옴 (undated, then overdue), then the shelf.
 export const readingOrder=()=>[...inbox(),...pastWork(),...shelf()];
 export const placeOfCard=(t:Task):Place=>t.plan_date?'inbox':placeOf(t);
-export const refocus=(id:string)=>requestAnimationFrame(()=>document.querySelector<HTMLElement>(`.jb [data-task="${CSS.escape(id)}"]`)?.focus({preventScroll:false}));
+export const refocus=(id:string)=>focusLater(`.jb ${taskSelector(id)}`,{scroll:true});
 
 // ── 선택 ──
 export const setSelection=(ids:string[])=>setUi({benchSelection:ids});

@@ -13,6 +13,7 @@ import {reduced} from '../ui/motion.ts';
 import {follow} from '../ui/gesture.ts';
 import {Icon} from '../ui/icons.tsx';
 import './cut.css';
+import {focusLater} from '../ui/focus.ts';
 
 // Twice the bench scale; an unsized piece is drawn at a fixed height with no length.
 const BS=2,PROTO_H=36;
@@ -26,7 +27,7 @@ export function CutBoard({mode}:{mode:'inline'|'dialog'}){
   const segs=c.segs,n=segs.length,many=n>1;
   const tops:number[]=[];let y=0;for(const s of segs){tops.push(y);y+=heightOf(s);}
   const total=sizedTotal(segs),open=segs.filter(s=>!s.sized).length,items=checklist(c.body);
-  const focusSeg=useCallback((key:string)=>requestAnimationFrame(()=>document.getElementById('seg-'+key)?.focus()),[]);
+  const focusSeg=useCallback((key:string)=>focusLater('#'+CSS.escape('seg-'+key),{scroll:true}),[]);
   useEffect(()=>{requestAnimationFrame(()=>{const el=document.getElementById('cut-title') as HTMLInputElement|null;el?.focus();if(mode==='inline')root.current?.scrollIntoView({block:'nearest',behavior:reduced()?'instant':'smooth'});});},[]);
   if(!task)return null;
   const set=(next:Seg[],focus?:string)=>{editCut({segs:next});setKnife(null);if(focus)focusSeg(focus);};

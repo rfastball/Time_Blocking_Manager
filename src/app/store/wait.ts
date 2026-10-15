@@ -8,6 +8,7 @@ import {fly} from '../ui/flight.ts';
 import {getState,setNav,setUi} from './state.ts';
 import {announce,dispatch} from './session.ts';
 import {slashDate} from '../../dates.ts';
+import {focusLater,taskSelector} from '../ui/focus.ts';
 
 const snap=()=>getState().snapshot!;
 const find=(id:string)=>snap().tasks.find(t=>t.id===id);
@@ -95,7 +96,7 @@ export async function commitRename(mode:'next'|'stop'|'keep'){
   const r=getState().ui.renaming;if(!r)return;
   const t=find(r.id),v=r.value.trim(),queue=mode==='next'?r.queue.filter(id=>find(id)):[];
   setUi({renaming:queue.length?{id:queue[0],value:find(queue[0])!.title,queue:queue.slice(1)}:null});
-  if(!queue.length)requestAnimationFrame(()=>document.querySelector<HTMLElement>(`[data-card="${CSS.escape(r.id)}"] button.main,button.main[data-task="${CSS.escape(r.id)}"]`)?.focus({preventScroll:true}));
+  if(!queue.length)focusLater(`[data-card="${CSS.escape(r.id)}"] button.main,button.main${taskSelector(r.id)}`);
   if(mode!=='keep'&&t&&v&&v!==t.title)await dispatch({...updateAction(t,t.plan_date,t.starts_at),title:v},{done:()=>announce(`${quoted(v)}(으)로 바꿨어요`)});
 }
 

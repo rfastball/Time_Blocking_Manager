@@ -7,6 +7,7 @@ import {getState,setDrafts,setUi,type CutDraft} from './state.ts';
 import {announce,dispatch,draftChanged,persistDraft,queue,showError} from './session.ts';
 import {closeEditor,openEditor} from './editor.ts';
 import {flowOrderOn,taskMinute} from './tasks.ts';
+import {focusLater,taskSelector} from '../ui/focus.ts';
 
 const snap=()=>getState().snapshot!;
 // The block the board was opened from: the same task can stand in the week and in 준비 at once (지난 미완료).
@@ -31,7 +32,7 @@ export function editCut(patch:Partial<CutDraft>){
 }
 const refocus=(id:string)=>{
   const from=origin;origin=null;
-  requestAnimationFrame(()=>(from?.isConnected&&from.dataset.task===id?from:document.querySelector<HTMLElement>(`[data-task="${CSS.escape(id)}"]`))?.focus({preventScroll:true}));
+  focusLater([()=>from?.dataset.task===id?from:null,taskSelector(id)]);
 };
 function close(id:string){setDrafts({cut:null});setUi({split:null});void persistDraft();refocus(id);}
 export function cancelCut(){const c=getState().drafts.cut;if(c)close(c.taskId);else setUi({split:null});}

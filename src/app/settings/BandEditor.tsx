@@ -9,6 +9,7 @@ import type {WorkingDay} from '../../types.ts';
 import {setGesture} from '../store/tasks.ts';
 import {settle} from '../ui/motion.ts';
 import {follow as followPointer} from '../ui/gesture.ts';
+import {focusLater} from '../ui/focus.ts';
 
 export type Selection={day:number;target:AvailabilityTarget};
 type Props={
@@ -37,7 +38,7 @@ export function BandEditor({days,names,short=names,compact=false,initial=null,au
   const axis=gestureAxis??baseAxis;
   const selected=exists(days,chosen)?chosen:compact&&days[0]?.enabled?{day:0,target:'work' as AvailabilityTarget}:null;
 
-  const focusLater=(selector:string)=>requestAnimationFrame(()=>root.current?.querySelector<HTMLElement>(selector)?.focus({preventScroll:true}));
+  const focusIn=(selector:string)=>focusLater(selector,{root:root.current});
   const bandSelector=(s:Selection)=>`[data-select="${s.day}:${s.target}"]`;
   function apply(i:number,change:(d:WorkingDay)=>WorkingDay,select?:Selection|null,focus?:string){
     try{const next=change(days[i]);onError('');onChange(i,next);if(select!==undefined)setSelected(select);if(focus)focusLater(focus);}
@@ -77,9 +78,9 @@ export function BandEditor({days,names,short=names,compact=false,initial=null,au
     const cleanup=()=>{gestureLive.current=false;setGesture(false);setPreview(null);setGestureAxis(null);};
     const finish=(_:PointerEvent,moved:boolean)=>{
       cleanup();
-      if(!moved){if(band!==null){setSelected({day:i,target:band});if(edgeEl)edgeEl.focus({preventScroll:true});else focusLater(bandSelector({day:i,target:band}));}return;}
+      if(!moved){if(band!==null){setSelected({day:i,target:band});if(edgeEl)edgeEl.focus({preventScroll:true});else focusIn(bandSelector({day:i,target:band}));}return;}
       swallowClick();
-      if(result){onChange(i,result.day);setSelected({day:i,target:result.target});focusLater(bandSelector({day:i,target:result.target}));}
+      if(result){onChange(i,result.day);setSelected({day:i,target:result.target});focusIn(bandSelector({day:i,target:result.target}));}
       else setSelected(before);
     };
     const cancel=()=>{cleanup();setSelected(before);onError('');};
@@ -223,7 +224,7 @@ type MenuProps={menu:Menu;day:WorkingDay;name:string;root:RefObject<HTMLDivEleme
   onAdjust:()=>void;onShift:(delta:number)=>void;onAdd:()=>void;onDelete:()=>void;onToggle:()=>void};
 function BandMenu({menu,day,name,root,onClose,onAdjust,onShift,onAdd,onDelete,onToggle}:MenuProps){
   const ref=useRef<HTMLDivElement>(null),[pos,setPos]=useState({left:menu.x,top:menu.y});
-  const back=()=>{onClose();requestAnimationFrame(()=>root.current?.querySelector<HTMLElement>(day.enabled?`[data-select="${menu.day}:${menu.target}"]`:`[data-toggle="${menu.day}"]`)?.focus({preventScroll:true}));};
+  const back=()=>{onClose();focusLater(day.enabled?`[data-select="${menu.day}:${menu.target}"]`:`[data-toggle="${menu.day}"]`,{root:root.current});};
   useLayoutEffect(()=>{const r=ref.current!.getBoundingClientRect();setPos({left:Math.max(8,Math.min(menu.x,innerWidth-r.width-8)),top:Math.max(8,Math.min(menu.y,innerHeight-r.height-8))});ref.current!.querySelector<HTMLElement>('button')?.focus();},[menu]);
   useEffect(()=>{const down=(e:PointerEvent)=>{if(!ref.current?.contains(e.target as Node))onClose();};document.addEventListener('pointerdown',down,true);return ()=>document.removeEventListener('pointerdown',down,true);},[]);
   const run=(f:()=>void)=>()=>{onClose();f();};

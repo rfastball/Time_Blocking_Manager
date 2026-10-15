@@ -4,6 +4,7 @@ import type {Routine} from '../../types.ts';
 import {useApp} from '../store/state.ts';
 import {cancelRoutineDraft,deleteRoutine,editRoutineDraft,saveRoutine,startRoutineEdit} from '../store/schedule.ts';
 import {Icon} from '../ui/icons.tsx';
+import {focusLater} from '../ui/focus.ts';
 
 const dayNames=['월','화','수','목','금','토','일'];
 const blank={title:'',body:'',weekdays:[0,1,2,3,4],start:'09:00',duration:'30'};
@@ -16,7 +17,7 @@ export function Routines(){
   const edit=(patch:Partial<typeof blank>)=>{setError('');editRoutineDraft(patch);};
   function open(r:Routine){
     const issue=startRoutineEdit(r);setError(issue??'');
-    if(!issue)requestAnimationFrame(()=>document.querySelector<HTMLInputElement>('#routine-title')?.focus());
+    if(!issue)focusLater('#routine-title',{scroll:true});
   }
   return <section className="st-routines" aria-labelledby="routines-heading">
     <h2 id="routines-heading">정기 업무</h2>

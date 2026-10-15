@@ -20,6 +20,7 @@ import {SearchHost,openSearch} from '../search/Search.tsx';
 import {openCut} from '../store/cut.ts';
 import {BackupManager} from '../backups/BackupManager.tsx';
 import './shell.css';
+import {focusLater} from '../ui/focus.ts';
 
 export function Shell(){
   const s=useApp(),{nav,ready,snapshot,quitSaving,ui,drafts}=s;
@@ -46,7 +47,7 @@ export function Shell(){
               so returning leaves the keyboard on the gear rather than on 몰입. */}
           {work?<button key="screen" type="button" className="btn primary to-screen" aria-keyshortcuts={s.singleKeys?'F':undefined} onClick={toFocus}><Icon name="focus" size={16}/>몰입</button>
             :focus?<button key="screen" type="button" className="btn to-screen" aria-keyshortcuts={s.singleKeys?'F Escape':'Escape'} onClick={toWork}>작업 화면</button>
-            :<button key="back" type="button" className="btn to-screen" aria-keyshortcuts="Escape" onClick={()=>{toWork();requestAnimationFrame(()=>document.querySelector<HTMLElement>('header.topbar [aria-label="설정"]')?.focus({preventScroll:true}));}}>작업 화면</button>}
+            :<button key="back" type="button" className="btn to-screen" aria-keyshortcuts="Escape" onClick={()=>{toWork();focusLater('header.topbar [aria-label="설정"]');}}>작업 화면</button>}
           {(work||focus)&&<div className="date-nav">
             <button type="button" className="ibtn" aria-label={'이전 '+unit} onClick={()=>step(-1)}><Icon name="left"/></button>
             <button type="button" className="ibtn" aria-label={'다음 '+unit} onClick={()=>step(1)}><Icon name="right"/></button>
