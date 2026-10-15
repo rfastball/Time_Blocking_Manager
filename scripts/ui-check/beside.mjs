@@ -7,6 +7,12 @@ const overlaps=(a,b)=>a.x<b.x+b.w&&b.x<a.x+a.w&&a.y<b.y+b.h&&b.y<a.y+a.h;
 // The element holding the keyboard, as the selector it matches and its task.
 const focused=(page,selector)=>page.js(`(()=>{const a=document.activeElement;return a?.matches(${JSON.stringify(selector)})?a.closest('[data-task]')?.dataset.task??'':null;})()`);
 const taskOf=(page,selector)=>page.js(`document.querySelector(${JSON.stringify(selector)}).closest('[data-task]')?.dataset.task??''`);
+// The week block in sight with the most room beside it (16px edge, 12px gap): which block that is depends on the weekday,
+// since the sample day and its 지난 미완료 two days back move across the week's columns.
+const roomiest=page=>page.js(`(()=>{const s=document.querySelector('.wk-scroll').getBoundingClientRect();
+  return [...document.querySelectorAll('.wk-col .blk .main')].map(m=>{const r=m.closest('[data-block]').getBoundingClientRect(),c=m.getBoundingClientRect();
+    return {x:r.left,y:r.top,w:r.width,h:r.height,cx:c.left+c.width/2,cy:c.top+c.height/2,room:Math.max(innerWidth-28-r.right,r.left-28)};})
+  .filter(b=>b.cx>s.left&&b.cx<s.right).sort((a,b)=>b.room-a.room)[0]??null;})()`);
 
 export default [
   {name:'a block on the week opens its editor beside it, leaving the block in sight and the calendar where it was',run:async page=>{
@@ -47,10 +53,12 @@ export default [
     assert.ok(short.y+short.h<=720-16+1,'inside a short window');
     assert.equal(await page.js(`(()=>{const b=document.querySelector('dialog.ed-dialog[open] .ed-body');return b.scrollHeight>b.clientHeight+1&&document.querySelector('dialog.ed-dialog[open]').getBoundingClientRect().top>17;})()`),false,'it rises before its body has to scroll');
     await page.key('Escape');await page.sleep(300);
+    // Folded, the dock leaves the calendar the window, so some block has room beside it whatever the weekday.
     for(const width of [1024,761]){
-      await page.goto('/?now=10:20',{width,height:900});await ready(page);await toPlan(page);
-      const b=await page.rect('.wk-col .blk .main');
-      await page.click('.wk-col .blk .main');await page.sleep(400);
+      await page.goto('/?now=10:20',{width,height:900});await ready(page);await setDock(page,'hidden');
+      const b=await roomiest(page);
+      assert.ok(b&&b.room>=420,`a block with room beside it at ${width}px`);
+      await page.mouse('mouseMoved',b.cx,b.cy,0);await page.mouse('mousePressed',b.cx,b.cy);await page.mouse('mouseReleased',b.cx,b.cy,0);await page.sleep(400);
       const d=await dialog(page),beside=await page.js(`document.querySelector('dialog.ed-dialog[open]').classList.contains('beside')`);
       assert.ok(beside,`beside, narrowed, at ${width}px`);
       assert.equal(overlaps(d,b),false,`the block stays visible at ${width}px`);
