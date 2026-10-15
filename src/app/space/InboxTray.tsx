@@ -6,7 +6,7 @@ import {formatDuration} from '../../format.ts';
 import {dateLabel} from '../../dates.ts';
 import type {Task} from '../../types.ts';
 import {useApp} from '../store/state.ts';
-import {closeComposer,editCapture,submitCapture} from '../store/tasks.ts';
+import {closeComposer,editCapture,submitCapture} from '../store/compose.ts';
 import {settle} from '../ui/motion.ts';
 import {Dots} from '../ui/icons.tsx';
 import {aimedAt,useDrag,useRegion} from './drag.tsx';

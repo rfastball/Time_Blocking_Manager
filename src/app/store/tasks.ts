@@ -1,18 +1,16 @@
-import {invoke} from '@tauri-apps/api/core';
 import {dayPlan} from '../../today.ts';
 import {effectiveDay} from '../../settings.ts';
 import {byFlowOrder,moveInOrder} from '../../flow.ts';
 import {placementIssue} from '../../placement.ts';
-import {time,startAt,startMinute,periodDates,dateLabel} from '../../dates.ts';
+import {time,startAt,startMinute,dateLabel} from '../../dates.ts';
 import {formatDuration,quotedObject} from '../../format.ts';
 import {carried,intentAction,updateAction,type Intent} from '../../intent.ts';
 import {onBench,waiting} from '../../bench.ts';
-import {createCommand} from '../../capture.ts';
-import type {Action,Task,Trashed,WorkingDay} from '../../types.ts';
-import {getState,openDrafts,setDrafts,setState,setUi} from './state.ts';
+import type {Task,Trashed,WorkingDay} from '../../types.ts';
+import {getState,setDrafts,setState,setUi} from './state.ts';
 import {fly} from '../ui/flight.ts';
 import {pushOut,revive,revived} from './wait.ts';
-import {acknowledgeCapture,afterIdle,announce,dispatch,draftChanged,persistDraft,queue,showError,stamp} from './session.ts';
+import {announce,dispatch,persistDraft,showError,stamp} from './session.ts';
 
 const snap=()=>getState().snapshot!;
 const find=(id:string)=>snap().tasks.find(t=>t.id===id);
@@ -120,81 +118,5 @@ export function purgeTrashed(items:Trashed[]){
   return dispatch({type:'purge_trashed',ids:items.map(t=>t.id)},{done:()=>announce(items.length>1?'휴지통을 비웠어요':`${quotedObject(items[0].title)} 영구 삭제했어요`)});
 }
 
-// ── 담기·새 블록 ──
-// Capture text is one draft shared by the 준비 input, the capture window and the timetable composer.
-export function editCapture(text:string){setDrafts({capture:text});draftChanged();}
-export async function submitCapture(){
-  const s=getState();
-  if(!s.drafts.captureCommand&&!s.drafts.capture.trim()||!s.ready||!s.draftLoaded||queue.failed)return false;
-  const title=s.drafts.capture.trim();
-  let command=s.drafts.captureCommand;
-  command??=createCommand({type:'create',id:crypto.randomUUID(),title},snap().epoch);
-  setDrafts({captureCommand:command,...(!s.drafts.captureCommand?{composer:null}:{})});await persistDraft();
-  if(queue.failed)return false;
-  const sent=command;
-  return dispatch(sent.action,{command:sent,done:()=>{
-    if(!acknowledgeCapture(sent)){announce('이전 항목을 저장했습니다. 새 입력은 유지했습니다.');return;}
-    announce('저장했어요.');
-    if(s.captureWindow&&s.native)void queue.add(async()=>{await invoke('hide_capture');});
-  }});
-}
-// A new block is a date assignment unless the user keeps the time fixed.
-export function composerAction(date:string,start:number,duration:number,fixed:boolean,title:string):Action{
-  return fixed?{type:'create_scheduled',id:crypto.randomUUID(),title,starts_at:startAt(date,start),duration}:{type:'create_flow',id:crypto.randomUUID(),title,date,duration};
-}
-export function openComposer(date:string,start:number,duration=30,fixed=false){
-  const s=getState();if(!s.ready)return false;
-  if(s.drafts.editorDirty){setUi({editorMode:'dialog'});return false;}
-  if(fixed){const issue=issueAt('',date,start,duration);if(issue){showError(Error(issue.label));return false;}}
-  setDrafts({composer:{date,start,duration,fixed}});return true;
-}
-export function setComposerFixed(fixed:boolean){const c=getState().drafts.composer;if(c){setDrafts({composer:{...c,fixed}});draftChanged();}}
-export function closeComposer(){setDrafts({composer:null});void persistDraft();}
-export async function submitComposer(){
-  const s=getState(),c=s.drafts.composer,title=s.drafts.capture.trim();
-  if(!c||!title&&!s.drafts.captureCommand||queue.busy||queue.failed)return false;
-  const fixed=c.fixed??false;
-  if(!s.drafts.captureCommand&&fixed){const issue=issueAt('',c.date,c.start,c.duration);if(issue){showError(Error(issue.label+'. 다른 시간을 선택하세요.'));return false;}}
-  let command=s.drafts.captureCommand;
-  command??=createCommand(composerAction(c.date,c.start,c.duration,fixed,title),snap().epoch);
-  setDrafts({captureCommand:command});await persistDraft();
-  if(queue.failed)return false;
-  const sent=command,a=sent.action,id=a.type==='create_flow'||a.type==='create_scheduled'?a.id:null;
-  return dispatch(a,{command:sent,done:()=>{acknowledgeCapture(sent);if(id)reveal(id,a.type==='create_scheduled');}});
-}
-// A new block can land far from where it was asked for (the end of a full day): bring it into view, then let it settle.
-function reveal(id:string,clack:boolean){
-  let frames=0;
-  const look=()=>{
-    const el=document.querySelector<HTMLElement>(`[data-task="${CSS.escape(id)}"]`);
-    if(!el){if(++frames<12)requestAnimationFrame(look);return;}
-    // The block, not its button: the tile clips and would scroll itself.
-    (el.closest<HTMLElement>('[data-block]')??el).scrollIntoView({block:'nearest',behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});
-    land(id,clack);
-  };
-  requestAnimationFrame(look);
-}
-
-// ── 정기 업무 생성 ──
-const routineRanges=new Set<string>();let routinePending=false;
-// Generates routine blocks for the visible days once per range and settings revision.
-export async function ensureVisibleRoutines(){
-  const s=getState(),d=s.drafts;
-  if(!s.ready||!s.draftLoaded||s.captureWindow||s.quitSaving||routinePending||queue.busy||queue.failed||openDrafts(d)||s.gesture||!s.snapshot?.settings.routines?.length||!['today','plan'].includes(s.nav.view))return;
-  let [from,to]=visibleRange();
-  from=from<s.today?s.today:from;if(from>to)return;
-  const key=[s.snapshot.epoch,s.snapshot.settings.revision,from,to].join(':');if(routineRanges.has(key))return;
-  routinePending=true;
-  const existing=new Set(s.snapshot.tasks.map(t=>t.id));
-  try{await dispatch({type:'ensure_routines',from,to},{done:()=>{routineRanges.add(key);const moved=snap().tasks.filter(t=>!existing.has(t.id)&&!t.starts_at);if(moved.length)announce(`시각이 겹치거나 근무 외인 정기 업무 ${moved.length}건은 시각 고정 없이 그날 순서에 넣었습니다.`);}});}
-  finally{routinePending=false;void ensureVisibleRoutines();}
-}
-afterIdle.add(()=>void ensureVisibleRoutines());
-export function visibleRange():[string,string]{
-  const {view,selected,planAnchor,period}=getState().nav;
-  if(view!=='plan')return [selected,selected];
-  const dates=periodDates(period,planAnchor);
-  return [dates[0],dates[dates.length-1]];
-}
 export const setGesture=(gesture:boolean)=>setState({gesture});
 export {find as findTask};

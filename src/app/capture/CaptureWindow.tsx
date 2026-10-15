@@ -2,7 +2,7 @@ import {useEffect,useRef,useState} from 'react';
 import {captureEnterAction,needsSavedReview} from '../../capture.ts';
 import {useApp} from '../store/state.ts';
 import {discardStoredDraft,releaseFailure,reload,retry,queue} from '../store/session.ts';
-import {editCapture,submitCapture} from '../store/tasks.ts';
+import {editCapture,submitCapture} from '../store/compose.ts';
 import {hideCapture} from '../store/lifecycle.ts';
 import {Logo} from '../ui/icons.tsx';
 import './capture.css';

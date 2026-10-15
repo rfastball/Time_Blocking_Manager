@@ -6,7 +6,8 @@ import {getState,openDrafts,setDrafts,setState} from './state.ts';
 import {flushDraftTimer,loadStoredDraft,persistDraft,previewSnapshot,queue,refreshAppInfo,reload,requestRefresh,showError,storedDraft,tick,unsaved,dispatch} from './session.ts';
 import {saveEditor} from './editor.ts';
 import {commitCut} from './cut.ts';
-import {submitCapture,submitComposer,ensureVisibleRoutines} from './tasks.ts';
+import {submitCapture,submitComposer} from './compose.ts';
+import {ensureVisibleRoutines} from './routines.ts';
 import {WEEKLY_TARGET,WORK_DAYS} from '../../settings.ts';
 
 export function syncTheme(){

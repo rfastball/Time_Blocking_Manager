@@ -5,7 +5,8 @@ import type {Task} from '../../types.ts';
 import {setUi,useApp,type Ui} from '../store/state.ts';
 import {openEditor} from '../store/editor.ts';
 import {openAvailability} from '../store/schedule.ts';
-import {deleteTask,openComposer,toggleComplete,unfix,unplan} from '../store/tasks.ts';
+import {deleteTask,toggleComplete,unfix,unplan} from '../store/tasks.ts';
+import {openComposer} from '../store/compose.ts';
 import {completeHere,moveTo,placeOfCard,shipTo} from '../store/bench.ts';
 
 // 준비 shows undated work and overdue work; both are still being placed there.

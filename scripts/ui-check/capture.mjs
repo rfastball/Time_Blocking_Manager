@@ -71,8 +71,8 @@ const scenarios=[
       const saved=await page.js(`(async()=>{const {getState}=await __mod('/src/app/store/state.ts');const tasks=getState().snapshot.tasks;return {count:tasks.length,task:tasks.find(t=>t.title==='만료 캡처 exactly 30 days old')};})()`);
       assert.equal(saved.count,JSON.parse(before).tasks.length+1,'fresh Enter saves once');
       assert.ok(saved.task&&saved.task.id!=='expired-capture-1','a deliberately renewed save gets a new identity');
-      const oldReceipt=await page.js(`(async()=>{const [{getState,setDrafts},{createCommand},{submitCapture}]=await Promise.all([__mod('/src/app/store/state.ts'),__mod('/src/capture.ts'),__mod('/src/app/store/tasks.ts')]);const command=createCommand({type:'create',id:'known-retry',title:'이미 저장한 입력'},getState().snapshot.epoch);setDrafts({capture:command.action.title,captureCommand:command});await submitCapture();return command;})()`);
-      await page.js(`(async()=>{const [{setDrafts},{editCapture}]=await Promise.all([__mod('/src/app/store/state.ts'),__mod('/src/app/store/tasks.ts')]);setDrafts({capture:'이미 저장한 입력',captureCommand:${JSON.stringify(oldReceipt)}});editCapture('새로운 입력');})()`);
+      const oldReceipt=await page.js(`(async()=>{const [{getState,setDrafts},{createCommand},{submitCapture}]=await Promise.all([__mod('/src/app/store/state.ts'),__mod('/src/capture.ts'),__mod('/src/app/store/compose.ts')]);const command=createCommand({type:'create',id:'known-retry',title:'이미 저장한 입력'},getState().snapshot.epoch);setDrafts({capture:command.action.title,captureCommand:command});await submitCapture();return command;})()`);
+      await page.js(`(async()=>{const [{setDrafts},{editCapture}]=await Promise.all([__mod('/src/app/store/state.ts'),__mod('/src/app/store/compose.ts')]);setDrafts({capture:'이미 저장한 입력',captureCommand:${JSON.stringify(oldReceipt)}});editCapture('새로운 입력');})()`);
       await page.click('#capture');await page.key('Enter');await page.sleep(200);
       assert.equal(await value(page),'새로운 입력','receipt completion keeps changed input');
       assert.deepEqual(await page.js(`(async()=>{const {getState}=await __mod('/src/app/store/state.ts');const s=getState();return {pending:s.drafts.captureCommand,count:s.snapshot.tasks.filter(t=>t.id==='known-retry').length};})()`),{pending:null,count:1},'a recorded capture retry acknowledges once without creating another task');
@@ -81,7 +81,7 @@ const scenarios=[
       await page.click('#capture');await page.key('Enter');await page.sleep(150);
       assert.equal(await saveDisabled(page),true,'completion releases an empty pending draft');
       const blocked=await page.js(`(async()=>{
-        const [{getState,setDrafts,setState},{queue},{submitCapture},{previewMutation}]=await Promise.all([__mod('/src/app/store/state.ts'),__mod('/src/app/store/session.ts'),__mod('/src/app/store/tasks.ts'),__mod('/src/preview.ts')]);
+        const [{getState,setDrafts,setState},{queue},{submitCapture},{previewMutation}]=await Promise.all([__mod('/src/app/store/state.ts'),__mod('/src/app/store/session.ts'),__mod('/src/app/store/compose.ts'),__mod('/src/preview.ts')]);
         window.saveRecoveryPreviousIPC=window.__TAURI_INTERNALS__;
         const mock=window.saveRecoveryMock={snapshot:structuredClone(getState().snapshot),draft:[0,''],receipts:new Set(),accepted:null,mutations:0,lookups:0,failDraft:true,loseResponse:true,failLookup:false};
         window.__TAURI_INTERNALS__={invoke:async(cmd,args)=>{
@@ -101,7 +101,7 @@ const scenarios=[
         const saved=await submitCapture();return {saved,mutations:mock.mutations,pending:getState().drafts.captureCommand?.request_id,failed:queue.failed.code};
       })()`);
       assert.equal(blocked.saved,false);assert.equal(blocked.mutations,0,'draft persistence failure prevents mutation transmission');assert.equal(blocked.failed,'storage');assert.ok(blocked.pending);
-      const lost=await page.js(`(async()=>{const [{getState},{queue,retry},{submitCapture}]=await Promise.all([__mod('/src/app/store/state.ts'),__mod('/src/app/store/session.ts'),__mod('/src/app/store/tasks.ts')]);window.saveRecoveryMock.failDraft=false;await retry();await queue.whenIdle();await submitCapture();return {mutations:window.saveRecoveryMock.mutations,pending:getState().drafts.captureCommand?.request_id,failed:queue.failed.code};})()`);
+      const lost=await page.js(`(async()=>{const [{getState},{queue,retry},{submitCapture}]=await Promise.all([__mod('/src/app/store/state.ts'),__mod('/src/app/store/session.ts'),__mod('/src/app/store/compose.ts')]);window.saveRecoveryMock.failDraft=false;await retry();await queue.whenIdle();await submitCapture();return {mutations:window.saveRecoveryMock.mutations,pending:getState().drafts.captureCommand?.request_id,failed:queue.failed.code};})()`);
       assert.deepEqual(lost,{mutations:1,pending:blocked.pending,failed:'storage'},'retrying persistence keeps the same request before uncertain completion');
       const restored=await page.js(`(async()=>{
         const [{getState,setDrafts,setState},{queue,storedDraft,reload}]=await Promise.all([__mod('/src/app/store/state.ts'),__mod('/src/app/store/session.ts')]);
