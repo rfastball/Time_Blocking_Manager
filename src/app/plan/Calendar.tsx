@@ -11,7 +11,7 @@ import {DaySpace} from '../space/DaySpace.tsx';
 import {aimedAt,useDaysAxis,useDrag,useRegion,type Form} from '../space/drag.tsx';
 import {useNewBlock} from './Composer.tsx';
 import {openDay} from './Week.tsx';
-import {allocation,allocationLabel,allocationShort,dayTag,hours,Meter,Outside} from './day.tsx';
+import {allocation,allocationLabel,allocationShort,dayTag,hours,Meter,Outside} from './load.tsx';
 import {SCALE} from '../ui/scales.ts';
 
 const weekdays=['월','화','수','목','금','토','일'];

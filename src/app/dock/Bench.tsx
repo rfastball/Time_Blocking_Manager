@@ -11,7 +11,7 @@ import {setSelection} from '../store/bench.ts';
 import {settle} from '../ui/motion.ts';
 import {Icon} from '../ui/icons.tsx';
 import {DoneHere,InboxList,SelectionBar,ShelfList} from './Workbench.tsx';
-import './inbox.css';
+import './bench.css';
 import './workbench.css';
 import {focusLater} from '../ui/focus.ts';
 

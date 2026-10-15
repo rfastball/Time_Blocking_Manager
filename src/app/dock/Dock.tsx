@@ -2,9 +2,9 @@ import {setNav,useApp,type Dock as DockWidth} from '../store/state.ts';
 import {benchTasks,overdueTasks} from '../store/tasks.ts';
 import {openEditor} from '../store/editor.ts';
 import {Icon} from '../ui/icons.tsx';
-import {InboxTray} from '../space/InboxTray.tsx';
+import {InboxTray} from './InboxTray.tsx';
 import {SCALE} from '../ui/scales.ts';
-import {Bench} from '../inbox/InboxPage.tsx';
+import {Bench} from './Bench.tsx';
 import './dock.css';
 
 // Changing the width swaps what the dock draws. If the keyboard was in the dock and its element went with the old width,

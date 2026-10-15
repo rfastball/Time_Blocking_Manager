@@ -10,7 +10,7 @@ import {DaySpace} from '../space/DaySpace.tsx';
 import {aimedAt,useDaysAxis,useDrag,useRegion} from '../space/drag.tsx';
 import {COLUMN_GEOMETRY} from '../../drag-zone.ts';
 import {useNewBlock} from './Composer.tsx';
-import {allocation,allocationLabel,allocationShort,dayTag,Meter,Outside} from './day.tsx';
+import {allocation,allocationLabel,allocationShort,dayTag,Meter,Outside} from './load.tsx';
 import {SCALE} from '../ui/scales.ts';
 import {axisHours} from '../../time-axis.ts';
 

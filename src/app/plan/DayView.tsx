@@ -7,7 +7,7 @@ import {DaySpace} from '../space/DaySpace.tsx';
 import {useDaysAxis,useDrag} from '../space/drag.tsx';
 import {useNewBlock} from './Composer.tsx';
 import {Head} from './Week.tsx';
-import {allocation,allocationLabel,allocationShort,dayTag,Meter,Outside} from './day.tsx';
+import {allocation,allocationLabel,allocationShort,dayTag,Meter,Outside} from './load.tsx';
 import {SCALE} from '../ui/scales.ts';
 
 

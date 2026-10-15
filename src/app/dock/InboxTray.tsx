@@ -9,7 +9,7 @@ import {useApp} from '../store/state.ts';
 import {closeComposer,editCapture,submitCapture} from '../store/compose.ts';
 import {settle} from '../ui/motion.ts';
 import {Dots} from '../ui/icons.tsx';
-import {aimedAt,useDrag,useRegion} from './drag.tsx';
+import {aimedAt,useDrag,useRegion} from '../space/drag.tsx';
 import {benchOrder} from '../../bench.ts';
 
 // 준비 work drawn at the same scale as the timetable, so its size reads against free space.
