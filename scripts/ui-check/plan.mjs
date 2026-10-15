@@ -88,6 +88,29 @@ export default [
     await page.mouse('mouseReleased',rail.cx,y,0);await page.sleep(700);
     assert.match((await page.blocks('.dv-day .space')).find(b=>b.startsWith('SQLite')),/시각 고정/);
   }},
+  {name:'a block coming in over the rail passes it; only the order can push it in',run:async page=>{
+    await toPlan(page);await page.click('.segmented [role=radio]','일');await page.sleep(400);
+    const source=await page.rect('#dock .tblk','SQLite'),rail=await page.rect('.dv-day .rail');
+    const y=(await page.rect('.dv-day .ruler span','16')).cy+8;
+    const during=await page.drag({x:source.cx,y:source.cy},{x:rail.cx,y},{hold:450,before:()=>page.js(`({fixed:!!document.querySelector('.held.fixed'),latched:!!document.querySelector('.dv-day .space.latched'),armed:!!document.querySelector('.dv-day .space.armed')})`)});
+    assert.deepEqual(during,{fixed:false,latched:false,armed:false},'resting on the rail it came in over, the block stays in the order');
+    assert.match((await page.blocks('.dv-day .space')).find(b=>b.startsWith('SQLite')),/예상/,'dropped there, it joins the order');
+  }},
+  {name:'a fixed block carried to the next day lets go until pushed into that rail again',run:async page=>{
+    await toPlan(page);
+    const {dates,today}=await days(page),i=dates.indexOf(today),y14=await hourY(page,14);
+    let from=today,to=dates[i+1];
+    if(!to){
+      // Today ends the week: latch the workshop on the day before first, coming from its order.
+      from=dates[i-1];to=today;const w=await block(page,today,'설계 워크숍'),rail=await page.rect(`${sp(from)} .rail`);
+      await page.drag({x:w.x+40,y:w.y+6},{x:rail.cx,y:y14+6});
+      assert.ok((await page.blocks(sp(from))).includes('설계 워크숍, 시각 고정 14:00–15:00'));
+    }
+    const w=await block(page,from,'설계 워크숍'),rail=await page.rect(`${sp(to)} .rail`);
+    const during=await page.drag({x:w.x+40,y:w.y+6},{x:rail.cx,y:y14+6},{hold:400,before:()=>page.js(`!!document.querySelector('${sp(to)}.latched')`)});
+    assert.equal(during,false,"the next day's rail does not take it on the way in");
+    assert.match((await page.blocks(sp(to))).find(b=>b.startsWith('설계 워크숍')),/예상/,"it joins that day's order");
+  }},
   {name:'working lips yield to deliberate rail drags and only unavailable slices are hatched',run:async page=>{
     await toPlan(page);
     const {today}=await days(page),scope=sp(today),workshop=await block(page,today,'설계 워크숍');

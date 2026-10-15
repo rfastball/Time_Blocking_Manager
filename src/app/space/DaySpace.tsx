@@ -97,7 +97,7 @@ export function DaySpace({date,axis,variant,bin,selected,multi=[],onOpen,onMulti
   return <div className={'dayspace '+variant}>
     {bin&&<Bin tasks={plan.completed} onOpen={onOpen}/>}
     <div className="space-wrap">
-    <div ref={spaceRef} data-surface="true" className={'space'+(holding?' armed':'')+(!holding?.passing&&holding?.intent.zone==='rail'&&holding.intent.date===date?' latched':'')} style={{height:axis.height}} onPointerDown={background}
+    <div ref={spaceRef} data-surface="true" className={'space'+(holding?.ready===date?' armed':'')+(!holding?.passing&&holding?.intent.zone==='rail'&&holding.intent.date===date?' latched':'')} style={{height:axis.height}} onPointerDown={background}
       onContextMenu={e=>{if(e.target!==e.currentTarget)return;e.preventDefault();const r=e.currentTarget.getBoundingClientRect();menu(e,null,Math.round(axis.minute(e.clientY-r.top)/15)*15);}}>
       <Ground axis={axis} rule={rule} geometry={geometry} date={date}/>
       <motion.div className="shutter" aria-hidden="true" style={{left:geometry.railLeft+1,width:geometry.railWidth-2,top:axis.position(rule.start),visibility:anchor>rule.start?'visible':'hidden'}}

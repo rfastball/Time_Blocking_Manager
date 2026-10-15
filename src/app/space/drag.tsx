@@ -42,7 +42,8 @@ type Slot={start:number;end:number;over:boolean};
 // `ids`: every block carried (a selection), in order.
 // `passing`: the hand is crossing a place it has not come to rest on; the copy keeps the shape and `look` (the zone it was
 // last shaped by) of the place before, and that place's preview stays, while `intent` already says where a release would land.
-export type Held={task:Task;ids:string[];intent:Intent;slot:Slot|null;column:boolean;density?:Density;boundary?:boolean;axis?:TimeAxis;startRect:{left:number;top:number;width:number;height:number};grabX:number;grabY:number;width:number;height:number;dropping?:boolean;passing?:boolean;look?:Intent['zone']};
+// `ready`: the day whose rail the block can be pushed into now (it has come into that day's order).
+export type Held={task:Task;ids:string[];intent:Intent;ready?:string|null;slot:Slot|null;column:boolean;density?:Density;boundary?:boolean;axis?:TimeAxis;startRect:{left:number;top:number;width:number;height:number};grabX:number;grabY:number;width:number;height:number;dropping?:boolean;passing?:boolean;look?:Intent['zone']};
 // `pushed`: blocks the shown change would newly put past working time.
 type Ctx={held:Held|null;pending:Intent|null;tasks:Task[];pushed:string[];register:(r:Region)=>()=>void};
 const DragCtx=createContext<Ctx>({held:null,pending:null,tasks:[],pushed:[],register:()=>()=>{}});
@@ -91,6 +92,8 @@ export function DragProvider({children}:{children:ReactNode}){
   const pointer=useRef<{x:number;y:number}|null>(null);
   // The place the copy is shaped by (`at`, a region key or 'none'), and the one the hand has been crossing toward since `since`.
   const passage=useRef<{at?:string;to?:string;since:number}>({since:0});
+  // The day whose order the held block has come into since it last left that day; only that day's rail can take it.
+  const entered=useRef<string|null>(null);
   const watching=useRef(0);
   useEffect(()=>()=>{const dropped=landing.current;if(dropped)void saveLanding(dropped);landing.current=null;snap.current=null;cancelAnimationFrame(watching.current);setGesture(false);},[]);
   const sensors=useSensors(useSensor(MousePenSensor,{activationConstraint:{distance:5}}),useSensor(TouchSensor,{activationConstraint:{delay:250,tolerance:6}}));
@@ -141,8 +144,12 @@ export function DragProvider({children}:{children:ReactNode}){
       // A fixed block starts latched on its own day; anything latched keeps the wider fixed shape while it is measured.
       const was=prev.zone==='rail'?prev.date===date:prev.zone==='none'&&task.starts_at?.slice(0,10)===date;
       const edge=px-r.left-grab*(r.width-(was?g.fixedLeft:g.flowLeft)-g.right);
+      // The teeth face the rail: a block coming in over it passes by. Only one that has come into this day's order, or
+      // sits latched here, can be pushed back into it — so a fixed block carried to another day lets go until pushed again.
+      if(was||edge>=g.flowLeft)entered.current=date;
+      const ready=entered.current===date;
       const bite=g.bite*stretch,pull=g.pull*stretch;
-      if(ids.length===1&&(px-r.left<g.bodyLeft||(was?edge<g.fixedLeft+pull:edge<=g.flowLeft-bite))){
+      if(ids.length===1&&ready&&(px-r.left<g.bodyLeft||(was?edge<g.fixedLeft+pull:edge<=g.flowLeft-bite))){
         const raw=Math.max(0,Math.min(1440-task.duration,axis.minute(py-r.top)-grabY*task.duration));
         const from=prev.date===date&&prev.zone==='rail'?prev.start!:dayPlan(date,base,rule,layouts).items.find(i=>i.task.id===task.id)?.start??rule.start;
         const resisted=resistWorkingBoundary(from,raw,task.duration,rule,axis.position);
@@ -153,10 +160,11 @@ export function DragProvider({children}:{children:ReactNode}){
       const rest=dayPlan(date,base.filter(t=>!ids.includes(t.id)),rule,layouts);
       const centre=axis.minute(topIn+duration*axis.scale/2),flows=rest.items.filter(i=>!i.fixed);
       const body:Intent={...intent,zone:'body',date,before:insertionBefore(flows,centre),ok:true,reason:null};
-      const near=Math.max(0,Math.min(1,(g.flowLeft-edge)/bite));
+      const near=ready?Math.max(0,Math.min(1,(g.flowLeft-edge)/bite)):0;
       const items=dayPlan(date,applyIntent(base,body),rule,layouts).items.filter(i=>ids.includes(i.task.id));
       return {intent:body,region,near,slot:items.length?{start:items[0].start,end:items[items.length-1].end,over:items.some(i=>i.over)}:undefined};
     }
+    entered.current=null;
     const current=(region:Region)=>region.kind==='date'?prev.zone==='date'&&prev.date===region.date:prev.zone===region.kind;
     for(const kind of ['inbox','shelf','date','tray','wait'] as const)for(const region of all.filter(r=>r.kind===kind&&!(pile&&kind==='date'))){
       const r=inside(region.el,current(region)?0:EDGE);if(!r)continue;
@@ -189,7 +197,9 @@ export function DragProvider({children}:{children:ReactNode}){
     const {x:px,y:py}=point(e.activatorEvent!);
     pointer.current={x:px,y:py};
     start.current={left:r.left,top:r.top,width:r.width,height:r.height};
+    // Lifted from a day's order, it is already in that day: the push toward the rail can start with the lift.
     snap.current=null;passage.current={since:0};
+    entered.current=[...regions.current.values()].find(r=>r.kind==='space'&&r.el.contains(node))?.date??null;
     travel.current={x:0,y:0,px,py,t:performance.now()};
     stretch.current=1;
     setGesture(true);setUi({contextMenu:null});
@@ -217,7 +227,7 @@ export function DragProvider({children}:{children:ReactNode}){
   }
   function moveHeld(h:Held,s:Held['startRect'],px:number,py:number){
     const {intent,region,slot=null,near=0,boundary=false}=zoneAt(h.task,px,py,h.grabY/s.height,h.grabX/s.width,h.intent,stretch.current,h.ids,s);
-    const passing=!arrived(region?.key??'none');
+    const passing=!arrived(region?.key??'none'),ready=h.ids.length===1?entered.current:null;
     const rect=region?.el.getBoundingClientRect(),g=region?.geometry,axis=region?.axis;
     // Only the rail constrains the hand to a 15-minute tick; the hollow carries the projected order slot.
     snap.current=!passing&&rect&&g&&axis&&intent.zone==='rail'?{left:rect.left+g.fixedLeft+near*g.give,top:rect.top+axis.position(intent.start!)+1}:null;
@@ -231,8 +241,8 @@ export function DragProvider({children}:{children:ReactNode}){
     const shape=passing?{column:h.column,density:h.density,width:h.width,height:h.height,axis:h.axis,look:h.look}:{column,density,width,height,axis,look:intent.zone};
     const i=h.intent;
     if(h.column!==shape.column||h.density!==shape.density||i.zone!==intent.zone||i.date!==intent.date||i.before!==intent.before||i.start!==intent.start||i.ok!==intent.ok||shape.width!==h.width||shape.height!==h.height||h.boundary!==boundary
-      ||i.index!==intent.index||h.passing!==passing||h.look!==shape.look
-      ||h.slot?.start!==slot?.start||h.slot?.end!==slot?.end)setHeld({...h,intent,slot,boundary,passing,...shape});
+      ||i.index!==intent.index||h.passing!==passing||h.look!==shape.look||h.ready!==ready
+      ||h.slot?.start!==slot?.start||h.slot?.end!==slot?.end)setHeld({...h,intent,slot,boundary,passing,ready,...shape});
   }
   const moveRef=useRef(moveHeld);moveRef.current=moveHeld;
   useEffect(()=>{
