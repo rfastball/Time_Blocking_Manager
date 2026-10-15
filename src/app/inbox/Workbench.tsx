@@ -3,7 +3,7 @@ import {useLayoutEffect,useRef,useState,type CSSProperties,type KeyboardEvent,ty
 import {AnimatePresence,motion} from 'motion/react';
 import {useDraggable} from '@dnd-kit/core';
 import {inboxCards,shelfCards,type Place} from '../../bench.ts';
-import {memoPreview} from '../../detail.ts';
+import {memoPreview,snapDuration} from '../../detail.ts';
 import {formatDuration} from '../../format.ts';
 import {dateLabel,dateOf} from '../../dates.ts';
 import type {Task} from '../../types.ts';
@@ -108,7 +108,7 @@ function Card({task:t,place,past,onOpen}:{task:Task;place:Place;past?:boolean;on
     // A sheet gains thickness 15 minutes at a time once pulled past half a step; pushed back flat it stays a sheet.
     const move=(ev:PointerEvent)=>{
       const raw=from+(ev.clientY-y0)/SCALE;
-      value=from===0&&raw<7.5?null:Math.max(15,Math.min(1440,Math.round(raw/15)*15));setLive(value);
+      value=from===0&&raw<7.5?null:snapDuration(raw);setLive(value);
     };
     const up=()=>{
       el.removeEventListener('pointermove',move);el.removeEventListener('pointerup',up);el.removeEventListener('pointercancel',up);setGesture(false);

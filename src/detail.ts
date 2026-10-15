@@ -49,3 +49,5 @@ export function withSchedule(date:string,fixed:boolean,at:string):Pick<Task,'pla
   return {plan_date:date||null,starts_at:fixed&&date&&/^\d\d:\d\d$/.test(at)?date+'T'+at:null};
 }
 export const durationValid=(n:number)=>Number.isInteger(n)&&n>=15&&n<=1440&&n%15===0;
+// A dragged length lands on the nearest 15 minutes within the range durationValid accepts.
+export const snapDuration=(minutes:number)=>Math.max(15,Math.min(1440,Math.round(minutes/15)*15));

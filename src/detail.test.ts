@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {checkCount,checklist,durationValid,memoPreview,quarter,scheduleHint,scheduleSummary,taskState,toggleCheck,withSchedule} from './detail.ts';
+import {checkCount,checklist,durationValid,memoPreview,snapDuration,quarter,scheduleHint,scheduleSummary,taskState,toggleCheck,withSchedule} from './detail.ts';
 
 const body='진행 상황\n[ ] 계획 화면 정리\n- [x] 검토 의견 반영\n  [X] 들여쓴 항목\n[] 아님\n끝';
 
@@ -49,4 +49,9 @@ test('schedule fields: fixed needs both date and time; summaries read the draft'
 test('quarter rounding and duration rule',()=>{
   assert.deepEqual([quarter(607),quarter(608),quarter(540)],[600,615,540]);
   assert.deepEqual([15,1440,45,0,10,1455,22.5].map(durationValid),[true,true,true,false,false,false,false]);
+});
+
+test('a dragged length snaps within the duration rule, so a long block keeps its length',()=>{
+  assert.deepEqual([600,608,607,3,2000].map(snapDuration),[600,615,600,15,1440]);
+  assert.ok([600,1440,15].map(snapDuration).every(durationValid));
 });

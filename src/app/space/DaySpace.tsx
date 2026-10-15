@@ -2,6 +2,7 @@ import {useEffect,useRef,useState,type KeyboardEvent,type MouseEvent as ReactMou
 import {useDraggable} from '@dnd-kit/core';
 import {AnimatePresence,motion,useAnimate} from 'motion/react';
 import {dayPlan,nextFlowId,type DayItem} from '../../today.ts';
+import {snapDuration} from '../../detail.ts';
 import {formatDuration} from '../../format.ts';
 import {time} from '../../dates.ts';
 import {unavailableParts,resistWorkingBoundary} from '../../placement.ts';
@@ -64,7 +65,7 @@ export function DaySpace({date,axis,variant,bin,selected,multi=[],onOpen,onMulti
     const el=e.currentTarget,y0=e.clientY,d0=t.duration;let dur=d0;
     el.setPointerCapture(e.pointerId);setGesture(true);
     const move=(ev:PointerEvent)=>{
-      let next=Math.max(15,Math.min(480,Math.round((d0+(ev.clientY-y0)/axis.scale)/15)*15));
+      let next=snapDuration(d0+(ev.clientY-y0)/axis.scale);
       if(t.starts_at&&next>dur){
         const end=taskMinute(t)+dur;
         next=resistWorkingBoundary(end-15,taskMinute(t)+next-15,15,rule,axis.position)+15-taskMinute(t);
