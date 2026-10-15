@@ -7,6 +7,7 @@ import {getState,openBench,setNav,setUi,useApp} from '../store/state.ts';
 import {reduced} from '../ui/motion.ts';
 import {Icon} from '../ui/icons.tsx';
 import './search.css';
+import {useDismiss} from '../ui/dismiss.ts';
 
 // Asked again while open, the panel takes the keyboard back.
 export const openSearch=()=>{const s=getState();if(s.ui.search)document.querySelector<HTMLInputElement>('.search-panel input')?.focus();else if(s.ready&&s.snapshot&&s.draftLoaded)setUi({search:true,contextMenu:null});};
@@ -32,10 +33,7 @@ function SearchPanel(){
   useLayoutEffect(()=>{input.current?.focus();},[]);
   useEffect(()=>{setActive(0);},[query]);
   useEffect(()=>{document.getElementById('hit-'+hits[active]?.id)?.scrollIntoView({block:'nearest'});},[active,hits]);
-  useEffect(()=>{
-    const outside=(e:Event)=>{if(!panel.current?.contains(e.target as Node))close(false);};
-    document.addEventListener('pointerdown',outside,true);return ()=>document.removeEventListener('pointerdown',outside,true);
-  },[]);
+  useDismiss(panel,()=>close(false));
   function close(refocus=true){setUi({search:false});if(refocus&&opener instanceof HTMLElement&&opener.isConnected)opener.focus({preventScroll:true});}
   // Focus leaving the panel closes it, as a press outside does; focus that fell to the page goes back to the opener.
   // Leaving the window keeps it open.

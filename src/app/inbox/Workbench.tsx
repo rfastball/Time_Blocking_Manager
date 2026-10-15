@@ -10,12 +10,13 @@ import type {Task} from '../../types.ts';
 import {getState,setUi,useApp} from '../store/state.ts';
 import {deleteTask,setGesture} from '../store/tasks.ts';
 import {completeHere,mergeSelected,refocus,moveTo,placeOfCard,readingOrder,selectRange,selectedTasks,setLength,setSelection,shiftInPlace,shipDates,shipTo,toggleSelected,undoHere} from '../store/bench.ts';
-import {menuKeys,clamp} from '../editor/actions.ts';
+import {menuKeys} from '../editor/actions.ts';
 import {aimedAt,useDrag,useRegion,type Form} from '../space/drag.tsx';
 import {reflow,reduced} from '../ui/motion.ts';
 import {follow} from '../ui/gesture.ts';
 import {Icon} from '../ui/icons.tsx';
 import {focusLater,taskSelector} from '../ui/focus.ts';
+import {clamp,useDismiss} from '../ui/dismiss.ts';
 
 // One hour is 72px, as on 오늘, so a block on the shelf is the size it will be on a day.
 export const SCALE=1.2;
@@ -219,11 +220,7 @@ function FloatingMenu({label,items,at,onClose}:{label:string;items:Item[];at:{x:
   const ref=useRef<HTMLDivElement>(null),[pos,setPos]=useState({left:at.x,top:at.y});
   // Opens upward from the bar at the bottom of the work area.
   useLayoutEffect(()=>{const r=ref.current!.getBoundingClientRect();setPos(clamp(at.x,at.y-r.height,r.width,r.height));ref.current!.querySelector<HTMLElement>('[role=menuitem]:not(:disabled)')?.focus({preventScroll:true});},[]);
-  useLayoutEffect(()=>{
-    const outside=(e:Event)=>{if(!ref.current?.contains(e.target as Node))onClose();};
-    document.addEventListener('pointerdown',outside,true);addEventListener('resize',onClose);
-    return ()=>{document.removeEventListener('pointerdown',outside,true);removeEventListener('resize',onClose);};
-  },[]);
+  useDismiss(ref,onClose,{resize:true});
   return <motion.div ref={ref} role="menu" aria-label={label} className="menu jb-menu" style={pos} onKeyDown={e=>menuKeys(e,onClose)}
     initial={{opacity:0,y:4}} animate={{opacity:1,y:0}} transition={{duration:.12}}>
     {items.map(i=><button key={i.label} type="button" role="menuitem" tabIndex={-1} disabled={i.disabled} onClick={()=>{onClose();i.run();}}>{i.label}</button>)}

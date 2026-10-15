@@ -11,6 +11,7 @@ import {Icon} from '../ui/icons.tsx';
 import {BandEditor} from './BandEditor.tsx';
 import {dateDraft,publishDate} from './drafts.ts';
 import './settings.css';
+import {clamp,useDismiss} from '../ui/dismiss.ts';
 
 // One date's working time, opened from the off-hours and break bands of a day space.
 export function AvailabilityPopover(){
@@ -28,13 +29,13 @@ function DatePopover({date,target,x,y}:{date:string;target:AvailabilityTarget;x:
   const close=(refocus:boolean)=>{setUi({availability:null});if(refocus&&opener.current?.isConnected)opener.current.focus({preventScroll:true});};
   useLayoutEffect(()=>{
     const r=ref.current!.getBoundingClientRect();
-    setPos({left:Math.max(8,Math.min(x,innerWidth-r.width-8)),top:Math.max(8,Math.min(y,innerHeight-r.height-8))});
+    setPos(clamp(x,y,r.width,r.height));
   },[x,y]);
+  useDismiss(t=>!!ref.current?.contains(t)||!!t.closest('.rh-menu'),()=>close(false));
   useEffect(()=>{
-    const down=(e:PointerEvent)=>{const t=e.target as Element;if(!ref.current?.contains(t)&&!t.closest?.('.rh-menu'))close(false);};
     const key=(e:KeyboardEvent)=>{if(e.key==='Escape'&&!e.defaultPrevented){e.preventDefault();close(true);}};
-    document.addEventListener('pointerdown',down,true);document.addEventListener('keydown',key);
-    return ()=>{document.removeEventListener('pointerdown',down,true);document.removeEventListener('keydown',key);};
+    document.addEventListener('keydown',key);
+    return ()=>document.removeEventListener('keydown',key);
   },[]);
 
   async function store(settings:typeof draft){

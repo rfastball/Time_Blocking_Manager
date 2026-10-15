@@ -10,6 +10,7 @@ import {setGesture} from '../store/tasks.ts';
 import {settle} from '../ui/motion.ts';
 import {follow as followPointer} from '../ui/gesture.ts';
 import {focusLater} from '../ui/focus.ts';
+import {clamp,useDismiss} from '../ui/dismiss.ts';
 
 export type Selection={day:number;target:AvailabilityTarget};
 type Props={
@@ -225,8 +226,8 @@ type MenuProps={menu:Menu;day:WorkingDay;name:string;root:RefObject<HTMLDivEleme
 function BandMenu({menu,day,name,root,onClose,onAdjust,onShift,onAdd,onDelete,onToggle}:MenuProps){
   const ref=useRef<HTMLDivElement>(null),[pos,setPos]=useState({left:menu.x,top:menu.y});
   const back=()=>{onClose();focusLater(day.enabled?`[data-select="${menu.day}:${menu.target}"]`:`[data-toggle="${menu.day}"]`,{root:root.current});};
-  useLayoutEffect(()=>{const r=ref.current!.getBoundingClientRect();setPos({left:Math.max(8,Math.min(menu.x,innerWidth-r.width-8)),top:Math.max(8,Math.min(menu.y,innerHeight-r.height-8))});ref.current!.querySelector<HTMLElement>('button')?.focus();},[menu]);
-  useEffect(()=>{const down=(e:PointerEvent)=>{if(!ref.current?.contains(e.target as Node))onClose();};document.addEventListener('pointerdown',down,true);return ()=>document.removeEventListener('pointerdown',down,true);},[]);
+  useLayoutEffect(()=>{const r=ref.current!.getBoundingClientRect();setPos(clamp(menu.x,menu.y,r.width,r.height));ref.current!.querySelector<HTMLElement>('button')?.focus();},[menu]);
+  useDismiss(ref,onClose);
   const run=(f:()=>void)=>()=>{onClose();f();};
   function key(e:ReactKeyboardEvent){
     const items=[...ref.current!.querySelectorAll<HTMLButtonElement>('button')],i=items.indexOf(document.activeElement as HTMLButtonElement);

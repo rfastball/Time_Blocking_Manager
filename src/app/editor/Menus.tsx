@@ -11,20 +11,10 @@ import {completeHere,moveTo,placeOfCard,shipTo} from '../store/bench.ts';
 // 준비 shows undated work and overdue work; both are still being placed there.
 // A 준비 card offers 준비's menu; the same task on a date offers the date menu.
 const inPrep=(t:Task,bench:boolean,today:string)=>bench&&!t.completed&&!t.wait_since&&(!t.plan_date||t.plan_date<today);
-import {blockButton,clamp,editorModeHere,menuKeys,requestSplit} from './actions.ts';
+import {blockButton,editorModeHere,menuKeys,requestSplit} from './actions.ts';
+import {clamp,useDismiss} from '../ui/dismiss.ts';
 
 type Item={label:string;run:()=>void;danger?:boolean;disabled?:boolean};
-
-// Closes on a press outside the box or when the page moves under it.
-function useDismiss(ref:{current:HTMLElement|null},close:()=>void){
-  useEffect(()=>{
-    const outside=(e:Event)=>{if(!ref.current?.contains(e.target as Node))close();};
-    const away=()=>close();
-    const scrolled=(e:Event)=>{if(!ref.current?.contains(e.target as Node))close();};
-    document.addEventListener('pointerdown',outside,true);document.addEventListener('scroll',scrolled,true);addEventListener('resize',away);addEventListener('blur',away);
-    return ()=>{document.removeEventListener('pointerdown',outside,true);document.removeEventListener('scroll',scrolled,true);removeEventListener('resize',away);removeEventListener('blur',away);};
-  },[]);
-}
 
 export function ContextMenuHost(){
   const {ui,snapshot}=useApp(),m=ui.contextMenu;
@@ -41,7 +31,7 @@ function ContextMenu({m}:{m:NonNullable<Ui['contextMenu']>}){
   const [opener]=useState(()=>document.activeElement);
   const close=(refocus:boolean)=>{setUi({contextMenu:null});if(refocus)(t?blockButton(t.id,opener):opener instanceof HTMLElement?opener:null)?.focus({preventScroll:true});};
   useLayoutEffect(()=>{const r=ref.current!.getBoundingClientRect();setPos(clamp(m.x,m.y,r.width,r.height));ref.current!.querySelector<HTMLElement>('[role=menuitem]:not(:disabled)')?.focus({preventScroll:true});},[]);
-  useDismiss(ref,()=>close(false));
+  useDismiss(ref,()=>close(false),{scroll:true,resize:true,blur:true});
   const mode=s.nav.view==='today'?editorModeHere():'dialog';
   let items:Item[];
   // Each place offers only what is not already one gesture away there: a click opens the editor, a drag or Alt+arrows reorder.

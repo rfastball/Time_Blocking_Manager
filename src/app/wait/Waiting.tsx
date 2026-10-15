@@ -13,6 +13,7 @@ import {aimedAt,useDrag,useRegion} from '../space/drag.tsx';
 import {reduced} from '../ui/motion.ts';
 import {Icon} from '../ui/icons.tsx';
 import './waiting.css';
+import {useDismiss} from '../ui/dismiss.ts';
 
 // The 기다림 band at the right of the work screen: work that is not my turn, each block wearing what it waits for as a tag.
 // Blocks waiting on the same trigger pile up under one tag. Waiting is quiet; only a met date takes the full tag colour.
@@ -222,13 +223,12 @@ function Pile({group}:{group:WaitGroup}){
   useEffect(()=>{if(b.openReq?.key===key)openUp(b.openReq.id);},[b.openReq]);
   useEffect(()=>{if(b.held.size&&mode==='peek')fold(true);},[b.held.size]);
   useEffect(()=>()=>{clearTimeout(timers.current.hover);clearTimeout(timers.current.leave);clearTimeout(timers.current.fold);},[]);
+  // An open pile stays open while its own layer, a dialog or a menu is pressed; a resize folds it.
+  useDismiss(t=>!!t.closest(`[data-pile-layer="${CSS.escape(key)}"],[data-pile="${CSS.escape(key)}"],dialog,[role=menu]`),close,{enabled:mode==='open'});
   useEffect(()=>{
     if(mode!=='open')return;
-    const outside=(e:PointerEvent)=>{if(!(e.target as Element).closest?.(`[data-pile-layer="${CSS.escape(key)}"],[data-pile="${CSS.escape(key)}"],dialog,[role=menu]`))close();};
-    const resize=()=>fold(true);
-    document.addEventListener('pointerdown',outside,true);addEventListener('resize',resize);
-    return ()=>{document.removeEventListener('pointerdown',outside,true);removeEventListener('resize',resize);};
-  },[mode,key,close,fold]);
+    const resize=()=>fold(true);addEventListener('resize',resize);return ()=>removeEventListener('resize',resize);
+  },[mode,fold]);
   const enter=(e:ReactPointerEvent)=>{
     if(e.pointerType!=='mouse')return;
     clearTimeout(timers.current.leave);
