@@ -6,7 +6,7 @@ import {dockState,setDock,toBench,toPlan,view} from './support/nav.mjs';
 const open=toBench;
 const titles=(page,list)=>page.js(`[...document.querySelectorAll(${JSON.stringify(list+' .jb-card .ttl')})].map(e=>e.textContent)`);
 const card=(page,title)=>page.rect('.jb-card',title);
-const task=(page,title)=>page.js(`(async()=>{const {getState}=await import('/src/app/store/state.ts');const t=getState().snapshot.tasks.find(t=>t.title===${JSON.stringify(title)});return t&&{proto:!!t.proto,duration:t.duration,pile:t.pile_id??null,date:t.plan_date};})()`);
+const task=async(page,title)=>{const t=await page.task(title);return t&&{proto:!!t.proto,duration:t.duration,pile:t.pile_id??null,date:t.plan_date};};
 const focusCard=(page,title)=>page.js(`[...document.querySelectorAll('.jb .main')].find(e=>e.textContent.includes(${JSON.stringify(title)})).focus()`);
 const shelf=['회의록 템플릿 업데이트','SQLite 백업 방식 조사','메일 답장','결재 처리'];
 // A later working date to ship to: in the shown week if there is one, else the next week.
@@ -105,7 +105,7 @@ const scenarios=[
   }},
   {name:'the whole shelf accepts empty and blank drops, including its ruler and margins, and keeps scrolled insertion order',viewport:{width:1440,height:900},run:async page=>{
     await open(page);
-    await page.js(`(async()=>{const {getState}=await import('/src/app/store/state.ts');const {moveTo}=await import('/src/app/store/bench.ts');await moveTo(getState().snapshot.tasks.filter(t=>t.pile_id==='shelf').map(t=>t.id),'inbox',0);})()`);await page.sleep(400);
+    await page.js(`(async()=>{const {getState}=await __mod('/src/app/store/state.ts');const {moveTo}=await __mod('/src/app/store/bench.ts');await moveTo(getState().snapshot.tasks.filter(t=>t.pile_id==='shelf').map(t=>t.id),'inbox',0);})()`);await page.sleep(400);
     assert.deepEqual(await titles(page,'.jb-shelf'),[]);
     await page.shot('junbi-empty-shelf');
     const drop=async(title,to)=>{
@@ -125,7 +125,7 @@ const scenarios=[
     const head=await page.rect('.jb-shelf .jb-head');
     await drop('메일',{x:head.cx,y:head.cy});
     assert.equal((await titles(page,'.jb-shelf'))[0],'메일 답장','the header also receives a drop before the first card');
-    await page.js(`(async()=>{const {getState}=await import('/src/app/store/state.ts');const {setLength}=await import('/src/app/store/bench.ts');await setLength(getState().snapshot.tasks.find(t=>t.title==='SQLite 백업 방식 조사'),600);})()`);await page.sleep(400);
+    await page.js(`(async()=>{const {getState}=await __mod('/src/app/store/state.ts');const {setLength}=await __mod('/src/app/store/bench.ts');await setLength(getState().snapshot.tasks.find(t=>t.title==='SQLite 백업 방식 조사'),600);})()`);await page.sleep(400);
     await page.js(`document.querySelector('.jb-shelf .jb-scroll').scrollTop=600`);await page.sleep(200);
     assert.ok(await page.js(`document.querySelector('.jb-shelf .jb-scroll').scrollTop>0`),'the shelf is scrolled');
     const meeting=await page.rect('.jb-shelf .jb-card','회의록');
@@ -196,7 +196,7 @@ const scenarios=[
     await toPlan(page);
     assert.equal(await page.js('document.querySelector("#dock h2")?.textContent.trim().startsWith("준비")'),true);
     assert.deepEqual(await page.js('[...document.querySelectorAll("#dock .tblk .ttl")].map(e=>e.textContent)'),[...shelf,'주간 보고 초안','경쟁사 동향 정리']);
-    await page.js(`(async()=>{const [{getState},{unplan}]=await Promise.all([import('/src/app/store/state.ts'),import('/src/app/store/tasks.ts')]);await unplan(getState().snapshot.tasks.find(t=>t.title==='회의록 정리'));})()`);await page.sleep(300);
+    await page.js(`(async()=>{const [{getState},{unplan}]=await Promise.all([__mod('/src/app/store/state.ts'),__mod('/src/app/store/tasks.ts')]);await unplan(getState().snapshot.tasks.find(t=>t.title==='회의록 정리'));})()`);await page.sleep(300);
     await open(page);
     assert.equal((await titles(page,'.jb-shelf'))[0],'회의록 정리');
   }},
@@ -222,7 +222,7 @@ const scenarios=[
     assert.deepEqual({shelf:during.shelf,hot:during.hot,height:during.height},{shelf:0,hot:true,height:103},'over a date the whole shelf is carried there as its 1시간 45분');
     assert.deepEqual(during.slots,shelf,'over a day the whole shelf previews there, in order');
     assert.deepEqual(await titles(page,'.jb-shelf'),[]);
-    assert.deepEqual(await page.js(`(async()=>{const {getState}=await import('/src/app/store/state.ts');return getState().snapshot.tasks.filter(t=>t.plan_date===${JSON.stringify(day)}&&!t.completed).sort((a,b)=>a.flow_order-b.flow_order).map(t=>t.title);})()`),shelf,'shipped in shelf order');
+    assert.deepEqual(await page.js(`(async()=>{const {getState}=await __mod('/src/app/store/state.ts');return getState().snapshot.tasks.filter(t=>t.plan_date===${JSON.stringify(day)}&&!t.completed).sort((a,b)=>a.flow_order-b.flow_order).map(t=>t.title);})()`),shelf,'shipped in shelf order');
   }},
   {name:'work completed on 준비 stays in sight and goes back to where it stood',run:async page=>{
     await open(page);

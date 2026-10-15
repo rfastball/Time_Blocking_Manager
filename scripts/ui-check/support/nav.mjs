@@ -5,6 +5,8 @@ import assert from 'node:assert/strict';
 // The 준비 dock width is a device preference kept in localStorage, and every scenario shares one browser profile,
 // so a scenario sets the dock it needs instead of trusting what the previous one left.
 export const view=page=>page.js(`document.querySelector('.content')?.dataset.view??null`);
+// Waits for the screen to switch, then lets its entrance settle.
+const landOn=async(page,want)=>{await page.until(`document.querySelector('.content')?.dataset.view===${JSON.stringify(want)}`,{message:'the '+want+' view'}).catch(()=>{});await page.sleep(150);};
 export const dockState=page=>page.js(`(()=>{const d=document.querySelector('#dock');return d?['narrow','wide','hidden'].find(c=>d.classList.contains(c))??null:null;})()`);
 
 // A cold dev server may still be compiling on the first load.
@@ -25,20 +27,20 @@ const topbar=async(page,text)=>{await reveal(page);await page.click('header.topb
 
 export async function toWork(page){
   await ready(page);
-  if(await view(page)!=='plan'){await topbar(page,'작업 화면');await page.sleep(400);}
+  if(await view(page)!=='plan'){await topbar(page,'작업 화면');await landOn(page,'plan');}
   assert.equal(await view(page),'plan','the work screen');
 }
 export async function toFocus(page){
   await ready(page);
   if(await view(page)==='today')return;
-  if(await view(page)!=='plan'){await topbar(page,'작업 화면');await page.sleep(300);}
-  await topbar(page,'몰입');await page.sleep(500);
+  if(await view(page)!=='plan'){await topbar(page,'작업 화면');await landOn(page,'plan');}
+  await topbar(page,'몰입');await landOn(page,'today');
   assert.equal(await view(page),'today','the focus screen');
   assert.ok(await page.js(`!!document.querySelector('.today-day')`),'the focus screen shows the day');
 }
 export async function toSettings(page){
   await ready(page);
-  if(await view(page)!=='settings'){await reveal(page);await page.click('header.topbar button[aria-label="설정"]');await page.sleep(400);}
+  if(await view(page)!=='settings'){await reveal(page);await page.click('header.topbar button[aria-label="설정"]');await landOn(page,'settings');}
   assert.equal(await view(page),'settings','the settings screen');
 }
 // Goes to the work screen and brings the dock to narrow, wide or hidden with its own controls.

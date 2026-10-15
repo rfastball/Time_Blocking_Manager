@@ -311,7 +311,7 @@ export default [
     // A ratio kept from a wider window must not leave the pair short of the row.
     await page.js(`localStorage.setItem('blokky.panel.plan-two-calendar','0.85');localStorage.setItem('blokky.panel.plan-month-calendar','0.85')`);
     await setDock(page,'wide');
-    await page.js(`(async()=>{const [{getState},{drop}]=await Promise.all([import('/src/app/store/state.ts'),import('/src/app/store/tasks.ts')]);
+    await page.js(`(async()=>{const [{getState},{drop}]=await Promise.all([__mod('/src/app/store/state.ts'),__mod('/src/app/store/tasks.ts')]);
       const s=getState(),{today}=s,next=[1,2,3].map(n=>{const d=new Date(today+'T00:00');d.setDate(d.getDate()+n);return d.toLocaleDateString('sv');});
       for(const [n,t] of s.snapshot.tasks.filter(t=>t.plan_date===today&&!t.completed).slice(0,5).entries())
         await drop({id:t.id,ids:[t.id],zone:'date',date:next[n%3],before:null,start:null,ok:true,reason:null});})()`);

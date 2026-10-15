@@ -50,7 +50,7 @@ const scenarios=[
     const sizes=[];
     for(const viewport of [{width:1440,height:900},{width:960,height:640},{width:760,height:640},{width:720,height:900}]){
       await go(page,viewport);
-      await page.js(`(async()=>{const {getState,setState}=await import('/src/app/store/state.ts');const s=getState(),done=Array.from({length:40},(_,i)=>({id:'completed-'+i,title:'완료 '+(i+1)+' · '+('긴 제목 검토 내용 ').repeat(i%3===0?12:2),body:'완료 메모 '+(i+1),starts_at:null,duration:15,completed:true,revision:1,plan_date:s.today,flow_order:100+i}));setState({snapshot:{...s.snapshot,tasks:[...s.snapshot.tasks,...done]}});})()`);
+      await page.js(`(async()=>{const {getState,setState}=await __mod('/src/app/store/state.ts');const s=getState(),done=Array.from({length:40},(_,i)=>({id:'completed-'+i,title:'완료 '+(i+1)+' · '+('긴 제목 검토 내용 ').repeat(i%3===0?12:2),body:'완료 메모 '+(i+1),starts_at:null,duration:15,completed:true,revision:1,plan_date:s.today,flow_order:100+i}));setState({snapshot:{...s.snapshot,tasks:[...s.snapshot.tasks,...done]}});})()`);
       await page.sleep(450);
       const size=await page.js(`(()=>{const day=document.querySelector('.today-day'),bin=day.querySelector('.bin'),wrap=day.querySelector('.space-wrap'),r=day.getBoundingClientRect();return {day:day.clientHeight,bottom:r.bottom,bin:bin.clientHeight,binScroll:bin.scrollHeight,timetable:wrap.clientHeight,width:document.documentElement.scrollWidth,viewport:innerWidth};})()`);
       sizes.push(size);

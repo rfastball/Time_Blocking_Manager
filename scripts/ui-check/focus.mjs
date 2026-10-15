@@ -5,7 +5,7 @@ import {toFocus} from './support/nav.mjs';
 const go=async(page,now='10:20')=>{await page.goto('/?now='+now);await toFocus(page);};
 const next=page=>page.text('.ed-next .ed-next-title');
 const nextTime=page=>page.text('.ed-next .ed-next-time');
-const task=(page,title)=>page.js(`(async()=>{const {getState}=await import('/src/app/store/state.ts');const t=getState().snapshot.tasks.find(t=>t.title===${JSON.stringify(title)});return t&&{duration:t.duration,date:t.plan_date,done:t.completed};})()`);
+const task=async(page,title)=>{const t=await page.task(title);return t&&{duration:t.duration,date:t.plan_date,done:t.completed};};
 const act=async(page,label)=>{await page.click('.ed-next .ed-next-acts button',label);await page.sleep(700);};
 
 export default [
@@ -25,7 +25,7 @@ export default [
     assert.equal(await page.js(`/남음|초과|지연|늦/.test(document.querySelector('.ed-next').textContent)`),false,'no countdown or lateness');
     await act(page,'+15분');await page.sleep(100);
     // Put the length back for the scenarios after this one.
-    await page.js(`(async()=>{const {getState}=await import('/src/app/store/state.ts');const {resize}=await import('/src/app/store/tasks.ts');const t=getState().snapshot.tasks.find(t=>t.title===${JSON.stringify(title)});await resize(t,${before.duration});})()`);
+    await page.js(`(async()=>{const {getState}=await __mod('/src/app/store/state.ts');const {resize}=await __mod('/src/app/store/tasks.ts');const t=getState().snapshot.tasks.find(t=>t.title===${JSON.stringify(title)});await resize(t,${before.duration});})()`);
     await page.sleep(400);
     assert.equal((await task(page,title)).duration,before.duration);
   }},

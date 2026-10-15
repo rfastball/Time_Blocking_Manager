@@ -187,7 +187,7 @@ const scenarios=[
   {name:'a failed narrow cutting board retries or releases inside its dialog without losing the input',viewport:{width:720,height:900},run:async page=>{
     await focusBlock(page,'설계 문서 자료 조사');await page.key('F10',{modifiers:SHIFT});await page.sleep(150);
     await page.click('.ctx-menu [role=menuitem]','나누기');await page.sleep(200);
-    await page.js(`(async()=>{const [{getState,setState},{previewMutation}]=await Promise.all([import('/src/app/store/state.ts'),import('/src/preview.ts')]);window.cutPriorIPC=window.__TAURI_INTERNALS__;window.cutFailure='storage';window.cutStored=new Set();window.__TAURI_INTERNALS__={invoke:async(cmd,args)=>{if(cmd==='mutate'){if(window.cutFailure)throw {code:window.cutFailure,message:'도마 저장 실패',retryable:true};return previewMutation(getState().snapshot,args.command,window.cutStored);}if(cmd==='save_draft'||cmd==='set_dirty')return;throw Error('Unexpected mock IPC '+cmd);}};setState({native:true});})()`);
+    await page.js(`(async()=>{const [{getState,setState},{previewMutation}]=await Promise.all([__mod('/src/app/store/state.ts'),__mod('/src/preview.ts')]);window.cutPriorIPC=window.__TAURI_INTERNALS__;window.cutFailure='storage';window.cutStored=new Set();window.__TAURI_INTERNALS__={invoke:async(cmd,args)=>{if(cmd==='mutate'){if(window.cutFailure)throw {code:window.cutFailure,message:'도마 저장 실패',retryable:true};return previewMutation(getState().snapshot,args.command,window.cutStored);}if(cmd==='save_draft'||cmd==='set_dirty')return;throw Error('Unexpected mock IPC '+cmd);}};setState({native:true});})()`);
     try{
       await page.click('.cut-name');await page.type('도마 복구 입력');
       await page.click('.cut-foot .primary');await page.sleep(250);
@@ -206,11 +206,11 @@ const scenarios=[
       await page.js(`window.cutFailure='validation'`);await page.click('.cut-foot .primary');await page.sleep(250);
       await page.click('.cut .ed-row button','입력 유지하고 수정');await page.sleep(200);
       assert.equal(await value(page,'.cut-name'),'도마 수정 유지');
-      assert.equal(await page.js(`(async()=>{const {getState}=await import('/src/app/store/state.ts');return !!getState().failed;})()`),false);
+      assert.equal(await page.js(`(async()=>{const {getState}=await __mod('/src/app/store/state.ts');return !!getState().failed;})()`),false);
       await page.js(`window.cutFailure=null`);await page.click('.cut-foot .primary');await page.sleep(300);
       assert.ok((await page.blocks(space)).some(b=>b.startsWith('도마 수정 유지, 예상')));
     }finally{
-      await page.js(`(async()=>{const [{setState},{queue}]=await Promise.all([import('/src/app/store/state.ts'),import('/src/app/store/session.ts')]);queue.discardFailed();setState({native:false,error:''});if(window.cutPriorIPC)window.__TAURI_INTERNALS__=window.cutPriorIPC;else delete window.__TAURI_INTERNALS__;})()`);
+      await page.js(`(async()=>{const [{setState},{queue}]=await Promise.all([__mod('/src/app/store/state.ts'),__mod('/src/app/store/session.ts')]);queue.discardFailed();setState({native:false,error:''});if(window.cutPriorIPC)window.__TAURI_INTERNALS__=window.cutPriorIPC;else delete window.__TAURI_INTERNALS__;})()`);
     }
   }},
   {name:'the detail exposes deletion directly; the block menu still guards splitting unsaved changes',run:async page=>{

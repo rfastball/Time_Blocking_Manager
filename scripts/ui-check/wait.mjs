@@ -5,7 +5,7 @@ import {setDock,toFocus,toPlan} from './support/nav.mjs';
 // (today) and one later date.
 const band=page=>page.js(`(()=>{const b=document.querySelector('#wait');return b?(b.classList.contains('closed')?'closed':'open'):null;})()`);
 async function openBand(page){if(await band(page)==='closed'){await page.click('#wait .wait-unfold');await page.sleep(300);}assert.equal(await band(page),'open');}
-const task=(page,title)=>page.js(`(async()=>{const {getState}=await import('/src/app/store/state.ts');const t=getState().snapshot.tasks.find(t=>t.title===${JSON.stringify(title)});return t&&{date:t.plan_date,pile:t.pile_id??null,order:t.pile_order??null,for:t.wait_for??null,until:t.wait_until??null,since:t.wait_since??null};})()`);
+const task=async(page,title)=>{const t=await page.task(title);return t&&{date:t.plan_date,pile:t.pile_id??null,order:t.pile_order??null,for:t.wait_for??null,until:t.wait_until??null,since:t.wait_since??null};};
 const rows=page=>page.js(`[...document.querySelectorAll('#wait .wait-list>*')].map(r=>r.matches('.wpile')?r.getAttribute('aria-label'):r.querySelector('.trig')?.textContent+' / '+r.querySelector('.wbody .ttl')?.textContent)`);
 const shelfTop=page=>page.js(`document.querySelector('#dock .tblk .ttl')?.textContent??null`);
 
@@ -158,7 +158,7 @@ const scenarios=[
     await page.key('b',{code:'KeyB'});await page.sleep(500);
     assert.ok(await page.js(`!!document.querySelector('.wname.floating')`),'the field floats');
     await page.key('Escape');await page.sleep(300);
-    const since=await page.js(`(async()=>{const {getState}=await import('/src/app/store/state.ts');return getState().snapshot.tasks.find(t=>t.id===${JSON.stringify(before)})?.wait_since??null;})()`);
+    const since=await page.js(`(async()=>{const {getState}=await __mod('/src/app/store/state.ts');return getState().snapshot.tasks.find(t=>t.id===${JSON.stringify(before)})?.wait_since??null;})()`);
     assert.ok(since,'it waits, unnamed');
   }},
 ];

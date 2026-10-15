@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {ready,setDock,toFocus,toPlan} from './support/nav.mjs';
 
 // A day's 근무 외 carries its own fix, and today states when its remaining plan ends (planned, never a countdown).
-const task=(page,title)=>page.js(`(async()=>{const {getState}=await import('/src/app/store/state.ts');const t=getState().snapshot.tasks.find(t=>t.title===${JSON.stringify(title)});return t&&{date:t.plan_date,fixed:!!t.starts_at};})()`);
+const task=async(page,title)=>{const t=await page.task(title);return t&&{date:t.plan_date,fixed:!!t.starts_at};};
 const head=sel=>`.wk-head.today ${sel}`;
 // What in today's head the fix covers: the date line, the pill, the meter and each count it shows. Empty means clear.
 const covered=(page,scope)=>page.js(`(()=>{const h=document.querySelector(${JSON.stringify(scope)}),b=h.querySelector('.wk-return').getBoundingClientRect();
