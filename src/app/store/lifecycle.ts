@@ -2,7 +2,7 @@ import {invoke} from '@tauri-apps/api/core';
 import {listen} from '@tauri-apps/api/event';
 import {readTheme,themeStorageKey} from '../../theme.ts';
 import {calendarRefreshAllowed} from '../../today.ts';
-import {getState,setDrafts,setState} from './state.ts';
+import {getState,openDrafts,setDrafts,setState} from './state.ts';
 import {flushDraftTimer,loadStoredDraft,persistDraft,previewSnapshot,queue,refreshAppInfo,reload,requestRefresh,showError,storedDraft,tick,unsaved,dispatch} from './session.ts';
 import {saveEditor} from './editor.ts';
 import {commitCut} from './cut.ts';
@@ -22,7 +22,7 @@ function refreshCalendar(reloadData:boolean){
   const s=getState(),d=s.drafts;
   if(s.captureWindow)return;
   const allowed=calendarRefreshAllowed({view:s.nav.view,ready:s.ready&&s.draftLoaded,visible:document.visibilityState==='visible',
-    dirty:!!d.routineDraft||d.editorDirty||!!Object.keys(d.rawSchedules).length||!!d.settingsDraft||!!d.composer,
+    dirty:openDrafts(d)||!!d.composer,
     input:!!document.activeElement?.matches('input,textarea,[contenteditable]'),modal:!!document.querySelector('dialog[open]'),gesture:s.gesture});
   tick();
   if(allowed&&reloadData&&s.native)requestRefresh();

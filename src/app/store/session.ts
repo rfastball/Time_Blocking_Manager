@@ -5,7 +5,7 @@ import {StoredDraft,captureMatchesCommand,createCommand,needsSavedReview,release
 import {previewAcknowledgement,previewMutation} from '../../preview.ts';
 import {plusDays,today as todayKey} from '../../dates.ts';
 import type {Action,AppError,Command,Snapshot,Task} from '../../types.ts';
-import {clockMinute,emptyDrafts,getState,pinnedClock,setDrafts,setState} from './state.ts';
+import {clockMinute,emptyDrafts,getState,openDrafts,pinnedClock,setDrafts,setState} from './state.ts';
 
 // One lane for every durable write. A failed write stays at the head until retried or released.
 export const queue=new SaveQueue(()=>{
@@ -48,12 +48,12 @@ export const enqueue=(run:()=>Promise<void>)=>queue.add(run);
 // ── 초안 ──
 export function unsaved(){
   const {ready,draftLoaded,drafts:d}=getState();
-  return !!(ready&&!draftLoaded||d.capture||d.captureCommand||d.editorDirty||Object.keys(d.rawSchedules).length||d.settingsDraft||d.routineDraft||d.cut||queue.busy||draftTimer);
+  return !!(ready&&!draftLoaded||openDrafts(d)||queue.busy||draftTimer);
 }
 // The stored JSON keeps the shape written by the earlier app so existing drafts survive the update.
 function draftContent(){
   const {drafts:d,snapshot}=getState();
-  return d.capture||d.captureCommand||d.editorDirty||Object.keys(d.rawSchedules).length||d.settingsDraft||d.routineDraft||d.cut?JSON.stringify({
+  return openDrafts(d)?JSON.stringify({
     capture:d.capture,captureCommand:d.captureCommand,calendarComposer:d.capture?d.composer:null,editor:d.editorDirty?d.editor:null,
     rawSchedules:d.rawSchedules,settingsBase:d.settingsBase,settingsDraft:d.settingsDraft,routineDraft:d.routineDraft,cut:d.cut,epoch:snapshot?.epoch
   }):'';
@@ -74,7 +74,7 @@ export async function loadStoredDraft(allowBusy=false){
   try{
     const [sequence,content]=await invoke<[number,string]>('load_draft');
     const d=getState().drafts;
-    if(d.capture||d.captureCommand||d.editorDirty||Object.keys(d.rawSchedules).length||d.settingsDraft||d.routineDraft||d.cut||(!allowBusy&&queue.busy)||draftTimer)return;
+    if(openDrafts(d)||(!allowBusy&&queue.busy)||draftTimer)return;
     const draft=storedDraft.read(sequence,content);
     if(draft)setDrafts({capture:draft.capture||'',captureCommand:draft.captureCommand||null,composer:draft.calendarComposer||null,editor:draft.editor||null,editorDirty:!!draft.editor,
       rawSchedules:draft.rawSchedules||{},settingsBase:draft.settingsBase||null,settingsDraft:draft.settingsDraft||null,routineDraft:draft.routineDraft||null,cut:draft.cut||null});

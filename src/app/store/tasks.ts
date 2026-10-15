@@ -9,7 +9,7 @@ import {carried,intentAction,updateAction,type Intent} from '../../intent.ts';
 import {onBench,waiting} from '../../bench.ts';
 import {createCommand} from '../../capture.ts';
 import type {Action,Task,Trashed,WorkingDay} from '../../types.ts';
-import {getState,setDrafts,setState,setUi} from './state.ts';
+import {getState,openDrafts,setDrafts,setState,setUi} from './state.ts';
 import {fly} from '../ui/flight.ts';
 import {pushOut,release,revived} from './wait.ts';
 import {acknowledgeCapture,afterIdle,announce,dispatch,draftChanged,persistDraft,queue,showError,stamp} from './session.ts';
@@ -180,7 +180,7 @@ const routineRanges=new Set<string>();let routinePending=false;
 // Generates routine blocks for the visible days once per range and settings revision.
 export async function ensureVisibleRoutines(){
   const s=getState(),d=s.drafts;
-  if(!s.ready||!s.draftLoaded||s.captureWindow||s.quitSaving||routinePending||queue.busy||queue.failed||d.settingsDraft||d.routineDraft||Object.keys(d.rawSchedules).length||d.editorDirty||d.capture||s.gesture||!s.snapshot?.settings.routines?.length||!['today','plan'].includes(s.nav.view))return;
+  if(!s.ready||!s.draftLoaded||s.captureWindow||s.quitSaving||routinePending||queue.busy||queue.failed||openDrafts(d)||s.gesture||!s.snapshot?.settings.routines?.length||!['today','plan'].includes(s.nav.view))return;
   let [from,to]=visibleRange();
   from=from<s.today?s.today:from;if(from>to)return;
   const key=[s.snapshot.epoch,s.snapshot.settings.revision,from,to].join(':');if(routineRanges.has(key))return;

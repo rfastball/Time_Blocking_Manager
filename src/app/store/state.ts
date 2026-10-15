@@ -78,6 +78,8 @@ const day=today();
 // The dock width is a device preference, like panel widths.
 const storedDock=():Dock=>{try{const v=localStorage.getItem('blokky.dock');return v==='wide'||v==='hidden'?v:'narrow';}catch{return 'narrow';}};
 const storedBand=():Band=>{try{return localStorage.getItem('blokky.band')==='closed'?'closed':'open';}catch{return 'open';}};
+// Input the user has not committed yet: stored as a draft, and the reason to hold back reloads, generation and restores.
+export const openDrafts=(d:Drafts)=>!!(d.capture||d.captureCommand||d.editorDirty||Object.keys(d.rawSchedules).length||d.settingsDraft||d.routineDraft||d.cut);
 export const emptyDrafts=():Drafts=>({capture:'',captureCommand:null,composer:null,editor:null,editorDirty:false,editorSequence:0,pendingEditorId:null,rawSchedules:{},settingsBase:null,settingsDraft:null,routineDraft:null,cut:null});
 let state:AppState={
   native,captureWindow:params.has('capture'),
