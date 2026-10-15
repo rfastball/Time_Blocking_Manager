@@ -1,0 +1,3 @@
+[env]
+# ts-rs (cargo test writes src/generated/*.ts): the store's i64 fields are plain JSON numbers in the app.
+TS_RS_LARGE_INT = "number"

@@ -1,5 +1,12 @@
 # 검증 범위
 
+## Rust·TS 타입 계약 Test delta (2026-10-15)
+
+- Unique risk: `src-tauri/src/model.rs`와 `src/types.ts`를 손으로 맞추다 어긋나는 것. 앱이 보내는 명령을 저장소가 못 읽거나, 저장소가 돌려준 상태를 앱이 다르게 읽는 것.
+- Owner / layer: `cargo test`가 ts-rs(개발 의존성)로 `src/generated/*.ts`를 다시 쓰고(`.cargo/config.toml`의 `TS_RS_LARGE_INT=number`로 i64는 number), `src/contract.ts`가 tsc에서 `Command`→저장소, 저장소 `Snapshot`·`AppError`→앱 방향의 대입을 확인한다. 모델을 바꾸면 `cargo test` 뒤 바뀐 생성 파일을 함께 커밋한다.
+- 처음 확인에서 드러난 차이: `place_unplanned.create_at`은 Rust가 생략을 받는데 바인딩에 드러나지 않았고, `DayException.kind`는 검증이 세 값만 받는데 문자열로 나왔다. 둘 다 바인딩 표기로 맞췄다(동작 변화 없음).
+- Added / extended / removed: Rust 바인딩 내보내기 **15 / 0 / 0**, tsc 계약 **3**. 결과: Rust lib **25/25**, storage **33/33**, parity **1/1**, Node **105/105**.
+
 ## 드래그 판정 순수 함수 Test delta (2026-10-15)
 
 - Unique risk: 레일 물림·놓음 거리, 지나가는 곳과 머무는 곳의 구분, 목록 끼워 넣기 위치가 `DragProvider` 안에 DOM과 섞여 있어 실제 포인터 UI 검사로만 확인되던 것. 그리고 끌고 있는 동안 보이는 결과(`applyIntent`)와 놓은 뒤 저장되는 결과가 어긋나는 것.

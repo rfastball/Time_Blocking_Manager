@@ -2,6 +2,7 @@ use chrono::{Datelike, NaiveDateTime, Timelike};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+#[cfg_attr(test, derive(ts_rs::TS), ts(export, export_to = "../../src/generated/"))]
 pub struct Task {
     pub id: String,
     pub title: String,
@@ -30,19 +31,24 @@ pub struct Task {
 
 // One piece from the cutting board. The first keeps the original task's id; the others are new tasks.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[cfg_attr(test, derive(ts_rs::TS), ts(export, export_to = "../../src/generated/"))]
 pub struct Piece { pub id: String, pub title: String, pub body: String, pub duration: i64, #[serde(default)] pub proto: bool, #[serde(default)] pub completed: bool }
 
 // A pile row. Only the reserved 'shelf' (the 준비 shelf) remains in v9; the 들어옴 has no row.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[cfg_attr(test, derive(ts_rs::TS), ts(export, export_to = "../../src/generated/"))]
 pub struct Pile { pub id: String, pub position: i64 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[cfg_attr(test, derive(ts_rs::TS), ts(export, export_to = "../../src/generated/"))]
 pub struct DayLayout { pub date: String, pub anchor: i64 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[cfg_attr(test, derive(ts_rs::TS), ts(export, export_to = "../../src/generated/"))]
 pub struct Unavailable { pub start: i64, pub end: i64, pub label: String }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[cfg_attr(test, derive(ts_rs::TS), ts(export, export_to = "../../src/generated/"))]
 pub struct WorkingDay {
     pub enabled: bool,
     pub start: i64,
@@ -51,18 +57,22 @@ pub struct WorkingDay {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct DayException { pub date:String, pub kind:String, pub day:WorkingDay }
+#[cfg_attr(test, derive(ts_rs::TS), ts(export, export_to = "../../src/generated/"))]
+pub struct DayException { pub date:String, #[cfg_attr(test, ts(type = "'custom' | 'leave' | 'early'"))] pub kind:String, pub day:WorkingDay }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[cfg_attr(test, derive(ts_rs::TS), ts(export, export_to = "../../src/generated/"))]
 pub struct Routine {
     pub id: String, pub title: String, pub body: String,
     pub weekdays: Vec<usize>, pub start: i64, pub duration: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(test, derive(ts_rs::TS), ts(export, export_to = "../../src/generated/"))]
 pub struct TaskRevision { pub id: String, pub revision: i64 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[cfg_attr(test, derive(ts_rs::TS), ts(export, export_to = "../../src/generated/"))]
 pub struct Settings {
     pub days: Vec<WorkingDay>, pub revision: i64,
     #[serde(default)] pub exceptions:Vec<DayException>,
@@ -91,12 +101,15 @@ impl Default for Settings {
 
 // A deleted task kept whole so restoring it returns the same date, order, time and completion.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[cfg_attr(test, derive(ts_rs::TS), ts(export, export_to = "../../src/generated/"))]
 pub struct Trashed { #[serde(flatten)] pub task: Task, pub deleted_at: String }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(test, derive(ts_rs::TS), ts(export, export_to = "../../src/generated/"))]
 pub struct Snapshot { pub epoch: String, pub tasks: Vec<Task>, pub settings: Settings, #[serde(default)] pub layouts: Vec<DayLayout>, #[serde(default)] pub trash: Vec<Trashed>, #[serde(default)] pub piles: Vec<Pile> }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(test, derive(ts_rs::TS), ts(export, export_to = "../../src/generated/"))]
 pub struct Command {
     pub request_id: String,
     pub epoch: String,
@@ -119,6 +132,7 @@ pub fn validate_request_time(command: &Command, now: i64, cutoff: i64) -> Result
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(export, export_to = "../../src/generated/"))]
 pub enum Action {
     Create { id: String, title: String },
     CreateScheduled { id:String,title:String,starts_at:Option<String>,duration:i64 },
@@ -148,7 +162,7 @@ pub enum Action {
     CompleteFlow { date:String, items:Vec<TaskRevision>, at:Option<String> },
     Reflow { date:String, at:String },
     // Into a pile (None: the 투입구) before the card now at `index`; with `create_at` the pile is new at that position.
-    PlaceUnplanned { items:Vec<TaskRevision>, pile:Option<String>, #[serde(default)] create_at:Option<i64>, index:i64 },
+    PlaceUnplanned { items:Vec<TaskRevision>, pile:Option<String>, #[serde(default)] #[cfg_attr(test, ts(optional = nullable))] create_at:Option<i64>, index:i64 },
     // A fresh task replaces the selected open unplanned tasks; originals stay whole in the trash.
     MergeUnplanned { id:String, items:Vec<TaskRevision> },
     MovePile { pile:String, position:i64 },
@@ -161,6 +175,7 @@ pub enum Action {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(test, derive(ts_rs::TS), ts(export, export_to = "../../src/generated/"))]
 pub struct AppError { pub code: String, pub message: String, pub retryable: bool }
 
 impl std::fmt::Display for AppError {
