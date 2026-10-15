@@ -1,7 +1,7 @@
 # BLOKKY 유동 배분 재설계 구현 계획
 
 **작성일:** 2026-10-10
-**입력:** [재설계안](BLOKKY_redesign_intent_and_ux.md), 현재 코드(`ec3351f`), [PRODUCT.md](../PRODUCT.md), [구현 결정](decisions.md), [검증 범위](test-policy.md)
+**입력:** [재설계안](BLOKKY_redesign_intent_and_ux.md), 현재 코드(`ec3351f`), [PRODUCT.md](../../PRODUCT.md), [구현 결정](../decisions.md), [검증 범위](../test-policy.md)
 **성격:** 재설계안의 합의 사항을 현재 구조 위에서 구현하는 순서와 경계. 재설계안이 후속 검토로 남긴 항목은 §2에서 권장안을 붙여 확인을 요청한다.
 
 ---

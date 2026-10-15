@@ -83,7 +83,7 @@
 
 ## Impeccable 감사 1회차 후 확인
 
-같은 날짜에 서브에이전트 기술 감사·UX 검토 → 수정 한 묶음 → 확인 한 묶음을 수행했다. 상세는 [감사 보고서](impeccable-audit-cycle-1.md).
+같은 날짜에 서브에이전트 기술 감사·UX 검토 → 수정 한 묶음 → 확인 한 묶음을 수행했다. 상세는 [감사 보고서](archive/impeccable-audit-cycle-1.md).
 
 - 프런트 Node 테스트 2→3개, 모두 통과. 새 사례는 실제 CaptureDraft와 실패한 SaveQueue를 연결하여 이전 캡처 재시도의 성공이 새 입력을 지우지 않는지 검증한다.
 - TypeScript/Vite 빌드 통과. Rust 저장소 로직은 변경하지 않아 기존 6개 저장 테스트를 반복하지 않았다.
@@ -108,7 +108,7 @@
 
 테스트 5/5, TypeScript·Vite·Rust release·NSIS 패키징 통과. 설치 파일 207.96 MiB. 소스 변경은 프런트 영역이며 Rust 저장 테스트 6개를 불필요하게 반복하지 않았다. 실제 Windows 저장 오류 주입·IME·전체 접근성은 이번에 검증하지 않았다.
 
-평가 근거는 [A](cycle2-assessment-a.md)·[B](cycle2-assessment-b.md), 변경은 [수정 기록](cycle2-fixes.md), 판정은 [최종 검토](cycle2-final-review.md)에 있다. read-only 브라우저 API로 탐지 오버레이 주입은 불가능하여 CLI+실제 화면 검증으로 대체했다. 이번 대상의 저장된 critique는 첫 기록으로 추세 비교 대상이 없다.
+평가 근거는 [A](archive/cycle2-assessment-a.md)·[B](archive/cycle2-assessment-b.md), 변경은 [수정 기록](archive/cycle2-fixes.md), 판정은 [최종 검토](archive/cycle2-final-review.md)에 있다. read-only 브라우저 API로 탐지 오버레이 주입은 불가능하여 CLI+실제 화면 검증으로 대체했다. 이번 대상의 저장된 critique는 첫 기록으로 추세 비교 대상이 없다.
 
 ## 2026-10-09 캘린더·유연근무 개편
 
@@ -168,13 +168,13 @@
 
 ## 2026-10-09 단독형 캘린더 품질 목표 검증
 
-- 첨부된 CAL-01~12/T-01~40을 대조한 [통합 보고서](calendar-quality-report-2026-10-09.md)를 추가했다. 현재 제품의 지원 제외·미구현 목표 격차, 부분 검증, 미검증과 소스상 결함을 구분했다. 원문 P0 목표는 미달이며 전체 40행 합격을 선언하지 않는다.
+- 첨부된 CAL-01~12/T-01~40을 대조한 [통합 보고서](archive/calendar-quality-report-2026-10-09.md)를 추가했다. 현재 제품의 지원 제외·미구현 목표 격차, 부분 검증, 미검증과 소스상 결함을 구분했다. 원문 P0 목표는 미달이며 전체 40행 합격을 선언하지 않는다.
 - 기존 Node 16개/Rust 파일 DB 11개가 통과했고 TypeScript/Vite 빌드가 성공했다. 격리 저장소의 commit 후 child 강제 종료·SQL 실패 원자성·빈 복원·v1 이관을 추가 확인했다. 10,000개 저장소만의 debug p95 36.740ms는 정식 UI 성능 합격이 아니다.
-- 현재 DB 손상 시 앱 내 복원 진입 차단(T-26) 소스상 결함과 상세 Ctrl+Enter의 IME 보호 누락 위험을 기록했다. 이번 UI 연결은 unavailable이라 실제 조작/OS 장애/보조기술/정식 성능 검증은 미실행이다. 제품과 사용자 데이터는 수정하지 않았다. 세부 실행 근거는 [프런트엔드](calendar-quality-frontend-2026-10-09.md)·[저장소](calendar-quality-storage-2026-10-09.md)에 있다.
+- 현재 DB 손상 시 앱 내 복원 진입 차단(T-26) 소스상 결함과 상세 Ctrl+Enter의 IME 보호 누락 위험을 기록했다. 이번 UI 연결은 unavailable이라 실제 조작/OS 장애/보조기술/정식 성능 검증은 미실행이다. 제품과 사용자 데이터는 수정하지 않았다. 세부 실행 근거는 [프런트엔드](archive/calendar-quality-frontend-2026-10-09.md)·[저장소](archive/calendar-quality-storage-2026-10-09.md)에 있다.
 
 ## 2026-10-09 품질 개선 1단계
 
-- 사용자 요청에 따라 [3단계 실행 계획](calendar-quality-action-plan-2026-10-09.md)을 작성하고 손상 저장소 복구·IME 명령 보호·달력 날짜/시각 갱신부터 구현했다. 첨부40개 목표 전체는 계속 계획 대상으로 두며 일반 캘린더 기능 확장은 아직 구현하지 않았다.
+- 사용자 요청에 따라 [3단계 실행 계획](archive/calendar-quality-action-plan-2026-10-09.md)을 작성하고 손상 저장소 복구·IME 명령 보호·달력 날짜/시각 갱신부터 구현했다. 첨부40개 목표 전체는 계속 계획 대상으로 두며 일반 캘린더 기능 확장은 아직 구현하지 않았다.
 - 로드 오류에서도 관리 백업 목록/검사/명시적 교체 확인을 열고 `recover_backup`으로 복구한다. 손상 DB/WAL/SHM은 복구 자료로 보존하며 실패/중단 marker는 빈 저장소 자동 생성을 막는다. 정상 Store는 기존 epoch/초안 보호를 우회할 수 없다. 완료 포커스를 유지하고 복구 뒤 운영 정보를 다시 읽는다. 초안·진단·단축키 등 부가정보 실패는 Store 손상과 구분해 다시 불러올 수 있다.
 - 캡처·미계획·시간표 제목·상세 Enter/Ctrl+Enter가 공유 조합 판정을 사용한다. 오늘/계획의 minute·focus·visibility 갱신은 선택 날짜를 유지하고 편집·조합·모달·드래그가 끝날 때까지 보류한다.
 - Node **18/18** (123.371ms), 최종 Rust 실제 파일 DB **13/13** (3.67초), desktop cargo check1.25초 통과. 단독 프런트 빌드218ms, 최종 패키징 프런트 빌드282ms. 새 의존성/테스트 파일/worker/coverage 기준 없음. Test delta는 [test-policy](test-policy.md)에 기록했다.

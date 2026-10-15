@@ -58,7 +58,7 @@
 
 *넓은 준비 도크 — 들어옴과 선반 옆에 캘린더가 그대로 보입니다.*
 
-설계의 배경은 [유동형 업무 배분 재설계안](docs/BLOKKY_redesign_intent_and_ux.md), 현재 정책은 [제품 정의](PRODUCT.md)와 [구현 결정](docs/decisions.md)에 기록합니다.
+설계의 배경은 [유동형 업무 배분 재설계안](docs/archive/BLOKKY_redesign_intent_and_ux.md), 현재 정책은 [제품 정의](PRODUCT.md)와 [구현 결정](docs/decisions.md)에 기록합니다.
 
 ## 직접 조작 데모
 
@@ -240,8 +240,8 @@ React 화면의 변경 요청을 Tauri IPC로 전달하면 Rust가 검증해 SQL
 ## 개발 내용
 
 - **로컬 업무 흐름** — 빠른 캡처부터 준비·정기 업무·근무시간·날짜 예외까지 연결했습니다. [제품 정의](PRODUCT.md)
-- **유동형 배분** — 날짜·순서 중심 계획, 고정 일정 우회, 완료·수동 재배치와 근무 외 넘침 표시를 구현했습니다. [재설계안](docs/BLOKKY_redesign_intent_and_ux.md) · [구현 계획](docs/BLOKKY_redesign_implementation_plan.md)
-- **React 화면 전환** — 공통 블록 공간과 편집기를 만들고, 일·주·2주·월 캘린더를 구성했습니다. [React 도입 계획](docs/BLOKKY_react_migration_plan.md)
+- **유동형 배분** — 날짜·순서 중심 계획, 고정 일정 우회, 완료·수동 재배치와 근무 외 넘침 표시를 구현했습니다. [재설계안](docs/archive/BLOKKY_redesign_intent_and_ux.md) · [구현 계획](docs/archive/BLOKKY_redesign_implementation_plan.md)
+- **React 화면 전환** — 공통 블록 공간과 편집기를 만들고, 일·주·2주·월 캘린더를 구성했습니다. [React 도입 계획](docs/archive/BLOKKY_react_migration_plan.md)
 - **준비와 도마** — 자유 캔버스를 들어옴·시간 축척 선반으로 바꾸고, 길이와 자리를 따로 정하게 했으며, 도마로 작업을 쪼개고 모든 작업을 한 검색창에서 찾도록 했습니다. [제품 정의](PRODUCT.md) · [구현 결정](docs/decisions.md)
 - **한 화면과 몰입** — 오늘·계획·준비 탭을 작업 화면(준비 도크 + 캘린더)과 몰입 두 화면으로 합치고, 도크 폭으로 가공과 배분을 나눴습니다. ‘다음’ 카드의 바로 처리, 넘침의 ‘준비로’, 블록 옆 편집기, 한 글자 단축키를 더했습니다. [한 화면 구현 계획](docs/one-screen-plan.md) · [구현 결정](docs/decisions.md)
 - **기다림** — 내 차례가 아닌 일을 상태 버튼 대신 자리(오른쪽 띠)·꼬리표·쌓임으로 드러내고, 끌기·`B`·꼬리표 떼기로 밀고 되살립니다. [제품 정의](PRODUCT.md) · [구현 결정](docs/decisions.md)

@@ -53,11 +53,11 @@ BLOKKY에서는 4주를 월과 통합하고 주/2주/월을 제공한다. 주는
 
 Store 읽기 성공과 초안 읽기 성공을 분리한다. 초안 IPC 실패/JSON 해석 실패는 편집과 새 draft sequence 발급을 막는다. 읽은 sequence가 확인된 손상 초안만 사용자 확인 후 비울 수 있다. 운영 정보 조회 실패는 DB 손상으로 판정하지 않으며 재시도 상태를 표시한다.
 
-분 경계·창 focus/visibility 복귀에서 오늘/계획 표시를 갱신하지만 사용자가 선택한 날짜는 자동 이동시키지 않는다. 편집·조합·모달·드래그 동안 전체 내용 재렌더를 보류한다. 일반 반복/알림/검색 등 원문 목표 확장은 [실행 계획](calendar-quality-action-plan-2026-10-09.md)의 이후 단계이며 이번 수정의 합격으로 처리하지 않는다.
+분 경계·창 focus/visibility 복귀에서 오늘/계획 표시를 갱신하지만 사용자가 선택한 날짜는 자동 이동시키지 않는다. 편집·조합·모달·드래그 동안 전체 내용 재렌더를 보류한다. 일반 반복/알림/검색 등 원문 목표 확장은 [실행 계획](archive/calendar-quality-action-plan-2026-10-09.md)의 이후 단계이며 이번 수정의 합격으로 처리하지 않는다.
 
 ## 2026-10-10 유동 배분 재설계
 
-[재설계안](BLOKKY_redesign_intent_and_ux.md)과 [구현 계획](BLOKKY_redesign_implementation_plan.md)의 권장안 D1~D10을 사용자가 자율 착수로 승인했다.
+[재설계안](archive/BLOKKY_redesign_intent_and_ux.md)과 [구현 계획](archive/BLOKKY_redesign_implementation_plan.md)의 권장안 D1~D10을 사용자가 자율 착수로 승인했다.
 
 - 작업은 미계획(`plan_date` 없음), 유동계획(`plan_date`+`flow_order`), 고정계획(`starts_at`), 완료된 유동 작업(날짜·순서 보존)으로 구분한다. 겹침 검사는 고정끼리만 한다.
 - 유동 블록 위치는 저장하지 않는다. 날짜별 배치 기준 시각(`day_layouts.anchor`)과 순서·고정·휴식으로 `src/flow.ts`가 계산한다. 기준 시각은 오늘의 유동 작업 완료·일괄 완료·수동 재배치에서만 앞으로 갱신되며, 시간 경과·창 복귀·재시작·자정은 배치를 바꾸지 않는다.
@@ -69,7 +69,7 @@ Store 읽기 성공과 초안 읽기 성공을 분리한다. 초안 IPC 실패/J
 
 ## 2026-10-10 React 전면 도입
 
-사용자가 [시험 결과](react-spike-today.md)를 보고 전면 도입을 결정했다. 2026-10-08의 ‘React·캘린더 라이브러리 없이 시작’을 대체한다. 세부는 [React 도입 계획](BLOKKY_react_migration_plan.md) R1–R8.
+사용자가 [시험 결과](archive/react-spike-today.md)를 보고 전면 도입을 결정했다. 2026-10-08의 ‘React·캘린더 라이브러리 없이 시작’을 대체한다. 세부는 [React 도입 계획](archive/BLOKKY_react_migration_plan.md) R1–R8.
 
 - 화면은 React 19, 움직임은 `motion`, 드래그 감지는 `@dnd-kit/core`. 배치·저장 규칙의 기준은 계속 순수 모듈과 Rust다.
 - 객체는 평면, 움직임은 물리적으로 표현한다. 오늘 화면은 블록 공간 하나와 오른쪽 상세로 구성하고 별도 순서 목록을 두지 않는다.
@@ -142,7 +142,7 @@ Store 읽기 성공과 초안 읽기 성공을 분리한다. 초안 IPC 실패/J
 
 ## 2026-10-11 미계획 작업대·도마·전역 검색
 
-사용자와 합의한 인계 문서: [docs/BLOKKY_workbench_search_handoff.md](BLOKKY_workbench_search_handoff.md). 정책은 PRODUCT.md 같은 날짜 절을 따른다. 아래는 구현에서 정한 해석이다.
+사용자와 합의한 인계 문서: [docs/archive/BLOKKY_workbench_search_handoff.md](archive/BLOKKY_workbench_search_handoff.md). 정책은 PRODUCT.md 같은 날짜 절을 따른다. 아래는 구현에서 정한 해석이다.
 
 - 저장소 v6. `tasks`에 `proto`(0/1), `pile_id`(NULL = 투입구), `pile_order`를 더하고 더미 순서는 `piles(id, position)`에 둔다. 투입구는 행이 없는 기본 더미로 항상 맨 앞이다. 좌표는 저장하지 않는다. 모든 쓰기 뒤 Rust가 빈 더미를 지우고 번호를 다시 매기며, 스냅숏 검증은 ‘미완료 미계획 작업만 더미 위치를 가진다’는 형태를 강제한다.
 - 프로토는 0→1로 돌아가지 않는다. 날짜 배치·길이 변경·명시적 길이 확정(`sized`)에서만 풀린다.
