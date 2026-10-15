@@ -1,5 +1,11 @@
 # 검증 범위
 
+## 드래그 판정 순수 함수 Test delta (2026-10-15)
+
+- Unique risk: 레일 물림·놓음 거리, 지나가는 곳과 머무는 곳의 구분, 목록 끼워 넣기 위치가 `DragProvider` 안에 DOM과 섞여 있어 실제 포인터 UI 검사로만 확인되던 것. 그리고 끌고 있는 동안 보이는 결과(`applyIntent`)와 놓은 뒤 저장되는 결과가 어긋나는 것.
+- Owner / layer: 새 `src/drag-zone.ts`(`spaceZone`·`listIndex`·`steadiness`·`pace`·`arrive`, 일 공간 기하)와 `src/drag-zone.test.ts`. `src/intent.test.ts`에는 drop 10가지(같은 날 순서, 준비에서 날짜, 고정 해제, 레일, 날짜 머리, 준비로, 들어옴·선반, 여러 개)마다 미리보기와 `previewMutation(intentAction(...))`의 날짜·시각·하루 순서·준비 목록이 같은지 보는 사례를 더했다.
+- Added / extended / removed: Node **7+1 / 0 / 0**. 결과: Node **104/104**, UI **118/118**.
+
 ## 미리보기·Rust 저장소 짝 고정값 Test delta (2026-10-15)
 
 - Unique risk: DB 리팩터링 중 `src/preview.ts`가 `db.rs`와 말없이 어긋나는 것. 지금까지 짝 검사는 `wait.test.ts`·`storage.rs`의 손으로 맞춘 같은 시나리오뿐이었다.

@@ -3,8 +3,7 @@ import {DndContext,DragOverlay,PointerSensor,TouchSensor,useSensor,useSensors,ty
 import {motion} from 'motion/react';
 import {applyIntent,carried,noIntent,type Intent} from '../../intent.ts';
 import {dayPlan,newlyOver,overrunEnd} from '../../today.ts';
-import {insertionBefore} from '../../flow.ts';
-import {placementIssue,resistWorkingBoundary} from '../../placement.ts';
+import {arrive,listIndex,pace,spaceZone,steadiness,type Geometry,type Passage,type Slot,type Travel} from '../../drag-zone.ts';
 import {createTimeAxis,timeAxisForDays,type TimeAxis} from '../../time-axis.ts';
 import type {DayLayout,Task} from '../../types.ts';
 import {formatDuration,quotedObject} from '../../format.ts';
@@ -17,17 +16,6 @@ import {reduced} from '../ui/motion.ts';
 import {Lock} from '../ui/icons.tsx';
 import {OffHours} from './OffHours.tsx';
 
-// Horizontal geometry of a day space. `bodyLeft` is where the rail ends and order space begins.
-// A held block bites into the rail once its left edge is pushed `bite` px left of where flow blocks stand, and lets go
-// once pulled `pull` px right of where fixed blocks stand: a little easier than biting, and still clear of the bite point
-// (fixedLeft+pull > flowLeft-bite), so it never chatters at the edge. Until then the copy gives up to `give` px toward the hand.
-// Both distances grow while the hand is moving up or down (see `steadiness`), so reordering never latches by drift.
-export type Geometry={ruler:number;railLeft:number;railWidth:number;bodyLeft:number;flowLeft:number;fixedLeft:number;right:number;bite:number;pull:number;give:number};
-export const DAY_GEOMETRY:Geometry={ruler:50,railLeft:52,railWidth:30,bodyLeft:86,flowLeft:92,fixedLeft:56,right:10,bite:24,pull:20,give:6};
-export const COLUMN_GEOMETRY:Geometry={ruler:0,railLeft:0,railWidth:13,bodyLeft:14,flowLeft:17,fixedLeft:1,right:4,bite:12,pull:10,give:3};
-// How far a flow block's runner reaches left from the block to sit in the middle of the rail's groove.
-export const runnerReach=(g:Geometry)=>g.flowLeft-(g.railLeft+g.railWidth/2);
-
 // Places where a held block can land. Day spaces know their time axis; the others take a date or send work back to 준비.
 // The 준비 lists (inbox, shelf) say what they hold top to bottom, so a drop index comes from the same heights they draw.
 // `form`: the box a held block takes over the region (its destination's shape); none keeps the shape it was lifted with.
@@ -37,8 +25,6 @@ export type Density='full'|'narrow'|'line'|'bar';
 export type ListModel={gap:number;items:()=>{id:string;height:number}[];top?:()=>number};
 type RegionExtra={axis?:TimeAxis;geometry?:Geometry;list?:ListModel;form?:(task:Task,ids:string[])=>Form|null};
 type Region={key:string;kind:'space'|'date'|'tray'|'inbox'|'shelf'|'wait';date:string|null;el:HTMLElement}&RegionExtra;
-// The hollow marks the body slot; the held copy follows the hand until it latches onto a rail tick.
-type Slot={start:number;end:number;over:boolean};
 // `ids`: every block carried (a selection), in order.
 // `passing`: the hand is crossing a place it has not come to rest on; the copy keeps the shape and `look` (the zone it was
 // last shaped by) of the place before, and that place's preview stays, while `intent` already says where a release would land.
@@ -82,16 +68,15 @@ export function DragProvider({children}:{children:ReactNode}){
   const [held,setHeld]=useState<Held|null>(null);
   const [pending,setPending]=useState<Intent|null>(null);
   const regions=useRef(new Map<string,Region>());
-  // Recent motion per axis, px per frame, fading over about 120ms. Its vertical share is the budget up/down travel has taken.
-  const travel=useRef({x:0,y:0,px:0,py:0,t:0});
+  // Recent motion per axis; its vertical share is the budget up/down travel has taken.
+  const travel=useRef<Travel>({x:0,y:0,px:0,py:0,t:0});
   const stretch=useRef(1);
   const snap=useRef<{left:number;top:number}|null>(null);
   type Landing={held:Held;intent:Intent;valid:boolean;animating:boolean;saved?:Promise<boolean>};
   const landing=useRef<Landing|null>(null);
   const start=useRef<Held['startRect']|null>(null);
   const pointer=useRef<{x:number;y:number}|null>(null);
-  // The place the copy is shaped by (`at`, a region key or 'none'), and the one the hand has been crossing toward since `since`.
-  const passage=useRef<{at?:string;to?:string;since:number}>({since:0});
+  const passage=useRef<Passage>({since:0});
   // The day whose order the held block has come into since it last left that day; only that day's rail can take it.
   const entered=useRef<string|null>(null);
   const watching=useRef(0);
@@ -118,8 +103,7 @@ export function DragProvider({children}:{children:ReactNode}){
   const pushed=useMemo(()=>held&&!held.dropping?pushedBy(base,snapshot?.layouts??[],shown):[],[held,shown,base,snapshot]);
 
   // `grab` is where along its width the block was taken; `prev` is the last intent, for the latch's hysteresis.
-  // `near` is how far the block has been pushed toward biting (or, latched, pulled toward letting go), 0–1.
-  // `stretch` scales both distances: 1 when the hand is still or moving sideways, up to STRETCH while it travels up or down.
+  // `stretch` scales the bite and pull distances (see `steadiness`).
   function zoneAt(task:Task,px:number,py:number,grabY:number,grab:number,prev:Intent,stretch=1,ids:string[]=[task.id],lifted?:Form):{intent:Intent;region?:Region;slot?:Slot;near?:number;boundary?:boolean}{
     const intent:Intent={...noIntent(task.id),ids};
     // `inset`: a place not already under the block must be entered a little, so its shape does not flicker on the edge.
@@ -139,30 +123,10 @@ export function DragProvider({children}:{children:ReactNode}){
     const pile=ids.length>1&&ids.every(id=>{const t=base.find(x=>x.id===id);return !!t&&waiting(t);});
     for(const region of pile?[]:all.filter(r=>r.kind==='space')){
       const r=inside(region.el);if(!r||!region.axis||!region.geometry||!region.date)continue;
-      const duration=ids.reduce((n,id)=>n+(base.find(t=>t.id===id)?.duration??0),0);
-      const {axis,geometry:g,date}=region,topIn=py-r.top-grabY*Math.max(10,duration*axis.scale-2),rule=dayRule(date),layouts=snapshot!.layouts??[];
-      // A fixed block starts latched on its own day; anything latched keeps the wider fixed shape while it is measured.
-      const was=prev.zone==='rail'?prev.date===date:prev.zone==='none'&&task.starts_at?.slice(0,10)===date;
-      const edge=px-r.left-grab*(r.width-(was?g.fixedLeft:g.flowLeft)-g.right);
-      // The teeth face the rail: a block coming in over it passes by. Only one that has come into this day's order, or
-      // sits latched here, can be pushed back into it — so a fixed block carried to another day lets go until pushed again.
-      if(was||edge>=g.flowLeft)entered.current=date;
-      const ready=entered.current===date;
-      const bite=g.bite*stretch,pull=g.pull*stretch;
-      if(ids.length===1&&ready&&(px-r.left<g.bodyLeft||(was?edge<g.fixedLeft+pull:edge<=g.flowLeft-bite))){
-        const raw=Math.max(0,Math.min(1440-task.duration,axis.minute(py-r.top)-grabY*task.duration));
-        const from=prev.date===date&&prev.zone==='rail'?prev.start!:dayPlan(date,base,rule,layouts).items.find(i=>i.task.id===task.id)?.start??rule.start;
-        const resisted=resistWorkingBoundary(from,raw,task.duration,rule,axis.position);
-        const minute=Math.round(resisted/15)*15;
-        const reason=placementIssue(task.id,date,minute,task.duration,rule,base)?.label??null;
-        return {intent:{...intent,zone:'rail',date,start:minute,ok:!reason,reason},region,boundary:resisted!==raw,near:was?Math.max(0,Math.min(1,(edge-g.fixedLeft)/pull)):0};
-      }
-      const rest=dayPlan(date,base.filter(t=>!ids.includes(t.id)),rule,layouts);
-      const centre=axis.minute(topIn+duration*axis.scale/2),flows=rest.items.filter(i=>!i.fixed);
-      const body:Intent={...intent,zone:'body',date,before:insertionBefore(flows,centre),ok:true,reason:null};
-      const near=ready?Math.max(0,Math.min(1,(g.flowLeft-edge)/bite)):0;
-      const items=dayPlan(date,applyIntent(base,body),rule,layouts).items.filter(i=>ids.includes(i.task.id));
-      return {intent:body,region,near,slot:items.length?{start:items[0].start,end:items[items.length-1].end,over:items.some(i=>i.over)}:undefined};
+      const zone=spaceZone({task,ids,tasks:base,layouts:snapshot!.layouts??[],date:region.date,rule:dayRule(region.date),axis:region.axis,geometry:region.geometry,
+        rect:r,px,py,grabY,grab,prev,stretch,entered:entered.current});
+      entered.current=zone.entered;
+      return {...zone,region};
     }
     entered.current=null;
     const current=(region:Region)=>region.kind==='date'?prev.zone==='date'&&prev.date===region.date:prev.zone===region.kind;
@@ -172,9 +136,7 @@ export function DragProvider({children}:{children:ReactNode}){
         // Before the first remaining card whose middle is below the held block's middle, as the list draws them.
         const items=region.list.items().filter(i=>!ids.includes(i.id)),h=(region.form?.(task,ids)??lifted)?.height??0;
         const centre=py-(region.list.top?.()??r.top)-grabY*h+h/2;
-        let top=0,index=items.length;
-        for(const [n,item] of items.entries()){if(centre<top+item.height/2){index=n;break;}top+=item.height+region.list.gap;}
-        return {intent:{...intent,zone:kind,index},region};
+        return {intent:{...intent,zone:kind,index:listIndex(items,region.list.gap,centre)},region};
       }
       if(kind==='tray')return waiting(task)||task.plan_date&&!task.completed&&ids.length===1?{intent:{...intent,zone:'tray'}}:{intent};
       // Out to the band: anything open that is not already waiting there.
@@ -208,17 +170,13 @@ export function DragProvider({children}:{children:ReactNode}){
   function onDragMove(e:DragMoveEvent){
     const h=held,s=start.current;if(!h||!s||h.dropping)return;
     const a=point(e.activatorEvent!),{x:px,y:py}=pointer.current??{x:a.x+e.delta.x,y:a.y+e.delta.y};
-    stretch.current=steadiness(travel.current,px,py);
+    stretch.current=steadiness(travel.current,px,py,performance.now());
     moveHeld(h,s,px,py);
   }
-  // True once the hand has come to `key`'s place: the place it was shaped by, or one it has stayed in a little while moving
-  // slowly, or a while longer at any pace. Until then it is passing through, and a frame later it asks again.
+  // Passing through a place, it asks again a frame later whether the hand has come to it.
   function arrived(key:string){
-    const p=passage.current,t=performance.now();
-    if(p.at===undefined||p.at===key){p.at=key;p.to=undefined;return true;}
-    if(p.to!==key){p.to=key;p.since=t;}
-    const stay=t-p.since;
-    if(stay>=SETTLE_MAX_MS||stay>=SETTLE_MS&&pace(travel.current,t)<CALM){p.at=key;p.to=undefined;return true;}
+    const t=performance.now();
+    if(arrive(passage.current,key,t,pace(travel.current,t)))return true;
     watching.current||=requestAnimationFrame(()=>{
       watching.current=0;const h=heldRef.current,s=start.current,q=pointer.current;
       if(h&&!h.dropping&&s&&q)moveRef.current(h,s,q.x,q.y);
@@ -326,18 +284,6 @@ export function DragProvider({children}:{children:ReactNode}){
   </DragCtx.Provider>;
 }
 
-// How much harder biting and letting go are right now. Like a scroll view's directional lock, but soft: the vertical share of
-// recent motion (y/(x+y+REST)) takes up to STRETCH× the distance; a pause lets it fade, so a deliberate sideways push still bites.
-const STRETCH=3,REST=.6,FADE_MS=120;
-function steadiness(m:{x:number;y:number;px:number;py:number;t:number},px:number,py:number){
-  const t=performance.now(),dt=Math.max(1,t-m.t),k=1-Math.exp(-dt/FADE_MS),frame=16/dt;
-  m.x+=k*(Math.abs(px-m.px)*frame-m.x);m.y+=k*(Math.abs(py-m.py)*frame-m.y);m.px=px;m.py=py;m.t=t;
-  return 1+(STRETCH-1)*m.y/(m.x+m.y+REST);
-}
-// The hand's recent speed, px per frame, fading out quickly once it stops sending moves: a fast sweep that stops reads
-// as still within about 90ms.
-const pace=(m:{x:number;y:number;t:number},t:number)=>(m.x+m.y)*Math.exp(-Math.max(0,t-m.t)/STOP_MS);
-
 function HeldBlock({held,out,outside}:{held:Held;out:number;outside:number}){
   // Passing through, it looks as the last place made it and says nothing about the place under the hand.
   const {task,intent,slot,width,height,density='full',passing=false}=held,zone=passing?held.look??'none':intent.zone;
@@ -391,9 +337,6 @@ export const MORPH_MS=150,LAND_MS=160;
 const MORPH_EASE=[.2,.8,.2,1] as const;
 // How far into a place the block must come before it counts as there.
 const EDGE=4;
-// A place the hand crosses does not reshape the copy. It takes the place's shape once the hand has stayed SETTLE_MS there
-// slower than CALM px per frame (about 190px/s), or SETTLE_MAX_MS at any pace.
-const SETTLE_MS=70,SETTLE_MAX_MS=260,CALM=3,STOP_MS=40;
 // How long a held change must stay put before the blocks around it move.
 const DWELL_MS=200;
 // `value` while `dwell` is off; while it is on, the last value that held still (same `key`) for DWELL_MS.

@@ -14,7 +14,8 @@ import {blockButton} from '../editor/actions.ts';
 import {openAvailability} from '../store/schedule.ts';
 import {reflow,reduced} from '../ui/motion.ts';
 import {Icon,Lock} from '../ui/icons.tsx';
-import {COLUMN_GEOMETRY,DAY_GEOMETRY,runnerReach,isGestureActive,useDrag,useDwell,useRegion,type Geometry} from './drag.tsx';
+import {isGestureActive,useDrag,useDwell,useRegion} from './drag.tsx';
+import {COLUMN_GEOMETRY,DAY_GEOMETRY,runnerReach,type Geometry} from '../../drag-zone.ts';
 import './space.css';
 import {OffHours} from './OffHours.tsx';
 

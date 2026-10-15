@@ -1,7 +1,8 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {applyIntent,intentAction,noIntent,type Intent} from './intent.ts';
-import type {Task} from './types.ts';
+import {applyIntent,carried,intentAction,noIntent,type Intent} from './intent.ts';
+import {previewMutation} from './preview.ts';
+import type {Snapshot,Task} from './types.ts';
 
 const day='2026-10-12',other='2026-10-13';
 const task=(id:string,extra:Partial<Task>={}):Task=>({id,title:id,body:'',starts_at:null,duration:30,completed:false,revision:1,plan_date:day,flow_order:null,...extra});
@@ -69,4 +70,22 @@ test('the 준비 lists store moves into the 들어옴 and the shelf, create the 
   assert.deepEqual(intentAction(mixed,insert),{type:'ship_flow',date:day,items:[{id:'a',revision:1},{id:'c',revision:1}],before:'y'});
   const reorder=at({id:'z',ids:['z','x'],zone:'body',date:day,before:'y'});
   assert.deepEqual(orderOf(applyIntent(mixed,reorder)),['z','x','y']);
+});
+
+test('every drop the days preview while a block is held is what the store then saves',()=>{
+  const settings={revision:1,days:Array.from({length:7},()=>({enabled:true,start:540,end:1080,breaks:[]})),exceptions:[],weekly_target:2400,work_days:5,routines:[]};
+  const list=[...tasks.filter(t=>t.id!=='i'),task('i',{plan_date:null,pile_id:null,pile_order:1}),task('s',{plan_date:null,pile_id:'shelf',pile_order:1})];
+  const snapshot:Snapshot={epoch:'e',tasks:list,settings,layouts:[],trash:[],piles:[{id:'shelf',position:1}]};
+  // Where each task stands: its date and time, every day's order, and each 준비 list top to bottom.
+  const where=(all:Task[])=>({at:all.map(t=>[t.id,t.plan_date,t.starts_at,t.completed]).sort(),days:[day,other].map(d=>orderOf(all,d)),
+    bench:[null,'shelf'].map(p=>all.filter(t=>!t.plan_date&&!t.completed&&(t.pile_id??null)===p).sort((x,y)=>(x.pile_order??0)-(y.pile_order??0)).map(t=>t.id))});
+  const drops=[at({id:'c',zone:'body',date:day,before:'a'}),at({id:'i',zone:'body',date:day,before:'b'}),at({id:'w',zone:'body',date:day,before:'b'}),
+    at({id:'a',zone:'rail',date:day,start:600}),at({id:'b',zone:'date',date:other}),at({id:'a',zone:'tray'}),at({id:'s',zone:'inbox',index:0}),at({id:'i',zone:'shelf',index:0}),
+    at({id:'i',ids:['i','s'],zone:'body',date:day,before:'b'}),at({id:'a',ids:['a','b'],zone:'date',date:other})];
+  for(const drop of drops){
+    const action=intentAction(list,drop,snapshot.piles)!;assert.ok(action,`${drop.zone} ${drop.id} stores a change`);
+    const saved=previewMutation(snapshot,{request_id:'r',epoch:'e',issued_at:Date.now(),action},new Set()).tasks;
+    assert.notDeepEqual(where(saved),where(list),`${drop.zone} ${carried(drop).join('+')} moves something`);
+    assert.deepEqual(where(applyIntent(list,drop)),where(saved),`${drop.zone} ${carried(drop).join('+')}`);
+  }
 });

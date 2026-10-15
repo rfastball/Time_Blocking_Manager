@@ -10,7 +10,8 @@ import type {Task} from '../../types.ts';
 import {useApp,type Composer} from '../store/state.ts';
 import {closeComposer,dayRule,editCapture,issueAt,openComposer,setComposerFixed,setGesture,submitComposer} from '../store/tasks.ts';
 import {Icon,Lock} from '../ui/icons.tsx';
-import {COLUMN_GEOMETRY,DAY_GEOMETRY,useDrag} from '../space/drag.tsx';
+import {useDrag} from '../space/drag.tsx';
+import {COLUMN_GEOMETRY,DAY_GEOMETRY} from '../../drag-zone.ts';
 import {OffHours} from '../space/OffHours.tsx';
 import './composer.css';
 

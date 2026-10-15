@@ -7,7 +7,8 @@ import {dayRule,planOf} from '../store/tasks.ts';
 import {openEditor} from '../store/editor.ts';
 import {overflowOf,returnOverflow} from '../store/bench.ts';
 import {DaySpace} from '../space/DaySpace.tsx';
-import {COLUMN_GEOMETRY,useDaysAxis,useDrag,useRegion} from '../space/drag.tsx';
+import {useDaysAxis,useDrag,useRegion} from '../space/drag.tsx';
+import {COLUMN_GEOMETRY} from '../../drag-zone.ts';
 import {useNewBlock} from './Composer.tsx';
 import {allocation,allocationLabel,allocationShort,dayTag,Meter,Outside} from './day.tsx';
 
