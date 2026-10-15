@@ -1,7 +1,7 @@
 import type {Action,Command,Settings,Snapshot,Task,TaskRevision} from './types.ts';
 import {placementIssue as checkPlacement,unavailableParts} from './placement.ts';
 import {effectiveDay} from './settings.ts';
-import {dateOf,minutes,plusDays,time} from './dates.ts';
+import {dateOf,time,minutes,plusDays,startAt,startMinute,weekday} from './dates.ts';
 import {SHELF,insertPile,normalize,onBench,place} from './bench.ts';
 import {requestTimeIssue} from './capture.ts';
 import {mergeBody} from './detail.ts';
@@ -172,14 +172,14 @@ function splitPieces({s}:Write,a:Of<'split_pieces'>){
   // Done pieces of 준비 work are that day's completion, like any completion there.
   const bench=!t.plan_date;if(bench&&a.pieces.some(p=>p.completed)){if(!a.date)reject('완료한 날짜를 확인하세요.');parseDate(a.date);}
   const others=s.tasks.filter(x=>x.id!==t.id),index=onBench(t)?others.filter(x=>onBench(x)&&(x.pile_id??null)===(t.pile_id??null)&&(x.pile_order??0)<(t.pile_order??0)).length:0;
-  let minute=t.starts_at?minutes(t.starts_at.slice(11)):null;const order=t.flow_order;
+  let minute=t.starts_at?startMinute(t.starts_at):null;const order=t.flow_order;
   // Later work of the day moves down to make room for the pieces after the first.
   if(t.plan_date&&!t.starts_at&&order!=null)for(const x of others)if(x.plan_date===t.plan_date&&!x.starts_at&&(x.flow_order??0)>order)x.flow_order=(x.flow_order??0)+a.pieces.length-1;
   const built:Task[]=[],open:string[]=[];
   a.pieces.forEach((p,n)=>{
     const x:Task={id:p.id,title:p.title.trim(),body:p.body,duration:p.duration,completed:p.completed,revision:n===0?t.revision+1:1,plan_date:t.plan_date,starts_at:null,flow_order:null,proto:false,pile_id:null,pile_order:null,board_x:n===0?t.board_x:null,board_y:n===0?t.board_y:null};
     // A fixed block's pieces stay fixed, one after another from its time.
-    if(minute!=null){x.starts_at=t.plan_date+'T'+time(minute);minute+=p.duration;}
+    if(minute!=null){x.starts_at=startAt(t.plan_date!,minute);minute+=p.duration;}
     else if(order!=null)x.flow_order=order+n;
     else if(p.completed){x.plan_date=a.date!;x.flow_order=Math.max(0,...[...others,...built].filter(y=>y.plan_date===a.date&&!y.starts_at).map(y=>y.flow_order??0))+1;}
     // Open pieces of waiting work keep waiting on the same trigger.
@@ -208,8 +208,8 @@ function ensureRoutines({s,occurrences,generated}:Write,a:Of<'ensure_routines'>)
   for(let offset=0;offset<count;offset++)for(const routine of s.settings.routines??[]){
     const date=plusDays(a.from,offset);
     const key=routine.id+':'+date;
-    if(occurrences.has(key)||generated.has(key)||!routine.weekdays.includes((dateOf(date).getDay()+6)%7))continue;
-    const id=crypto.randomUUID(),task:Task={id,title:routine.title,body:routine.body,starts_at:date+'T'+time(routine.start),duration:routine.duration,completed:false,revision:1,plan_date:date,flow_order:null};
+    if(occurrences.has(key)||generated.has(key)||!routine.weekdays.includes(weekday(date)))continue;
+    const id=crypto.randomUUID(),task:Task={id,title:routine.title,body:routine.body,starts_at:startAt(date,routine.start),duration:routine.duration,completed:false,revision:1,plan_date:date,flow_order:null};
     let overlap=false;try{validateTask(task,s.tasks,s.settings);}catch(e){if((e as {code?:string}).code!=='overlap')throw e;overlap=true;}
     // Automatic routines prefer working time; released from its time, the routine still belongs to its date.
     if(overlap||unavailableParts(routine.start,routine.start+routine.duration,effectiveDay(s.settings,date)).length)toFlow(s,task,date);

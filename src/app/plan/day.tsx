@@ -1,18 +1,10 @@
 import {motion} from 'motion/react';
 import {dayPlan,type DayItem} from '../../today.ts';
 import {formatDuration} from '../../format.ts';
-import {dateKey,dateOf,plusDays} from '../../dates.ts';
 import type {Task} from '../../types.ts';
-import {getState,type Period} from '../store/state.ts';
+import {getState} from '../store/state.ts';
 import {available,dayRule} from '../store/tasks.ts';
 import {settle} from '../ui/motion.ts';
-
-export function periodDates(period:Period,anchor:string){
-  const first=dateOf(anchor);if(period==='month')first.setDate(1);first.setDate(first.getDate()-(first.getDay()+6)%7);
-  const monthStart=dateOf(anchor),monthEnd=dateOf(anchor);monthStart.setDate(1);monthEnd.setMonth(monthEnd.getMonth()+1,0);
-  const count=period==='week'||period==='day'?7:period==='two'?14:Math.ceil(((monthStart.getDay()+6)%7+monthEnd.getDate())/7)*7;
-  return Array.from({length:count},(_,i)=>plusDays(dateKey(first),i));
-}
 
 // 휴가·조퇴 come from the date's exception; a day without work is 휴무. Changed hours show on the timetable itself.
 export function dayTag(date:string){

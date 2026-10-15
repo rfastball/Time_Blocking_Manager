@@ -1,4 +1,5 @@
 import type {Action,AppError,Command} from './types';
+import {startAt} from './dates.ts';
 
 export const requestLifetimeMs=30*24*60*60*1000;
 export const requestClockToleranceMs=5*60*1000;
@@ -19,7 +20,7 @@ export function captureMatchesCommand(command:Command,text:string,composer:{date
   if(!composer||a.type!=='create_flow'&&a.type!=='create_scheduled')return false;
   return composer.duration===a.duration&&(a.type==='create_flow'
     ?!composer.fixed&&composer.date===a.date
-    :!!composer.fixed&&a.starts_at===composer.date+'T'+String(Math.floor(composer.start/60)).padStart(2,'0')+':'+String(composer.start%60).padStart(2,'0'));
+    :!!composer.fixed&&a.starts_at===startAt(composer.date,composer.start));
 }
 // Releasing one failed request must not erase a newer capture's identity.
 export function releaseCaptureCommand(current:Command|null,failed:Command|null){

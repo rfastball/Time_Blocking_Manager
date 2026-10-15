@@ -2,12 +2,11 @@
 import {initialSegs,piecesOf} from '../../cut.ts';
 import {updateAction} from '../../intent.ts';
 import {placeLabel} from '../../bench.ts';
-import {time} from '../../dates.ts';
+import {time,monthDay} from '../../dates.ts';
 import {getState,setDrafts,setUi,type CutDraft} from './state.ts';
 import {announce,dispatch,draftChanged,persistDraft,queue,showError} from './session.ts';
 import {closeEditor,openEditor} from './editor.ts';
 import {flowOrderOn,taskMinute} from './tasks.ts';
-import {shortDate} from './bench.ts';
 
 const snap=()=>getState().snapshot!;
 // The block the board was opened from: the same task can stand in the week and in 준비 at once (지난 미완료).
@@ -41,9 +40,9 @@ export function cancelCut(){const c=getState().drafts.cut;if(c)close(c.taskId);e
 export function cutPlace(id:string){
   const t=snap().tasks.find(x=>x.id===id);if(!t)return '';
   if(!t.plan_date)return placeLabel(t,snap().tasks,snap().piles??[]);
-  if(t.plan_date<getState().today)return `${shortDate(t.plan_date)} 미완료`;
-  if(t.starts_at)return `${shortDate(t.plan_date)} · ${time(taskMinute(t))} 고정`;
-  return `${shortDate(t.plan_date)} · 순서 ${flowOrderOn(t.plan_date).findIndex(x=>x.id===id)+1}`;
+  if(t.plan_date<getState().today)return `${monthDay(t.plan_date)} 미완료`;
+  if(t.starts_at)return `${monthDay(t.plan_date)} · ${time(taskMinute(t))} 고정`;
+  return `${monthDay(t.plan_date)} · 순서 ${flowOrderOn(t.plan_date).findIndex(x=>x.id===id)+1}`;
 }
 
 // Closing keeps the work: one piece is an edit of the block, more become their own blocks where it stood.
@@ -62,6 +61,6 @@ export async function commitCut(){
   const pieces=piecesOf(t,c.title,c.body,c.segs,()=>crypto.randomUUID()),done=pieces.filter(p=>p.completed).length;
   return dispatch({type:'split_pieces',id:t.id,expected_revision:c.revision,pieces,...(done&&!t.plan_date?{date:getState().today}:{})},{epoch:c.epoch,done:()=>{
     close(t.id);
-    announce(`${pieces.length>1?`${pieces.length}개로 나눴어요`:'저장했어요'}${done?`. ${done}개는 ${t.plan_date?`${shortDate(t.plan_date)} 완료로 남겼어요`:'오늘 완료로 기록했어요'}`:''}`);
+    announce(`${pieces.length>1?`${pieces.length}개로 나눴어요`:'저장했어요'}${done?`. ${done}개는 ${t.plan_date?`${monthDay(t.plan_date)} 완료로 남겼어요`:'오늘 완료로 기록했어요'}`:''}`);
   }});
 }

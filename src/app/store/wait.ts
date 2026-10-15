@@ -2,11 +2,12 @@ import type {Task} from '../../types.ts';
 import {benchAction,updateAction} from '../../intent.ts';
 import {byFlowOrder} from '../../flow.ts';
 import {waiting} from '../../bench.ts';
-import {md,parseTrigger,triggerLabel} from '../../waiting.ts';
+import {parseTrigger,triggerLabel} from '../../waiting.ts';
 import {quotedObject} from '../../format.ts';
 import {fly} from '../ui/flight.ts';
 import {getState,setNav,setUi} from './state.ts';
 import {announce,dispatch} from './session.ts';
+import {slashDate} from '../../dates.ts';
 
 const snap=()=>getState().snapshot!;
 const find=(id:string)=>snap().tasks.find(t=>t.id===id);
@@ -54,11 +55,11 @@ export function setTrigger(ids:string[],text:string){
   const tasks=ids.map(find).filter((t):t is Task=>!!t&&waiting(t));
   if(!tasks.length||tasks.every(t=>(t.wait_for??'')===trigger&&(t.wait_until??null)===until))return Promise.resolve(true);
   return dispatch({type:'wait',items:revisions(tasks),trigger,until,since:getState().today},
-    {done:()=>announce(`기다림: ${until?md(until)+' 이후':trigger||'정하지 않음'}`)});
+    {done:()=>announce(`기다림: ${until?slashDate(until)+' 이후':trigger||'정하지 않음'}`)});
 }
 export function editTrigger(ids:string[],at:{x:number;y:number}|null=null){
   const t=find(ids[0]);if(!t||!waiting(t))return;
-  setUi({naming:{ids,value:t.wait_until?md(t.wait_until):t.wait_for??'',hi:-1,fresh:false,at}});
+  setUi({naming:{ids,value:t.wait_until?slashDate(t.wait_until):t.wait_for??'',hi:-1,fresh:false,at}});
 }
 export const closeNaming=()=>setUi({naming:null});
 

@@ -1,14 +1,13 @@
 import type {Task} from './types.ts';
 import {triggerText,waiting} from './bench.ts';
-import {dateKey,dateOf,plusDays} from './dates.ts';
+import {dateKey,dateOf,plusDays,slashDate} from './dates.ts';
 
 // 기다림: work pushed out until something it waits for has come. Blocks waiting on the same trigger form one pile.
 // A date trigger is met on its day (ready) and only changes its look; every trigger is met by the person, never by the clock.
 export type WaitKind='ready'|'who'|'date';
 export type WaitGroup={key:string;kind:WaitKind;text:string;named:boolean;until:string|null;items:Task[]};
 
-export const md=(date:string)=>{const d=dateOf(date);return `${d.getMonth()+1}/${d.getDate()}`;};
-export const sinceLabel=(t:Task)=>t.wait_since?md(t.wait_since)+'부터':'';
+export const sinceLabel=(t:Task)=>t.wait_since?slashDate(t.wait_since)+'부터':'';
 // A who-trigger has no day of its own; how long it has waited shows only once it is worth a nudge.
 // The day it began stays in its name and tooltip.
 export const STALE=7;
@@ -59,7 +58,7 @@ export function triggerOptions(value:string,tasks:Task[],today:string):{text:str
   for(const t of tasks.filter(waiting))if(t.wait_for?.trim()&&!t.wait_until&&!seen.has(t.wait_for.trim())){seen.add(t.wait_for.trim());people.push(t.wait_for.trim());}
   people.sort((a,b)=>a.localeCompare(b,'ko'));
   const monday=plusDays(today,((8-dateOf(today).getDay())%7)||7);
-  const dates=[{text:md(plusDays(today,1))+' 이후',note:'내일'},{text:md(monday)+' 이후',note:'다음 주 월'}];
+  const dates=[{text:slashDate(plusDays(today,1))+' 이후',note:'내일'},{text:slashDate(monday)+' 이후',note:'다음 주 월'}];
   const all=[...people.map(text=>({text,note:''})),...dates];
   if(!v)return [...all.filter(o=>!o.note).slice(0,3),...dates];
   return all.filter(o=>o.text.startsWith(v)&&o.text!==v).slice(0,5);

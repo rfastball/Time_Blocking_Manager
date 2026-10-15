@@ -1,15 +1,14 @@
 import type {Settings} from './types.ts';
+import {plusDays,weekday,mondayOf} from './dates.ts';
 
 export function effectiveDay(settings:Settings,date:string){
-  return settings.exceptions?.find(e=>e.date===date)?.day??settings.days[(new Date(date+'T12:00:00').getDay()+6)%7];
+  return settings.exceptions?.find(e=>e.date===date)?.day??settings.days[weekday(date)];
 }
 export function weekCapacity(settings:Settings,date:string){
-  const monday=new Date(date+'T12:00:00');monday.setDate(monday.getDate()-(monday.getDay()+6)%7);
+  const monday=mondayOf(date);
   let minutes=0,days=0;
   for(let i=0;i<7;i++){
-    const d=new Date(monday);d.setDate(d.getDate()+i);
-    const key=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-    const rule=effectiveDay(settings,key);
+    const rule=effectiveDay(settings,plusDays(monday,i));
     if(rule.enabled){days++;minutes+=rule.end-rule.start-rule.breaks.reduce((n,b)=>n+b.end-b.start,0);}
   }
   return {minutes,days};

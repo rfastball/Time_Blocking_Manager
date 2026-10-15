@@ -6,7 +6,7 @@ import {usePanelResize} from '../ui/PanelResize.tsx';
 import {Week} from './Week.tsx';
 import {Calendar} from './Calendar.tsx';
 import {DayView} from './DayView.tsx';
-import {periodDates} from './day.tsx';
+import {periodDates} from '../../dates.ts';
 import './plan.css';
 
 const periods:{id:Period;label:string;key:string}[]=[{id:'day',label:'일',key:'D'},{id:'week',label:'주',key:'W'},{id:'two',label:'2주',key:'2'},{id:'month',label:'월',key:'M'}];

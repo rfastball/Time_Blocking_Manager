@@ -2,7 +2,7 @@
 import {benchAction} from '../../intent.ts';
 import {inboxCards,placeOf,shelfCards,type Place} from '../../bench.ts';
 import {updateAction} from '../../intent.ts';
-import {dateLabel,dateOf,plusDays} from '../../dates.ts';
+import {dateLabel,plusDays,monthDay} from '../../dates.ts';
 import type {Task} from '../../types.ts';
 import {getState,setUi} from './state.ts';
 import {announce,dispatch} from './session.ts';
@@ -20,7 +20,6 @@ export function shipDates(count=5){
   for(let d=plusDays(today,1),n=0;dates.length<count&&n<60;d=plusDays(d,1),n++)if(dayRule(d).enabled)dates.push(d);
   return dates;
 }
-export const shortDate=(date:string)=>{const d=dateOf(date);return `${d.getMonth()+1}월 ${d.getDate()}일`;};
 // Overdue work lives in the 들어옴 until it is placed, after the undated work there.
 export const pastWork=()=>overdueTasks().sort((a,b)=>a.plan_date!.localeCompare(b.plan_date!)||(a.flow_order??0)-(b.flow_order??0)||a.id.localeCompare(b.id));
 // Every card in 준비 in screen order: the 들어옴 (undated, then overdue), then the shelf.

@@ -3,7 +3,7 @@ import {confirm} from '@tauri-apps/plugin-dialog';
 import {SaveQueue} from '../../queue.ts';
 import {StoredDraft,captureMatchesCommand,createCommand,needsSavedReview,releaseCaptureCommand} from '../../capture.ts';
 import {previewAcknowledgement,previewMutation} from '../../preview.ts';
-import {plusDays,today as todayKey} from '../../dates.ts';
+import {plusDays,startAt,today as todayKey} from '../../dates.ts';
 import type {Action,AppError,Command,Snapshot,Task} from '../../types.ts';
 import {clockMinute,emptyDrafts,getState,openDrafts,pinnedClock,setDrafts,setState} from './state.ts';
 
@@ -164,7 +164,7 @@ export function tick(){
   const s=getState(),now=clockMinute(),day=todayKey();
   if(now!==s.now||day!==s.today)setState({now,today:day});
 }
-export const stamp=()=>{const s=getState();return s.today+'T'+String(Math.floor(s.now/60)).padStart(2,'0')+':'+String(s.now%60).padStart(2,'0');};
+export const stamp=()=>{const s=getState();return startAt(s.today,s.now);};
 export const clockIsPinned=pinnedClock;
 
 export function previewSnapshot():Snapshot{

@@ -1,5 +1,6 @@
 import type {Pile,Task} from './types.ts';
 import {formatDuration} from './format.ts';
+import {slashDate} from './dates.ts';
 
 // The 준비 tab keeps open unplanned work in two places: the 들어옴 (no pile) and one ordered shelf (the reserved pile).
 // Older piles only survive in files not yet migrated; they read as part of the shelf, after it, left to right.
@@ -25,7 +26,7 @@ export const benchOrder=(tasks:Task[],piles:Pile[]=[])=>[...shelfCards(tasks,pil
 
 // What waiting work waits on: the text, then the day it may come back from ('10/20 이후'); '' when neither.
 export function triggerText(t:Task){
-  const text=t.wait_for?.trim()??'',until=t.wait_until?`${Number(t.wait_until.slice(5,7))}/${Number(t.wait_until.slice(8,10))} 이후`:'';
+  const text=t.wait_for?.trim()??'',until=t.wait_until?`${slashDate(t.wait_until)} 이후`:'';
   return [text,until].filter(Boolean).join(' · ');
 }
 

@@ -3,7 +3,7 @@ import {dayPlan} from '../../today.ts';
 import {effectiveDay} from '../../settings.ts';
 import {byFlowOrder,moveInOrder} from '../../flow.ts';
 import {placementIssue} from '../../placement.ts';
-import {dateKey,dateLabel,dateOf,plusDays,time} from '../../dates.ts';
+import {time,startAt,startMinute,periodDates,dateLabel} from '../../dates.ts';
 import {formatDuration,quotedObject} from '../../format.ts';
 import {carried,intentAction,updateAction,type Intent} from '../../intent.ts';
 import {onBench,waiting} from '../../bench.ts';
@@ -16,7 +16,7 @@ import {acknowledgeCapture,afterIdle,announce,dispatch,draftChanged,persistDraft
 
 const snap=()=>getState().snapshot!;
 const find=(id:string)=>snap().tasks.find(t=>t.id===id);
-export const taskMinute=(t:Task)=>Number(t.starts_at!.slice(11,13))*60+Number(t.starts_at!.slice(14,16));
+export const taskMinute=(t:Task)=>startMinute(t.starts_at!);
 export function dayRule(date:string):WorkingDay{const s=getState();return effectiveDay(s.drafts.settingsDraft??s.snapshot!.settings,date);}
 export const planOf=(date:string,tasks=snap().tasks)=>dayPlan(date,tasks,dayRule(date),snap().layouts??[]);
 export const flowOrderOn=(date:string)=>snap().tasks.filter(t=>t.plan_date===date&&!t.starts_at&&!t.completed).sort(byFlowOrder);
@@ -68,7 +68,7 @@ export async function assign(t:Task,date:string,before:string|null){
 }
 export async function fix(t:Task,date:string,start:number,duration=t.duration){
   const issue=issueAt(t.id,date,start,duration);if(issue){showError(Error(issue.label));return false;}
-  return dispatch(updateAction(t,date,date+'T'+time(start),null,duration),{done:()=>{land(t.id,true);announce(`‘${t.title}’ ${time(start)}–${time(start+duration)}에 고정했어요`);}});
+  return dispatch(updateAction(t,date,startAt(date,start),null,duration),{done:()=>{land(t.id,true);announce(`‘${t.title}’ ${time(start)}–${time(start+duration)}에 고정했어요`);}});
 }
 export function unfix(t:Task){
   if(!t.starts_at)return Promise.resolve(false);
@@ -140,7 +140,7 @@ export async function submitCapture(){
 }
 // A new block is a date assignment unless the user keeps the time fixed.
 export function composerAction(date:string,start:number,duration:number,fixed:boolean,title:string):Action{
-  return fixed?{type:'create_scheduled',id:crypto.randomUUID(),title,starts_at:date+'T'+time(start),duration}:{type:'create_flow',id:crypto.randomUUID(),title,date,duration};
+  return fixed?{type:'create_scheduled',id:crypto.randomUUID(),title,starts_at:startAt(date,start),duration}:{type:'create_flow',id:crypto.randomUUID(),title,date,duration};
 }
 export function openComposer(date:string,start:number,duration=30,fixed=false){
   const s=getState();if(!s.ready)return false;
@@ -193,10 +193,8 @@ afterIdle.add(()=>void ensureVisibleRoutines());
 export function visibleRange():[string,string]{
   const {view,selected,planAnchor,period}=getState().nav;
   if(view!=='plan')return [selected,selected];
-  const first=dateOf(planAnchor);if(period==='month')first.setDate(1);first.setDate(first.getDate()-(first.getDay()+6)%7);
-  const from=dateKey(first),last=dateOf(planAnchor);last.setMonth(last.getMonth()+1,0);
-  const monthStart=dateOf(planAnchor);monthStart.setDate(1);
-  return [from,plusDays(from,period==='week'||period==='day'?6:period==='two'?13:Math.ceil(((monthStart.getDay()+6)%7+last.getDate())/7)*7-1)];
+  const dates=periodDates(period,planAnchor);
+  return [dates[0],dates[dates.length-1]];
 }
 export const setGesture=(gesture:boolean)=>setState({gesture});
 export {find as findTask};

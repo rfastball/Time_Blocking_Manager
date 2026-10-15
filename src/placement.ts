@@ -1,5 +1,6 @@
 import type {Task,WorkingDay} from './types.ts';
 import {freeIntervals,type Interval} from './flow.ts';
+import {startMinute} from './dates.ts';
 export type PlacementIssue={kind:'overlap'|'outside'|'grid';label:string};
 
 // The complement of working time, clipped to this block; overlapping reasons count only once.
@@ -33,6 +34,6 @@ export function placementIssue(id:string,date:string,start:number,duration:numbe
   const end=start+duration;
   if(!Number.isFinite(start)||!Number.isFinite(duration)||duration<15||duration%15||start%15)return {kind:'grid',label:'15분 단위만 가능'};
   if(start<0||end>1440)return {kind:'outside',label:'같은 날짜 안에 배치해 주세요'};
-  const overlaps=tasks.filter(t=>{if(t.id===id||!t.starts_at?.startsWith(date))return false;const m=Number(t.starts_at.slice(11,13))*60+Number(t.starts_at.slice(14,16));return start<m+t.duration&&end>m;});
+  const overlaps=tasks.filter(t=>{if(t.id===id||!t.starts_at?.startsWith(date))return false;const m=startMinute(t.starts_at);return start<m+t.duration&&end>m;});
   return overlaps.length?{kind:'overlap',label:`‘${overlaps[0].title}’${overlaps.length>1?` 외 ${overlaps.length-1}건`:''}과 겹침`}:null;
 }

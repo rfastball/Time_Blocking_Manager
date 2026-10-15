@@ -5,11 +5,11 @@ import {useDraggable} from '@dnd-kit/core';
 import {inboxCards,shelfCards,type Place} from '../../bench.ts';
 import {memoPreview,snapDuration} from '../../detail.ts';
 import {formatDuration} from '../../format.ts';
-import {dateLabel,dateOf} from '../../dates.ts';
+import {dateLabel,dateOf,monthDay} from '../../dates.ts';
 import type {Task} from '../../types.ts';
 import {getState,setUi,useApp} from '../store/state.ts';
 import {deleteTask,setGesture} from '../store/tasks.ts';
-import {completeHere,mergeSelected,moveTo,placeOfCard,readingOrder,selectRange,selectedTasks,setLength,setSelection,shiftInPlace,shipDates,shipTo,shortDate,toggleSelected,undoHere} from '../store/bench.ts';
+import {completeHere,mergeSelected,moveTo,placeOfCard,readingOrder,selectRange,selectedTasks,setLength,setSelection,shiftInPlace,shipDates,shipTo,toggleSelected,undoHere} from '../store/bench.ts';
 import {menuKeys,clamp} from '../editor/actions.ts';
 import {aimedAt,useDrag,useRegion,type Form} from '../space/drag.tsx';
 import {reflow,reduced} from '../ui/motion.ts';
@@ -162,7 +162,7 @@ function Card({task:t,place,past,onOpen}:{task:Task;place:Place;past?:boolean;on
       <button type="button" className="main" data-task={t.id} aria-label={label} title={memo?`${t.title}\n${memo}`:t.title} onClick={click} onKeyDown={keys}
         aria-keyshortcuts="ArrowUp ArrowDown Alt+ArrowUp Alt+ArrowDown Alt+ArrowRight Alt+ArrowLeft Delete Shift+F10">
         <span className="ttl">{t.title}</span>
-        {!sheet&&<span className="meta">{past&&<b className="from">{shortDate(t.plan_date!)}</b>}<span>{formatDuration(minutes)}</span></span>}
+        {!sheet&&<span className="meta">{past&&<b className="from">{monthDay(t.plan_date!)}</b>}<span>{formatDuration(minutes)}</span></span>}
       </button>
       <span className="jb-acts">
         <button type="button" className="ibtn jb-delete" aria-label={`${t.title} 삭제`} title="삭제" disabled={!ready} onPointerDown={e=>e.stopPropagation()} onClick={()=>void remove([t])}><Icon name="delete" size={14}/></button>
@@ -197,7 +197,7 @@ export function SelectionBar(){
     <span className="jb-selinfo">선택 {picked.length} · {formatDuration(total(picked))}</span>
     {loose.length>0&&<button type="button" className="btn" onClick={()=>void moveTo(loose.map(t=>t.id),'shelf',Infinity)}>선반으로</button>}
     <button type="button" className="btn" onClick={()=>void shipTo(today,ids)}><Icon name="right" size={15}/>오늘에 싣기</button>
-    <MenuButton label="다른 날에 싣기" items={later.map(d=>({label:`${shortDate(d)} ${dateOf(d).toLocaleDateString('ko-KR',{weekday:'short'})}`,run:()=>void shipTo(d,ids)}))}>다른 날</MenuButton>
+    <MenuButton label="다른 날에 싣기" items={later.map(d=>({label:`${monthDay(d)} ${dateOf(d).toLocaleDateString('ko-KR',{weekday:'short'})}`,run:()=>void shipTo(d,ids)}))}>다른 날</MenuButton>
     {picked.length>=2&&!dated.length&&<button type="button" className="btn" onClick={()=>void mergeSelected()}>하나로 합치기</button>}
     <button type="button" className="btn" onClick={()=>void completeHere(picked)}><Icon name="check" size={15}/>완료</button>
     <button type="button" className="ibtn danger" aria-label="선택한 블록 삭제" title="삭제" onClick={()=>{setSelection([]);for(const t of picked)void deleteTask(t);}}><Icon name="delete" size={16}/></button>

@@ -1,5 +1,5 @@
 import type {Action,Pile,Task} from './types.ts';
-import {time} from './dates.ts';
+import {startAt} from './dates.ts';
 import {byFlowOrder} from './flow.ts';
 import {SHELF,cardsIn,pileOf,place,waiting} from './bench.ts';
 
@@ -34,7 +34,7 @@ export function applyIntent(tasks:Task[],intent:Intent|null):Task[]{
     return intent.zone==='shelf'?next.map(t=>ids.includes(t.id)&&t.proto?{...t,proto:false}:t):next;
   }
   if(intent.zone==='tray')return place(undated(tasks),ids,SHELF,0);
-  if(intent.zone==='rail')return tasks.map(t=>t.id===id?unwaited({...t,plan_date:date,starts_at:date+'T'+time(intent.start!),flow_order:null}):t);
+  if(intent.zone==='rail')return tasks.map(t=>t.id===id?unwaited({...t,plan_date:date,starts_at:startAt(date!,intent.start!),flow_order:null}):t);
   if(ids.length>1){
     const next=flowsOn(tasks,date!).map(t=>t.id).filter(x=>!ids.includes(x));
     const at=intent.zone==='body'&&intent.before?next.indexOf(intent.before):-1;
@@ -72,8 +72,8 @@ export function intentAction(tasks:Task[],intent:Intent,piles:Pile[]=[]):Action|
   // Several at once retain their order at the pointed slot; date heads append.
   if(ids.length>1)return {type:'ship_flow',date,items:revisions(tasks,ids),...(intent.zone==='body'?{before:intent.before}:{})};
   if(intent.zone==='rail'){
-    const startsAt=date+'T'+time(intent.start!);
-    return t.starts_at===startsAt?null:updateAction(t,date,startsAt);
+    const at=startAt(date,intent.start!);
+    return t.starts_at===at?null:updateAction(t,date,at);
   }
   const before=intent.zone==='body'?intent.before:null;
   if(t.plan_date===date&&!t.starts_at&&!t.completed){
