@@ -17,7 +17,7 @@ const byId=(a:{id:string},b:{id:string})=>a.id<b.id?-1:a.id>b.id?1:0;
 const task=(t:Task)=>{const out=Object.fromEntries(FIELDS.map(k=>[k,t[k]??(k==='proto'?false:null)])) as Record<string,unknown>&{id:string};if(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(t.id))out.id=`~${t.plan_date??''}~${t.title}`;return out;};
 function normalize(s:Snapshot){
   const st=s.settings;
-  return {tasks:s.tasks.map(task).sort(byId),trash:(s.trash??[]).map(task).sort(byId),piles:[...(s.piles??[])].sort((a,b)=>a.position-b.position).map(({id,position})=>({id,position})),
+  return {tasks:s.tasks.map(task).sort(byId),trash:(s.trash??[]).map(t=>({...task(t),deleted_at:t.deleted_at})).sort(byId),piles:[...(s.piles??[])].sort((a,b)=>a.position-b.position).map(({id,position})=>({id,position})),
     layouts:[...(s.layouts??[])].sort((a,b)=>a.date<b.date?-1:1).map(({date,anchor})=>({date,anchor})),
     settings:{revision:st.revision,days:st.days,exceptions:st.exceptions??[],weekly_target:st.weekly_target??2400,work_days:st.work_days??5,routines:st.routines??[]}};
 }

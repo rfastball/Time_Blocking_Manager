@@ -42,7 +42,7 @@ impl Store {
         if command.epoch != snapshot.epoch { return Err(error("epoch", "복원 전 화면의 요청입니다. 초안을 보존하고 최신 데이터를 확인하세요.")); }
         if recorded_request(&tx,command,&payload)? {return Ok(snapshot);}
         validate_request_time(command,now,receipt_cutoff(&tx)?)?;
-        let w=Write{tx:&tx,s:&snapshot};
+        let w=Write{tx:&tx,s:&snapshot,now};
         match &command.action {
             Action::Create{id,title} => w.create(id,title),
             Action::CreateScheduled{id,title,starts_at,duration} => w.create_scheduled(id,title,starts_at,*duration),
@@ -80,8 +80,8 @@ impl Store {
     }
 }
 
-// One action's writes inside the open transaction, checked against the state read at its start.
-struct Write<'a> { tx: &'a Connection, s: &'a Snapshot }
+// One action's writes inside the open transaction, checked against the state read at its start, at the request's clock.
+struct Write<'a> { tx: &'a Connection, s: &'a Snapshot, now: i64 }
 
 impl<'a> Write<'a> {
     // The task an editor or a block menu acted on, still at the revision it saw.
@@ -93,6 +93,10 @@ impl<'a> Write<'a> {
     // Every listed task at its listed revision and fit for the move, in the listed order.
     fn tasks_at(&self, items: &[TaskRevision], fits: impl Fn(&Task) -> bool) -> Result<Vec<&'a Task>> {
         items.iter().map(|i|self.s.tasks.iter().find(|t|t.id==i.id&&t.revision==i.revision&&fits(t))).collect::<Option<_>>().ok_or_else(||error("conflict",CHANGED))
+    }
+    // Trashed work is stamped with the same clock as the receipt.
+    fn trash_stamp(&self) -> Result<String> {
+        chrono::DateTime::from_timestamp_millis(self.now).map(trash_stamp).ok_or_else(||error("validation","요청 시각이 올바르지 않습니다."))
     }
     fn taken(&self, id: &str) -> bool { self.s.tasks.iter().chain(self.s.trash.iter().map(|t|&t.task)).any(|t|t.id==id) }
     fn save_settings(&self, settings: Settings) -> Result<()> {
@@ -167,7 +171,7 @@ impl<'a> Write<'a> {
         Ok(())
     }
     fn delete(&self, current: &Task) -> Result<()> {
-        self.tx.execute("UPDATE tasks SET deleted_at=?1 WHERE id=?2 AND revision=?3", params![trash_stamp(chrono::Utc::now()),current.id,current.revision])?;
+        self.tx.execute("UPDATE tasks SET deleted_at=?1 WHERE id=?2 AND revision=?3", params![self.trash_stamp()?,current.id,current.revision])?;
         Ok(())
     }
     fn restore_trashed(&self, id: &str) -> Result<()> {
@@ -408,7 +412,7 @@ impl<'a> Write<'a> {
         validate_task(&task,&self.s.tasks)?;
         let pile=first.pile_id.as_deref();
         let index=self.s.tasks.iter().filter(|t|on_bench(t)&&t.pile_id.as_deref()==pile&&!revisions.contains_key(&t.id)&&t.pile_order<first.pile_order).count();
-        let deleted_at=trash_stamp(chrono::Utc::now());
+        let deleted_at=self.trash_stamp()?;
         for t in originals {self.tx.execute("UPDATE tasks SET deleted_at=?1 WHERE id=?2 AND revision=?3",params![deleted_at,t.id,t.revision])?;}
         insert_task(self.tx,&task,None)?;
         place(self.tx,&[task.id],pile,index)

@@ -131,7 +131,7 @@
         {"body":"","completed":false,"duration":30,"flow_order":null,"id":"z","pile_id":null,"pile_order":1,"plan_date":null,"proto":true,"revision":1,"starts_at":null,"title":"한 번만","wait_for":null,"wait_since":null,"wait_until":null}
       ],
       "trash": [
-        {"body":"메모","completed":false,"duration":45,"flow_order":null,"id":"w","pile_id":null,"pile_order":null,"plan_date":null,"proto":false,"revision":3,"starts_at":null,"title":"기다릴 일 고침","wait_for":"회신","wait_since":"2026-10-14","wait_until":null}
+        {"body":"메모","completed":false,"deleted_at":"2027-01-15T08:00:00Z","duration":45,"flow_order":null,"id":"w","pile_id":null,"pile_order":null,"plan_date":null,"proto":false,"revision":3,"starts_at":null,"title":"기다릴 일 고침","wait_for":"회신","wait_since":"2026-10-14","wait_until":null}
       ]
     },
     {

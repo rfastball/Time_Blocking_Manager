@@ -228,7 +228,7 @@ export function previewMutation(snapshot:Snapshot,command:Command,occurrences:Se
   }
   else {const t=s.tasks.find(t=>t.id===a.id)!;
     if(!t||t.revision!==a.expected_revision)throw changed();
-    if(a.type==='delete'){s.tasks=s.tasks.filter(x=>x!==t);s.trash.unshift({...t,deleted_at:new Date().toISOString().slice(0,19)+'Z'});}
+    if(a.type==='delete'){s.tasks=s.tasks.filter(x=>x!==t);s.trash.unshift({...t,deleted_at:new Date(now).toISOString().slice(0,19)+'Z'});}
     else if(a.type==='set_completed'){
       // No completion without a date: 준비 work done now is that day's completion. Undoing an old dateless one returns it to the shelf.
       if(a.completed&&!t.completed&&!t.plan_date){if(!a.date)reject('완료한 날짜를 확인하세요.');parseDate(a.date);toFlow(t,a.date);t.proto=false;}

@@ -20,10 +20,10 @@ fn task(t: &Value) -> Value {
     if generated(out["id"].as_str().unwrap()) {out.insert("id".into(),json!(format!("~{}~{}",out["plan_date"].as_str().unwrap_or(""),out["title"].as_str().unwrap())));}
     Value::Object(out)
 }
-// Volatile parts (epoch, deleted_at, receipts, board positions) are left out; lists are put in a fixed order.
+// Volatile parts (epoch, receipts, board positions) are left out; lists are put in a fixed order.
 fn normalize(s: &Snapshot) -> Value {
     let v=serde_json::to_value(s).unwrap();
-    let tasks=|key:&str|{let mut list:Vec<Value>=v[key].as_array().unwrap().iter().map(task).collect();list.sort_by(|a,b|a["id"].as_str().cmp(&b["id"].as_str()));list};
+    let tasks=|key:&str|{let mut list:Vec<Value>=v[key].as_array().unwrap().iter().map(|t|{let mut out=task(t);if key=="trash" {out["deleted_at"]=t["deleted_at"].clone();}out}).collect();list.sort_by(|a,b|a["id"].as_str().cmp(&b["id"].as_str()));list};
     let mut piles=v["piles"].as_array().unwrap().clone();piles.sort_by_key(|p|p["position"].as_i64());
     let mut layouts=v["layouts"].as_array().unwrap().clone();layouts.sort_by(|a,b|a["date"].as_str().cmp(&b["date"].as_str()));
     let st=&v["settings"];
