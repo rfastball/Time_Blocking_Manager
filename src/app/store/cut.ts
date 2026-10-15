@@ -10,6 +10,8 @@ import {flowOrderOn,taskMinute} from './tasks.ts';
 import {shortDate} from './bench.ts';
 
 const snap=()=>getState().snapshot!;
+// The block the board was opened from: the same task can stand in the week and in 준비 at once (지난 미완료).
+let origin:HTMLElement|null=null;
 
 // Typed changes in the detail editor come first: the board works from the stored task.
 export function openCut(id:string){
@@ -18,14 +20,20 @@ export function openCut(id:string){
   if(d.editorDirty&&d.editor?.id===id){openEditor(id,s.ui.editorMode??'dialog');showError(Error('변경을 저장한 뒤 블록을 나눠 주세요.'));return;}
   if(d.cut&&d.cut.taskId!==id){setUi({split:d.cut.taskId});return;}
   if(s.ui.editorMode==='dialog'&&d.editor?.id===id)closeEditor();
-  if(!d.cut)setDrafts({cut:{taskId:id,epoch:snap().epoch,revision:t.revision,title:t.title,body:t.body,segs:initialSegs(t)}});
+  if(!d.cut){
+    const a=document.activeElement;origin=a instanceof HTMLElement&&a.dataset.task===id?a:null;
+    setDrafts({cut:{taskId:id,epoch:snap().epoch,revision:t.revision,title:t.title,body:t.body,segs:initialSegs(t)}});
+  }
   setUi({split:id,contextMenu:null,benchSelection:[]});
 }
 export function editCut(patch:Partial<CutDraft>){
   const c=getState().drafts.cut;if(!c)return;
   setDrafts({cut:{...c,...patch}});draftChanged();
 }
-const refocus=(id:string)=>requestAnimationFrame(()=>document.querySelector<HTMLElement>(`[data-task="${CSS.escape(id)}"]`)?.focus({preventScroll:true}));
+const refocus=(id:string)=>{
+  const from=origin;origin=null;
+  requestAnimationFrame(()=>(from?.isConnected&&from.dataset.task===id?from:document.querySelector<HTMLElement>(`[data-task="${CSS.escape(id)}"]`))?.focus({preventScroll:true}));
+};
 function close(id:string){setDrafts({cut:null});setUi({split:null});void persistDraft();refocus(id);}
 export function cancelCut(){const c=getState().drafts.cut;if(c)close(c.taskId);else setUi({split:null});}
 
