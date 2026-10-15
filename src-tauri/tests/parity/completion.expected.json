@@ -27,7 +27,7 @@
         "work_days": 5
       },
       "tasks": [
-        {"body":"","completed":false,"duration":30,"flow_order":1,"id":"a","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"가","wait_for":null,"wait_since":null,"wait_until":null}
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":1,"id":"a","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"가","wait_for":null,"wait_since":null,"wait_until":null}
       ],
       "trash": []
     },
@@ -43,8 +43,8 @@
         "work_days": 5
       },
       "tasks": [
-        {"body":"","completed":false,"duration":30,"flow_order":1,"id":"a","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"가","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":2,"id":"b","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"나","wait_for":null,"wait_since":null,"wait_until":null}
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":1,"id":"a","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"가","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":2,"id":"b","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"나","wait_for":null,"wait_since":null,"wait_until":null}
       ],
       "trash": []
     },
@@ -60,9 +60,9 @@
         "work_days": 5
       },
       "tasks": [
-        {"body":"","completed":false,"duration":30,"flow_order":1,"id":"a","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"가","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":2,"id":"b","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"나","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":3,"id":"c","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"다","wait_for":null,"wait_since":null,"wait_until":null}
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":1,"id":"a","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"가","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":2,"id":"b","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"나","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":3,"id":"c","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"다","wait_for":null,"wait_since":null,"wait_until":null}
       ],
       "trash": []
     },
@@ -78,10 +78,10 @@
         "work_days": 5
       },
       "tasks": [
-        {"body":"","completed":false,"duration":30,"flow_order":1,"id":"a","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"가","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":2,"id":"b","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"나","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":3,"id":"c","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"다","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"x","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":"2026-10-14T14:00","title":"고정","wait_for":null,"wait_since":null,"wait_until":null}
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":1,"id":"a","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"가","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":2,"id":"b","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"나","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":3,"id":"c","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"다","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":null,"id":"x","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":"2026-10-14T14:00","title":"고정","wait_for":null,"wait_since":null,"wait_until":null}
       ],
       "trash": []
     },
@@ -99,10 +99,10 @@
         "work_days": 5
       },
       "tasks": [
-        {"body":"","completed":true,"duration":30,"flow_order":1,"id":"a","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":2,"starts_at":null,"title":"가","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":2,"id":"b","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"나","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":3,"id":"c","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"다","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"x","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":"2026-10-14T14:00","title":"고정","wait_for":null,"wait_since":null,"wait_until":null}
+        {"board_x":null,"board_y":null,"body":"","completed":true,"duration":30,"flow_order":1,"id":"a","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":2,"starts_at":null,"title":"가","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":2,"id":"b","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"나","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":3,"id":"c","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"다","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":null,"id":"x","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":"2026-10-14T14:00","title":"고정","wait_for":null,"wait_since":null,"wait_until":null}
       ],
       "trash": []
     },
@@ -120,10 +120,10 @@
         "work_days": 5
       },
       "tasks": [
-        {"body":"","completed":true,"duration":30,"flow_order":1,"id":"a","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":2,"starts_at":null,"title":"가","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":2,"id":"b","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"나","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":3,"id":"c","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"다","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"x","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":"2026-10-14T14:00","title":"고정","wait_for":null,"wait_since":null,"wait_until":null}
+        {"board_x":null,"board_y":null,"body":"","completed":true,"duration":30,"flow_order":1,"id":"a","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":2,"starts_at":null,"title":"가","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":2,"id":"b","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"나","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":3,"id":"c","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"다","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":null,"id":"x","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":"2026-10-14T14:00","title":"고정","wait_for":null,"wait_since":null,"wait_until":null}
       ],
       "trash": []
     },
@@ -150,10 +150,10 @@
         "work_days": 5
       },
       "tasks": [
-        {"body":"","completed":true,"duration":30,"flow_order":1,"id":"a","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":2,"starts_at":null,"title":"가","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":2,"id":"b","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"나","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":true,"duration":30,"flow_order":3,"id":"c","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":2,"starts_at":null,"title":"다","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"x","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":"2026-10-14T14:00","title":"고정","wait_for":null,"wait_since":null,"wait_until":null}
+        {"board_x":null,"board_y":null,"body":"","completed":true,"duration":30,"flow_order":1,"id":"a","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":2,"starts_at":null,"title":"가","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":2,"id":"b","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"나","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":true,"duration":30,"flow_order":3,"id":"c","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":2,"starts_at":null,"title":"다","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":null,"id":"x","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":"2026-10-14T14:00","title":"고정","wait_for":null,"wait_since":null,"wait_until":null}
       ],
       "trash": []
     },
@@ -171,10 +171,10 @@
         "work_days": 5
       },
       "tasks": [
-        {"body":"","completed":true,"duration":30,"flow_order":1,"id":"a","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":2,"starts_at":null,"title":"가","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":true,"duration":30,"flow_order":2,"id":"b","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":2,"starts_at":null,"title":"나","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":true,"duration":30,"flow_order":3,"id":"c","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":2,"starts_at":null,"title":"다","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"x","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":"2026-10-14T14:00","title":"고정","wait_for":null,"wait_since":null,"wait_until":null}
+        {"board_x":null,"board_y":null,"body":"","completed":true,"duration":30,"flow_order":1,"id":"a","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":2,"starts_at":null,"title":"가","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":true,"duration":30,"flow_order":2,"id":"b","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":2,"starts_at":null,"title":"나","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":true,"duration":30,"flow_order":3,"id":"c","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":2,"starts_at":null,"title":"다","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":null,"id":"x","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":"2026-10-14T14:00","title":"고정","wait_for":null,"wait_since":null,"wait_until":null}
       ],
       "trash": []
     },
@@ -192,10 +192,10 @@
         "work_days": 5
       },
       "tasks": [
-        {"body":"","completed":true,"duration":30,"flow_order":1,"id":"a","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":2,"starts_at":null,"title":"가","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":2,"id":"b","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":3,"starts_at":null,"title":"나","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":true,"duration":30,"flow_order":3,"id":"c","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":2,"starts_at":null,"title":"다","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"x","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":"2026-10-14T14:00","title":"고정","wait_for":null,"wait_since":null,"wait_until":null}
+        {"board_x":null,"board_y":null,"body":"","completed":true,"duration":30,"flow_order":1,"id":"a","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":2,"starts_at":null,"title":"가","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":2,"id":"b","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":3,"starts_at":null,"title":"나","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":true,"duration":30,"flow_order":3,"id":"c","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":2,"starts_at":null,"title":"다","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":null,"id":"x","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":"2026-10-14T14:00","title":"고정","wait_for":null,"wait_since":null,"wait_until":null}
       ],
       "trash": []
     },
@@ -213,10 +213,10 @@
         "work_days": 5
       },
       "tasks": [
-        {"body":"","completed":true,"duration":30,"flow_order":1,"id":"a","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":2,"starts_at":null,"title":"가","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":2,"id":"b","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":3,"starts_at":null,"title":"나","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":true,"duration":30,"flow_order":3,"id":"c","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":2,"starts_at":null,"title":"다","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":true,"duration":30,"flow_order":null,"id":"x","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":2,"starts_at":"2026-10-14T14:00","title":"고정","wait_for":null,"wait_since":null,"wait_until":null}
+        {"board_x":null,"board_y":null,"body":"","completed":true,"duration":30,"flow_order":1,"id":"a","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":2,"starts_at":null,"title":"가","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":2,"id":"b","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":3,"starts_at":null,"title":"나","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":true,"duration":30,"flow_order":3,"id":"c","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":2,"starts_at":null,"title":"다","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":true,"duration":30,"flow_order":null,"id":"x","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":2,"starts_at":"2026-10-14T14:00","title":"고정","wait_for":null,"wait_since":null,"wait_until":null}
       ],
       "trash": []
     },
@@ -234,11 +234,11 @@
         "work_days": 5
       },
       "tasks": [
-        {"body":"","completed":true,"duration":30,"flow_order":1,"id":"a","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":2,"starts_at":null,"title":"가","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":2,"id":"b","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":3,"starts_at":null,"title":"나","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":true,"duration":30,"flow_order":3,"id":"c","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":2,"starts_at":null,"title":"다","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"p","pile_id":null,"pile_order":1,"plan_date":null,"proto":true,"revision":1,"starts_at":null,"title":"준비 일","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":true,"duration":30,"flow_order":null,"id":"x","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":2,"starts_at":"2026-10-14T14:00","title":"고정","wait_for":null,"wait_since":null,"wait_until":null}
+        {"board_x":null,"board_y":null,"body":"","completed":true,"duration":30,"flow_order":1,"id":"a","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":2,"starts_at":null,"title":"가","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":2,"id":"b","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":3,"starts_at":null,"title":"나","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":true,"duration":30,"flow_order":3,"id":"c","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":2,"starts_at":null,"title":"다","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":null,"id":"p","pile_id":null,"pile_order":1,"plan_date":null,"proto":true,"revision":1,"starts_at":null,"title":"준비 일","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":true,"duration":30,"flow_order":null,"id":"x","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":2,"starts_at":"2026-10-14T14:00","title":"고정","wait_for":null,"wait_since":null,"wait_until":null}
       ],
       "trash": []
     },
@@ -259,11 +259,11 @@
         "work_days": 5
       },
       "tasks": [
-        {"body":"","completed":true,"duration":30,"flow_order":1,"id":"a","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":2,"starts_at":null,"title":"가","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":2,"id":"b","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":3,"starts_at":null,"title":"나","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":true,"duration":30,"flow_order":3,"id":"c","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":2,"starts_at":null,"title":"다","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":true,"duration":30,"flow_order":4,"id":"p","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":2,"starts_at":null,"title":"준비 일","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":true,"duration":30,"flow_order":null,"id":"x","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":2,"starts_at":"2026-10-14T14:00","title":"고정","wait_for":null,"wait_since":null,"wait_until":null}
+        {"board_x":null,"board_y":null,"body":"","completed":true,"duration":30,"flow_order":1,"id":"a","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":2,"starts_at":null,"title":"가","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":2,"id":"b","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":3,"starts_at":null,"title":"나","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":true,"duration":30,"flow_order":3,"id":"c","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":2,"starts_at":null,"title":"다","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":true,"duration":30,"flow_order":4,"id":"p","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":2,"starts_at":null,"title":"준비 일","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":true,"duration":30,"flow_order":null,"id":"x","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":2,"starts_at":"2026-10-14T14:00","title":"고정","wait_for":null,"wait_since":null,"wait_until":null}
       ],
       "trash": []
     },
@@ -287,11 +287,11 @@
         "work_days": 5
       },
       "tasks": [
-        {"body":"","completed":true,"duration":30,"flow_order":1,"id":"a","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":2,"starts_at":null,"title":"가","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":2,"id":"b","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":3,"starts_at":null,"title":"나","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":true,"duration":30,"flow_order":3,"id":"c","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":2,"starts_at":null,"title":"다","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":true,"duration":30,"flow_order":4,"id":"p","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":2,"starts_at":null,"title":"준비 일","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"x","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":3,"starts_at":"2026-10-14T14:00","title":"고정","wait_for":null,"wait_since":null,"wait_until":null}
+        {"board_x":null,"board_y":null,"body":"","completed":true,"duration":30,"flow_order":1,"id":"a","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":2,"starts_at":null,"title":"가","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":2,"id":"b","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":3,"starts_at":null,"title":"나","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":true,"duration":30,"flow_order":3,"id":"c","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":2,"starts_at":null,"title":"다","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":true,"duration":30,"flow_order":4,"id":"p","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":2,"starts_at":null,"title":"준비 일","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":null,"id":"x","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":3,"starts_at":"2026-10-14T14:00","title":"고정","wait_for":null,"wait_since":null,"wait_until":null}
       ],
       "trash": []
     },
@@ -311,11 +311,11 @@
         "work_days": 5
       },
       "tasks": [
-        {"body":"","completed":true,"duration":30,"flow_order":1,"id":"a","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":2,"starts_at":null,"title":"가","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":2,"id":"b","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":3,"starts_at":null,"title":"나","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":true,"duration":30,"flow_order":3,"id":"c","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":2,"starts_at":null,"title":"다","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":true,"duration":30,"flow_order":4,"id":"p","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":2,"starts_at":null,"title":"준비 일","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"x","pile_id":"shelf","pile_order":1,"plan_date":null,"proto":false,"revision":4,"starts_at":null,"title":"고정","wait_for":null,"wait_since":null,"wait_until":null}
+        {"board_x":null,"board_y":null,"body":"","completed":true,"duration":30,"flow_order":1,"id":"a","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":2,"starts_at":null,"title":"가","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":2,"id":"b","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":3,"starts_at":null,"title":"나","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":true,"duration":30,"flow_order":3,"id":"c","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":2,"starts_at":null,"title":"다","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":true,"duration":30,"flow_order":4,"id":"p","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":2,"starts_at":null,"title":"준비 일","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":null,"id":"x","pile_id":"shelf","pile_order":1,"plan_date":null,"proto":false,"revision":4,"starts_at":null,"title":"고정","wait_for":null,"wait_since":null,"wait_until":null}
       ],
       "trash": []
     }

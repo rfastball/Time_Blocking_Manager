@@ -64,13 +64,12 @@ impl Store {
             Action::Reflow{date,at} => w.reflow(date,at),
             Action::PlaceUnplanned{items,pile,create_at,index} => w.place_unplanned(items,pile,create_at,*index),
             Action::MergeUnplanned{id,items} => w.merge_unplanned(id,items),
-            Action::PlaceBoard{items} => w.place_board(items),
             Action::MovePile{pile,position} => w.move_pile(pile,*position),
             Action::ShipFlow{date,items,before} => w.ship_flow(date,items,before),
             Action::Wait{items,trigger,until,since} => w.wait(items,trigger,until,since),
             Action::Revive{items} => w.revive(items),
         }?;
-        normalize_piles(&tx)?;normalize_board(&tx)?;
+        normalize_piles(&tx)?;
         // Retain a tolerated future request until its own retry horizon also expires.
         tx.execute("INSERT INTO receipts(id,payload,accepted_at) VALUES(?1,?2,?3)", params![command.request_id,payload,now.max(command.issued_at.unwrap_or(now))])?;
         let result = read(&tx)?;
@@ -238,7 +237,7 @@ impl<'a> Write<'a> {
         let mut open=Vec::new();
         for (n,piece) in pieces.iter().enumerate() {
             let mut task=Task{id:piece.id.clone(),title:piece.title.trim().into(),body:piece.body.clone(),duration:piece.duration,completed:piece.completed,
-                revision:if n==0 {current.revision+1} else {1},plan_date:current.plan_date.clone(),board_x:if n==0 {current.board_x}else {None},board_y:if n==0 {current.board_y}else {None},..Task::default()};
+                revision:if n==0 {current.revision+1} else {1},plan_date:current.plan_date.clone(),..Task::default()};
             if let Some(m)=minute {
                 // A fixed block's pieces stay fixed, one after another from its time.
                 task.starts_at=Some(format!("{}T{:02}:{:02}",current.plan_date.as_deref().unwrap_or_default(),m/60,m%60));minute=Some(m+piece.duration);
@@ -250,7 +249,6 @@ impl<'a> Write<'a> {
                 // Open pieces of waiting work keep waiting on the same trigger.
                 task.proto=piece.proto;open.push(task.id.clone());
                 (task.wait_for,task.wait_until,task.wait_since)=(current.wait_for.clone(),current.wait_until.clone(),current.wait_since.clone());
-                if n>0 {let (x,y)=nearest_board_position(&tasks,current.board_x.zip(current.board_y))?;task.board_x=Some(x);task.board_y=Some(y);}
             }
             validate_task(&task,&tasks)?;
             if n==0 {
@@ -408,7 +406,7 @@ impl<'a> Write<'a> {
         }).collect::<Vec<_>>().join("\n\n");
         let duration=originals.iter().try_fold(0_i64,|sum,t|sum.checked_add(t.duration))
             .ok_or_else(||error("validation","합친 소요시간이 너무 큽니다."))?;
-        let task=Task{id:id.into(),title:first.title.clone(),body,duration,revision:1,board_x:first.board_x,board_y:first.board_y,..Task::default()};
+        let task=Task{id:id.into(),title:first.title.clone(),body,duration,revision:1,..Task::default()};
         validate_task(&task,&self.s.tasks)?;
         let pile=first.pile_id.as_deref();
         let index=self.s.tasks.iter().filter(|t|on_bench(t)&&t.pile_id.as_deref()==pile&&!revisions.contains_key(&t.id)&&t.pile_order<first.pile_order).count();
@@ -416,14 +414,6 @@ impl<'a> Write<'a> {
         for t in originals {self.tx.execute("UPDATE tasks SET deleted_at=?1 WHERE id=?2 AND revision=?3",params![deleted_at,t.id,t.revision])?;}
         insert_task(self.tx,&task,None)?;
         place(self.tx,&[task.id],pile,index)
-    }
-    fn place_board(&self, items: &[BoardPlacement]) -> Result<()> {
-        let expected:Vec<_>=items.iter().map(|p|TaskRevision{id:p.id.clone(),revision:p.revision}).collect();
-        unique_revisions(&expected,"작업대 항목 정보를 확인하세요.")?;
-        if items.is_empty()||items.iter().any(|p|!(-BOARD_LIMIT..=BOARD_LIMIT).contains(&p.x)||!(-BOARD_LIMIT..=BOARD_LIMIT).contains(&p.y)) {return Err(error("validation","작업대 위치를 확인하세요."));}
-        self.tasks_at(&expected,|t|!t.completed)?;
-        for p in items {self.tx.execute("UPDATE tasks SET starts_at=NULL,plan_date=NULL,flow_order=NULL,pile_id=NULL,pile_order=NULL,board_x=?1,board_y=?2,revision=revision+1 WHERE id=?3 AND revision=?4",params![p.x,p.y,p.id,p.revision])?;}
-        Ok(())
     }
     fn move_pile(&self, pile: &str, position: i64) -> Result<()> {
         let mut ids:Vec<_>=self.s.piles.iter().map(|p|p.id.clone()).collect();

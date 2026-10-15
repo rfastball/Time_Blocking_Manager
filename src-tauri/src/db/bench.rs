@@ -83,26 +83,16 @@ pub(super) fn normalize_piles(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
-pub(super) const BOARD_WIDTH:i64=300;
-pub(super) const BOARD_HEIGHT:i64=96;
-pub(super) const BOARD_GAP:i64=24;
-pub(super) const BOARD_COLUMNS:i64=2;
-pub(super) const BOARD_LIMIT:i64=100_000;
-pub(super) fn nearest_board_position(tasks:&[Task],preferred:Option<(i64,i64)>) -> Result<(i64,i64)> {
+// The retired free board, kept only so the v9 migration can read it in its reading order.
+const BOARD_WIDTH:i64=300;
+const BOARD_HEIGHT:i64=96;
+const BOARD_GAP:i64=24;
+const BOARD_COLUMNS:i64=2;
+const BOARD_LIMIT:i64=100_000;
+// The first free cell, filling two columns top to bottom as the old board did.
+fn free_board_position(tasks:&[Task]) -> Result<(i64,i64)> {
     let occupied:Vec<_>=tasks.iter().filter(|t|t.plan_date.is_none()&&!t.completed).filter_map(|t|t.board_x.zip(t.board_y)).collect();
     let free=|(x,y):(i64,i64)|(-BOARD_LIMIT..=BOARD_LIMIT).contains(&x)&&(-BOARD_LIMIT..=BOARD_LIMIT).contains(&y)&&!occupied.iter().any(|&(qx,qy)|x<qx+BOARD_WIDTH+BOARD_GAP&&x+BOARD_WIDTH+BOARD_GAP>qx&&y<qy+BOARD_HEIGHT+BOARD_GAP&&y+BOARD_HEIGHT+BOARD_GAP>qy);
-    if let Some((x,y))=preferred {
-        let (mut best,mut distance)=(None,i64::MAX);
-        for row in 0..=(2*BOARD_LIMIT+BOARD_HEIGHT+BOARD_GAP-1)/(BOARD_HEIGHT+BOARD_GAP) {
-            let dy=row*(BOARD_HEIGHT+BOARD_GAP);if dy*dy>distance {break;}
-            let ys=if row==0 {vec![y]} else {vec![y+dy,y-dy]};
-            for cy in ys {for col in [0,1,-1] {
-                let cx=x+col*(BOARD_WIDTH+BOARD_GAP);let d=(cx-x)*(cx-x)+(cy-y)*(cy-y);
-                if d<distance&&free((cx,cy)) {best=Some((cx,cy));distance=d;}
-            }}
-        }
-        if let Some(p)=best {return Ok(p);}
-    }
     let rows=(BOARD_LIMIT-BOARD_GAP)/(BOARD_HEIGHT+BOARD_GAP)+1;
     for n in 0..=occupied.len() as i64*4 {
         let strip=n/(rows*BOARD_COLUMNS);let cell=n%(rows*BOARD_COLUMNS);
@@ -112,8 +102,8 @@ pub(super) fn nearest_board_position(tasks:&[Task],preferred:Option<(i64,i64)>) 
     Err(error("validation","작업대에 새 작업을 놓을 자리가 없습니다."))
 }
 
-// Assign once in old bench reading order; saved coordinates never move when other tasks leave.
-pub(super) fn normalize_board(conn:&Connection) -> Result<()> {
+// Work the board never placed gets a cell in old bench reading order; saved coordinates stay.
+fn normalize_board(conn:&Connection) -> Result<()> {
     let snapshot=read(conn)?;let mut tasks=snapshot.tasks;
     let mut missing:Vec<_>=tasks.iter().filter(|t|t.plan_date.is_none()&&!t.completed&&t.board_x.is_none()).collect();
     missing.sort_by(|a,b|{
@@ -122,7 +112,7 @@ pub(super) fn normalize_board(conn:&Connection) -> Result<()> {
     });
     let ids:Vec<_>=missing.iter().map(|t|t.id.clone()).collect();
     for id in ids {
-        let (x,y)=nearest_board_position(&tasks,None)?;
+        let (x,y)=free_board_position(&tasks)?;
         conn.execute("UPDATE tasks SET board_x=?1,board_y=?2 WHERE id=?3",params![x,y,id])?;
         let task=tasks.iter_mut().find(|t|t.id==id).unwrap();task.board_x=Some(x);task.board_y=Some(y);
     }

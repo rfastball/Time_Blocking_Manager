@@ -18,7 +18,7 @@ pub struct Task {
     // Open unplanned work sits in a pile (None: the 투입구) at an order; everything else has neither.
     #[serde(default)] pub pile_id: Option<String>,
     #[serde(default)] pub pile_order: Option<i64>,
-    // The last logical workbench place survives scheduling and trash.
+    // The retired free board's position: read once by the v9 migration, never written for new work.
     #[serde(default)] pub board_x: Option<i64>,
     #[serde(default)] pub board_y: Option<i64>,
     // Pushed out to 기다림 (wait_since: the local day it was first pushed): open, dateless and in no pile until revived.
@@ -61,9 +61,6 @@ pub struct Routine {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TaskRevision { pub id: String, pub revision: i64 }
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BoardPlacement { pub id:String, pub revision:i64, pub x:i64, pub y:i64 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Settings {
@@ -154,7 +151,6 @@ pub enum Action {
     PlaceUnplanned { items:Vec<TaskRevision>, pile:Option<String>, #[serde(default)] create_at:Option<i64>, index:i64 },
     // A fresh task replaces the selected open unplanned tasks; originals stay whole in the trash.
     MergeUnplanned { id:String, items:Vec<TaskRevision> },
-    PlaceBoard { items:Vec<BoardPlacement> },
     MovePile { pile:String, position:i64 },
     // In the given order before a flow task, or onto the end of the date's order.
     ShipFlow { date:String, items:Vec<TaskRevision>, #[serde(default, skip_serializing_if="Option::is_none")] before:Option<String> },

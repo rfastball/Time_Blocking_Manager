@@ -170,7 +170,7 @@ impl Store {
             let mut staged=Self::open(&stage)?;
             let tx=staged.conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
             insert_all(&tx,&restored)?;
-            insert_layouts(&tx,&restored.layouts)?;insert_piles(&tx,&restored.piles)?;normalize_board(&tx)?;
+            insert_layouts(&tx,&restored.layouts)?;insert_piles(&tx,&restored.piles)?;
             if legacy {shelve_legacy(&tx)?;}
             tx.execute("UPDATE meta SET value=?1 WHERE key='settings'",[serde_json::to_string(&restored.settings)?])?;
             for (id,date) in &generated {tx.execute("INSERT INTO routine_occurrences VALUES(?1,?2)",params![id,date])?;}
@@ -253,7 +253,7 @@ impl Store {
         tx.execute("DELETE FROM day_layouts", [])?;
         tx.execute("DELETE FROM piles", [])?;
         insert_all(&tx,&restored)?;
-        insert_layouts(&tx,&restored.layouts)?;insert_piles(&tx,&restored.piles)?;normalize_board(&tx)?;
+        insert_layouts(&tx,&restored.layouts)?;insert_piles(&tx,&restored.piles)?;
         if legacy {shelve_legacy(&tx)?;}
         tx.execute("UPDATE meta SET value=?1 WHERE key='settings'", [serde_json::to_string(&restored.settings)?])?;
         for (id,date) in &generated {tx.execute("INSERT INTO routine_occurrences VALUES(?1,?2)",params![id,date])?;}

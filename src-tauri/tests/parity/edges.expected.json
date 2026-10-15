@@ -27,7 +27,7 @@
         "work_days": 5
       },
       "tasks": [
-        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"z","pile_id":null,"pile_order":1,"plan_date":null,"proto":true,"revision":1,"starts_at":null,"title":"한 번만","wait_for":null,"wait_since":null,"wait_until":null}
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":null,"id":"z","pile_id":null,"pile_order":1,"plan_date":null,"proto":true,"revision":1,"starts_at":null,"title":"한 번만","wait_for":null,"wait_since":null,"wait_until":null}
       ],
       "trash": []
     },
@@ -43,7 +43,7 @@
         "work_days": 5
       },
       "tasks": [
-        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"z","pile_id":null,"pile_order":1,"plan_date":null,"proto":true,"revision":1,"starts_at":null,"title":"한 번만","wait_for":null,"wait_since":null,"wait_until":null}
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":null,"id":"z","pile_id":null,"pile_order":1,"plan_date":null,"proto":true,"revision":1,"starts_at":null,"title":"한 번만","wait_for":null,"wait_since":null,"wait_until":null}
       ],
       "trash": []
     },
@@ -55,26 +55,6 @@
     },
     {
       "error": "validation"
-    },
-    {
-      "error": "validation"
-    },
-    {
-      "layouts": [],
-      "piles": [],
-      "settings": {
-        "days": [{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":false,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":false,"end":1080,"start":540}],
-        "exceptions": [],
-        "revision": 1,
-        "routines": [],
-        "weekly_target": 2400,
-        "work_days": 5
-      },
-      "tasks": [
-        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"w","pile_id":null,"pile_order":1,"plan_date":null,"proto":true,"revision":1,"starts_at":null,"title":"기다릴 일","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"z","pile_id":null,"pile_order":2,"plan_date":null,"proto":true,"revision":1,"starts_at":null,"title":"한 번만","wait_for":null,"wait_since":null,"wait_until":null}
-      ],
-      "trash": []
     },
     {
       "error": "validation"
@@ -91,8 +71,28 @@
         "work_days": 5
       },
       "tasks": [
-        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"w","pile_id":null,"pile_order":null,"plan_date":null,"proto":true,"revision":2,"starts_at":null,"title":"기다릴 일","wait_for":"회신","wait_since":"2026-10-14","wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"z","pile_id":null,"pile_order":1,"plan_date":null,"proto":true,"revision":1,"starts_at":null,"title":"한 번만","wait_for":null,"wait_since":null,"wait_until":null}
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":null,"id":"w","pile_id":null,"pile_order":1,"plan_date":null,"proto":true,"revision":1,"starts_at":null,"title":"기다릴 일","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":null,"id":"z","pile_id":null,"pile_order":2,"plan_date":null,"proto":true,"revision":1,"starts_at":null,"title":"한 번만","wait_for":null,"wait_since":null,"wait_until":null}
+      ],
+      "trash": []
+    },
+    {
+      "error": "validation"
+    },
+    {
+      "layouts": [],
+      "piles": [],
+      "settings": {
+        "days": [{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":false,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":false,"end":1080,"start":540}],
+        "exceptions": [],
+        "revision": 1,
+        "routines": [],
+        "weekly_target": 2400,
+        "work_days": 5
+      },
+      "tasks": [
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":null,"id":"w","pile_id":null,"pile_order":null,"plan_date":null,"proto":true,"revision":2,"starts_at":null,"title":"기다릴 일","wait_for":"회신","wait_since":"2026-10-14","wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":null,"id":"z","pile_id":null,"pile_order":1,"plan_date":null,"proto":true,"revision":1,"starts_at":null,"title":"한 번만","wait_for":null,"wait_since":null,"wait_until":null}
       ],
       "trash": []
     },
@@ -108,8 +108,8 @@
         "work_days": 5
       },
       "tasks": [
-        {"body":"메모","completed":false,"duration":45,"flow_order":null,"id":"w","pile_id":null,"pile_order":null,"plan_date":null,"proto":false,"revision":3,"starts_at":null,"title":"기다릴 일 고침","wait_for":"회신","wait_since":"2026-10-14","wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"z","pile_id":null,"pile_order":1,"plan_date":null,"proto":true,"revision":1,"starts_at":null,"title":"한 번만","wait_for":null,"wait_since":null,"wait_until":null}
+        {"board_x":null,"board_y":null,"body":"메모","completed":false,"duration":45,"flow_order":null,"id":"w","pile_id":null,"pile_order":null,"plan_date":null,"proto":false,"revision":3,"starts_at":null,"title":"기다릴 일 고침","wait_for":"회신","wait_since":"2026-10-14","wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":null,"id":"z","pile_id":null,"pile_order":1,"plan_date":null,"proto":true,"revision":1,"starts_at":null,"title":"한 번만","wait_for":null,"wait_since":null,"wait_until":null}
       ],
       "trash": []
     },
@@ -128,10 +128,10 @@
         "work_days": 5
       },
       "tasks": [
-        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"z","pile_id":null,"pile_order":1,"plan_date":null,"proto":true,"revision":1,"starts_at":null,"title":"한 번만","wait_for":null,"wait_since":null,"wait_until":null}
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":null,"id":"z","pile_id":null,"pile_order":1,"plan_date":null,"proto":true,"revision":1,"starts_at":null,"title":"한 번만","wait_for":null,"wait_since":null,"wait_until":null}
       ],
       "trash": [
-        {"body":"메모","completed":false,"deleted_at":"2027-01-15T08:00:00Z","duration":45,"flow_order":null,"id":"w","pile_id":null,"pile_order":null,"plan_date":null,"proto":false,"revision":3,"starts_at":null,"title":"기다릴 일 고침","wait_for":"회신","wait_since":"2026-10-14","wait_until":null}
+        {"board_x":null,"board_y":null,"body":"메모","completed":false,"deleted_at":"2027-01-15T08:00:00Z","duration":45,"flow_order":null,"id":"w","pile_id":null,"pile_order":null,"plan_date":null,"proto":false,"revision":3,"starts_at":null,"title":"기다릴 일 고침","wait_for":"회신","wait_since":"2026-10-14","wait_until":null}
       ]
     },
     {
@@ -146,8 +146,8 @@
         "work_days": 5
       },
       "tasks": [
-        {"body":"메모","completed":false,"duration":45,"flow_order":null,"id":"w","pile_id":null,"pile_order":null,"plan_date":null,"proto":false,"revision":4,"starts_at":null,"title":"기다릴 일 고침","wait_for":"회신","wait_since":"2026-10-14","wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"z","pile_id":null,"pile_order":1,"plan_date":null,"proto":true,"revision":1,"starts_at":null,"title":"한 번만","wait_for":null,"wait_since":null,"wait_until":null}
+        {"board_x":null,"board_y":null,"body":"메모","completed":false,"duration":45,"flow_order":null,"id":"w","pile_id":null,"pile_order":null,"plan_date":null,"proto":false,"revision":4,"starts_at":null,"title":"기다릴 일 고침","wait_for":"회신","wait_since":"2026-10-14","wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":null,"id":"z","pile_id":null,"pile_order":1,"plan_date":null,"proto":true,"revision":1,"starts_at":null,"title":"한 번만","wait_for":null,"wait_since":null,"wait_until":null}
       ],
       "trash": []
     },
@@ -169,8 +169,8 @@
         "work_days": 5
       },
       "tasks": [
-        {"body":"메모","completed":true,"duration":45,"flow_order":1,"id":"w","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":5,"starts_at":null,"title":"기다릴 일 고침","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"z","pile_id":null,"pile_order":1,"plan_date":null,"proto":true,"revision":1,"starts_at":null,"title":"한 번만","wait_for":null,"wait_since":null,"wait_until":null}
+        {"board_x":null,"board_y":null,"body":"메모","completed":true,"duration":45,"flow_order":1,"id":"w","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":5,"starts_at":null,"title":"기다릴 일 고침","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":null,"id":"z","pile_id":null,"pile_order":1,"plan_date":null,"proto":true,"revision":1,"starts_at":null,"title":"한 번만","wait_for":null,"wait_since":null,"wait_until":null}
       ],
       "trash": []
     },
@@ -189,9 +189,9 @@
         "work_days": 5
       },
       "tasks": [
-        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"v","pile_id":null,"pile_order":1,"plan_date":null,"proto":true,"revision":1,"starts_at":null,"title":"실을 일","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"메모","completed":true,"duration":45,"flow_order":1,"id":"w","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":5,"starts_at":null,"title":"기다릴 일 고침","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"z","pile_id":null,"pile_order":2,"plan_date":null,"proto":true,"revision":1,"starts_at":null,"title":"한 번만","wait_for":null,"wait_since":null,"wait_until":null}
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":null,"id":"v","pile_id":null,"pile_order":1,"plan_date":null,"proto":true,"revision":1,"starts_at":null,"title":"실을 일","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"메모","completed":true,"duration":45,"flow_order":1,"id":"w","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":5,"starts_at":null,"title":"기다릴 일 고침","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":null,"id":"z","pile_id":null,"pile_order":2,"plan_date":null,"proto":true,"revision":1,"starts_at":null,"title":"한 번만","wait_for":null,"wait_since":null,"wait_until":null}
       ],
       "trash": []
     },
@@ -207,68 +207,9 @@
         "work_days": 5
       },
       "tasks": [
-        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"v","pile_id":null,"pile_order":null,"plan_date":null,"proto":true,"revision":2,"starts_at":null,"title":"실을 일","wait_for":"","wait_since":"2026-10-14","wait_until":"2026-10-20"},
-        {"body":"메모","completed":true,"duration":45,"flow_order":1,"id":"w","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":5,"starts_at":null,"title":"기다릴 일 고침","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"z","pile_id":null,"pile_order":1,"plan_date":null,"proto":true,"revision":1,"starts_at":null,"title":"한 번만","wait_for":null,"wait_since":null,"wait_until":null}
-      ],
-      "trash": []
-    },
-    {
-      "error": "validation"
-    },
-    {
-      "layouts": [],
-      "piles": [],
-      "settings": {
-        "days": [{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":false,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":false,"end":1080,"start":540}],
-        "exceptions": [],
-        "revision": 1,
-        "routines": [],
-        "weekly_target": 2400,
-        "work_days": 5
-      },
-      "tasks": [
-        {"body":"","completed":false,"duration":30,"flow_order":2,"id":"v","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":3,"starts_at":null,"title":"실을 일","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"메모","completed":true,"duration":45,"flow_order":1,"id":"w","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":5,"starts_at":null,"title":"기다릴 일 고침","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"z","pile_id":null,"pile_order":1,"plan_date":null,"proto":true,"revision":1,"starts_at":null,"title":"한 번만","wait_for":null,"wait_since":null,"wait_until":null}
-      ],
-      "trash": []
-    },
-    {
-      "layouts": [],
-      "piles": [],
-      "settings": {
-        "days": [{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":false,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":false,"end":1080,"start":540}],
-        "exceptions": [],
-        "revision": 1,
-        "routines": [],
-        "weekly_target": 2400,
-        "work_days": 5
-      },
-      "tasks": [
-        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"u","pile_id":null,"pile_order":1,"plan_date":null,"proto":true,"revision":1,"starts_at":null,"title":"길이 정함","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":2,"id":"v","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":3,"starts_at":null,"title":"실을 일","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"메모","completed":true,"duration":45,"flow_order":1,"id":"w","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":5,"starts_at":null,"title":"기다릴 일 고침","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"z","pile_id":null,"pile_order":2,"plan_date":null,"proto":true,"revision":1,"starts_at":null,"title":"한 번만","wait_for":null,"wait_since":null,"wait_until":null}
-      ],
-      "trash": []
-    },
-    {
-      "layouts": [],
-      "piles": [],
-      "settings": {
-        "days": [{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":false,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":false,"end":1080,"start":540}],
-        "exceptions": [],
-        "revision": 1,
-        "routines": [],
-        "weekly_target": 2400,
-        "work_days": 5
-      },
-      "tasks": [
-        {"body":"","completed":false,"duration":90,"flow_order":null,"id":"u","pile_id":null,"pile_order":1,"plan_date":null,"proto":false,"revision":2,"starts_at":null,"title":"길이 정함","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":2,"id":"v","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":3,"starts_at":null,"title":"실을 일","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"메모","completed":true,"duration":45,"flow_order":1,"id":"w","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":5,"starts_at":null,"title":"기다릴 일 고침","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"z","pile_id":null,"pile_order":2,"plan_date":null,"proto":true,"revision":1,"starts_at":null,"title":"한 번만","wait_for":null,"wait_since":null,"wait_until":null}
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":null,"id":"v","pile_id":null,"pile_order":null,"plan_date":null,"proto":true,"revision":2,"starts_at":null,"title":"실을 일","wait_for":"","wait_since":"2026-10-14","wait_until":"2026-10-20"},
+        {"board_x":null,"board_y":null,"body":"메모","completed":true,"duration":45,"flow_order":1,"id":"w","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":5,"starts_at":null,"title":"기다릴 일 고침","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":null,"id":"z","pile_id":null,"pile_order":1,"plan_date":null,"proto":true,"revision":1,"starts_at":null,"title":"한 번만","wait_for":null,"wait_since":null,"wait_until":null}
       ],
       "trash": []
     },
@@ -287,10 +228,69 @@
         "work_days": 5
       },
       "tasks": [
-        {"body":"","completed":false,"duration":90,"flow_order":2,"id":"u","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":3,"starts_at":null,"title":"길이 정함","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":3,"id":"v","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":3,"starts_at":null,"title":"실을 일","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"메모","completed":true,"duration":45,"flow_order":1,"id":"w","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":5,"starts_at":null,"title":"기다릴 일 고침","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"z","pile_id":null,"pile_order":1,"plan_date":null,"proto":true,"revision":1,"starts_at":null,"title":"한 번만","wait_for":null,"wait_since":null,"wait_until":null}
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":2,"id":"v","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":3,"starts_at":null,"title":"실을 일","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"메모","completed":true,"duration":45,"flow_order":1,"id":"w","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":5,"starts_at":null,"title":"기다릴 일 고침","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":null,"id":"z","pile_id":null,"pile_order":1,"plan_date":null,"proto":true,"revision":1,"starts_at":null,"title":"한 번만","wait_for":null,"wait_since":null,"wait_until":null}
+      ],
+      "trash": []
+    },
+    {
+      "layouts": [],
+      "piles": [],
+      "settings": {
+        "days": [{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":false,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":false,"end":1080,"start":540}],
+        "exceptions": [],
+        "revision": 1,
+        "routines": [],
+        "weekly_target": 2400,
+        "work_days": 5
+      },
+      "tasks": [
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":null,"id":"u","pile_id":null,"pile_order":1,"plan_date":null,"proto":true,"revision":1,"starts_at":null,"title":"길이 정함","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":2,"id":"v","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":3,"starts_at":null,"title":"실을 일","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"메모","completed":true,"duration":45,"flow_order":1,"id":"w","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":5,"starts_at":null,"title":"기다릴 일 고침","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":null,"id":"z","pile_id":null,"pile_order":2,"plan_date":null,"proto":true,"revision":1,"starts_at":null,"title":"한 번만","wait_for":null,"wait_since":null,"wait_until":null}
+      ],
+      "trash": []
+    },
+    {
+      "layouts": [],
+      "piles": [],
+      "settings": {
+        "days": [{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":false,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":false,"end":1080,"start":540}],
+        "exceptions": [],
+        "revision": 1,
+        "routines": [],
+        "weekly_target": 2400,
+        "work_days": 5
+      },
+      "tasks": [
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":90,"flow_order":null,"id":"u","pile_id":null,"pile_order":1,"plan_date":null,"proto":false,"revision":2,"starts_at":null,"title":"길이 정함","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":2,"id":"v","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":3,"starts_at":null,"title":"실을 일","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"메모","completed":true,"duration":45,"flow_order":1,"id":"w","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":5,"starts_at":null,"title":"기다릴 일 고침","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":null,"id":"z","pile_id":null,"pile_order":2,"plan_date":null,"proto":true,"revision":1,"starts_at":null,"title":"한 번만","wait_for":null,"wait_since":null,"wait_until":null}
+      ],
+      "trash": []
+    },
+    {
+      "error": "validation"
+    },
+    {
+      "layouts": [],
+      "piles": [],
+      "settings": {
+        "days": [{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":false,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":false,"end":1080,"start":540}],
+        "exceptions": [],
+        "revision": 1,
+        "routines": [],
+        "weekly_target": 2400,
+        "work_days": 5
+      },
+      "tasks": [
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":90,"flow_order":2,"id":"u","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":3,"starts_at":null,"title":"길이 정함","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":3,"id":"v","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":3,"starts_at":null,"title":"실을 일","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"메모","completed":true,"duration":45,"flow_order":1,"id":"w","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":5,"starts_at":null,"title":"기다릴 일 고침","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":null,"id":"z","pile_id":null,"pile_order":1,"plan_date":null,"proto":true,"revision":1,"starts_at":null,"title":"한 번만","wait_for":null,"wait_since":null,"wait_until":null}
       ],
       "trash": []
     }

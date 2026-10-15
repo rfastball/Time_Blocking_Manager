@@ -8,8 +8,8 @@ use tempfile::tempdir;
 // "$rev:<task id>" and "$rev:settings" in an action stand for the current revision before that step;
 // a step's own "request_id" (default <name>-<step>) lets a later step retry it.
 const NOW: i64 = 1_800_000_000_000;
-// Every task field both stores keep; board_x/y are left out (the preview store never assigns them).
-const FIELDS: [&str; 15] = ["id","title","body","starts_at","duration","completed","revision","plan_date","flow_order","proto","pile_id","pile_order","wait_for","wait_until","wait_since"];
+// Every task field both stores keep, board_x/y included: neither store gives new work a board position.
+const FIELDS: [&str; 17] = ["id","title","body","starts_at","duration","completed","revision","plan_date","flow_order","proto","pile_id","pile_order","board_x","board_y","wait_for","wait_until","wait_since"];
 
 fn fixtures() -> PathBuf { Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/parity") }
 fn generated(id: &str) -> bool { id.len()==36 && id.char_indices().all(|(i,c)|if [8,13,18,23].contains(&i) {c=='-'} else {c.is_ascii_hexdigit()}) }
@@ -20,7 +20,7 @@ fn task(t: &Value) -> Value {
     if generated(out["id"].as_str().unwrap()) {out.insert("id".into(),json!(format!("~{}~{}",out["plan_date"].as_str().unwrap_or(""),out["title"].as_str().unwrap())));}
     Value::Object(out)
 }
-// Volatile parts (epoch, receipts, board positions) are left out; lists are put in a fixed order.
+// Volatile parts (epoch, receipts) are left out; lists are put in a fixed order.
 fn normalize(s: &Snapshot) -> Value {
     let v=serde_json::to_value(s).unwrap();
     let tasks=|key:&str|{let mut list:Vec<Value>=v[key].as_array().unwrap().iter().map(|t|{let mut out=task(t);if key=="trash" {out["deleted_at"]=t["deleted_at"].clone();}out}).collect();list.sort_by(|a,b|a["id"].as_str().cmp(&b["id"].as_str()));list};

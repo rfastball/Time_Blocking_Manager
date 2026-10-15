@@ -10,8 +10,8 @@ import type {Action,Snapshot,Task} from './types.ts';
 type Step={action:Record<string,unknown>;error?:string;request_id?:string};
 type Fixture={name:string;steps:Step[];known_divergence?:string};
 const dir=new URL('../src-tauri/tests/parity/',import.meta.url),NOW=1_800_000_000_000;
-// The fields both stores keep; board_x/y are left out (only the Rust store still assigns them).
-const FIELDS=['id','title','body','starts_at','duration','completed','revision','plan_date','flow_order','proto','pile_id','pile_order','wait_for','wait_until','wait_since'] as const;
+// The fields both stores keep, board_x/y included: neither store gives new work a board position.
+const FIELDS=['id','title','body','starts_at','duration','completed','revision','plan_date','flow_order','proto','pile_id','pile_order','board_x','board_y','wait_for','wait_until','wait_since'] as const;
 const byId=(a:{id:string},b:{id:string})=>a.id<b.id?-1:a.id>b.id?1:0;
 // Routine occurrences get random ids on both sides; they are named by their date and title instead.
 const task=(t:Task)=>{const out=Object.fromEntries(FIELDS.map(k=>[k,t[k]??(k==='proto'?false:null)])) as Record<string,unknown>&{id:string};if(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(t.id))out.id=`~${t.plan_date??''}~${t.title}`;return out;};

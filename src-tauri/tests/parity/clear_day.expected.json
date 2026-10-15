@@ -27,7 +27,7 @@
         "work_days": 5
       },
       "tasks": [
-        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"s","pile_id":null,"pile_order":1,"plan_date":null,"proto":true,"revision":1,"starts_at":null,"title":"선반에 있던 일","wait_for":null,"wait_since":null,"wait_until":null}
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":null,"id":"s","pile_id":null,"pile_order":1,"plan_date":null,"proto":true,"revision":1,"starts_at":null,"title":"선반에 있던 일","wait_for":null,"wait_since":null,"wait_until":null}
       ],
       "trash": []
     },
@@ -45,7 +45,7 @@
         "work_days": 5
       },
       "tasks": [
-        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"s","pile_id":"shelf","pile_order":1,"plan_date":null,"proto":false,"revision":1,"starts_at":null,"title":"선반에 있던 일","wait_for":null,"wait_since":null,"wait_until":null}
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":null,"id":"s","pile_id":"shelf","pile_order":1,"plan_date":null,"proto":false,"revision":1,"starts_at":null,"title":"선반에 있던 일","wait_for":null,"wait_since":null,"wait_until":null}
       ],
       "trash": []
     },
@@ -63,8 +63,8 @@
         "work_days": 5
       },
       "tasks": [
-        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"a","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":"2026-10-14T09:00","title":"고정","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"s","pile_id":"shelf","pile_order":1,"plan_date":null,"proto":false,"revision":1,"starts_at":null,"title":"선반에 있던 일","wait_for":null,"wait_since":null,"wait_until":null}
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":null,"id":"a","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":"2026-10-14T09:00","title":"고정","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":null,"id":"s","pile_id":"shelf","pile_order":1,"plan_date":null,"proto":false,"revision":1,"starts_at":null,"title":"선반에 있던 일","wait_for":null,"wait_since":null,"wait_until":null}
       ],
       "trash": []
     },
@@ -82,9 +82,9 @@
         "work_days": 5
       },
       "tasks": [
-        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"a","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":"2026-10-14T09:00","title":"고정","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":1,"id":"b","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"유동 하나","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"s","pile_id":"shelf","pile_order":1,"plan_date":null,"proto":false,"revision":1,"starts_at":null,"title":"선반에 있던 일","wait_for":null,"wait_since":null,"wait_until":null}
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":null,"id":"a","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":"2026-10-14T09:00","title":"고정","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":1,"id":"b","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"유동 하나","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":null,"id":"s","pile_id":"shelf","pile_order":1,"plan_date":null,"proto":false,"revision":1,"starts_at":null,"title":"선반에 있던 일","wait_for":null,"wait_since":null,"wait_until":null}
       ],
       "trash": []
     },
@@ -102,10 +102,10 @@
         "work_days": 5
       },
       "tasks": [
-        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"a","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":"2026-10-14T09:00","title":"고정","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":1,"id":"b","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"유동 하나","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":2,"id":"c","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"유동 둘","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"s","pile_id":"shelf","pile_order":1,"plan_date":null,"proto":false,"revision":1,"starts_at":null,"title":"선반에 있던 일","wait_for":null,"wait_since":null,"wait_until":null}
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":null,"id":"a","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":"2026-10-14T09:00","title":"고정","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":1,"id":"b","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"유동 하나","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":2,"id":"c","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"유동 둘","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":null,"id":"s","pile_id":"shelf","pile_order":1,"plan_date":null,"proto":false,"revision":1,"starts_at":null,"title":"선반에 있던 일","wait_for":null,"wait_since":null,"wait_until":null}
       ],
       "trash": []
     },
@@ -123,11 +123,11 @@
         "work_days": 5
       },
       "tasks": [
-        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"a","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":"2026-10-14T09:00","title":"고정","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":1,"id":"b","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"유동 하나","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":2,"id":"c","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"유동 둘","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":3,"id":"d","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"유동 셋","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"s","pile_id":"shelf","pile_order":1,"plan_date":null,"proto":false,"revision":1,"starts_at":null,"title":"선반에 있던 일","wait_for":null,"wait_since":null,"wait_until":null}
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":null,"id":"a","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":"2026-10-14T09:00","title":"고정","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":1,"id":"b","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"유동 하나","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":2,"id":"c","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"유동 둘","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":3,"id":"d","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"유동 셋","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":null,"id":"s","pile_id":"shelf","pile_order":1,"plan_date":null,"proto":false,"revision":1,"starts_at":null,"title":"선반에 있던 일","wait_for":null,"wait_since":null,"wait_until":null}
       ],
       "trash": []
     },
@@ -145,12 +145,12 @@
         "work_days": 5
       },
       "tasks": [
-        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"a","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":"2026-10-14T09:00","title":"고정","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":1,"id":"b","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"유동 하나","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":2,"id":"c","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"유동 둘","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":3,"id":"d","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"유동 셋","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":1,"id":"other","pile_id":null,"pile_order":null,"plan_date":"2026-10-15","proto":false,"revision":1,"starts_at":null,"title":"다른 날","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"s","pile_id":"shelf","pile_order":1,"plan_date":null,"proto":false,"revision":1,"starts_at":null,"title":"선반에 있던 일","wait_for":null,"wait_since":null,"wait_until":null}
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":null,"id":"a","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":"2026-10-14T09:00","title":"고정","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":1,"id":"b","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"유동 하나","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":2,"id":"c","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"유동 둘","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":3,"id":"d","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"유동 셋","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":1,"id":"other","pile_id":null,"pile_order":null,"plan_date":"2026-10-15","proto":false,"revision":1,"starts_at":null,"title":"다른 날","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":null,"id":"s","pile_id":"shelf","pile_order":1,"plan_date":null,"proto":false,"revision":1,"starts_at":null,"title":"선반에 있던 일","wait_for":null,"wait_since":null,"wait_until":null}
       ],
       "trash": []
     },
@@ -168,12 +168,12 @@
         "work_days": 5
       },
       "tasks": [
-        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"a","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":"2026-10-14T09:00","title":"고정","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":2,"id":"b","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"유동 하나","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":3,"id":"c","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"유동 둘","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":1,"id":"d","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"유동 셋","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":1,"id":"other","pile_id":null,"pile_order":null,"plan_date":"2026-10-15","proto":false,"revision":1,"starts_at":null,"title":"다른 날","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"s","pile_id":"shelf","pile_order":1,"plan_date":null,"proto":false,"revision":1,"starts_at":null,"title":"선반에 있던 일","wait_for":null,"wait_since":null,"wait_until":null}
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":null,"id":"a","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":"2026-10-14T09:00","title":"고정","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":2,"id":"b","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"유동 하나","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":3,"id":"c","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"유동 둘","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":1,"id":"d","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"유동 셋","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":1,"id":"other","pile_id":null,"pile_order":null,"plan_date":"2026-10-15","proto":false,"revision":1,"starts_at":null,"title":"다른 날","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":null,"id":"s","pile_id":"shelf","pile_order":1,"plan_date":null,"proto":false,"revision":1,"starts_at":null,"title":"선반에 있던 일","wait_for":null,"wait_since":null,"wait_until":null}
       ],
       "trash": []
     },
@@ -193,12 +193,12 @@
         "work_days": 5
       },
       "tasks": [
-        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"a","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":"2026-10-14T09:00","title":"고정","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":2,"id":"b","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"유동 하나","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":true,"duration":30,"flow_order":3,"id":"c","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":2,"starts_at":null,"title":"유동 둘","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":1,"id":"d","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"유동 셋","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":1,"id":"other","pile_id":null,"pile_order":null,"plan_date":"2026-10-15","proto":false,"revision":1,"starts_at":null,"title":"다른 날","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"s","pile_id":"shelf","pile_order":1,"plan_date":null,"proto":false,"revision":1,"starts_at":null,"title":"선반에 있던 일","wait_for":null,"wait_since":null,"wait_until":null}
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":null,"id":"a","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":"2026-10-14T09:00","title":"고정","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":2,"id":"b","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"유동 하나","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":true,"duration":30,"flow_order":3,"id":"c","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":2,"starts_at":null,"title":"유동 둘","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":1,"id":"d","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"유동 셋","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":1,"id":"other","pile_id":null,"pile_order":null,"plan_date":"2026-10-15","proto":false,"revision":1,"starts_at":null,"title":"다른 날","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":null,"id":"s","pile_id":"shelf","pile_order":1,"plan_date":null,"proto":false,"revision":1,"starts_at":null,"title":"선반에 있던 일","wait_for":null,"wait_since":null,"wait_until":null}
       ],
       "trash": []
     },
@@ -219,12 +219,12 @@
         "work_days": 5
       },
       "tasks": [
-        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"a","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":"2026-10-14T09:00","title":"고정","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":2,"id":"b","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"유동 하나","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":true,"duration":30,"flow_order":3,"id":"c","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":2,"starts_at":null,"title":"유동 둘","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":1,"id":"d","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"유동 셋","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":1,"id":"other","pile_id":null,"pile_order":null,"plan_date":"2026-10-15","proto":false,"revision":1,"starts_at":null,"title":"다른 날","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"s","pile_id":"shelf","pile_order":1,"plan_date":null,"proto":false,"revision":1,"starts_at":null,"title":"선반에 있던 일","wait_for":null,"wait_since":null,"wait_until":null}
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":null,"id":"a","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":"2026-10-14T09:00","title":"고정","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":2,"id":"b","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"유동 하나","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":true,"duration":30,"flow_order":3,"id":"c","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":2,"starts_at":null,"title":"유동 둘","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":1,"id":"d","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"유동 셋","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":1,"id":"other","pile_id":null,"pile_order":null,"plan_date":"2026-10-15","proto":false,"revision":1,"starts_at":null,"title":"다른 날","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":null,"id":"s","pile_id":"shelf","pile_order":1,"plan_date":null,"proto":false,"revision":1,"starts_at":null,"title":"선반에 있던 일","wait_for":null,"wait_since":null,"wait_until":null}
       ],
       "trash": []
     },
@@ -250,12 +250,12 @@
         "work_days": 5
       },
       "tasks": [
-        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"a","pile_id":"shelf","pile_order":3,"plan_date":null,"proto":false,"revision":2,"starts_at":null,"title":"고정","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"b","pile_id":"shelf","pile_order":2,"plan_date":null,"proto":false,"revision":2,"starts_at":null,"title":"유동 하나","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":true,"duration":30,"flow_order":3,"id":"c","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":2,"starts_at":null,"title":"유동 둘","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"d","pile_id":"shelf","pile_order":1,"plan_date":null,"proto":false,"revision":2,"starts_at":null,"title":"유동 셋","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":1,"id":"other","pile_id":null,"pile_order":null,"plan_date":"2026-10-15","proto":false,"revision":1,"starts_at":null,"title":"다른 날","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"s","pile_id":"shelf","pile_order":4,"plan_date":null,"proto":false,"revision":1,"starts_at":null,"title":"선반에 있던 일","wait_for":null,"wait_since":null,"wait_until":null}
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":null,"id":"a","pile_id":"shelf","pile_order":3,"plan_date":null,"proto":false,"revision":2,"starts_at":null,"title":"고정","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":null,"id":"b","pile_id":"shelf","pile_order":2,"plan_date":null,"proto":false,"revision":2,"starts_at":null,"title":"유동 하나","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":true,"duration":30,"flow_order":3,"id":"c","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":2,"starts_at":null,"title":"유동 둘","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":null,"id":"d","pile_id":"shelf","pile_order":1,"plan_date":null,"proto":false,"revision":2,"starts_at":null,"title":"유동 셋","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":1,"id":"other","pile_id":null,"pile_order":null,"plan_date":"2026-10-15","proto":false,"revision":1,"starts_at":null,"title":"다른 날","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":null,"id":"s","pile_id":"shelf","pile_order":4,"plan_date":null,"proto":false,"revision":1,"starts_at":null,"title":"선반에 있던 일","wait_for":null,"wait_since":null,"wait_until":null}
       ],
       "trash": []
     }

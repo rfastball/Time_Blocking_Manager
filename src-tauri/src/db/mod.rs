@@ -47,7 +47,6 @@ impl Store {
         check_database(&conn)?;
         let version:i64=conn.query_row("PRAGMA user_version",[],|r|r.get(0))?;
         if version<SCHEMA_VERSION {migrate(&mut conn,path,version)?;}
-        let tx=conn.transaction_with_behavior(TransactionBehavior::Immediate)?;normalize_board(&tx)?;tx.commit()?;
         conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA foreign_keys=ON;")?;
         Ok(Self { conn, path: path.into() })
     }

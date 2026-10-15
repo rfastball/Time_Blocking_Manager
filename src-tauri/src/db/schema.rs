@@ -57,7 +57,6 @@ pub(super) fn migrate(conn: &mut Connection, path: &Path, version: i64) -> Resul
     }
     tx.execute_batch(&format!("CREATE INDEX IF NOT EXISTS receipt_accepted ON receipts(accepted_at);
         INSERT OR IGNORE INTO meta VALUES('receipt_cutoff','0'); PRAGMA user_version={SCHEMA_VERSION};"))?;
-    normalize_board(&tx)?;
     if version<9 {shelve_legacy(&tx)?;}
     tx.commit()?;
     check_database(conn)?;

@@ -27,7 +27,7 @@
         "work_days": 5
       },
       "tasks": [
-        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"block","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":"2026-10-14T10:30","title":"막는 일정","wait_for":null,"wait_since":null,"wait_until":null}
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":null,"id":"block","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":"2026-10-14T10:30","title":"막는 일정","wait_for":null,"wait_since":null,"wait_until":null}
       ],
       "trash": []
     },
@@ -43,8 +43,8 @@
         "work_days": 5
       },
       "tasks": [
-        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"block","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":"2026-10-14T10:30","title":"막는 일정","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":1,"id":"f","pile_id":null,"pile_order":null,"plan_date":"2026-10-12","proto":false,"revision":1,"starts_at":null,"title":"기존 유동","wait_for":null,"wait_since":null,"wait_until":null}
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":null,"id":"block","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":"2026-10-14T10:30","title":"막는 일정","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":1,"id":"f","pile_id":null,"pile_order":null,"plan_date":"2026-10-12","proto":false,"revision":1,"starts_at":null,"title":"기존 유동","wait_for":null,"wait_since":null,"wait_until":null}
       ],
       "trash": []
     },
@@ -60,8 +60,8 @@
         "work_days": 5
       },
       "tasks": [
-        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"block","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":"2026-10-14T10:30","title":"막는 일정","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":1,"id":"f","pile_id":null,"pile_order":null,"plan_date":"2026-10-12","proto":false,"revision":1,"starts_at":null,"title":"기존 유동","wait_for":null,"wait_since":null,"wait_until":null}
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":null,"id":"block","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":"2026-10-14T10:30","title":"막는 일정","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":1,"id":"f","pile_id":null,"pile_order":null,"plan_date":"2026-10-12","proto":false,"revision":1,"starts_at":null,"title":"기존 유동","wait_for":null,"wait_since":null,"wait_until":null}
       ],
       "trash": []
     },
@@ -77,8 +77,8 @@
         "work_days": 5
       },
       "tasks": [
-        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"block","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":"2026-10-14T10:30","title":"막는 일정","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":1,"id":"f","pile_id":null,"pile_order":null,"plan_date":"2026-10-12","proto":false,"revision":1,"starts_at":null,"title":"기존 유동","wait_for":null,"wait_since":null,"wait_until":null}
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":null,"id":"block","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":"2026-10-14T10:30","title":"막는 일정","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":1,"id":"f","pile_id":null,"pile_order":null,"plan_date":"2026-10-12","proto":false,"revision":1,"starts_at":null,"title":"기존 유동","wait_for":null,"wait_since":null,"wait_until":null}
       ],
       "trash": []
     },
@@ -94,14 +94,14 @@
         "work_days": 5
       },
       "tasks": [
-        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"block","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":"2026-10-14T10:30","title":"막는 일정","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":1,"id":"f","pile_id":null,"pile_order":null,"plan_date":"2026-10-12","proto":false,"revision":1,"starts_at":null,"title":"기존 유동","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":2,"id":"~2026-10-12~점심 정리","pile_id":null,"pile_order":null,"plan_date":"2026-10-12","proto":false,"revision":1,"starts_at":null,"title":"점심 정리","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"안건 정리","completed":false,"duration":60,"flow_order":null,"id":"~2026-10-12~주간 회의","pile_id":null,"pile_order":null,"plan_date":"2026-10-12","proto":false,"revision":1,"starts_at":"2026-10-12T10:00","title":"주간 회의","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":60,"flow_order":1,"id":"~2026-10-13~마감 확인","pile_id":null,"pile_order":null,"plan_date":"2026-10-13","proto":false,"revision":1,"starts_at":null,"title":"마감 확인","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"안건 정리","completed":false,"duration":60,"flow_order":1,"id":"~2026-10-14~주간 회의","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"주간 회의","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":60,"flow_order":1,"id":"~2026-10-15~늦은 일","pile_id":null,"pile_order":null,"plan_date":"2026-10-15","proto":false,"revision":1,"starts_at":null,"title":"늦은 일","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":1,"id":"~2026-10-17~주말 점검","pile_id":null,"pile_order":null,"plan_date":"2026-10-17","proto":false,"revision":1,"starts_at":null,"title":"주말 점검","wait_for":null,"wait_since":null,"wait_until":null}
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":null,"id":"block","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":"2026-10-14T10:30","title":"막는 일정","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":1,"id":"f","pile_id":null,"pile_order":null,"plan_date":"2026-10-12","proto":false,"revision":1,"starts_at":null,"title":"기존 유동","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":2,"id":"~2026-10-12~점심 정리","pile_id":null,"pile_order":null,"plan_date":"2026-10-12","proto":false,"revision":1,"starts_at":null,"title":"점심 정리","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"안건 정리","completed":false,"duration":60,"flow_order":null,"id":"~2026-10-12~주간 회의","pile_id":null,"pile_order":null,"plan_date":"2026-10-12","proto":false,"revision":1,"starts_at":"2026-10-12T10:00","title":"주간 회의","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":60,"flow_order":1,"id":"~2026-10-13~마감 확인","pile_id":null,"pile_order":null,"plan_date":"2026-10-13","proto":false,"revision":1,"starts_at":null,"title":"마감 확인","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"안건 정리","completed":false,"duration":60,"flow_order":1,"id":"~2026-10-14~주간 회의","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"주간 회의","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":60,"flow_order":1,"id":"~2026-10-15~늦은 일","pile_id":null,"pile_order":null,"plan_date":"2026-10-15","proto":false,"revision":1,"starts_at":null,"title":"늦은 일","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":1,"id":"~2026-10-17~주말 점검","pile_id":null,"pile_order":null,"plan_date":"2026-10-17","proto":false,"revision":1,"starts_at":null,"title":"주말 점검","wait_for":null,"wait_since":null,"wait_until":null}
       ],
       "trash": []
     },
@@ -117,14 +117,14 @@
         "work_days": 5
       },
       "tasks": [
-        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"block","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":"2026-10-14T10:30","title":"막는 일정","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":1,"id":"f","pile_id":null,"pile_order":null,"plan_date":"2026-10-12","proto":false,"revision":1,"starts_at":null,"title":"기존 유동","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":2,"id":"~2026-10-12~점심 정리","pile_id":null,"pile_order":null,"plan_date":"2026-10-12","proto":false,"revision":1,"starts_at":null,"title":"점심 정리","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"안건 정리","completed":false,"duration":60,"flow_order":null,"id":"~2026-10-12~주간 회의","pile_id":null,"pile_order":null,"plan_date":"2026-10-12","proto":false,"revision":1,"starts_at":"2026-10-12T10:00","title":"주간 회의","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":60,"flow_order":1,"id":"~2026-10-13~마감 확인","pile_id":null,"pile_order":null,"plan_date":"2026-10-13","proto":false,"revision":1,"starts_at":null,"title":"마감 확인","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"안건 정리","completed":false,"duration":60,"flow_order":1,"id":"~2026-10-14~주간 회의","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"주간 회의","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":60,"flow_order":1,"id":"~2026-10-15~늦은 일","pile_id":null,"pile_order":null,"plan_date":"2026-10-15","proto":false,"revision":1,"starts_at":null,"title":"늦은 일","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":1,"id":"~2026-10-17~주말 점검","pile_id":null,"pile_order":null,"plan_date":"2026-10-17","proto":false,"revision":1,"starts_at":null,"title":"주말 점검","wait_for":null,"wait_since":null,"wait_until":null}
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":null,"id":"block","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":"2026-10-14T10:30","title":"막는 일정","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":1,"id":"f","pile_id":null,"pile_order":null,"plan_date":"2026-10-12","proto":false,"revision":1,"starts_at":null,"title":"기존 유동","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":2,"id":"~2026-10-12~점심 정리","pile_id":null,"pile_order":null,"plan_date":"2026-10-12","proto":false,"revision":1,"starts_at":null,"title":"점심 정리","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"안건 정리","completed":false,"duration":60,"flow_order":null,"id":"~2026-10-12~주간 회의","pile_id":null,"pile_order":null,"plan_date":"2026-10-12","proto":false,"revision":1,"starts_at":"2026-10-12T10:00","title":"주간 회의","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":60,"flow_order":1,"id":"~2026-10-13~마감 확인","pile_id":null,"pile_order":null,"plan_date":"2026-10-13","proto":false,"revision":1,"starts_at":null,"title":"마감 확인","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"안건 정리","completed":false,"duration":60,"flow_order":1,"id":"~2026-10-14~주간 회의","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"주간 회의","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":60,"flow_order":1,"id":"~2026-10-15~늦은 일","pile_id":null,"pile_order":null,"plan_date":"2026-10-15","proto":false,"revision":1,"starts_at":null,"title":"늦은 일","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":1,"id":"~2026-10-17~주말 점검","pile_id":null,"pile_order":null,"plan_date":"2026-10-17","proto":false,"revision":1,"starts_at":null,"title":"주말 점검","wait_for":null,"wait_since":null,"wait_until":null}
       ],
       "trash": []
     },
@@ -152,14 +152,14 @@
         "work_days": 5
       },
       "tasks": [
-        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"block","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":"2026-10-14T10:30","title":"막는 일정","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":1,"id":"f","pile_id":null,"pile_order":null,"plan_date":"2026-10-12","proto":false,"revision":1,"starts_at":null,"title":"기존 유동","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":2,"id":"~2026-10-12~점심 정리","pile_id":null,"pile_order":null,"plan_date":"2026-10-12","proto":false,"revision":1,"starts_at":null,"title":"점심 정리","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"안건 정리","completed":false,"duration":60,"flow_order":null,"id":"~2026-10-12~주간 회의","pile_id":null,"pile_order":null,"plan_date":"2026-10-12","proto":false,"revision":1,"starts_at":"2026-10-12T10:00","title":"주간 회의","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":60,"flow_order":1,"id":"~2026-10-13~마감 확인","pile_id":null,"pile_order":null,"plan_date":"2026-10-13","proto":false,"revision":1,"starts_at":null,"title":"마감 확인","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"안건 정리","completed":false,"duration":60,"flow_order":1,"id":"~2026-10-14~주간 회의","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"주간 회의","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":60,"flow_order":1,"id":"~2026-10-15~늦은 일","pile_id":null,"pile_order":null,"plan_date":"2026-10-15","proto":false,"revision":1,"starts_at":null,"title":"늦은 일","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":1,"id":"~2026-10-17~주말 점검","pile_id":null,"pile_order":null,"plan_date":"2026-10-17","proto":false,"revision":1,"starts_at":null,"title":"주말 점검","wait_for":null,"wait_since":null,"wait_until":null}
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":null,"id":"block","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":"2026-10-14T10:30","title":"막는 일정","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":1,"id":"f","pile_id":null,"pile_order":null,"plan_date":"2026-10-12","proto":false,"revision":1,"starts_at":null,"title":"기존 유동","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":2,"id":"~2026-10-12~점심 정리","pile_id":null,"pile_order":null,"plan_date":"2026-10-12","proto":false,"revision":1,"starts_at":null,"title":"점심 정리","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"안건 정리","completed":false,"duration":60,"flow_order":null,"id":"~2026-10-12~주간 회의","pile_id":null,"pile_order":null,"plan_date":"2026-10-12","proto":false,"revision":1,"starts_at":"2026-10-12T10:00","title":"주간 회의","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":60,"flow_order":1,"id":"~2026-10-13~마감 확인","pile_id":null,"pile_order":null,"plan_date":"2026-10-13","proto":false,"revision":1,"starts_at":null,"title":"마감 확인","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"안건 정리","completed":false,"duration":60,"flow_order":1,"id":"~2026-10-14~주간 회의","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"주간 회의","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":60,"flow_order":1,"id":"~2026-10-15~늦은 일","pile_id":null,"pile_order":null,"plan_date":"2026-10-15","proto":false,"revision":1,"starts_at":null,"title":"늦은 일","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":1,"id":"~2026-10-17~주말 점검","pile_id":null,"pile_order":null,"plan_date":"2026-10-17","proto":false,"revision":1,"starts_at":null,"title":"주말 점검","wait_for":null,"wait_since":null,"wait_until":null}
       ],
       "trash": []
     },
@@ -175,16 +175,16 @@
         "work_days": 5
       },
       "tasks": [
-        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"block","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":"2026-10-14T10:30","title":"막는 일정","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":1,"id":"f","pile_id":null,"pile_order":null,"plan_date":"2026-10-12","proto":false,"revision":1,"starts_at":null,"title":"기존 유동","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":2,"id":"~2026-10-12~점심 정리","pile_id":null,"pile_order":null,"plan_date":"2026-10-12","proto":false,"revision":1,"starts_at":null,"title":"점심 정리","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"안건 정리","completed":false,"duration":60,"flow_order":null,"id":"~2026-10-12~주간 회의","pile_id":null,"pile_order":null,"plan_date":"2026-10-12","proto":false,"revision":1,"starts_at":"2026-10-12T10:00","title":"주간 회의","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":60,"flow_order":1,"id":"~2026-10-13~마감 확인","pile_id":null,"pile_order":null,"plan_date":"2026-10-13","proto":false,"revision":1,"starts_at":null,"title":"마감 확인","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"안건 정리","completed":false,"duration":60,"flow_order":1,"id":"~2026-10-14~주간 회의","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"주간 회의","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":60,"flow_order":1,"id":"~2026-10-15~늦은 일","pile_id":null,"pile_order":null,"plan_date":"2026-10-15","proto":false,"revision":1,"starts_at":null,"title":"늦은 일","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"","completed":false,"duration":30,"flow_order":1,"id":"~2026-10-17~주말 점검","pile_id":null,"pile_order":null,"plan_date":"2026-10-17","proto":false,"revision":1,"starts_at":null,"title":"주말 점검","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"안건 정리","completed":false,"duration":60,"flow_order":1,"id":"~2026-10-19~주간 회의","pile_id":null,"pile_order":null,"plan_date":"2026-10-19","proto":false,"revision":1,"starts_at":null,"title":"주간 회의","wait_for":null,"wait_since":null,"wait_until":null},
-        {"body":"안건 정리","completed":false,"duration":60,"flow_order":null,"id":"~2026-10-21~주간 회의","pile_id":null,"pile_order":null,"plan_date":"2026-10-21","proto":false,"revision":1,"starts_at":"2026-10-21T10:00","title":"주간 회의","wait_for":null,"wait_since":null,"wait_until":null}
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":null,"id":"block","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":"2026-10-14T10:30","title":"막는 일정","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":1,"id":"f","pile_id":null,"pile_order":null,"plan_date":"2026-10-12","proto":false,"revision":1,"starts_at":null,"title":"기존 유동","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":2,"id":"~2026-10-12~점심 정리","pile_id":null,"pile_order":null,"plan_date":"2026-10-12","proto":false,"revision":1,"starts_at":null,"title":"점심 정리","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"안건 정리","completed":false,"duration":60,"flow_order":null,"id":"~2026-10-12~주간 회의","pile_id":null,"pile_order":null,"plan_date":"2026-10-12","proto":false,"revision":1,"starts_at":"2026-10-12T10:00","title":"주간 회의","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":60,"flow_order":1,"id":"~2026-10-13~마감 확인","pile_id":null,"pile_order":null,"plan_date":"2026-10-13","proto":false,"revision":1,"starts_at":null,"title":"마감 확인","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"안건 정리","completed":false,"duration":60,"flow_order":1,"id":"~2026-10-14~주간 회의","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"주간 회의","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":60,"flow_order":1,"id":"~2026-10-15~늦은 일","pile_id":null,"pile_order":null,"plan_date":"2026-10-15","proto":false,"revision":1,"starts_at":null,"title":"늦은 일","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"","completed":false,"duration":30,"flow_order":1,"id":"~2026-10-17~주말 점검","pile_id":null,"pile_order":null,"plan_date":"2026-10-17","proto":false,"revision":1,"starts_at":null,"title":"주말 점검","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"안건 정리","completed":false,"duration":60,"flow_order":1,"id":"~2026-10-19~주간 회의","pile_id":null,"pile_order":null,"plan_date":"2026-10-19","proto":false,"revision":1,"starts_at":null,"title":"주간 회의","wait_for":null,"wait_since":null,"wait_until":null},
+        {"board_x":null,"board_y":null,"body":"안건 정리","completed":false,"duration":60,"flow_order":null,"id":"~2026-10-21~주간 회의","pile_id":null,"pile_order":null,"plan_date":"2026-10-21","proto":false,"revision":1,"starts_at":"2026-10-21T10:00","title":"주간 회의","wait_for":null,"wait_since":null,"wait_until":null}
       ],
       "trash": []
     }

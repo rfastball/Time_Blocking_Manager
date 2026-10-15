@@ -232,8 +232,9 @@ fn requests_expire_and_receipts_purge_without_replay_or_pile_order_loss() {
     assert_eq!(Store::inspect_backup(&path).unwrap().tasks,4);
     let start=chrono::Utc::now().timestamp_millis();let mut s=Store::open(&path).unwrap();let end=chrono::Utc::now().timestamp_millis();
     // v9 reads the free board once: the protos stay in the 들어옴 top to bottom, left to right, and the old piles go.
+    // Like a real v6 store this one has no board positions, so the board is first laid out in pile order (p2 was moved first).
     let migrated=s.snapshot().unwrap();
-    assert_eq!(bench(&migrated),vec![(None,ids(&["z","a","m","b"]))]);assert!(migrated.piles.is_empty()&&kept.piles.len()==2);
+    assert_eq!(bench(&migrated),vec![(None,ids(&["m","b","a","z"]))]);assert!(migrated.piles.is_empty()&&kept.piles.len()==2);
     assert_eq!(s.acknowledge(&move_pile).unwrap().unwrap().piles,migrated.piles);
     assert_eq!(s.apply_at(&move_pile,0).unwrap().piles,migrated.piles,"migrated legacy receipts acknowledge without renewing or reapplying");
     let conn=rusqlite::Connection::open(&path).unwrap();
@@ -686,26 +687,15 @@ fn put(s: &mut Store, list: &[&str], pile: Option<&str>, create_at: Option<i64>,
 }
 
 #[test]
-fn board_moves_are_atomic_and_positions_follow_tasks_through_all_lifecycle_changes() {
-    let dir=tempdir().unwrap();let path=dir.path().join("app.db");let mut s=Store::open(&path).unwrap();let day="2026-10-14";
-    create(&mut s,"a");create(&mut s,"b");flow(&mut s,"past",day,30);
-    let done=create(&mut s,"done");let c=command(&s,Action::SetCompleted{id:done.id,expected_revision:done.revision,completed:true,date:Some(day.into())});s.apply(&c).unwrap();
-    let before=s.snapshot().unwrap();let a=BoardPlacement{id:"a".into(),revision:1,x:-350,y:-100};let b=BoardPlacement{id:"b".into(),revision:1,x:700,y:500};
-    for (items,code) in [(vec![],"validation"),(vec![a.clone(),a.clone()],"validation"),(vec![a.clone(),BoardPlacement{x:100001,..b.clone()}],"validation"),(vec![a.clone(),BoardPlacement{revision:99,..b.clone()}],"conflict"),(vec![a.clone(),BoardPlacement{id:"done".into(),revision:2,..b.clone()}],"conflict")] {
-        let c=command(&s,Action::PlaceBoard{items});assert_eq!(s.apply(&c).unwrap_err().code,code);assert_eq!(s.snapshot().unwrap().tasks,before.tasks);
-    }
-    let c=command(&s,Action::PlaceBoard{items:vec![a,b,BoardPlacement{id:"past".into(),revision:1,x:100000,y:-100000}]});let moved=s.apply(&c).unwrap();assert_eq!(s.apply(&c).unwrap().tasks,moved.tasks);
+fn retired_board_positions_stay_as_stored_and_new_work_gets_none() {
+    let dir=tempdir().unwrap();let path=dir.path().join("app.db");let mut s=Store::open(&path).unwrap();
+    create(&mut s,"a");drop(s);
+    {rusqlite::Connection::open(&path).unwrap().execute_batch("UPDATE tasks SET board_x=-350,board_y=-100 WHERE id='a'").unwrap();}
+    let mut s=Store::open(&path).unwrap();create(&mut s,"fresh");
+    let t=find(&s.snapshot().unwrap(),"a");let c=command(&s,place(&t,Some("2026-10-14"),None));let moved=s.apply(&c).unwrap();
     let point=|snapshot:&Snapshot,id:&str|{let t=find(snapshot,id);(t.board_x,t.board_y)};
-    assert_eq!(point(&moved,"a"),(Some(-350),Some(-100)));assert_eq!(point(&moved,"b"),(Some(700),Some(500)));assert_eq!(find(&moved,"past").plan_date,None);
-    assert!(moved.tasks.iter().filter(|t|["a","b","past"].contains(&t.id.as_str())).all(|t|t.revision==2));
-    create(&mut s,"fresh");assert_eq!(point(&s.snapshot().unwrap(),"fresh"),(Some(24),Some(24)));
-    let c=command(&s,Action::ShipFlow{date:day.into(),items:revs(&moved,&["a"]),before:None});let shipped=s.apply(&c).unwrap();assert_eq!(point(&shipped,"a"),point(&moved,"a"));
-    let t=find(&shipped,"a");let mut action=place(&t,None,None);if let Action::Update{title,duration,..}=&mut action {*title="수정".into();*duration=45;}let c=command(&s,action);s.apply(&c).unwrap();
-    let c=command(&s,Action::Delete{id:"b".into(),expected_revision:2});let trashed=s.apply(&c).unwrap();assert_eq!((trashed.trash[0].task.board_x,trashed.trash[0].task.board_y),point(&moved,"b"));
-    let backup=dir.path().join("backup.db");s.backup(&backup).unwrap();let expected=s.snapshot().unwrap();drop(s);let mut s=Store::open(&path).unwrap();assert_eq!(s.snapshot().unwrap().tasks,expected.tasks);
-    let c=command(&s,Action::RestoreTrashed{id:"b".into()});let restored=s.apply(&c).unwrap();assert_eq!(point(&restored,"b"),point(&moved,"b"));
-    let restored=s.restore(&backup,&restored.epoch,&dir.path().join("safety.db")).unwrap();assert_eq!(restored.tasks,expected.tasks);assert_eq!(restored.trash,expected.trash);
-    let c=command(&s,Action::PurgeTrashed{ids:vec!["b".into()]});let purged=s.apply(&c).unwrap();assert_eq!(point(&purged,"a"),point(&moved,"a"));assert!(!purged.tasks.iter().chain(purged.trash.iter().map(|t|&t.task)).any(|t|t.id=="b"));
+    assert_eq!(point(&moved,"a"),(Some(-350),Some(-100)));assert_eq!(point(&moved,"fresh"),(None,None));
+    let backup=dir.path().join("backup.db");s.backup(&backup).unwrap();
     for sql in ["UPDATE tasks SET board_x=100001,board_y=0 WHERE id='a'","UPDATE tasks SET board_x=0,board_y=NULL WHERE id='a'"] {
         let conn=rusqlite::Connection::open(&backup).unwrap();conn.execute_batch(sql).unwrap();drop(conn);
         assert_eq!(Store::inspect_backup(&backup).unwrap_err().code,"validation");
@@ -725,7 +715,7 @@ fn v7_board_positions_seed_once_in_reading_order_and_old_backups_restore_into_bo
     assert!(seeded.tasks.iter().all(|t|t.revision==find(&before,&t.id).revision));
     assert_eq!(Store::list_backups(dir.path()).unwrap().iter().filter(|b|b.kind=="migration").count(),1);
     let c=command(&s,Action::Delete{id:"a".into(),expected_revision:1});s.apply(&c).unwrap();create(&mut s,"fresh");
-    assert_eq!(find(&s.snapshot().unwrap(),"b").board_y,Some(144));assert_eq!(find(&s.snapshot().unwrap(),"fresh").board_x,Some(348));
+    assert_eq!(find(&s.snapshot().unwrap(),"b").board_y,Some(144));assert_eq!(find(&s.snapshot().unwrap(),"fresh").board_x,None,"new work gets no board position");
     let epoch=s.snapshot().unwrap().epoch;let restored=s.restore(&backup,&epoch,&dir.path().join("safety.db")).unwrap();assert_eq!(restored.tasks,seeded.tasks);drop(s);
     std::fs::write(&path,b"damaged original").unwrap();let recovered=Store::recover_from_backup(dir.path(),&backup_id).unwrap();assert_eq!(recovered.snapshot().unwrap().tasks,seeded.tasks);drop(recovered);
     assert_eq!(Store::open(&path).unwrap().snapshot().unwrap().tasks,seeded.tasks);
@@ -743,7 +733,6 @@ fn merging_replaces_selected_work_at_the_first_place_and_preserves_whole_origina
     let result=s.apply(&c).unwrap();let merged=find(&result,"merged");
     assert_eq!(bench(&result),vec![(None,vec![]),(Some("p".into()),ids(&["a","merged","c"]))]);
     assert_eq!((&merged.title,merged.duration,merged.proto,merged.revision,merged.plan_date,merged.starts_at),(&"첫 작업".to_string(),60,false,1,None,None));
-    assert_eq!((merged.board_x,merged.board_y),(find(&before,"b").board_x,find(&before,"b").board_y));
     assert_eq!(merged.body,"- [ ] 첫 작업\n\n메모\r\n- [x] 기존 확인\n\n- [ ] 다음 작업\n\n[ ] 남은 일");
     for id in ["b","d"] {assert_eq!(result.trash.iter().find(|t|t.task.id==id).unwrap().task,find(&before,id));}
     assert_eq!(s.apply(&c).unwrap().tasks,result.tasks);assert_eq!(s.apply(&c).unwrap().trash,result.trash);
@@ -927,8 +916,6 @@ fn cutting_board_pieces_take_the_original_place_on_the_bench_a_day_or_a_fixed_ti
     let snap=cut(&mut s,&t,pieces.clone(),Some(today)).unwrap();
     assert_eq!(bench(&snap),vec![(None,ids(&["x","t","n1","n2","y"]))]);
     let (t2,n2,n3)=(find(&snap,"t"),find(&snap,"n2"),find(&snap,"n3"));
-    assert_eq!((t2.board_x,t2.board_y),(t.board_x,t.board_y));
-    let n1=find(&snap,"n1");assert_ne!((n1.board_x,n1.board_y),(t2.board_x,t2.board_y));assert_ne!((n2.board_x,n2.board_y),(n1.board_x,n1.board_y));
     assert_eq!((t2.title.as_str(),t2.body.as_str(),t2.duration,t2.proto,t2.revision),("설계","메모",45,false,t.revision+1));
     assert!(n2.proto);assert_eq!((n3.completed,n3.plan_date.as_deref()),(true,Some(today)));
     // A retry is a no-op; a stale or reused request changes nothing.
