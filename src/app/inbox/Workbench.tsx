@@ -11,7 +11,7 @@ import {getState,setUi,useApp} from '../store/state.ts';
 import {deleteTask,setGesture} from '../store/tasks.ts';
 import {completeHere,mergeSelected,moveTo,placeOfCard,readingOrder,selectRange,selectedTasks,setLength,setSelection,shiftInPlace,shipDates,shipTo,shortDate,toggleSelected,undoHere} from '../store/bench.ts';
 import {menuKeys,clamp} from '../editor/actions.ts';
-import {useDrag,useRegion,type Form} from '../space/drag.tsx';
+import {aimedAt,useDrag,useRegion,type Form} from '../space/drag.tsx';
 import {reflow,reduced} from '../ui/motion.ts';
 import {follow} from '../ui/gesture.ts';
 import {Icon} from '../ui/icons.tsx';
@@ -40,7 +40,7 @@ export function InboxList({onOpen,children}:{onOpen:Open;children?:ReactNode}){
   const {held,tasks}=useDrag(),{today}=useApp(),box=useRef<HTMLDivElement>(null);
   const register=useList('inbox',()=>box.current?.clientWidth??280);
   const fresh=inboxCards(tasks),past=tasks.filter(t=>!t.completed&&t.plan_date&&t.plan_date<today).sort((a,b)=>a.plan_date!.localeCompare(b.plan_date!)||a.id.localeCompare(b.id));
-  const hot=held&&!held.dropping&&!held.passing&&held.intent.zone==='inbox';
+  const hot=aimedAt(held,'inbox');
   return <section className={'jb-panel jb-inbox'+(hot?' hot':'')} aria-label="들어옴">
     <header className="jb-head"><h2>들어옴</h2>{fresh.length+past.length>0&&<span className="cnt">{fresh.length+past.length}</span>}</header>
     <div className="jb-scroll">
@@ -60,7 +60,7 @@ export function ShelfList({onOpen}:{onOpen:Open}){
   const {held,tasks}=useDrag(),box=useRef<HTMLDivElement>(null);
   const register=useList('shelf',()=>box.current?.clientWidth??300,()=>box.current?.getBoundingClientRect().top??0);
   const cards=shelfCards(tasks,getState().snapshot?.piles??[]),sum=total(cards);
-  const hot=held&&!held.dropping&&!held.passing&&held.intent.zone==='shelf';
+  const hot=aimedAt(held,'shelf');
   // The ruler shows whole hours down to a little past what the shelf holds, and at least a working day (stacked, only the former).
   const fit=Math.ceil(sum/60)+1,hours=Array.from({length:Math.max(8,fit)},(_,i)=>i+1);
   const rack={'--rack':`${hours.length*60*SCALE+24}px`,'--rack-fit':`${fit*60*SCALE+24}px`} as CSSProperties;

@@ -9,7 +9,7 @@ import {getState,setUi,useApp} from '../store/state.ts';
 import {closeNaming,commitRename,editTrigger,release,renameTo,setBand,setTrigger} from '../store/wait.ts';
 import {deleteTask} from '../store/tasks.ts';
 import {openEditor} from '../store/editor.ts';
-import {useDrag,useRegion} from '../space/drag.tsx';
+import {aimedAt,useDrag,useRegion} from '../space/drag.tsx';
 import {reduced} from '../ui/motion.ts';
 import {Icon} from '../ui/icons.tsx';
 import './waiting.css';
@@ -35,7 +35,7 @@ export function Waiting(){
   const list=useRef<HTMLDivElement>(null);
   // Over the band a held block becomes a waiting token: the band's width, no time axis.
   const ref=useRegion('wait',null,{form:()=>({width:Math.max(160,(list.current?.clientWidth??236)-40),height:63})});
-  const hot=!!held&&!held.passing&&held.intent.zone==='wait'&&!held.dropping;
+  const hot=aimedAt(held,'wait');
   const [cursor,setCursor]=useState<string|null>(null),[openKey,setOpenKey]=useState<string|null>(null);
   const [openReq,setOpenReq]=useState<{key:string;id:string}|null>(null);
   const [unclip,setUnclip]=useState(new Set<string>()),[scrolled,setScrolled]=useState(0);

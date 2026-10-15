@@ -7,7 +7,7 @@ import {dayRule,planOf} from '../store/tasks.ts';
 import {openEditor} from '../store/editor.ts';
 import {overflowOf,returnOverflow} from '../store/bench.ts';
 import {DaySpace} from '../space/DaySpace.tsx';
-import {useDaysAxis,useDrag,useRegion} from '../space/drag.tsx';
+import {aimedAt,useDaysAxis,useDrag,useRegion} from '../space/drag.tsx';
 import {COLUMN_GEOMETRY} from '../../drag-zone.ts';
 import {useNewBlock} from './Composer.tsx';
 import {allocation,allocationLabel,allocationShort,dayTag,Meter,Outside} from './day.tsx';
@@ -53,7 +53,7 @@ export function Head({date}:{date:string}){
     return {width:(box.current?.clientWidth??100)-COLUMN_GEOMETRY.flowLeft-COLUMN_GEOMETRY.right,height:Math.max(10,minutes*WEEK_SCALE-2),density:'narrow'};
   }});
   const a=allocation(date,tasks),tag=dayTag(date),off=!dayRule(date).enabled;
-  const hot=!!held&&!held.dropping&&!held.passing&&held.intent.zone==='date'&&held.intent.ok&&held.intent.date===date;
+  const hot=aimedAt(held,'date',date);
   const d=dateOf(date),past=date<today,saved=past?null:planOf(date);
   // Today says when its remaining plan ends, as planned: the last unfinished block's end, not a countdown.
   // From the saved day, not a held block's preview, so the head keeps its height and the axis stays put under the hand.

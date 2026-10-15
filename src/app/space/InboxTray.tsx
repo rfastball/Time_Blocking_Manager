@@ -9,7 +9,7 @@ import {useApp} from '../store/state.ts';
 import {closeComposer,editCapture,submitCapture} from '../store/tasks.ts';
 import {settle} from '../ui/motion.ts';
 import {Dots} from '../ui/icons.tsx';
-import {useDrag,useRegion} from './drag.tsx';
+import {aimedAt,useDrag,useRegion} from './drag.tsx';
 import {benchOrder} from '../../bench.ts';
 
 // 준비 work drawn at the same scale as the timetable, so its size reads against free space.
@@ -20,8 +20,7 @@ export function InboxTray({scale,overdue=[],onOpen,selected,heading='준비',cla
   const ref=useRegion('tray',null,{form:task=>({width:well.current?.clientWidth?well.current.clientWidth-16:200,height:Math.max(24,task.duration*scale-2)})});
   // The shelf first (sized work ready to fill a gap), then the 들어옴.
   const inbox=benchOrder(tasks,snapshot?.piles??[]);
-  const holding=held;
-  return <section ref={ref} className={'card tray'+(!holding?.passing&&holding?.intent.zone==='tray'?' hot':'')+(className?' '+className:'')} aria-label={heading}>
+  return <section ref={ref} className={'card tray'+(aimedAt(held,'tray')?' hot':'')+(className?' '+className:'')} aria-label={heading}>
     <h2>{heading} {inbox.length+overdue.length>0&&<span className="cnt">{inbox.length+overdue.length}</span>}</h2>
     <label className="sr-only" htmlFor="tray-capture">준비에 담기</label>
     <input id="tray-capture" className="capture-line" aria-keyshortcuts={nav.view==='today'?'A':undefined} autoComplete="off" maxLength={650} placeholder="새 할 일" value={drafts.composer?'':drafts.capture} disabled={!ready||!draftLoaded}
@@ -29,12 +28,12 @@ export function InboxTray({scale,overdue=[],onOpen,selected,heading='준비',cla
       onKeyDown={e=>{if(e.key!=='Enter')return;e.preventDefault();if(isCompositionKey(e.nativeEvent))return;void submitCapture();}}/>
     <div ref={well} className={'well'+(inbox.length?'':' empty')}>
       <AnimatePresence initial={false}>
-        {inbox.map(t=><TrayBlock key={t.id} task={t} scale={scale} hollow={holding?.task.id===t.id} selected={selected===t.id} onOpen={()=>onOpen(t)}/>)}
+        {inbox.map(t=><TrayBlock key={t.id} task={t} scale={scale} hollow={held?.task.id===t.id} selected={selected===t.id} onOpen={()=>onOpen(t)}/>)}
       </AnimatePresence>
     </div>
     {overdue.length>0&&<>
       <h3>지난 미완료 <span className="cnt">{overdue.length}</span></h3>
-      <div className="well">{overdue.map(t=><TrayBlock key={t.id} task={t} scale={scale} hollow={holding?.task.id===t.id} selected={selected===t.id} onOpen={()=>onOpen(t)} past/>)}</div>
+      <div className="well">{overdue.map(t=><TrayBlock key={t.id} task={t} scale={scale} hollow={held?.task.id===t.id} selected={selected===t.id} onOpen={()=>onOpen(t)} past/>)}</div>
     </>}
   </section>;
 }
