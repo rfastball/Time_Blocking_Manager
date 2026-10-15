@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {benchOrder,inboxCards,normalize,place,placeLabel,placeName,shelfCards} from './bench.ts';
+import {benchOrder,inboxCards,normalize,place,placeLabel,shelfCards} from './bench.ts';
 import {previewMutation} from './preview.ts';
 import {requestLifetimeMs} from './capture.ts';
 import type {Action,Pile,Settings,Snapshot,Task} from './types.ts';
@@ -15,13 +15,6 @@ test('준비 reads the 들어옴 and the shelf in their own orders; elsewhere th
   assert.deepEqual(view(tasks,piles),[['e','b'],['c','a','d']],'an unmigrated pile reads after the shelf');
   assert.deepEqual(benchOrder(tasks,piles).map(t=>t.id),['c','a','d','e','b']);
   assert.equal(placeLabel(tasks[0],tasks,piles),'선반 · 2번째');assert.equal(placeLabel(tasks[1],tasks,piles),'들어옴');
-});
-
-test('place names say the count and the total',()=>{
-  const tasks=[card('설계','shelf',1,{duration:180}),card('조사','shelf',2,{duration:45}),card('메일',null,1,{duration:15})];
-  assert.equal(placeName('inbox',tasks),'들어옴, 1개, 15분');
-  assert.equal(placeName('shelf',tasks),'선반, 2개, 3시간 45분');
-  assert.equal(placeName('shelf',[]),'선반, 비어 있음');
 });
 
 test('placing inserts before the card at the index among the others and keeps order numbers dense',()=>{

@@ -2,6 +2,7 @@ import type {Task} from '../../types.ts';
 import {getState,setDrafts,setUi,type EditorDraft} from './state.ts';
 import {announce,ask,dispatch,draftChanged,persistDraft,queue,showError} from './session.ts';
 import {toggleComplete} from './tasks.ts';
+import {durationValid} from '../../detail.ts';
 
 // The editor holds one task draft. Opening another task while it has unsaved changes keeps the draft and asks first.
 export function openEditor(id:string,mode:'panel'|'dialog'='dialog',focus:'fix'|'duration'|null=null){
@@ -44,7 +45,7 @@ export async function saveEditor(){
   if(queue.failed){showError(Error('이전 저장 오류를 먼저 해결하세요. 입력한 내용은 그대로 있어요.'));return false;}
   const t:EditorDraft=structuredClone(d.editor),seq=d.editorSequence;
   if(!t.title.trim()){showError(Error('제목을 입력해 주세요.'));return false;}
-  if(!Number.isInteger(t.duration)||t.duration<15||t.duration>1440||t.duration%15){showError(Error('소요시간은 15분 단위로 입력해 주세요.'));return false;}
+  if(!durationValid(t.duration)){showError(Error('소요시간은 15분 단위로 입력해 주세요.'));return false;}
   let saved=false;
   void persistDraft();
   // Drafts saved before flow plans existed carry only starts_at.

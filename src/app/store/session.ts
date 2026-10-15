@@ -5,7 +5,7 @@ import {StoredDraft,captureMatchesCommand,createCommand,needsSavedReview,release
 import {previewAcknowledgement,previewMutation} from '../../preview.ts';
 import {plusDays,startAt,today as todayKey} from '../../dates.ts';
 import type {Action,AppError,Command,Snapshot,Task} from '../../types.ts';
-import {clockMinute,emptyDrafts,getState,openDrafts,pinnedClock,setDrafts,setState} from './state.ts';
+import {clockMinute,getState,openDrafts,setDrafts,setState} from './state.ts';
 
 // One lane for every durable write. A failed write stays at the head until retried or released.
 export const queue=new SaveQueue(()=>{
@@ -149,7 +149,7 @@ async function reviewExpired(){
   setState({error:'이전 저장의 완료 여부를 확인할 수 없습니다. 입력은 유지됩니다. 저장된 내용을 확인한 뒤 ‘입력 유지하고 수정’을 선택해 주세요.'});
   return false;
 }
-export async function release(){
+export async function releaseFailure(){
   const command=failedCommand??getState().drafts.captureCommand,code=getState().failed?.code;
   if(code==='expired'||command&&!['validation','overlap','conflict','epoch'].includes(code??'')){
     if(await reviewExpired()||!getState().ready)return;
@@ -165,7 +165,6 @@ export function tick(){
   if(now!==s.now||day!==s.today)setState({now,today:day});
 }
 export const stamp=()=>{const s=getState();return startAt(s.today,s.now);};
-export const clockIsPinned=pinnedClock;
 
 export function previewSnapshot():Snapshot{
   // Redesign §10 example: a fixed workshop and four flow blocks, usable on any weekday.
@@ -197,4 +196,3 @@ export function previewSnapshot():Snapshot{
     wait('sample-w6','분기 실적 취합',90,'',plusDays(day,6),-1)
   ]};
 }
-export const resetDrafts=()=>setDrafts(emptyDrafts());

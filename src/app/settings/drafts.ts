@@ -4,13 +4,14 @@ import {missingBreakName,readTargets,withException,withoutException} from '../..
 import type {DayException,Settings,WorkingDay} from '../../types.ts';
 import {getState,type AppState} from '../store/state.ts';
 import {setSettingsDraft,stashRawSchedule} from '../store/schedule.ts';
+import {WEEKLY_TARGET,WORK_DAYS} from '../../settings.ts';
 
 const base=(s:AppState)=>s.drafts.settingsDraft??s.snapshot!.settings;
 
 export function weeklyDraft(s:AppState=getState()){
   const settings=base(s),raw=s.drafts.rawSchedules.weekly;
   const draft:Settings=raw?.invalid&&raw.settings?{...settings,days:raw.settings.days}:settings;
-  return {draft,hours:raw?.values[0]?.value??String((settings.weekly_target??2400)/60),count:raw?.values[1]?.value??String(settings.work_days??5)};
+  return {draft,hours:raw?.values[0]?.value??String((settings.weekly_target??WEEKLY_TARGET)/60),count:raw?.values[1]?.value??String(settings.work_days??WORK_DAYS)};
 }
 export function weeklyProblem(draft:Settings,hours:string,count:string){
   try{readTargets(hours,count);}catch(e){return (e as Error).message;}

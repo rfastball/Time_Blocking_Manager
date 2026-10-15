@@ -1,6 +1,7 @@
 import type {DayException,Settings,WorkingDay} from './types.ts';
 import type {TimeAxis} from './time-axis.ts';
 import {addAvailabilityBreak,changeAvailabilityBand,type AvailabilityEdge,type AvailabilityTarget} from './availability-band.ts';
+import {WEEK_MINUTES} from './settings.ts';
 
 // A press becomes a gesture only after this much vertical travel; shorter presses only select.
 export const GESTURE_THRESHOLD=10;
@@ -43,7 +44,7 @@ export function addBreak(day:WorkingDay):{day:WorkingDay;target:number}{
 
 export function readTargets(hours:string,days:string){
   const target=Number(hours)*60,count=Number(days);
-  if(!hours.trim()||!days.trim()||!Number.isFinite(target)||target<15||target>10080||target%15||!Number.isInteger(count)||count<1||count>7)throw Error('주간 목표는 15분 단위, 근무일은 1–7일로 정하세요.');
+  if(!hours.trim()||!days.trim()||!Number.isFinite(target)||target<15||target>WEEK_MINUTES||target%15||!Number.isInteger(count)||count<1||count>7)throw Error('주간 목표는 15분 단위, 근무일은 1–7일로 정하세요.');
   return {weekly_target:target,work_days:count};
 }
 export const missingBreakName=(days:WorkingDay[])=>days.some(d=>d.breaks.some(b=>!b.label.trim()));

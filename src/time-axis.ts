@@ -26,7 +26,3 @@ export function expandTimeAxis(axis:TimeAxis,minute:number):TimeAxis{
 // The hours a ruler marks: every hour on the axis, and one beyond each end into the compressed outer hours.
 export const axisHours=(axis:TimeAxis)=>Array.from({length:25},(_,i)=>i*60).filter(m=>m>=axis.start-60&&m<=axis.end+60);
 
-// Hour labels in the compressed outer hours would overlap; show one only where it has room.
-export function timeAxisLabelVisible(axis:TimeAxis,minute:number){
-  return minute===0||minute===1440||(axis.position(minute)-axis.position(Math.max(0,minute-60))>=24&&axis.position(Math.min(1440,minute+60))-axis.position(minute)>=24);
-}

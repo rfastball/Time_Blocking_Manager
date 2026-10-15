@@ -7,6 +7,7 @@ import {flushDraftTimer,loadStoredDraft,persistDraft,previewSnapshot,queue,refre
 import {saveEditor} from './editor.ts';
 import {commitCut} from './cut.ts';
 import {submitCapture,submitComposer,ensureVisibleRoutines} from './tasks.ts';
+import {WEEKLY_TARGET,WORK_DAYS} from '../../settings.ts';
 
 export function syncTheme(){
   try{document.documentElement.dataset.theme=readTheme(window.localStorage);}
@@ -54,7 +55,7 @@ export async function saveBeforeQuit(requestId:string){
     const d=getState().drafts;
     if(d.settingsDraft&&!Object.values(d.rawSchedules).some(raw=>raw.invalid)){
       const draft=d.settingsDraft,base=d.settingsBase??{epoch:s.snapshot!.epoch,revision:s.snapshot!.settings.revision};
-      await dispatch({type:'set_schedule',expected_revision:base.revision,days:draft.days,exceptions:draft.exceptions??[],weekly_target:draft.weekly_target??2400,work_days:draft.work_days??5,move_conflicts:false},{epoch:base.epoch,done:()=>setDrafts({settingsDraft:null,settingsBase:null,rawSchedules:{}})});
+      await dispatch({type:'set_schedule',expected_revision:base.revision,days:draft.days,exceptions:draft.exceptions??[],weekly_target:draft.weekly_target??WEEKLY_TARGET,work_days:draft.work_days??WORK_DAYS,move_conflicts:false},{epoch:base.epoch,done:()=>setDrafts({settingsDraft:null,settingsBase:null,rawSchedules:{}})});
       await queue.whenIdle();
     }
     if(!current())return;

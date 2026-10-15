@@ -4,6 +4,7 @@ import type {AppError,Command,Settings,Snapshot,Task} from '../../types.ts';
 import type {AvailabilityTarget} from '../../availability-band.ts';
 import {minutes,today} from '../../dates.ts';
 import type {Seg} from '../../cut.ts';
+import type {HitKind} from '../../search.ts';
 
 // plan is the work screen (준비 dock beside the calendar), today the focus screen; settings opens from the gear.
 export type View='today'|'plan'|'settings';
@@ -43,7 +44,7 @@ export type Ui={
   // Work completed on 준비 this session, newest first, with where it stood (null: overdue work, which keeps its date).
   doneHere:{id:string;place:'inbox'|'shelf'|null;index:number}[];
   // Global search: the panel, and the block a chosen result points at while it is briefly ringed.
-  search:boolean;found:{id:string;kind:'bench'|'dated'|'done'|'archive'|'trash'|'wait';at:number}|null;
+  search:boolean;found:{id:string;kind:HitKind;at:number}|null;
   // The trigger field for blocks just pushed out (fresh) or whose trigger is being changed. `at`: where it floats when the band
   // does not show it (folded, or the focus screen), in viewport px.
   naming:{ids:string[];value:string;hi:number;fresh:boolean;at:{x:number;y:number}|null}|null;
@@ -72,7 +73,6 @@ const native=isTauri();
 // Development preview only: ?now=HH:MM pins the clock for repeatable checks.
 const mockNow=!native&&import.meta.env.DEV?params.get('now'):null;
 export const clockMinute=()=>{if(mockNow&&/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(mockNow))return minutes(mockNow);const d=new Date();return d.getHours()*60+d.getMinutes();};
-export const pinnedClock=!!mockNow;
 
 const day=today();
 // The dock width is a device preference, like panel widths.

@@ -7,7 +7,7 @@ import {checkCount,checklist,durationValid,quarter,scheduleHint,scheduleSummary,
 import type {Task} from '../../types.ts';
 import {getState,setUi,useApp} from '../store/state.ts';
 import {changeEditor,closeEditor,completeFromEditor,editorConflict,rebaseEditor,saveEditor,switchToPending,syncEditor} from '../store/editor.ts';
-import {release,retry,showError} from '../store/session.ts';
+import {releaseFailure,retry,showError} from '../store/session.ts';
 import {dayRule,deleteTask,issueAt,planOf,taskMinute} from '../store/tasks.ts';
 import {Icon,Lock} from '../ui/icons.tsx';
 import {focusLater} from '../ui/focus.ts';
@@ -131,7 +131,7 @@ export function Editor({mode,closer}:{mode:'panel'|'dialog';closer?:MutableRefOb
         <p className={'ed-hint'+(issue?' error':'')}>{issue?issue.label:scheduleHint(e,planned)}</p>
       </details>
       {mode==='dialog'&&failure&&<div className="ed-recovery"><p className="error" role="alert">{failure}</p>
-        {s.failed&&<div className="ed-row"><button type="button" className="btn" onClick={()=>void retry()}>{needsSavedReview(s.failed.code)?'저장된 내용 확인':'다시 시도'}</button><button type="button" className="btn" onClick={()=>void release()}>입력 유지하고 수정</button></div>}
+        {s.failed&&<div className="ed-row"><button type="button" className="btn" onClick={()=>void retry()}>{needsSavedReview(s.failed.code)?'저장된 내용 확인':'다시 시도'}</button><button type="button" className="btn" onClick={()=>void releaseFailure()}>입력 유지하고 수정</button></div>}
       </div>}
     </div>
     <footer className="ed-foot">

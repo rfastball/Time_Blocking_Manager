@@ -1,5 +1,5 @@
 import {useRef,type KeyboardEvent} from 'react';
-import {weekCapacity} from '../../settings.ts';
+import {weekCapacity,WEEKLY_TARGET,WORK_DAYS} from '../../settings.ts';
 import {formatDuration} from '../../format.ts';
 import {getState,setNav,useApp,type Period} from '../store/state.ts';
 import {usePanelResize} from '../ui/PanelResize.tsx';
@@ -19,7 +19,7 @@ export function Plan(){
   const calendarPanels=usePanelResize(`plan-${nav.period}-calendar`,.67,'달력과 선택 날짜 패널 크기','calendar-summary calendar-day',nav.period==='two'||nav.period==='month','calendar');
   return <div className="plan">
     <div className="plan-bar">
-      <span className="week-summary">선택한 주 근무 {formatDuration(week.minutes)} / {formatDuration(settings.weekly_target??2400)} · {week.days} / {settings.work_days??5}일</span>
+      <span className="week-summary">선택한 주 근무 {formatDuration(week.minutes)} / {formatDuration(settings.weekly_target??WEEKLY_TARGET)} · {week.days} / {settings.work_days??WORK_DAYS}일</span>
     </div>
     <div style={calendarPanels.style} className={'plan-desk '+nav.period}>
       <div className="plan-main">{nav.period==='day'?<DayView dates={dates}/>:nav.period==='week'?<Week dates={dates}/>:<Calendar dates={dates} period={nav.period} panels={calendarPanels}/>}</div>

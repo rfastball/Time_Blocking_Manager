@@ -1,6 +1,8 @@
 import type {Settings} from './types.ts';
 import {plusDays,weekday,mondayOf} from './dates.ts';
 
+// A schedule saved before targets existed reads as 40 hours over 5 days; a target can be at most the whole week.
+export const WEEKLY_TARGET=2400,WORK_DAYS=5,WEEK_MINUTES=7*1440;
 export function effectiveDay(settings:Settings,date:string){
   return settings.exceptions?.find(e=>e.date===date)?.day??settings.days[weekday(date)];
 }

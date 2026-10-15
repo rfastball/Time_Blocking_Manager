@@ -10,6 +10,7 @@ import {completeTasks,dayRule,land,overdueTasks,planOf,uncomplete} from './tasks
 import {openEditor} from './editor.ts';
 import {fly} from '../ui/flight.ts';
 import {focusLater,taskSelector} from '../ui/focus.ts';
+import {snapDuration} from '../../detail.ts';
 
 const snap=()=>getState().snapshot!;
 const revisions=(ids:string[])=>ids.map(id=>({id,revision:snap().tasks.find(t=>t.id===id)!.revision}));
@@ -116,7 +117,7 @@ export async function undoHere(id:string){
 // ── 길이 ──
 // Choosing a length sizes a proto block for good, even at the length it already had. It stays where it is.
 export function setLength(t:Task,duration:number){
-  const d=Math.max(15,Math.min(1440,Math.round(duration/15)*15));
+  const d=snapDuration(duration);
   if(d===t.duration&&!t.proto)return Promise.resolve(false);
   return dispatch({...updateAction(t,t.plan_date,t.starts_at,null,d),sized:true});
 }

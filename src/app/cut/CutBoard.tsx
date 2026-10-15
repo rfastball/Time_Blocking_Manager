@@ -8,7 +8,7 @@ import {formatDuration} from '../../format.ts';
 import {benchShown,getState,useApp} from '../store/state.ts';
 import {cancelCut,commitCut,cutPlace,editCut} from '../store/cut.ts';
 import {setGesture} from '../store/tasks.ts';
-import {release,retry} from '../store/session.ts';
+import {releaseFailure,retry} from '../store/session.ts';
 import {reduced} from '../ui/motion.ts';
 import {follow} from '../ui/gesture.ts';
 import {Icon} from '../ui/icons.tsx';
@@ -111,7 +111,7 @@ export function CutBoard({mode}:{mode:'inline'|'dialog'}){
       {failure&&<p className="cut-error error" role="alert">{failure}</p>}
       {failed&&<div className="ed-row" onKeyDown={e=>{if(e.key==='Enter'||e.key==='Escape'){e.stopPropagation();if(e.key==='Escape')e.preventDefault();}}}>
         <button type="button" className="btn" onClick={()=>void retry()}>{needsSavedReview(failed.code)?'저장된 내용 확인':'다시 시도'}</button>
-        <button type="button" className="btn" onClick={()=>void release()}>입력 유지하고 수정</button>
+        <button type="button" className="btn" onClick={()=>void releaseFailure()}>입력 유지하고 수정</button>
       </div>}
     </div>
     <div className="cut-side">

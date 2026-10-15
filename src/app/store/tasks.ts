@@ -11,7 +11,7 @@ import {createCommand} from '../../capture.ts';
 import type {Action,Task,Trashed,WorkingDay} from '../../types.ts';
 import {getState,openDrafts,setDrafts,setState,setUi} from './state.ts';
 import {fly} from '../ui/flight.ts';
-import {pushOut,release,revived} from './wait.ts';
+import {pushOut,revive,revived} from './wait.ts';
 import {acknowledgeCapture,afterIdle,announce,dispatch,draftChanged,persistDraft,queue,showError,stamp} from './session.ts';
 
 const snap=()=>getState().snapshot!;
@@ -20,7 +20,7 @@ export const taskMinute=(t:Task)=>startMinute(t.starts_at!);
 export function dayRule(date:string):WorkingDay{const s=getState();return effectiveDay(s.drafts.settingsDraft??s.snapshot!.settings,date);}
 export const planOf=(date:string,tasks=snap().tasks)=>dayPlan(date,tasks,dayRule(date),snap().layouts??[]);
 export const flowOrderOn=(date:string)=>snap().tasks.filter(t=>t.plan_date===date&&!t.starts_at&&!t.completed).sort(byFlowOrder);
-export const inboxTasks=()=>snap().tasks.filter(onBench);
+export const benchTasks=()=>snap().tasks.filter(onBench);
 export const overdueTasks=()=>{const day=getState().today;return snap().tasks.filter(t=>!t.completed&&t.plan_date&&t.plan_date<day);};
 export function available(date:string){const d=dayRule(date);return d.enabled?d.end-d.start-d.breaks.reduce((n,b)=>n+b.end-b.start,0):0;}
 export const issueAt=(id:string,date:string,start:number,duration:number)=>placementIssue(id,date,start,duration,dayRule(date),snap().tasks);
@@ -86,7 +86,7 @@ export const unplan=(t:Task)=>t.plan_date&&!t.completed?fly([t.id],()=>dispatch(
 export function drop(intent:Intent){
   if(intent.zone==='wait')return pushOut(carried(intent),{flown:true});
   const from=carried(intent).map(find).filter((t):t is Task=>!!t&&waiting(t));
-  if(from.length&&intent.zone==='tray')return release(from.map(t=>t.id),{flown:true});
+  if(from.length&&intent.zone==='tray')return revive(from.map(t=>t.id),{flown:true});
   const action=intentAction(snap().tasks,intent,snap().piles??[]);
   if(!action)return Promise.resolve(false);
   return dispatch(action,{done:()=>{

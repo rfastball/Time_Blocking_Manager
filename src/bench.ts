@@ -1,5 +1,4 @@
 import type {Pile,Task} from './types.ts';
-import {formatDuration} from './format.ts';
 import {slashDate} from './dates.ts';
 
 // The 준비 tab keeps open unplanned work in two places: the 들어옴 (no pile) and one ordered shelf (the reserved pile).
@@ -36,11 +35,6 @@ export function placeLabel(t:Task,tasks:Task[],piles:Pile[]=[]){
   if(placeOf(t)==='inbox')return '들어옴';
   return `선반 · ${shelfCards(tasks,piles).findIndex(x=>x.id===t.id)+1}번째`;
 }
-export function placeName(place:Place,tasks:Task[],piles:Pile[]=[]){
-  const cards=cardsIn(place,tasks,piles),total=cards.reduce((n,t)=>n+t.duration,0);
-  return `${place==='shelf'?'선반':'들어옴'}, ${cards.length?`${cards.length}개, ${formatDuration(total)}`:'비어 있음'}`;
-}
-
 // Puts `ids`, in order, into `pile` before the card now at `index` among the others; returns new task objects.
 // The same rule the store applies, so a held block can show where it lands.
 export function place(tasks:Task[],ids:string[],pile:string|null,index:number):Task[]{

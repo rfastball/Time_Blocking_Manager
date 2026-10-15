@@ -6,7 +6,7 @@ import type {Task} from '../../types.ts';
 import {isCompositionKey} from '../../capture.ts';
 import {jump,keyInitial,sinceLabel,staleLabel,triggerOptions,waitGroups,type WaitGroup} from '../../waiting.ts';
 import {getState,setUi,useApp} from '../store/state.ts';
-import {closeNaming,commitRename,editTrigger,release,renameTo,setBand,setTrigger} from '../store/wait.ts';
+import {closeNaming,commitRename,editTrigger,renameTo,revive,setBand,setTrigger} from '../store/wait.ts';
 import {deleteTask} from '../store/tasks.ts';
 import {openEditor} from '../store/editor.ts';
 import {aimedAt,useDrag,useRegion} from '../space/drag.tsx';
@@ -68,7 +68,7 @@ export function Waiting(){
     if(getState().ui.naming)return;
     // The tag comes off first; then the freed blocks travel to 준비.
     setUnclip(new Set(ids));
-    setTimeout(()=>{void release(ids).finally(()=>setUnclip(new Set()));},reduced()?0:150);
+    setTimeout(()=>{void revive(ids).finally(()=>setUnclip(new Set()));},reduced()?0:150);
   },[]);
   const heldIds=new Set(held&&!held.dropping?held.ids:[]);
 

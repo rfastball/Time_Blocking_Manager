@@ -2,8 +2,8 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {formatDuration,rangeTitle} from './format.ts';
 import {nextFlowId,dayPlan,newlyOver,calendarRefreshAllowed} from './today.ts';
-import {placementIssue,selectionRange,splitDuration,unavailableParts,resistWorkingBoundary} from './placement.ts';
-import {createTimeAxis,timeAxisForDays,expandTimeAxis,timeAxisLabelVisible} from './time-axis.ts';
+import {placementIssue,selectionRange,unavailableParts,resistWorkingBoundary} from './placement.ts';
+import {createTimeAxis,timeAxisForDays,expandTimeAxis} from './time-axis.ts';
 import type {Task,WorkingDay} from './types.ts';
 
 const date='2026-10-08',rule:WorkingDay={enabled:true,start:540,end:1080,breaks:[{start:720,end:780,label:'점심'}]};
@@ -22,7 +22,6 @@ test('focused time axes preserve all-day boundaries and invert compressed coordi
   assert.ok(axis.height-axis.position(axis.end)<workingHour,'evening off-hours fit within one working-hour height');
   assert.equal(axis.position(555)-axis.position(540),15*axis.scale);
   assert.ok(axis.position(60)-axis.position(0)<axis.position(600)-axis.position(540));
-  assert.equal(timeAxisLabelVisible(axis,60),false);assert.equal(timeAxisLabelVisible(axis,600),true);
   assert.deepEqual([timeAxisForDays([{...rule,enabled:false}]).start,timeAxisForDays([]).end],[510,1110]);
   const overrun=createTimeAxis(510,1700,1);
   assert.equal(overrun.position(1700),overrun.height,'work running past midnight ends the axis');
@@ -109,11 +108,6 @@ test('working boundaries resist slight pushes, release deliberate pushes and all
     assert.equal(resistWorkingBoundary(660,690,60,rule,position),690);
     assert.equal(resistWorkingBoundary(540,525,60,{...rule,enabled:false},position),525);
   }
-});
-
-test('split boundaries snap and preserve two nonempty blocks at both edges',()=>{
-  assert.deepEqual([-50,14,22,23,75,100].map(position=>splitDuration(90,position)),[15,15,15,30,75,75]);
-  assert.deepEqual([0,15,30].map(position=>splitDuration(30,position)),[15,15,15]);
 });
 
 test('clock refresh covers calendar views and waits until editing and gestures end',()=>{

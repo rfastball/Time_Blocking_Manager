@@ -27,9 +27,6 @@ export function resistWorkingBoundary(from:number,to:number,duration:number,rule
 export function selectionRange(anchor:number,pointer:number){
   return {start:Math.min(anchor,pointer),duration:Math.abs(pointer-anchor)+15};
 }
-export function splitDuration(duration:number,position:number){
-  return Math.max(15,Math.min(duration-15,Math.round(position/15)*15));
-}
 export function placementIssue(id:string,date:string,start:number,duration:number,_rule:WorkingDay,tasks:Task[]):PlacementIssue|null{
   const end=start+duration;
   if(!Number.isFinite(start)||!Number.isFinite(duration)||duration<15||duration%15||start%15)return {kind:'grid',label:'15분 단위만 가능'};

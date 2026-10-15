@@ -1,10 +1,10 @@
 import type {Action,Command,Settings,Snapshot,Task,TaskRevision} from './types.ts';
 import {placementIssue as checkPlacement,unavailableParts} from './placement.ts';
-import {effectiveDay} from './settings.ts';
+import {effectiveDay,WEEKLY_TARGET,WORK_DAYS,WEEK_MINUTES} from './settings.ts';
 import {dateOf,time,minutes,plusDays,startAt,startMinute,weekday} from './dates.ts';
 import {SHELF,insertPile,normalize,onBench,place} from './bench.ts';
 import {requestTimeIssue} from './capture.ts';
-import {mergeBody} from './detail.ts';
+import {mergeBody,durationValid} from './detail.ts';
 
 const bytes=(value:string)=>new TextEncoder().encode(value).length;
 const receipts=new WeakMap<Set<string>,Map<string,{epoch:string;payload:string}>>();
@@ -36,8 +36,8 @@ function validateSettings(settings:Settings){
     ids.add(r.id);
   }
   if(settings.days.length!==7)reject('월요일부터 일요일까지 7일의 설정이 필요합니다.');
-  const target=settings.weekly_target??2400,workDays=settings.work_days??5;
-  if(!Number.isInteger(target)||target<15||target>10080||target%15||!Number.isInteger(workDays)||workDays<1||workDays>7)reject('주간 목표 시간과 근무일 수를 확인하세요.');
+  const target=settings.weekly_target??WEEKLY_TARGET,workDays=settings.work_days??WORK_DAYS;
+  if(!Number.isInteger(target)||target<15||target>WEEK_MINUTES||target%15||!Number.isInteger(workDays)||workDays<1||workDays>7)reject('주간 목표 시간과 근무일 수를 확인하세요.');
   const dates=new Set<string>();
   for(const e of settings.exceptions??[]){
     parseDate(e.date);
@@ -53,7 +53,7 @@ function validateSettings(settings:Settings){
   }
 }
 function validateTask(task:Task,tasks:Task[],settings:Settings){
-  if(!task.id||bytes(task.id)>100||!task.title.trim()||bytes(task.title)>2000||bytes(task.body)>200_000||!Number.isInteger(task.duration)||task.duration<15||task.duration>1440||task.duration%15)reject('제목(최대 2,000바이트), 본문(최대 200KB), 소요시간을 확인하세요.');
+  if(!task.id||bytes(task.id)>100||!task.title.trim()||bytes(task.title)>2000||bytes(task.body)>200_000||!durationValid(task.duration))reject('제목(최대 2,000바이트), 본문(최대 200KB), 소요시간을 확인하세요.');
   if(task.plan_date!==null)parseDate(task.plan_date);
   // Only waiting work carries a trigger; the place rules hold through normalize.
   const waitDay=(d:string|null|undefined)=>{if(d==null)return true;try{parseDate(d);return true;}catch{return false;}};

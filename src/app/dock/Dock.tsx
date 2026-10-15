@@ -1,5 +1,5 @@
 import {setNav,useApp,type Dock as DockWidth} from '../store/state.ts';
-import {inboxTasks,overdueTasks} from '../store/tasks.ts';
+import {benchTasks,overdueTasks} from '../store/tasks.ts';
 import {openEditor} from '../store/editor.ts';
 import {Icon} from '../ui/icons.tsx';
 import {InboxTray} from '../space/InboxTray.tsx';
@@ -23,7 +23,7 @@ export function setDock(to:DockWidth){
 // folded it keeps only the count. Its width changes only when asked, never as a side effect of editing.
 export function Dock(){
   const {nav,snapshot}=useApp(),dock=nav.dock;
-  const count=snapshot?inboxTasks().length+overdueTasks().length:0;
+  const count=snapshot?benchTasks().length+overdueTasks().length:0;
   if(dock==='hidden')return <aside id="dock" className="dock hidden" aria-label="준비 도크">
     <button type="button" className="dock-unfold" aria-label={`준비 펴기${count?`, ${count}건`:''}`} aria-keyshortcuts="[" onClick={()=>setDock('narrow')}>
       <Icon name="inbox" size={18}/>{count>0&&<span className="cnt">{count}</span>}

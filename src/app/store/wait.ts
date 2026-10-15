@@ -65,7 +65,7 @@ export function editTrigger(ids:string[],at:{x:number;y:number}|null=null){
 export const closeNaming=()=>setUi({naming:null});
 
 // What it waited for has come: sized blocks go on top of the shelf, protos on top of the 들어옴, in the band's order.
-export async function release(ids:string[],{flown=false}:{flown?:boolean}={}){
+export async function revive(ids:string[],{flown=false}:{flown?:boolean}={}){
   const tasks=ids.map(find).filter((t):t is Task=>!!t&&waiting(t));
   if(!tasks.length)return false;
   const before=tasks.map(t=>({...t}));
