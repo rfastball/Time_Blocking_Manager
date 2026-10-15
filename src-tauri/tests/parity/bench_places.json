@@ -1,0 +1,23 @@
+{
+  "name": "bench_places",
+  "about": "Capture into the 들어옴, choosing a length, the shelf created by place_unplanned (create_at), moves within and between the 들어옴 and shelf, a proto put on the shelf, rejections.",
+  "steps": [
+    {"action": {"type": "create", "id": "a", "title": "  첫 메모  "}},
+    {"action": {"type": "create", "id": "b", "title": "둘"}},
+    {"action": {"type": "create", "id": "c", "title": "셋"}},
+    {"action": {"type": "update", "id": "b", "expected_revision": "$rev:b", "title": "둘", "body": "메모", "starts_at": null, "duration": 60, "plan_date": null}},
+    {"action": {"type": "update", "id": "c", "expected_revision": "$rev:c", "title": "셋", "body": "", "starts_at": null, "duration": 30, "plan_date": null, "sized": true}},
+    {"action": {"type": "place_unplanned", "items": [{"id": "b", "revision": "$rev:b"}, {"id": "a", "revision": "$rev:a"}], "pile": "shelf", "create_at": 1, "index": 0}},
+    {"action": {"type": "place_unplanned", "items": [{"id": "c", "revision": "$rev:c"}], "pile": "shelf", "index": 1}},
+    {"action": {"type": "place_unplanned", "items": [{"id": "b", "revision": "$rev:b"}], "pile": null, "index": 0}},
+    {"action": {"type": "create", "id": "d", "title": "넷"}},
+    {"action": {"type": "place_unplanned", "items": [{"id": "d", "revision": "$rev:d"}], "pile": null, "index": 5}},
+    {"action": {"type": "place_unplanned", "items": [{"id": "a", "revision": "$rev:a"}], "pile": "gone", "index": 0}, "error": "conflict"},
+    {"action": {"type": "place_unplanned", "items": [{"id": "a", "revision": 9}], "pile": null, "index": 0}, "error": "conflict"},
+    {"action": {"type": "place_unplanned", "items": [{"id": "a", "revision": "$rev:a"}], "pile": "shelf", "create_at": 1, "index": 0}, "error": "validation"},
+    {"action": {"type": "place_unplanned", "items": [], "pile": null, "index": 0}, "error": "validation"},
+    {"action": {"type": "place_unplanned", "items": [{"id": "a", "revision": "$rev:a"}, {"id": "a", "revision": "$rev:a"}], "pile": null, "index": 0}, "error": "validation"},
+    {"action": {"type": "create", "id": "a", "title": "중복"}, "error": "validation"},
+    {"action": {"type": "create", "id": "e", "title": "   "}, "error": "validation"}
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "name": "edges",
+  "about": "Request receipts (a retry acknowledges, a changed payload under the same id is rejected), invalid dates and times, waiting work edited, merged, trashed and restored, completed or shipped out of 기다림, byte limits, a sized proto staying in the 들어옴, rejections on the 준비 places.",
+  "steps": [
+    {"request_id": "same", "action": {"type": "create", "id": "z", "title": "한 번만"}},
+    {"request_id": "same", "action": {"type": "create", "id": "z", "title": "한 번만"}},
+    {"request_id": "same", "action": {"type": "create", "id": "z2", "title": "다른 내용"}, "error": "validation"},
+    {"action": {"type": "create_flow", "id": "bad", "title": "없는 날", "date": "2026-02-30", "duration": 30}, "error": "validation"},
+    {"action": {"type": "create_scheduled", "id": "bad", "title": "자정", "starts_at": "2026-10-14T24:00", "duration": 30}, "error": "validation"},
+    {"action": {"type": "create_flow", "id": "bad", "title": "길이", "date": "2026-10-14", "duration": 1455}, "error": "validation"},
+    {"action": {"type": "create", "id": "w", "title": "기다릴 일"}},
+    {"action": {"type": "wait", "items": [{"id": "w", "revision": "$rev:w"}], "trigger": "가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가", "until": null, "since": "2026-10-14"}, "error": "validation"},
+    {"action": {"type": "wait", "items": [{"id": "w", "revision": "$rev:w"}], "trigger": "회신", "until": null, "since": "2026-10-14"}},
+    {"action": {"type": "update", "id": "w", "expected_revision": "$rev:w", "title": "기다릴 일 고침", "body": "메모", "starts_at": null, "duration": 45, "plan_date": null}},
+    {"action": {"type": "merge_unplanned", "id": "m", "items": [{"id": "w", "revision": "$rev:w"}, {"id": "z", "revision": "$rev:z"}]}, "error": "conflict"},
+    {"action": {"type": "delete", "id": "w", "expected_revision": "$rev:w"}},
+    {"action": {"type": "restore_trashed", "id": "w"}},
+    {"action": {"type": "place_unplanned", "items": [{"id": "z", "revision": "$rev:z"}], "pile": null, "create_at": 1, "index": 0}, "error": "validation"},
+    {"action": {"type": "place_unplanned", "items": [{"id": "z", "revision": "$rev:z"}], "pile": null, "index": -1}, "error": "validation"},
+    {"action": {"type": "set_completed", "id": "w", "expected_revision": "$rev:w", "completed": true, "date": "2026-10-14"}},
+    {"action": {"type": "place_unplanned", "items": [{"id": "w", "revision": "$rev:w"}], "pile": null, "index": 0}, "error": "conflict"},
+    {"action": {"type": "create", "id": "v", "title": "실을 일"}},
+    {"action": {"type": "wait", "items": [{"id": "v", "revision": "$rev:v"}], "trigger": "", "until": "2026-10-20", "since": "2026-10-14"}},
+    {"action": {"type": "ship_flow", "date": "2026-10-14", "items": [{"id": "v", "revision": "$rev:v"}], "before": "v"}, "error": "validation"},
+    {"action": {"type": "ship_flow", "date": "2026-10-14", "items": [{"id": "v", "revision": "$rev:v"}]}},
+    {"action": {"type": "create", "id": "u", "title": "길이 정함"}},
+    {"action": {"type": "update", "id": "u", "expected_revision": "$rev:u", "title": "길이 정함", "body": "", "starts_at": null, "duration": 90, "plan_date": null}},
+    {"action": {"type": "update", "id": "u", "expected_revision": "$rev:u", "title": "길이 정함", "body": "", "starts_at": null, "duration": 90, "plan_date": "2026-10-14", "before": "w"}, "error": "validation"},
+    {"action": {"type": "update", "id": "u", "expected_revision": "$rev:u", "title": "길이 정함", "body": "", "starts_at": null, "duration": 90, "plan_date": "2026-10-14", "before": "v"}}
+  ]
+}

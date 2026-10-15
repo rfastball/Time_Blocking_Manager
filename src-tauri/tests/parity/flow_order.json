@@ -1,0 +1,23 @@
+{
+  "name": "flow_order",
+  "about": "A day's order: create_flow, update with plan_date and `before`, reorder_flow, moving to another date, ship_flow before a task and onto the end, rejections.",
+  "steps": [
+    {"action": {"type": "create_flow", "id": "a", "title": "가", "date": "2026-10-14", "duration": 30}},
+    {"action": {"type": "create_flow", "id": "b", "title": "나", "date": "2026-10-14", "duration": 45}},
+    {"action": {"type": "create_flow", "id": "c", "title": "다", "date": "2026-10-14", "duration": 60}},
+    {"action": {"type": "create", "id": "d", "title": "라"}},
+    {"action": {"type": "update", "id": "d", "expected_revision": "$rev:d", "title": "라", "body": "", "starts_at": null, "duration": 30, "plan_date": "2026-10-14", "before": "b"}},
+    {"action": {"type": "reorder_flow", "date": "2026-10-14", "expected": [{"id": "c", "revision": "$rev:c"}, {"id": "a", "revision": "$rev:a"}, {"id": "d", "revision": "$rev:d"}, {"id": "b", "revision": "$rev:b"}]}},
+    {"action": {"type": "update", "id": "b", "expected_revision": "$rev:b", "title": "나", "body": "", "starts_at": null, "duration": 45, "plan_date": "2026-10-15"}},
+    {"action": {"type": "update", "id": "a", "expected_revision": "$rev:a", "title": "가 고침", "body": "본문", "starts_at": null, "duration": 30, "plan_date": "2026-10-14"}},
+    {"action": {"type": "update", "id": "a", "expected_revision": "$rev:a", "title": "가", "body": "", "starts_at": null, "duration": 30, "plan_date": "2026-10-14", "before": "a"}, "error": "validation"},
+    {"action": {"type": "update", "id": "a", "expected_revision": "$rev:a", "title": "가", "body": "", "starts_at": "2026-10-14T10:00", "duration": 30, "plan_date": null, "before": "c"}, "error": "validation"},
+    {"action": {"type": "reorder_flow", "date": "2026-10-14", "expected": [{"id": "c", "revision": "$rev:c"}, {"id": "a", "revision": "$rev:a"}]}, "error": "conflict"},
+    {"action": {"type": "create", "id": "e", "title": "마"}},
+    {"action": {"type": "create", "id": "f", "title": "바"}},
+    {"action": {"type": "ship_flow", "date": "2026-10-14", "items": [{"id": "f", "revision": "$rev:f"}, {"id": "e", "revision": "$rev:e"}], "before": "a"}},
+    {"action": {"type": "ship_flow", "date": "2026-10-14", "items": [{"id": "b", "revision": "$rev:b"}]}},
+    {"action": {"type": "ship_flow", "date": "2026-10-14", "items": [{"id": "c", "revision": "$rev:c"}], "before": "zz"}, "error": "validation"},
+    {"action": {"type": "ship_flow", "date": "2026-10-14", "items": []}, "error": "validation"}
+  ]
+}

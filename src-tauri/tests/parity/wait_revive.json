@@ -1,0 +1,24 @@
+{
+  "name": "wait_revive",
+  "about": "Out to 기다림 from the 들어옴, the shelf, a day's order and a fixed time; a new trigger keeps `since`; revive (protos to the 들어옴, sized to the shelf); a date or a placement ends a wait; rejections.",
+  "steps": [
+    {"action": {"type": "create", "id": "p", "title": "p"}},
+    {"action": {"type": "create", "id": "a", "title": "a"}},
+    {"action": {"type": "create", "id": "b", "title": "b"}},
+    {"action": {"type": "create", "id": "keep", "title": "keep"}},
+    {"action": {"type": "place_unplanned", "items": [{"id": "a", "revision": "$rev:a"}, {"id": "b", "revision": "$rev:b"}, {"id": "keep", "revision": "$rev:keep"}], "pile": "shelf", "create_at": 1, "index": 0}},
+    {"action": {"type": "create_flow", "id": "f", "title": "f", "date": "2026-10-14", "duration": 30}},
+    {"action": {"type": "create_flow", "id": "g", "title": "g", "date": "2026-10-14", "duration": 30}},
+    {"action": {"type": "create_scheduled", "id": "x", "title": "고정", "starts_at": "2026-10-14T10:00", "duration": 60}},
+    {"action": {"type": "wait", "items": [{"id": "p", "revision": "$rev:p"}, {"id": "a", "revision": "$rev:a"}, {"id": "f", "revision": "$rev:f"}, {"id": "x", "revision": "$rev:x"}], "trigger": "  김부장 결재  ", "until": null, "since": "2026-10-11"}},
+    {"action": {"type": "wait", "items": [{"id": "a", "revision": "$rev:a"}], "trigger": "", "until": "2026-10-20", "since": "2026-10-13"}},
+    {"action": {"type": "revive", "items": [{"id": "keep", "revision": "$rev:keep"}]}, "error": "validation"},
+    {"action": {"type": "wait", "items": [{"id": "b", "revision": "$rev:b"}], "trigger": "x", "until": "2026-13-01", "since": "2026-10-13"}, "error": "validation"},
+    {"action": {"type": "wait", "items": [], "trigger": "x", "until": null, "since": "2026-10-13"}, "error": "validation"},
+    {"action": {"type": "revive", "items": [{"id": "p", "revision": "$rev:p"}, {"id": "a", "revision": "$rev:a"}]}},
+    {"action": {"type": "revive", "items": [{"id": "f", "revision": 1}]}, "error": "conflict"},
+    {"action": {"type": "update", "id": "f", "expected_revision": "$rev:f", "title": "f", "body": "", "starts_at": null, "duration": 30, "plan_date": "2026-10-16"}},
+    {"action": {"type": "place_unplanned", "items": [{"id": "x", "revision": "$rev:x"}], "pile": null, "index": 0}},
+    {"action": {"type": "wait", "items": [{"id": "keep", "revision": "$rev:keep"}, {"id": "b", "revision": "$rev:b"}], "trigger": "회신", "until": null, "since": "2026-10-14"}}
+  ]
+}

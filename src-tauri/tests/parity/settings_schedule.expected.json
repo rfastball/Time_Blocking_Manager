@@ -1,0 +1,96 @@
+{
+  "initial": {
+    "layouts": [],
+    "piles": [],
+    "settings": {
+      "days": [{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":false,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":false,"end":1080,"start":540}],
+      "exceptions": [],
+      "revision": 1,
+      "routines": [],
+      "weekly_target": 2400,
+      "work_days": 5
+    },
+    "tasks": [],
+    "trash": []
+  },
+  "name": "settings_schedule",
+  "states": [
+    {
+      "layouts": [],
+      "piles": [],
+      "settings": {
+        "days": [{"breaks":[],"enabled":true,"end":1020,"start":480},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720},{"end":930,"label":"휴식","start":900}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[],"enabled":false,"end":1080,"start":540},{"breaks":[],"enabled":false,"end":1080,"start":540}],
+        "exceptions": [],
+        "revision": 2,
+        "routines": [],
+        "weekly_target": 2400,
+        "work_days": 5
+      },
+      "tasks": [],
+      "trash": []
+    },
+    {
+      "error": "conflict"
+    },
+    {
+      "error": "validation"
+    },
+    {
+      "error": "validation"
+    },
+    {
+      "layouts": [],
+      "piles": [],
+      "settings": {
+        "days": [{"breaks":[],"enabled":true,"end":1020,"start":480},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720},{"end":930,"label":"휴식","start":900}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[],"enabled":false,"end":1080,"start":540},{"breaks":[],"enabled":false,"end":1080,"start":540}],
+        "exceptions": [],
+        "revision": 3,
+        "routines": [{"body":"메모","duration":60,"id":"r","start":960,"title":"주간 보고","weekdays":[4]}],
+        "weekly_target": 2400,
+        "work_days": 5
+      },
+      "tasks": [],
+      "trash": []
+    },
+    {
+      "layouts": [],
+      "piles": [],
+      "settings": {
+        "days": [{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1020,"start":540},{"breaks":[],"enabled":false,"end":1080,"start":540},{"breaks":[],"enabled":false,"end":1080,"start":540}],
+        "exceptions": [{"date":"2026-10-16","day":{"breaks":[],"enabled":false,"end":1080,"start":540},"kind":"leave"},{"date":"2026-10-15","day":{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":900,"start":540},"kind":"early"}],
+        "revision": 4,
+        "routines": [{"body":"메모","duration":60,"id":"r","start":960,"title":"주간 보고","weekdays":[4]}],
+        "weekly_target": 2100,
+        "work_days": 4
+      },
+      "tasks": [],
+      "trash": []
+    },
+    {
+      "error": "validation"
+    },
+    {
+      "error": "validation"
+    },
+    {
+      "error": "conflict"
+    },
+    {
+      "error": "conflict"
+    },
+    {
+      "layouts": [],
+      "piles": [],
+      "settings": {
+        "days": [{"breaks":[],"enabled":true,"end":1080,"start":540},{"breaks":[],"enabled":true,"end":1080,"start":540},{"breaks":[],"enabled":true,"end":1080,"start":540},{"breaks":[],"enabled":true,"end":1080,"start":540},{"breaks":[],"enabled":true,"end":1080,"start":540},{"breaks":[],"enabled":true,"end":720,"start":600},{"breaks":[],"enabled":false,"end":1080,"start":540}],
+        "exceptions": [{"date":"2026-10-16","day":{"breaks":[],"enabled":false,"end":1080,"start":540},"kind":"leave"},{"date":"2026-10-15","day":{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":900,"start":540},"kind":"early"}],
+        "revision": 5,
+        "routines": [{"body":"메모","duration":60,"id":"r","start":960,"title":"주간 보고","weekdays":[4]}],
+        "weekly_target": 2100,
+        "work_days": 4
+      },
+      "tasks": [],
+      "trash": []
+    }
+  ]
+}

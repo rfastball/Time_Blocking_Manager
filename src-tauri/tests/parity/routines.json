@@ -1,0 +1,33 @@
+{
+  "name": "routines",
+  "about": "set_routines + ensure_routines over a week: fixed where the time is free and working, flow work on that date when it overlaps, falls in a break, on a day off, past an early finish or on leave (date exceptions); a second pass adds nothing; invalid ranges and routines are rejected.",
+  "steps": [
+    {"action": {"type": "create_scheduled", "id": "block", "title": "막는 일정", "starts_at": "2026-10-14T10:30", "duration": 30}},
+    {"action": {"type": "create_flow", "id": "f", "title": "기존 유동", "date": "2026-10-12", "duration": 30}},
+    {"action": {"type": "set_schedule", "expected_revision": "$rev:settings", "days": [
+      {"enabled": true, "start": 540, "end": 1080, "breaks": [{"start": 720, "end": 780, "label": "점심"}]},
+      {"enabled": true, "start": 540, "end": 1080, "breaks": [{"start": 720, "end": 780, "label": "점심"}]},
+      {"enabled": true, "start": 540, "end": 1080, "breaks": [{"start": 720, "end": 780, "label": "점심"}]},
+      {"enabled": true, "start": 540, "end": 1080, "breaks": [{"start": 720, "end": 780, "label": "점심"}]},
+      {"enabled": true, "start": 540, "end": 1080, "breaks": [{"start": 720, "end": 780, "label": "점심"}]},
+      {"enabled": false, "start": 540, "end": 1080, "breaks": []},
+      {"enabled": false, "start": 540, "end": 1080, "breaks": []}],
+      "exceptions": [{"date": "2026-10-19", "kind": "leave", "day": {"enabled": false, "start": 540, "end": 1080, "breaks": []}},
+        {"date": "2026-10-13", "kind": "early", "day": {"enabled": true, "start": 540, "end": 960, "breaks": []}}],
+      "weekly_target": 2400, "work_days": 5, "move_conflicts": false}},
+    {"action": {"type": "set_routines", "expected_revision": "$rev:settings", "routines": [
+      {"id": "r1", "title": "주간 회의", "body": "안건 정리", "weekdays": [0, 2], "start": 600, "duration": 60},
+      {"id": "r2", "title": "점심 정리", "body": "", "weekdays": [0], "start": 720, "duration": 30},
+      {"id": "r3", "title": "주말 점검", "body": "", "weekdays": [5], "start": 600, "duration": 30},
+      {"id": "r4", "title": "  마감 확인  ", "body": "", "weekdays": [1], "start": 1020, "duration": 60},
+      {"id": "r5", "title": "늦은 일", "body": "", "weekdays": [3], "start": 1050, "duration": 60}]}},
+    {"action": {"type": "ensure_routines", "from": "2026-10-12", "to": "2026-10-18"}},
+    {"action": {"type": "ensure_routines", "from": "2026-10-12", "to": "2026-10-18"}},
+    {"action": {"type": "ensure_routines", "from": "2026-10-12", "to": "2026-12-31"}, "error": "validation"},
+    {"action": {"type": "ensure_routines", "from": "2026-10-18", "to": "2026-10-12"}, "error": "validation"},
+    {"action": {"type": "set_routines", "expected_revision": "$rev:settings", "routines": [{"id": "bad", "title": "어긋남", "body": "", "weekdays": [0], "start": 605, "duration": 60}]}, "error": "validation"},
+    {"action": {"type": "set_routines", "expected_revision": "$rev:settings", "routines": [{"id": "dup", "title": "같은 요일", "body": "", "weekdays": [0, 0], "start": 600, "duration": 60}]}, "error": "validation"},
+    {"action": {"type": "set_routines", "expected_revision": "$rev:settings", "routines": [{"id": "r1", "title": "주간 회의", "body": "안건 정리", "weekdays": [0, 2], "start": 600, "duration": 60}]}},
+    {"action": {"type": "ensure_routines", "from": "2026-10-12", "to": "2026-10-21"}}
+  ]
+}

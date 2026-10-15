@@ -1,0 +1,26 @@
+{
+  "name": "completion",
+  "about": "complete_flow with and without an anchor, reflow only moving the anchor forward, set_completed on flow, fixed and 준비 work (which needs a date), undoing, rejections.",
+  "steps": [
+    {"action": {"type": "create_flow", "id": "a", "title": "가", "date": "2026-10-14", "duration": 30}},
+    {"action": {"type": "create_flow", "id": "b", "title": "나", "date": "2026-10-14", "duration": 30}},
+    {"action": {"type": "create_flow", "id": "c", "title": "다", "date": "2026-10-14", "duration": 30}},
+    {"action": {"type": "create_scheduled", "id": "x", "title": "고정", "starts_at": "2026-10-14T14:00", "duration": 30}},
+    {"action": {"type": "complete_flow", "date": "2026-10-14", "items": [{"id": "a", "revision": "$rev:a"}], "at": "2026-10-14T10:30"}},
+    {"action": {"type": "reflow", "date": "2026-10-14", "at": "2026-10-14T09:00"}},
+    {"action": {"type": "reflow", "date": "2026-10-14", "at": "2026-10-15T09:00"}, "error": "validation"},
+    {"action": {"type": "complete_flow", "date": "2026-10-14", "items": [{"id": "a", "revision": "$rev:a"}], "at": null}, "error": "conflict"},
+    {"action": {"type": "complete_flow", "date": "2026-10-14", "items": [], "at": null}, "error": "validation"},
+    {"action": {"type": "complete_flow", "date": "2026-10-14", "items": [{"id": "c", "revision": "$rev:c"}], "at": null}},
+    {"action": {"type": "set_completed", "id": "b", "expected_revision": "$rev:b", "completed": true}},
+    {"action": {"type": "set_completed", "id": "b", "expected_revision": "$rev:b", "completed": false}},
+    {"action": {"type": "set_completed", "id": "x", "expected_revision": "$rev:x", "completed": true}},
+    {"action": {"type": "create", "id": "p", "title": "준비 일"}},
+    {"action": {"type": "set_completed", "id": "p", "expected_revision": "$rev:p", "completed": true}, "error": "validation"},
+    {"action": {"type": "set_completed", "id": "p", "expected_revision": "$rev:p", "completed": true, "date": "2026-10-14"}},
+    {"action": {"type": "update", "id": "x", "expected_revision": "$rev:x", "title": "고정", "body": "", "starts_at": null, "duration": 30, "plan_date": null}, "error": "validation"},
+    {"action": {"type": "set_completed", "id": "x", "expected_revision": 1, "completed": false}, "error": "conflict"},
+    {"action": {"type": "set_completed", "id": "x", "expected_revision": "$rev:x", "completed": false}},
+    {"action": {"type": "update", "id": "x", "expected_revision": "$rev:x", "title": "고정", "body": "", "starts_at": null, "duration": 30, "plan_date": null}}
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "name": "cut_board",
+  "about": "The cutting board's split_pieces commit on a fixed block (pieces one after another), a flow block (later order moves down), shelf work (open pieces keep its place, a done piece goes to the given day, a proto piece on the shelf is sized), waiting work (pieces keep waiting), rejections.",
+  "steps": [
+    {"action": {"type": "create_scheduled", "id": "x", "title": "회의 준비", "starts_at": "2026-10-14T09:00", "duration": 90}},
+    {"action": {"type": "split_pieces", "id": "x", "expected_revision": "$rev:x", "pieces": [{"id": "x", "title": " 앞 ", "body": "", "duration": 30, "proto": false, "completed": false}, {"id": "x2", "title": "뒤", "body": "남은 메모", "duration": 60, "proto": false, "completed": true}]}},
+    {"action": {"type": "create_scheduled", "id": "y", "title": "바로 뒤", "starts_at": "2026-10-14T11:00", "duration": 30}},
+    {"action": {"type": "split_pieces", "id": "x2", "expected_revision": "$rev:x2", "pieces": [{"id": "x2", "title": "뒤", "body": "", "duration": 30, "proto": false, "completed": true}, {"id": "x3", "title": "넘침", "body": "", "duration": 60, "proto": false, "completed": false}]}, "error": "validation"},
+    {"action": {"type": "split_pieces", "id": "x", "expected_revision": "$rev:x", "pieces": [{"id": "x", "title": "앞", "body": "", "duration": 30, "proto": false, "completed": false}, {"id": "x4", "title": "넘침", "body": "", "duration": 90, "proto": false, "completed": false}]}, "error": "overlap"},
+    {"action": {"type": "create_flow", "id": "f", "title": "f", "date": "2026-10-15", "duration": 30}},
+    {"action": {"type": "create_flow", "id": "g", "title": "g", "date": "2026-10-15", "duration": 90}},
+    {"action": {"type": "create_flow", "id": "h", "title": "h", "date": "2026-10-15", "duration": 30}},
+    {"action": {"type": "split_pieces", "id": "g", "expected_revision": "$rev:g", "pieces": [{"id": "g", "title": "g1", "body": "", "duration": 30, "proto": false, "completed": false}, {"id": "g2", "title": "g2", "body": "", "duration": 30, "proto": false, "completed": false}, {"id": "g3", "title": "g3", "body": "", "duration": 30, "proto": false, "completed": false}]}},
+    {"action": {"type": "create", "id": "s", "title": "선반 일"}},
+    {"action": {"type": "create", "id": "t", "title": "다른 선반 일"}},
+    {"action": {"type": "place_unplanned", "items": [{"id": "t", "revision": "$rev:t"}, {"id": "s", "revision": "$rev:s"}], "pile": "shelf", "create_at": 1, "index": 0}},
+    {"action": {"type": "split_pieces", "id": "s", "expected_revision": "$rev:s", "pieces": [{"id": "s", "title": "s1", "body": "", "duration": 15, "proto": false, "completed": false}, {"id": "s2", "title": "s2", "body": "", "duration": 15, "proto": false, "completed": true}]}, "error": "validation"},
+    {"action": {"type": "split_pieces", "id": "s", "expected_revision": "$rev:s", "pieces": [{"id": "s", "title": "s1", "body": "", "duration": 15, "proto": false, "completed": false}, {"id": "s2", "title": "s2", "body": "", "duration": 15, "proto": false, "completed": true}, {"id": "s3", "title": "s3", "body": "", "duration": 15, "proto": true, "completed": false}], "date": "2026-10-14"}},
+    {"action": {"type": "create", "id": "w", "title": "기다리는 일"}},
+    {"action": {"type": "wait", "items": [{"id": "w", "revision": "$rev:w"}], "trigger": "회신", "until": "2026-10-20", "since": "2026-10-12"}},
+    {"action": {"type": "split_pieces", "id": "w", "expected_revision": "$rev:w", "pieces": [{"id": "w", "title": "w1", "body": "", "duration": 15, "proto": true, "completed": false}, {"id": "w2", "title": "w2", "body": "", "duration": 15, "proto": false, "completed": false}]}},
+    {"action": {"type": "split_pieces", "id": "x2", "expected_revision": "$rev:x2", "pieces": [{"id": "x2", "title": "a", "body": "", "duration": 30, "proto": false, "completed": true}]}, "error": "validation"},
+    {"action": {"type": "split_pieces", "id": "h", "expected_revision": "$rev:h", "pieces": [{"id": "h", "title": "h1", "body": "", "duration": 15, "proto": false, "completed": false}, {"id": "g2", "title": "h2", "body": "", "duration": 15, "proto": false, "completed": false}]}, "error": "validation"},
+    {"action": {"type": "split_pieces", "id": "h", "expected_revision": "$rev:h", "pieces": [{"id": "h9", "title": "h1", "body": "", "duration": 15, "proto": false, "completed": false}]}, "error": "validation"},
+    {"action": {"type": "split_pieces", "id": "h", "expected_revision": "$rev:h", "pieces": []}, "error": "validation"},
+    {"action": {"type": "split_pieces", "id": "h", "expected_revision": 9, "pieces": [{"id": "h", "title": "h1", "body": "", "duration": 15, "proto": false, "completed": false}]}, "error": "conflict"}
+  ]
+}

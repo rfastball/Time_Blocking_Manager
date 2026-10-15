@@ -1,5 +1,12 @@
 # 검증 범위
 
+## 미리보기·Rust 저장소 짝 고정값 Test delta (2026-10-15)
+
+- Unique risk: DB 리팩터링 중 `src/preview.ts`가 `db.rs`와 말없이 어긋나는 것. 지금까지 짝 검사는 `wait.test.ts`·`storage.rs`의 손으로 맞춘 같은 시나리오뿐이었다.
+- Owner / layer: 새 `src-tauri/tests/parity/<name>.json` 12개(준비 자리, 흐름 순서, 고정 시각, 완료, 기다림, 자르기, 휴지통, 합치기, 설정·일정, 정기 업무, 하루 비우기, 경계값). Rust `tests/parity.rs`가 기준이며 `UPDATE_PARITY=1`로 `<name>.expected.json`(단계마다의 정규화 상태와 거절 코드)을 다시 쓴다. `src/parity.test.ts`가 같은 단계를 `previewMutation`에 넣어 같은 파일과 비교한다. 거절 단계는 양쪽 모두 상태 불변을 확인한다.
+- 비교에서 뺀 것: epoch·영수증, `deleted_at`(Rust는 `apply_at`의 시각 대신 `Utc::now()`를 쓴다), `board_x/y`(Rust만 기록), 정기 업무의 임의 id(`~날짜~제목`으로 대체). 어긋남 표시(`known_divergence`)는 0건.
+- Added / extended / removed: Node **13 / 0 / 0**, Rust **1 / 0 / 0**. 결과: Node **96/96**, Rust parity **1/1**·storage **33/33**.
+
 ## UI 검사 실행기 자체 서버 Test delta (2026-10-15)
 
 - Unique risk: 1420에 남은 예전 개발 서버를 검사하거나, 실행 중 수정으로 HMR이 붙인 `?t=` 모듈과 시나리오의 맨 경로 import가 서로 다른 store를 읽어 거짓 실패(`snapshot` null)가 나는 것.

@@ -1,0 +1,67 @@
+{
+  "name": "settings_schedule",
+  "about": "set_settings and set_schedule (exceptions, weekly target, work days) bump the settings revision and keep routines; stale revisions and invalid hours, breaks, exceptions and targets are rejected.",
+  "steps": [
+    {"action": {"type": "set_settings", "expected_revision": "$rev:settings", "days": [
+      {"enabled": true, "start": 480, "end": 1020, "breaks": []},
+      {"enabled": true, "start": 540, "end": 1080, "breaks": [{"start": 720, "end": 780, "label": "점심"}]},
+      {"enabled": true, "start": 540, "end": 1080, "breaks": [{"start": 720, "end": 780, "label": "점심"}, {"start": 900, "end": 930, "label": "휴식"}]},
+      {"enabled": true, "start": 540, "end": 1080, "breaks": [{"start": 720, "end": 780, "label": "점심"}]},
+      {"enabled": true, "start": 540, "end": 1080, "breaks": [{"start": 720, "end": 780, "label": "점심"}]},
+      {"enabled": false, "start": 540, "end": 1080, "breaks": []},
+      {"enabled": false, "start": 540, "end": 1080, "breaks": []}]}},
+    {"action": {"type": "set_settings", "expected_revision": 1, "days": []}, "error": "conflict"},
+    {"action": {"type": "set_settings", "expected_revision": "$rev:settings", "days": [
+      {"enabled": true, "start": 540, "end": 1080, "breaks": []}]}, "error": "validation"},
+    {"action": {"type": "set_settings", "expected_revision": "$rev:settings", "days": [
+      {"enabled": true, "start": 540, "end": 1080, "breaks": [{"start": 500, "end": 600, "label": "밖"}]},
+      {"enabled": true, "start": 540, "end": 1080, "breaks": []},
+      {"enabled": true, "start": 540, "end": 1080, "breaks": []},
+      {"enabled": true, "start": 540, "end": 1080, "breaks": []},
+      {"enabled": true, "start": 540, "end": 1080, "breaks": []},
+      {"enabled": false, "start": 540, "end": 1080, "breaks": []},
+      {"enabled": false, "start": 540, "end": 1080, "breaks": []}]}, "error": "validation"},
+    {"action": {"type": "set_routines", "expected_revision": "$rev:settings", "routines": [{"id": "r", "title": "  주간 보고  ", "body": "메모", "weekdays": [4], "start": 960, "duration": 60}]}},
+    {"action": {"type": "set_schedule", "expected_revision": "$rev:settings", "days": [
+      {"enabled": true, "start": 540, "end": 1080, "breaks": [{"start": 720, "end": 780, "label": "점심"}]},
+      {"enabled": true, "start": 540, "end": 1080, "breaks": [{"start": 720, "end": 780, "label": "점심"}]},
+      {"enabled": true, "start": 540, "end": 1080, "breaks": [{"start": 720, "end": 780, "label": "점심"}]},
+      {"enabled": true, "start": 540, "end": 1080, "breaks": [{"start": 720, "end": 780, "label": "점심"}]},
+      {"enabled": true, "start": 540, "end": 1020, "breaks": [{"start": 720, "end": 780, "label": "점심"}]},
+      {"enabled": false, "start": 540, "end": 1080, "breaks": []},
+      {"enabled": false, "start": 540, "end": 1080, "breaks": []}],
+      "exceptions": [
+        {"date": "2026-10-16", "kind": "leave", "day": {"enabled": false, "start": 540, "end": 1080, "breaks": []}},
+        {"date": "2026-10-15", "kind": "early", "day": {"enabled": true, "start": 540, "end": 900, "breaks": [{"start": 720, "end": 780, "label": "점심"}]}}],
+      "weekly_target": 2100, "work_days": 4, "move_conflicts": false}},
+    {"action": {"type": "set_schedule", "expected_revision": "$rev:settings", "days": [
+      {"enabled": true, "start": 540, "end": 1080, "breaks": []},
+      {"enabled": true, "start": 540, "end": 1080, "breaks": []},
+      {"enabled": true, "start": 540, "end": 1080, "breaks": []},
+      {"enabled": true, "start": 540, "end": 1080, "breaks": []},
+      {"enabled": true, "start": 540, "end": 1080, "breaks": []},
+      {"enabled": false, "start": 540, "end": 1080, "breaks": []},
+      {"enabled": false, "start": 540, "end": 1080, "breaks": []}],
+      "exceptions": [{"date": "2026-10-16", "kind": "leave", "day": {"enabled": true, "start": 540, "end": 1080, "breaks": []}}],
+      "weekly_target": 2400, "work_days": 5, "move_conflicts": true}, "error": "validation"},
+    {"action": {"type": "set_schedule", "expected_revision": "$rev:settings", "days": [
+      {"enabled": true, "start": 540, "end": 1080, "breaks": []},
+      {"enabled": true, "start": 540, "end": 1080, "breaks": []},
+      {"enabled": true, "start": 540, "end": 1080, "breaks": []},
+      {"enabled": true, "start": 540, "end": 1080, "breaks": []},
+      {"enabled": true, "start": 540, "end": 1080, "breaks": []},
+      {"enabled": false, "start": 540, "end": 1080, "breaks": []},
+      {"enabled": false, "start": 540, "end": 1080, "breaks": []}],
+      "exceptions": [], "weekly_target": 10, "work_days": 5, "move_conflicts": false}, "error": "validation"},
+    {"action": {"type": "set_schedule", "expected_revision": 2, "days": [], "exceptions": [], "weekly_target": 2400, "work_days": 5, "move_conflicts": false}, "error": "conflict"},
+    {"action": {"type": "set_routines", "expected_revision": 1, "routines": []}, "error": "conflict"},
+    {"action": {"type": "set_settings", "expected_revision": "$rev:settings", "days": [
+      {"enabled": true, "start": 540, "end": 1080, "breaks": []},
+      {"enabled": true, "start": 540, "end": 1080, "breaks": []},
+      {"enabled": true, "start": 540, "end": 1080, "breaks": []},
+      {"enabled": true, "start": 540, "end": 1080, "breaks": []},
+      {"enabled": true, "start": 540, "end": 1080, "breaks": []},
+      {"enabled": true, "start": 600, "end": 720, "breaks": []},
+      {"enabled": false, "start": 540, "end": 1080, "breaks": []}]}}
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "name": "clear_day",
+  "about": "clear_day checks the whole set of the day's revisions; open work goes on top of the shelf in planned order (flow first, then fixed), completed work stays as the day's record, that day's anchor goes and others stay.",
+  "steps": [
+    {"action": {"type": "create", "id": "s", "title": "선반에 있던 일"}},
+    {"action": {"type": "place_unplanned", "items": [{"id": "s", "revision": "$rev:s"}], "pile": "shelf", "create_at": 1, "index": 0}},
+    {"action": {"type": "create_scheduled", "id": "a", "title": "고정", "starts_at": "2026-10-14T09:00", "duration": 30}},
+    {"action": {"type": "create_flow", "id": "b", "title": "유동 하나", "date": "2026-10-14", "duration": 30}},
+    {"action": {"type": "create_flow", "id": "c", "title": "유동 둘", "date": "2026-10-14", "duration": 30}},
+    {"action": {"type": "create_flow", "id": "d", "title": "유동 셋", "date": "2026-10-14", "duration": 30}},
+    {"action": {"type": "create_flow", "id": "other", "title": "다른 날", "date": "2026-10-15", "duration": 30}},
+    {"action": {"type": "reorder_flow", "date": "2026-10-14", "expected": [{"id": "d", "revision": "$rev:d"}, {"id": "b", "revision": "$rev:b"}, {"id": "c", "revision": "$rev:c"}]}},
+    {"action": {"type": "complete_flow", "date": "2026-10-14", "items": [{"id": "c", "revision": "$rev:c"}], "at": "2026-10-14T10:00"}},
+    {"action": {"type": "reflow", "date": "2026-10-15", "at": "2026-10-15T09:30"}},
+    {"action": {"type": "clear_day", "date": "2026-10-14", "expected_tasks": [{"id": "a", "revision": "$rev:a"}, {"id": "b", "revision": "$rev:b"}, {"id": "d", "revision": "$rev:d"}]}, "error": "conflict"},
+    {"action": {"type": "clear_day", "date": "2026-10-14", "expected_tasks": [{"id": "a", "revision": "$rev:a"}, {"id": "a", "revision": "$rev:a"}, {"id": "b", "revision": "$rev:b"}, {"id": "d", "revision": "$rev:d"}]}, "error": "validation"},
+    {"action": {"type": "clear_day", "date": "2026-10-14", "expected_tasks": [{"id": "a", "revision": "$rev:a"}, {"id": "b", "revision": "$rev:b"}, {"id": "c", "revision": "$rev:c"}, {"id": "d", "revision": "$rev:d"}]}}
+  ]
+}

@@ -1,0 +1,229 @@
+{
+  "initial": {
+    "layouts": [],
+    "piles": [],
+    "settings": {
+      "days": [{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":false,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":false,"end":1080,"start":540}],
+      "exceptions": [],
+      "revision": 1,
+      "routines": [],
+      "weekly_target": 2400,
+      "work_days": 5
+    },
+    "tasks": [],
+    "trash": []
+  },
+  "name": "bench_places",
+  "states": [
+    {
+      "layouts": [],
+      "piles": [],
+      "settings": {
+        "days": [{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":false,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":false,"end":1080,"start":540}],
+        "exceptions": [],
+        "revision": 1,
+        "routines": [],
+        "weekly_target": 2400,
+        "work_days": 5
+      },
+      "tasks": [
+        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"a","pile_id":null,"pile_order":1,"plan_date":null,"proto":true,"revision":1,"starts_at":null,"title":"첫 메모","wait_for":null,"wait_since":null,"wait_until":null}
+      ],
+      "trash": []
+    },
+    {
+      "layouts": [],
+      "piles": [],
+      "settings": {
+        "days": [{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":false,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":false,"end":1080,"start":540}],
+        "exceptions": [],
+        "revision": 1,
+        "routines": [],
+        "weekly_target": 2400,
+        "work_days": 5
+      },
+      "tasks": [
+        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"a","pile_id":null,"pile_order":2,"plan_date":null,"proto":true,"revision":1,"starts_at":null,"title":"첫 메모","wait_for":null,"wait_since":null,"wait_until":null},
+        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"b","pile_id":null,"pile_order":1,"plan_date":null,"proto":true,"revision":1,"starts_at":null,"title":"둘","wait_for":null,"wait_since":null,"wait_until":null}
+      ],
+      "trash": []
+    },
+    {
+      "layouts": [],
+      "piles": [],
+      "settings": {
+        "days": [{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":false,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":false,"end":1080,"start":540}],
+        "exceptions": [],
+        "revision": 1,
+        "routines": [],
+        "weekly_target": 2400,
+        "work_days": 5
+      },
+      "tasks": [
+        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"a","pile_id":null,"pile_order":3,"plan_date":null,"proto":true,"revision":1,"starts_at":null,"title":"첫 메모","wait_for":null,"wait_since":null,"wait_until":null},
+        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"b","pile_id":null,"pile_order":2,"plan_date":null,"proto":true,"revision":1,"starts_at":null,"title":"둘","wait_for":null,"wait_since":null,"wait_until":null},
+        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"c","pile_id":null,"pile_order":1,"plan_date":null,"proto":true,"revision":1,"starts_at":null,"title":"셋","wait_for":null,"wait_since":null,"wait_until":null}
+      ],
+      "trash": []
+    },
+    {
+      "layouts": [],
+      "piles": [],
+      "settings": {
+        "days": [{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":false,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":false,"end":1080,"start":540}],
+        "exceptions": [],
+        "revision": 1,
+        "routines": [],
+        "weekly_target": 2400,
+        "work_days": 5
+      },
+      "tasks": [
+        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"a","pile_id":null,"pile_order":3,"plan_date":null,"proto":true,"revision":1,"starts_at":null,"title":"첫 메모","wait_for":null,"wait_since":null,"wait_until":null},
+        {"body":"메모","completed":false,"duration":60,"flow_order":null,"id":"b","pile_id":null,"pile_order":2,"plan_date":null,"proto":false,"revision":2,"starts_at":null,"title":"둘","wait_for":null,"wait_since":null,"wait_until":null},
+        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"c","pile_id":null,"pile_order":1,"plan_date":null,"proto":true,"revision":1,"starts_at":null,"title":"셋","wait_for":null,"wait_since":null,"wait_until":null}
+      ],
+      "trash": []
+    },
+    {
+      "layouts": [],
+      "piles": [],
+      "settings": {
+        "days": [{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":false,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":false,"end":1080,"start":540}],
+        "exceptions": [],
+        "revision": 1,
+        "routines": [],
+        "weekly_target": 2400,
+        "work_days": 5
+      },
+      "tasks": [
+        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"a","pile_id":null,"pile_order":3,"plan_date":null,"proto":true,"revision":1,"starts_at":null,"title":"첫 메모","wait_for":null,"wait_since":null,"wait_until":null},
+        {"body":"메모","completed":false,"duration":60,"flow_order":null,"id":"b","pile_id":null,"pile_order":2,"plan_date":null,"proto":false,"revision":2,"starts_at":null,"title":"둘","wait_for":null,"wait_since":null,"wait_until":null},
+        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"c","pile_id":null,"pile_order":1,"plan_date":null,"proto":false,"revision":2,"starts_at":null,"title":"셋","wait_for":null,"wait_since":null,"wait_until":null}
+      ],
+      "trash": []
+    },
+    {
+      "layouts": [],
+      "piles": [
+        {"id":"shelf","position":1}
+      ],
+      "settings": {
+        "days": [{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":false,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":false,"end":1080,"start":540}],
+        "exceptions": [],
+        "revision": 1,
+        "routines": [],
+        "weekly_target": 2400,
+        "work_days": 5
+      },
+      "tasks": [
+        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"a","pile_id":"shelf","pile_order":2,"plan_date":null,"proto":false,"revision":1,"starts_at":null,"title":"첫 메모","wait_for":null,"wait_since":null,"wait_until":null},
+        {"body":"메모","completed":false,"duration":60,"flow_order":null,"id":"b","pile_id":"shelf","pile_order":1,"plan_date":null,"proto":false,"revision":2,"starts_at":null,"title":"둘","wait_for":null,"wait_since":null,"wait_until":null},
+        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"c","pile_id":null,"pile_order":1,"plan_date":null,"proto":false,"revision":2,"starts_at":null,"title":"셋","wait_for":null,"wait_since":null,"wait_until":null}
+      ],
+      "trash": []
+    },
+    {
+      "layouts": [],
+      "piles": [
+        {"id":"shelf","position":1}
+      ],
+      "settings": {
+        "days": [{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":false,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":false,"end":1080,"start":540}],
+        "exceptions": [],
+        "revision": 1,
+        "routines": [],
+        "weekly_target": 2400,
+        "work_days": 5
+      },
+      "tasks": [
+        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"a","pile_id":"shelf","pile_order":3,"plan_date":null,"proto":false,"revision":1,"starts_at":null,"title":"첫 메모","wait_for":null,"wait_since":null,"wait_until":null},
+        {"body":"메모","completed":false,"duration":60,"flow_order":null,"id":"b","pile_id":"shelf","pile_order":1,"plan_date":null,"proto":false,"revision":2,"starts_at":null,"title":"둘","wait_for":null,"wait_since":null,"wait_until":null},
+        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"c","pile_id":"shelf","pile_order":2,"plan_date":null,"proto":false,"revision":2,"starts_at":null,"title":"셋","wait_for":null,"wait_since":null,"wait_until":null}
+      ],
+      "trash": []
+    },
+    {
+      "layouts": [],
+      "piles": [
+        {"id":"shelf","position":1}
+      ],
+      "settings": {
+        "days": [{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":false,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":false,"end":1080,"start":540}],
+        "exceptions": [],
+        "revision": 1,
+        "routines": [],
+        "weekly_target": 2400,
+        "work_days": 5
+      },
+      "tasks": [
+        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"a","pile_id":"shelf","pile_order":2,"plan_date":null,"proto":false,"revision":1,"starts_at":null,"title":"첫 메모","wait_for":null,"wait_since":null,"wait_until":null},
+        {"body":"메모","completed":false,"duration":60,"flow_order":null,"id":"b","pile_id":null,"pile_order":1,"plan_date":null,"proto":false,"revision":2,"starts_at":null,"title":"둘","wait_for":null,"wait_since":null,"wait_until":null},
+        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"c","pile_id":"shelf","pile_order":1,"plan_date":null,"proto":false,"revision":2,"starts_at":null,"title":"셋","wait_for":null,"wait_since":null,"wait_until":null}
+      ],
+      "trash": []
+    },
+    {
+      "layouts": [],
+      "piles": [
+        {"id":"shelf","position":1}
+      ],
+      "settings": {
+        "days": [{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":false,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":false,"end":1080,"start":540}],
+        "exceptions": [],
+        "revision": 1,
+        "routines": [],
+        "weekly_target": 2400,
+        "work_days": 5
+      },
+      "tasks": [
+        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"a","pile_id":"shelf","pile_order":2,"plan_date":null,"proto":false,"revision":1,"starts_at":null,"title":"첫 메모","wait_for":null,"wait_since":null,"wait_until":null},
+        {"body":"메모","completed":false,"duration":60,"flow_order":null,"id":"b","pile_id":null,"pile_order":2,"plan_date":null,"proto":false,"revision":2,"starts_at":null,"title":"둘","wait_for":null,"wait_since":null,"wait_until":null},
+        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"c","pile_id":"shelf","pile_order":1,"plan_date":null,"proto":false,"revision":2,"starts_at":null,"title":"셋","wait_for":null,"wait_since":null,"wait_until":null},
+        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"d","pile_id":null,"pile_order":1,"plan_date":null,"proto":true,"revision":1,"starts_at":null,"title":"넷","wait_for":null,"wait_since":null,"wait_until":null}
+      ],
+      "trash": []
+    },
+    {
+      "layouts": [],
+      "piles": [
+        {"id":"shelf","position":1}
+      ],
+      "settings": {
+        "days": [{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":false,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":false,"end":1080,"start":540}],
+        "exceptions": [],
+        "revision": 1,
+        "routines": [],
+        "weekly_target": 2400,
+        "work_days": 5
+      },
+      "tasks": [
+        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"a","pile_id":"shelf","pile_order":2,"plan_date":null,"proto":false,"revision":1,"starts_at":null,"title":"첫 메모","wait_for":null,"wait_since":null,"wait_until":null},
+        {"body":"메모","completed":false,"duration":60,"flow_order":null,"id":"b","pile_id":null,"pile_order":1,"plan_date":null,"proto":false,"revision":2,"starts_at":null,"title":"둘","wait_for":null,"wait_since":null,"wait_until":null},
+        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"c","pile_id":"shelf","pile_order":1,"plan_date":null,"proto":false,"revision":2,"starts_at":null,"title":"셋","wait_for":null,"wait_since":null,"wait_until":null},
+        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"d","pile_id":null,"pile_order":2,"plan_date":null,"proto":true,"revision":1,"starts_at":null,"title":"넷","wait_for":null,"wait_since":null,"wait_until":null}
+      ],
+      "trash": []
+    },
+    {
+      "error": "conflict"
+    },
+    {
+      "error": "conflict"
+    },
+    {
+      "error": "validation"
+    },
+    {
+      "error": "validation"
+    },
+    {
+      "error": "validation"
+    },
+    {
+      "error": "validation"
+    },
+    {
+      "error": "validation"
+    }
+  ]
+}

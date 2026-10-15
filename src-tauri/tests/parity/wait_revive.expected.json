@@ -1,0 +1,335 @@
+{
+  "initial": {
+    "layouts": [],
+    "piles": [],
+    "settings": {
+      "days": [{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":false,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":false,"end":1080,"start":540}],
+      "exceptions": [],
+      "revision": 1,
+      "routines": [],
+      "weekly_target": 2400,
+      "work_days": 5
+    },
+    "tasks": [],
+    "trash": []
+  },
+  "name": "wait_revive",
+  "states": [
+    {
+      "layouts": [],
+      "piles": [],
+      "settings": {
+        "days": [{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":false,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":false,"end":1080,"start":540}],
+        "exceptions": [],
+        "revision": 1,
+        "routines": [],
+        "weekly_target": 2400,
+        "work_days": 5
+      },
+      "tasks": [
+        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"p","pile_id":null,"pile_order":1,"plan_date":null,"proto":true,"revision":1,"starts_at":null,"title":"p","wait_for":null,"wait_since":null,"wait_until":null}
+      ],
+      "trash": []
+    },
+    {
+      "layouts": [],
+      "piles": [],
+      "settings": {
+        "days": [{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":false,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":false,"end":1080,"start":540}],
+        "exceptions": [],
+        "revision": 1,
+        "routines": [],
+        "weekly_target": 2400,
+        "work_days": 5
+      },
+      "tasks": [
+        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"a","pile_id":null,"pile_order":1,"plan_date":null,"proto":true,"revision":1,"starts_at":null,"title":"a","wait_for":null,"wait_since":null,"wait_until":null},
+        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"p","pile_id":null,"pile_order":2,"plan_date":null,"proto":true,"revision":1,"starts_at":null,"title":"p","wait_for":null,"wait_since":null,"wait_until":null}
+      ],
+      "trash": []
+    },
+    {
+      "layouts": [],
+      "piles": [],
+      "settings": {
+        "days": [{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":false,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":false,"end":1080,"start":540}],
+        "exceptions": [],
+        "revision": 1,
+        "routines": [],
+        "weekly_target": 2400,
+        "work_days": 5
+      },
+      "tasks": [
+        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"a","pile_id":null,"pile_order":2,"plan_date":null,"proto":true,"revision":1,"starts_at":null,"title":"a","wait_for":null,"wait_since":null,"wait_until":null},
+        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"b","pile_id":null,"pile_order":1,"plan_date":null,"proto":true,"revision":1,"starts_at":null,"title":"b","wait_for":null,"wait_since":null,"wait_until":null},
+        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"p","pile_id":null,"pile_order":3,"plan_date":null,"proto":true,"revision":1,"starts_at":null,"title":"p","wait_for":null,"wait_since":null,"wait_until":null}
+      ],
+      "trash": []
+    },
+    {
+      "layouts": [],
+      "piles": [],
+      "settings": {
+        "days": [{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":false,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":false,"end":1080,"start":540}],
+        "exceptions": [],
+        "revision": 1,
+        "routines": [],
+        "weekly_target": 2400,
+        "work_days": 5
+      },
+      "tasks": [
+        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"a","pile_id":null,"pile_order":3,"plan_date":null,"proto":true,"revision":1,"starts_at":null,"title":"a","wait_for":null,"wait_since":null,"wait_until":null},
+        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"b","pile_id":null,"pile_order":2,"plan_date":null,"proto":true,"revision":1,"starts_at":null,"title":"b","wait_for":null,"wait_since":null,"wait_until":null},
+        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"keep","pile_id":null,"pile_order":1,"plan_date":null,"proto":true,"revision":1,"starts_at":null,"title":"keep","wait_for":null,"wait_since":null,"wait_until":null},
+        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"p","pile_id":null,"pile_order":4,"plan_date":null,"proto":true,"revision":1,"starts_at":null,"title":"p","wait_for":null,"wait_since":null,"wait_until":null}
+      ],
+      "trash": []
+    },
+    {
+      "layouts": [],
+      "piles": [
+        {"id":"shelf","position":1}
+      ],
+      "settings": {
+        "days": [{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":false,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":false,"end":1080,"start":540}],
+        "exceptions": [],
+        "revision": 1,
+        "routines": [],
+        "weekly_target": 2400,
+        "work_days": 5
+      },
+      "tasks": [
+        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"a","pile_id":"shelf","pile_order":1,"plan_date":null,"proto":false,"revision":1,"starts_at":null,"title":"a","wait_for":null,"wait_since":null,"wait_until":null},
+        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"b","pile_id":"shelf","pile_order":2,"plan_date":null,"proto":false,"revision":1,"starts_at":null,"title":"b","wait_for":null,"wait_since":null,"wait_until":null},
+        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"keep","pile_id":"shelf","pile_order":3,"plan_date":null,"proto":false,"revision":1,"starts_at":null,"title":"keep","wait_for":null,"wait_since":null,"wait_until":null},
+        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"p","pile_id":null,"pile_order":1,"plan_date":null,"proto":true,"revision":1,"starts_at":null,"title":"p","wait_for":null,"wait_since":null,"wait_until":null}
+      ],
+      "trash": []
+    },
+    {
+      "layouts": [],
+      "piles": [
+        {"id":"shelf","position":1}
+      ],
+      "settings": {
+        "days": [{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":false,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":false,"end":1080,"start":540}],
+        "exceptions": [],
+        "revision": 1,
+        "routines": [],
+        "weekly_target": 2400,
+        "work_days": 5
+      },
+      "tasks": [
+        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"a","pile_id":"shelf","pile_order":1,"plan_date":null,"proto":false,"revision":1,"starts_at":null,"title":"a","wait_for":null,"wait_since":null,"wait_until":null},
+        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"b","pile_id":"shelf","pile_order":2,"plan_date":null,"proto":false,"revision":1,"starts_at":null,"title":"b","wait_for":null,"wait_since":null,"wait_until":null},
+        {"body":"","completed":false,"duration":30,"flow_order":1,"id":"f","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"f","wait_for":null,"wait_since":null,"wait_until":null},
+        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"keep","pile_id":"shelf","pile_order":3,"plan_date":null,"proto":false,"revision":1,"starts_at":null,"title":"keep","wait_for":null,"wait_since":null,"wait_until":null},
+        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"p","pile_id":null,"pile_order":1,"plan_date":null,"proto":true,"revision":1,"starts_at":null,"title":"p","wait_for":null,"wait_since":null,"wait_until":null}
+      ],
+      "trash": []
+    },
+    {
+      "layouts": [],
+      "piles": [
+        {"id":"shelf","position":1}
+      ],
+      "settings": {
+        "days": [{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":false,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":false,"end":1080,"start":540}],
+        "exceptions": [],
+        "revision": 1,
+        "routines": [],
+        "weekly_target": 2400,
+        "work_days": 5
+      },
+      "tasks": [
+        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"a","pile_id":"shelf","pile_order":1,"plan_date":null,"proto":false,"revision":1,"starts_at":null,"title":"a","wait_for":null,"wait_since":null,"wait_until":null},
+        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"b","pile_id":"shelf","pile_order":2,"plan_date":null,"proto":false,"revision":1,"starts_at":null,"title":"b","wait_for":null,"wait_since":null,"wait_until":null},
+        {"body":"","completed":false,"duration":30,"flow_order":1,"id":"f","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"f","wait_for":null,"wait_since":null,"wait_until":null},
+        {"body":"","completed":false,"duration":30,"flow_order":2,"id":"g","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"g","wait_for":null,"wait_since":null,"wait_until":null},
+        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"keep","pile_id":"shelf","pile_order":3,"plan_date":null,"proto":false,"revision":1,"starts_at":null,"title":"keep","wait_for":null,"wait_since":null,"wait_until":null},
+        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"p","pile_id":null,"pile_order":1,"plan_date":null,"proto":true,"revision":1,"starts_at":null,"title":"p","wait_for":null,"wait_since":null,"wait_until":null}
+      ],
+      "trash": []
+    },
+    {
+      "layouts": [],
+      "piles": [
+        {"id":"shelf","position":1}
+      ],
+      "settings": {
+        "days": [{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":false,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":false,"end":1080,"start":540}],
+        "exceptions": [],
+        "revision": 1,
+        "routines": [],
+        "weekly_target": 2400,
+        "work_days": 5
+      },
+      "tasks": [
+        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"a","pile_id":"shelf","pile_order":1,"plan_date":null,"proto":false,"revision":1,"starts_at":null,"title":"a","wait_for":null,"wait_since":null,"wait_until":null},
+        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"b","pile_id":"shelf","pile_order":2,"plan_date":null,"proto":false,"revision":1,"starts_at":null,"title":"b","wait_for":null,"wait_since":null,"wait_until":null},
+        {"body":"","completed":false,"duration":30,"flow_order":1,"id":"f","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"f","wait_for":null,"wait_since":null,"wait_until":null},
+        {"body":"","completed":false,"duration":30,"flow_order":2,"id":"g","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"g","wait_for":null,"wait_since":null,"wait_until":null},
+        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"keep","pile_id":"shelf","pile_order":3,"plan_date":null,"proto":false,"revision":1,"starts_at":null,"title":"keep","wait_for":null,"wait_since":null,"wait_until":null},
+        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"p","pile_id":null,"pile_order":1,"plan_date":null,"proto":true,"revision":1,"starts_at":null,"title":"p","wait_for":null,"wait_since":null,"wait_until":null},
+        {"body":"","completed":false,"duration":60,"flow_order":null,"id":"x","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":"2026-10-14T10:00","title":"고정","wait_for":null,"wait_since":null,"wait_until":null}
+      ],
+      "trash": []
+    },
+    {
+      "layouts": [],
+      "piles": [
+        {"id":"shelf","position":1}
+      ],
+      "settings": {
+        "days": [{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":false,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":false,"end":1080,"start":540}],
+        "exceptions": [],
+        "revision": 1,
+        "routines": [],
+        "weekly_target": 2400,
+        "work_days": 5
+      },
+      "tasks": [
+        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"a","pile_id":null,"pile_order":null,"plan_date":null,"proto":false,"revision":2,"starts_at":null,"title":"a","wait_for":"김부장 결재","wait_since":"2026-10-11","wait_until":null},
+        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"b","pile_id":"shelf","pile_order":1,"plan_date":null,"proto":false,"revision":1,"starts_at":null,"title":"b","wait_for":null,"wait_since":null,"wait_until":null},
+        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"f","pile_id":null,"pile_order":null,"plan_date":null,"proto":false,"revision":2,"starts_at":null,"title":"f","wait_for":"김부장 결재","wait_since":"2026-10-11","wait_until":null},
+        {"body":"","completed":false,"duration":30,"flow_order":2,"id":"g","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"g","wait_for":null,"wait_since":null,"wait_until":null},
+        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"keep","pile_id":"shelf","pile_order":2,"plan_date":null,"proto":false,"revision":1,"starts_at":null,"title":"keep","wait_for":null,"wait_since":null,"wait_until":null},
+        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"p","pile_id":null,"pile_order":null,"plan_date":null,"proto":true,"revision":2,"starts_at":null,"title":"p","wait_for":"김부장 결재","wait_since":"2026-10-11","wait_until":null},
+        {"body":"","completed":false,"duration":60,"flow_order":null,"id":"x","pile_id":null,"pile_order":null,"plan_date":null,"proto":false,"revision":2,"starts_at":null,"title":"고정","wait_for":"김부장 결재","wait_since":"2026-10-11","wait_until":null}
+      ],
+      "trash": []
+    },
+    {
+      "layouts": [],
+      "piles": [
+        {"id":"shelf","position":1}
+      ],
+      "settings": {
+        "days": [{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":false,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":false,"end":1080,"start":540}],
+        "exceptions": [],
+        "revision": 1,
+        "routines": [],
+        "weekly_target": 2400,
+        "work_days": 5
+      },
+      "tasks": [
+        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"a","pile_id":null,"pile_order":null,"plan_date":null,"proto":false,"revision":3,"starts_at":null,"title":"a","wait_for":"","wait_since":"2026-10-11","wait_until":"2026-10-20"},
+        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"b","pile_id":"shelf","pile_order":1,"plan_date":null,"proto":false,"revision":1,"starts_at":null,"title":"b","wait_for":null,"wait_since":null,"wait_until":null},
+        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"f","pile_id":null,"pile_order":null,"plan_date":null,"proto":false,"revision":2,"starts_at":null,"title":"f","wait_for":"김부장 결재","wait_since":"2026-10-11","wait_until":null},
+        {"body":"","completed":false,"duration":30,"flow_order":2,"id":"g","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"g","wait_for":null,"wait_since":null,"wait_until":null},
+        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"keep","pile_id":"shelf","pile_order":2,"plan_date":null,"proto":false,"revision":1,"starts_at":null,"title":"keep","wait_for":null,"wait_since":null,"wait_until":null},
+        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"p","pile_id":null,"pile_order":null,"plan_date":null,"proto":true,"revision":2,"starts_at":null,"title":"p","wait_for":"김부장 결재","wait_since":"2026-10-11","wait_until":null},
+        {"body":"","completed":false,"duration":60,"flow_order":null,"id":"x","pile_id":null,"pile_order":null,"plan_date":null,"proto":false,"revision":2,"starts_at":null,"title":"고정","wait_for":"김부장 결재","wait_since":"2026-10-11","wait_until":null}
+      ],
+      "trash": []
+    },
+    {
+      "error": "validation"
+    },
+    {
+      "error": "validation"
+    },
+    {
+      "error": "validation"
+    },
+    {
+      "layouts": [],
+      "piles": [
+        {"id":"shelf","position":1}
+      ],
+      "settings": {
+        "days": [{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":false,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":false,"end":1080,"start":540}],
+        "exceptions": [],
+        "revision": 1,
+        "routines": [],
+        "weekly_target": 2400,
+        "work_days": 5
+      },
+      "tasks": [
+        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"a","pile_id":"shelf","pile_order":1,"plan_date":null,"proto":false,"revision":4,"starts_at":null,"title":"a","wait_for":null,"wait_since":null,"wait_until":null},
+        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"b","pile_id":"shelf","pile_order":2,"plan_date":null,"proto":false,"revision":1,"starts_at":null,"title":"b","wait_for":null,"wait_since":null,"wait_until":null},
+        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"f","pile_id":null,"pile_order":null,"plan_date":null,"proto":false,"revision":2,"starts_at":null,"title":"f","wait_for":"김부장 결재","wait_since":"2026-10-11","wait_until":null},
+        {"body":"","completed":false,"duration":30,"flow_order":2,"id":"g","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"g","wait_for":null,"wait_since":null,"wait_until":null},
+        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"keep","pile_id":"shelf","pile_order":3,"plan_date":null,"proto":false,"revision":1,"starts_at":null,"title":"keep","wait_for":null,"wait_since":null,"wait_until":null},
+        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"p","pile_id":null,"pile_order":1,"plan_date":null,"proto":true,"revision":3,"starts_at":null,"title":"p","wait_for":null,"wait_since":null,"wait_until":null},
+        {"body":"","completed":false,"duration":60,"flow_order":null,"id":"x","pile_id":null,"pile_order":null,"plan_date":null,"proto":false,"revision":2,"starts_at":null,"title":"고정","wait_for":"김부장 결재","wait_since":"2026-10-11","wait_until":null}
+      ],
+      "trash": []
+    },
+    {
+      "error": "conflict"
+    },
+    {
+      "layouts": [],
+      "piles": [
+        {"id":"shelf","position":1}
+      ],
+      "settings": {
+        "days": [{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":false,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":false,"end":1080,"start":540}],
+        "exceptions": [],
+        "revision": 1,
+        "routines": [],
+        "weekly_target": 2400,
+        "work_days": 5
+      },
+      "tasks": [
+        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"a","pile_id":"shelf","pile_order":1,"plan_date":null,"proto":false,"revision":4,"starts_at":null,"title":"a","wait_for":null,"wait_since":null,"wait_until":null},
+        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"b","pile_id":"shelf","pile_order":2,"plan_date":null,"proto":false,"revision":1,"starts_at":null,"title":"b","wait_for":null,"wait_since":null,"wait_until":null},
+        {"body":"","completed":false,"duration":30,"flow_order":1,"id":"f","pile_id":null,"pile_order":null,"plan_date":"2026-10-16","proto":false,"revision":3,"starts_at":null,"title":"f","wait_for":null,"wait_since":null,"wait_until":null},
+        {"body":"","completed":false,"duration":30,"flow_order":2,"id":"g","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"g","wait_for":null,"wait_since":null,"wait_until":null},
+        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"keep","pile_id":"shelf","pile_order":3,"plan_date":null,"proto":false,"revision":1,"starts_at":null,"title":"keep","wait_for":null,"wait_since":null,"wait_until":null},
+        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"p","pile_id":null,"pile_order":1,"plan_date":null,"proto":true,"revision":3,"starts_at":null,"title":"p","wait_for":null,"wait_since":null,"wait_until":null},
+        {"body":"","completed":false,"duration":60,"flow_order":null,"id":"x","pile_id":null,"pile_order":null,"plan_date":null,"proto":false,"revision":2,"starts_at":null,"title":"고정","wait_for":"김부장 결재","wait_since":"2026-10-11","wait_until":null}
+      ],
+      "trash": []
+    },
+    {
+      "layouts": [],
+      "piles": [
+        {"id":"shelf","position":1}
+      ],
+      "settings": {
+        "days": [{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":false,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":false,"end":1080,"start":540}],
+        "exceptions": [],
+        "revision": 1,
+        "routines": [],
+        "weekly_target": 2400,
+        "work_days": 5
+      },
+      "tasks": [
+        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"a","pile_id":"shelf","pile_order":1,"plan_date":null,"proto":false,"revision":4,"starts_at":null,"title":"a","wait_for":null,"wait_since":null,"wait_until":null},
+        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"b","pile_id":"shelf","pile_order":2,"plan_date":null,"proto":false,"revision":1,"starts_at":null,"title":"b","wait_for":null,"wait_since":null,"wait_until":null},
+        {"body":"","completed":false,"duration":30,"flow_order":1,"id":"f","pile_id":null,"pile_order":null,"plan_date":"2026-10-16","proto":false,"revision":3,"starts_at":null,"title":"f","wait_for":null,"wait_since":null,"wait_until":null},
+        {"body":"","completed":false,"duration":30,"flow_order":2,"id":"g","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"g","wait_for":null,"wait_since":null,"wait_until":null},
+        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"keep","pile_id":"shelf","pile_order":3,"plan_date":null,"proto":false,"revision":1,"starts_at":null,"title":"keep","wait_for":null,"wait_since":null,"wait_until":null},
+        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"p","pile_id":null,"pile_order":2,"plan_date":null,"proto":true,"revision":3,"starts_at":null,"title":"p","wait_for":null,"wait_since":null,"wait_until":null},
+        {"body":"","completed":false,"duration":60,"flow_order":null,"id":"x","pile_id":null,"pile_order":1,"plan_date":null,"proto":false,"revision":3,"starts_at":null,"title":"고정","wait_for":null,"wait_since":null,"wait_until":null}
+      ],
+      "trash": []
+    },
+    {
+      "layouts": [],
+      "piles": [
+        {"id":"shelf","position":1}
+      ],
+      "settings": {
+        "days": [{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":true,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":false,"end":1080,"start":540},{"breaks":[{"end":780,"label":"점심","start":720}],"enabled":false,"end":1080,"start":540}],
+        "exceptions": [],
+        "revision": 1,
+        "routines": [],
+        "weekly_target": 2400,
+        "work_days": 5
+      },
+      "tasks": [
+        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"a","pile_id":"shelf","pile_order":1,"plan_date":null,"proto":false,"revision":4,"starts_at":null,"title":"a","wait_for":null,"wait_since":null,"wait_until":null},
+        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"b","pile_id":null,"pile_order":null,"plan_date":null,"proto":false,"revision":2,"starts_at":null,"title":"b","wait_for":"회신","wait_since":"2026-10-14","wait_until":null},
+        {"body":"","completed":false,"duration":30,"flow_order":1,"id":"f","pile_id":null,"pile_order":null,"plan_date":"2026-10-16","proto":false,"revision":3,"starts_at":null,"title":"f","wait_for":null,"wait_since":null,"wait_until":null},
+        {"body":"","completed":false,"duration":30,"flow_order":2,"id":"g","pile_id":null,"pile_order":null,"plan_date":"2026-10-14","proto":false,"revision":1,"starts_at":null,"title":"g","wait_for":null,"wait_since":null,"wait_until":null},
+        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"keep","pile_id":null,"pile_order":null,"plan_date":null,"proto":false,"revision":2,"starts_at":null,"title":"keep","wait_for":"회신","wait_since":"2026-10-14","wait_until":null},
+        {"body":"","completed":false,"duration":30,"flow_order":null,"id":"p","pile_id":null,"pile_order":2,"plan_date":null,"proto":true,"revision":3,"starts_at":null,"title":"p","wait_for":null,"wait_since":null,"wait_until":null},
+        {"body":"","completed":false,"duration":60,"flow_order":null,"id":"x","pile_id":null,"pile_order":1,"plan_date":null,"proto":false,"revision":3,"starts_at":null,"title":"고정","wait_for":null,"wait_since":null,"wait_until":null}
+      ],
+      "trash": []
+    }
+  ]
+}

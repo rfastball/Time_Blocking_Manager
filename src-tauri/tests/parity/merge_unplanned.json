@@ -1,0 +1,20 @@
+{
+  "name": "merge_unplanned",
+  "about": "merge_unplanned on the shelf: a fresh task at the first original's place with a checklist body and the summed length, the originals whole in the trash and restorable; rejections.",
+  "steps": [
+    {"action": {"type": "create", "id": "a", "title": "가"}},
+    {"action": {"type": "create", "id": "b", "title": "나\n둘째 줄"}},
+    {"action": {"type": "create", "id": "c", "title": "다"}},
+    {"action": {"type": "update", "id": "b", "expected_revision": "$rev:b", "title": "나\n둘째 줄", "body": "본문 메모", "starts_at": null, "duration": 45, "plan_date": null}},
+    {"action": {"type": "place_unplanned", "items": [{"id": "c", "revision": "$rev:c"}, {"id": "b", "revision": "$rev:b"}, {"id": "a", "revision": "$rev:a"}], "pile": "shelf", "create_at": 1, "index": 0}},
+    {"action": {"type": "create_flow", "id": "f", "title": "날짜 있음", "date": "2026-10-14", "duration": 30}},
+    {"action": {"type": "merge_unplanned", "id": "m", "items": [{"id": "b", "revision": "$rev:b"}]}, "error": "validation"},
+    {"action": {"type": "merge_unplanned", "id": "m", "items": [{"id": "b", "revision": "$rev:b"}, {"id": "f", "revision": "$rev:f"}]}, "error": "conflict"},
+    {"action": {"type": "merge_unplanned", "id": "c", "items": [{"id": "b", "revision": "$rev:b"}, {"id": "a", "revision": "$rev:a"}]}, "error": "validation"},
+    {"action": {"type": "merge_unplanned", "id": "m", "items": [{"id": "b", "revision": "$rev:b"}, {"id": "a", "revision": "$rev:a"}]}},
+    {"action": {"type": "restore_trashed", "id": "a"}},
+    {"action": {"type": "create", "id": "p", "title": "들어옴 가"}},
+    {"action": {"type": "create", "id": "q", "title": "들어옴 나"}},
+    {"action": {"type": "merge_unplanned", "id": "n", "items": [{"id": "q", "revision": "$rev:q"}, {"id": "p", "revision": "$rev:p"}]}}
+  ]
+}

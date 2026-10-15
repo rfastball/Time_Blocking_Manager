@@ -1,0 +1,23 @@
+{
+  "name": "fixed_time",
+  "about": "Fixed times: create_scheduled (also without a time), update to and from a fixed time, overlap, grid, day-end and date-mismatch rejections, stale and unknown ids.",
+  "steps": [
+    {"action": {"type": "create_scheduled", "id": "x", "title": "고정", "starts_at": "2026-10-14T10:00", "duration": 60}},
+    {"action": {"type": "create_scheduled", "id": "y", "title": "겹침", "starts_at": "2026-10-14T10:30", "duration": 30}, "error": "overlap"},
+    {"action": {"type": "create_scheduled", "id": "z", "title": "점심 회의", "starts_at": "2026-10-14T12:00", "duration": 60}},
+    {"action": {"type": "create_scheduled", "id": "w", "title": "시각 없음", "starts_at": null, "duration": 45}},
+    {"action": {"type": "create_flow", "id": "f", "title": "유동", "date": "2026-10-14", "duration": 30}},
+    {"action": {"type": "update", "id": "f", "expected_revision": "$rev:f", "title": "유동", "body": "", "starts_at": "2026-10-14T11:00", "duration": 60, "plan_date": null}},
+    {"action": {"type": "update", "id": "f", "expected_revision": "$rev:f", "title": "유동", "body": "", "starts_at": "2026-10-14T10:45", "duration": 30, "plan_date": null}, "error": "overlap"},
+    {"action": {"type": "update", "id": "f", "expected_revision": "$rev:f", "title": "유동", "body": "", "starts_at": "2026-10-14T13:00", "duration": 30, "plan_date": "2026-10-15"}, "error": "validation"},
+    {"action": {"type": "update", "id": "x", "expected_revision": "$rev:x", "title": "고정", "body": "", "starts_at": "2026-10-14T23:30", "duration": 60, "plan_date": null}, "error": "validation"},
+    {"action": {"type": "update", "id": "x", "expected_revision": "$rev:x", "title": "고정", "body": "", "starts_at": "2026-10-14T10:07", "duration": 60, "plan_date": null}, "error": "validation"},
+    {"action": {"type": "update", "id": "x", "expected_revision": "$rev:x", "title": "고정", "body": "", "starts_at": "2026-02-30T10:00", "duration": 60, "plan_date": null}, "error": "validation"},
+    {"action": {"type": "update", "id": "x", "expected_revision": "$rev:x", "title": "고정", "body": "", "starts_at": "2026-10-15T08:00", "duration": 90, "plan_date": "2026-10-15"}},
+    {"action": {"type": "update", "id": "x", "expected_revision": "$rev:x", "title": "고정", "body": "", "starts_at": null, "duration": 90, "plan_date": null}},
+    {"action": {"type": "update", "id": "z", "expected_revision": "$rev:z", "title": "점심 회의", "body": "", "starts_at": null, "duration": 60, "plan_date": "2026-10-14"}},
+    {"action": {"type": "update", "id": "z", "expected_revision": 1, "title": "낡은 편집", "body": "", "starts_at": null, "duration": 60, "plan_date": "2026-10-14"}, "error": "conflict"},
+    {"action": {"type": "update", "id": "nobody", "expected_revision": 1, "title": "없음", "body": "", "starts_at": null, "duration": 30, "plan_date": null}, "error": "conflict"},
+    {"action": {"type": "update", "id": "w", "expected_revision": "$rev:w", "title": "w", "body": "", "starts_at": null, "duration": 20, "plan_date": null}, "error": "validation"}
+  ]
+}
