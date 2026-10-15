@@ -1,12 +1,12 @@
-import {createContext,useCallback,useContext,useEffect,useLayoutEffect,useMemo,useRef,useState,type KeyboardEvent,type PointerEvent as ReactPointerEvent} from 'react';
+import {createContext,useCallback,useContext,useEffect,useMemo,useRef,useState,type KeyboardEvent,type PointerEvent as ReactPointerEvent} from 'react';
 import {createPortal} from 'react-dom';
 import {useDraggable} from '@dnd-kit/core';
 import {motion} from 'motion/react';
 import type {Task} from '../../types.ts';
 import {isCompositionKey} from '../../capture.ts';
-import {jump,keyInitial,sinceLabel,staleLabel,triggerOptions,waitGroups,type WaitGroup} from '../../waiting.ts';
-import {getState,setUi,useApp} from '../store/state.ts';
-import {closeNaming,commitRename,editTrigger,renameTo,revive,setBand,setTrigger} from '../store/wait.ts';
+import {jump,keyInitial,sinceLabel,staleLabel,waitGroups,type WaitGroup} from '../../waiting.ts';
+import {getState,useApp} from '../store/state.ts';
+import {editTrigger,revive,setBand} from '../store/wait.ts';
 import {deleteTask} from '../store/tasks.ts';
 import {openEditor} from '../store/editor.ts';
 import {aimedAt,useDrag,useRegion} from '../space/drag.tsx';
@@ -14,12 +14,13 @@ import {reduced} from '../ui/motion.ts';
 import {Icon} from '../ui/icons.tsx';
 import './waiting.css';
 import {useDismiss} from '../ui/dismiss.ts';
+import {SPRING,RANK,restHeight,lift,pose,type Mode,type CardPose} from './pile-motion.ts';
+import {NamingField} from './fields.tsx';
 
 // The 기다림 band at the right of the work screen: work that is not my turn, each block wearing what it waits for as a tag.
 // Blocks waiting on the same trigger pile up under one tag. Waiting is quiet; only a met date takes the full tag colour.
 // Meeting a trigger is taking the tag off (its square handle, or B): the block goes back to 준비 and is named for its next step.
 
-type Mode='rest'|'peek'|'open';
 type Band={
   cursor:string|null;keyOf:(id:string,e:KeyboardEvent)=>void;focus:(id:string)=>void;
   openKey:string|null;setOpenKey:(key:string|null)=>void;
@@ -157,42 +158,6 @@ function Single({group,t}:{group:WaitGroup;t:Task}){
   </div>;
 }
 
-// A pile rests as its front block with up to two slivers under it, smaller and deeper in tone. A resting mouse parts the slivers;
-// a press drops the blocks into a list on a tray that grows out of the pile's outline. All of it is the same blocks moving
-// on springs, so hovering, pressing and leaving can cut into one another. A lifted pile is drawn in a layer over the page.
-const SHOW=2,SLIVER=6,ROW=38,HEAD=30,CARD=32,SLICE=30;
-const SPRING:Record<Mode,{stiffness:number;damping:number}>={open:{stiffness:182,damping:22.7},peek:{stiffness:324,damping:32.4},rest:{stiffness:289,damping:32.3}};
-const RANK:Record<Mode,number>={rest:0,peek:1,open:2};
-const restHeight=(n:number,ready:boolean)=>HEAD+(ready?3:1)+CARD+Math.ceil(4.4*Math.min(n-1,SHOW));
-// Shadow grows with height above the page, in the theme's ink. The springs need a plain rgba, so the ink is read once per theme.
-let inkTheme:string|null=null,ink='27,30,35';
-function themeInk(){
-  const theme=document.documentElement.dataset.theme??'';
-  if(theme!==inkTheme){
-    inkTheme=theme;
-    const m=getComputedStyle(document.documentElement).getPropertyValue('--color-text').trim().match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
-    const hex=m?(m[1].length===3?[...m[1]].map(c=>c+c).join(''):m[1]):'1b1e23';
-    ink=[0,2,4].map(i=>parseInt(hex.slice(i,i+2),16)).join(',');
-  }
-  return ink;
-}
-function lift(L:number){const e=Math.sqrt(Math.max(0,Math.min(1,L))),f=(v:number)=>(v*e).toFixed(2),c=themeInk();return `0 ${f(12)}px ${f(24)}px rgba(${c},${f(.2)}), 0 ${f(3)}px ${f(7)}px rgba(${c},${f(.13)})`;}
-function pose(n:number,mode:Mode,ready:boolean,width:number,top:number){
-  const base=HEAD+(ready?3:1),step=mode==='peek'?10:SLIVER,sk=mode==='peek'?.04:.05;
-  const cards=Array.from({length:n},(_,i)=>{const k=Math.min(i,SHOW);return {y:base+step*k,scale:1-sk*k,opacity:i>SHOW?0:1,shadow:mode==='peek'&&i===0?.3:0,shade:k===0?0:k===1?.55:1,handle:0,slice:0};});
-  const head={y:0,shadow:mode==='peek'?.3:0};
-  let tray={x:-6,y:-6,width:width+12,height:base+CARD+21,opacity:0,shadow:0},fold={y:base+42,opacity:0};
-  if(mode==='open'){
-    cards.forEach((c,i)=>Object.assign(c,{y:base+i*ROW,scale:1,opacity:1,shadow:0,shade:0,handle:1,slice:SLICE}));
-    const end=base+n*ROW-6;
-    fold={y:end+8,opacity:1};tray={x:-8,y:-8,width:width+16,height:end+38,opacity:1,shadow:1};
-    // A pile low on the screen lifts as a whole until its tray fits.
-    const over=top+tray.y+tray.height-(innerHeight-12);
-    if(over>0){head.y-=over;tray.y-=over;fold.y-=over;cards.forEach(c=>{c.y-=over;});}
-  }
-  return {head,cards,tray,fold};
-}
-
 function Pile({group}:{group:WaitGroup}){
   const b=useBand(),key=group.key,ids=group.items.map(t=>t.id),ready=group.kind==='ready',n=ids.length;
   const row=useRef<HTMLDivElement>(null);
@@ -272,7 +237,6 @@ function PileFace({group,mode,width,top,openUp,close,static:still=false,drag}:{g
   </div>;
 }
 
-type CardPose={y:number;scale:number;opacity:number;shadow:number;shade:number;handle:number;slice:number};
 function PileCard({t,i,n,group,pose:p,from,transition,still,full,openUp}:{t:Task;i:number;n:number;group:WaitGroup;pose:CardPose;from:CardPose;transition:object;still:boolean;full:boolean;openUp:(id?:string)=>void}){
   const b=useBand(),ready=group.kind==='ready',corner=i===0&&!ready;
   // Raised, each block is its own: dragged alone, its own tag slice meets its own trigger.
@@ -296,87 +260,4 @@ function PileCard({t,i,n,group,pose:p,from,transition,still,full,openUp}:{t:Task
     </button>
     <motion.span className="wshade" aria-hidden="true" initial={still?false:{opacity:from.shade}} animate={{opacity:p.shade}} transition={transition}/>
   </motion.div>;
-}
-
-// The trigger field: who and what, or a date. Its choices are the triggers already waiting and the near dates.
-// In the band it sits where the blocks are; elsewhere (band folded, the focus screen) it floats where they were.
-export function NamingField({floating=false}:{floating?:boolean}){
-  const s=useApp(),n=s.ui.naming!,tasks=n.ids.map(id=>s.snapshot!.tasks.find(t=>t.id===id)).filter((t):t is Task=>!!t);
-  const options=triggerOptions(n.value,s.snapshot!.tasks,s.today),done=useRef(false);
-  // Floating, the keyboard goes back where it was (the focus screen's card) once the trigger is set.
-  const [opener]=useState(()=>document.activeElement as HTMLElement|null);
-  useEffect(()=>{done.current=false;},[n.ids]);
-  if(!tasks.length)return null;
-  function commit(text:string|null){
-    if(done.current)return;done.current=true;
-    const ids=n.ids,inBand=!floating;closeNaming();
-    const back=()=>requestAnimationFrame(()=>{
-      const el=inBand?document.querySelector<HTMLElement>(`[data-wait="${CSS.escape(ids[0])}"]`):opener?.isConnected&&opener.id!=='wait-trigger'?opener:document.querySelector<HTMLElement>('.ed-next .ed-next-done');
-      el?.focus({preventScroll:true});
-    });
-    if(text!==null)void setTrigger(ids,text).then(back);else back();
-  }
-  const set=(patch:Partial<typeof n>)=>setUi({naming:{...n,...patch}});
-  const title=tasks.length>1?`${tasks[0].title} 외 ${tasks.length-1}개`:tasks[0].title;
-  const W=236,style=floating?{left:Math.min(Math.max(8,n.at?.x??innerWidth-W-80),innerWidth-W-8),top:Math.min(Math.max(8,n.at?.y??80),innerHeight-220)}:undefined;
-  return <div className={'wname'+(floating?' floating':'')} style={style}>
-    <span className="wname-title">{title}</span>
-    <label className="sr-only" htmlFor="wait-trigger">기다리는 것</label>
-    <input id="wait-trigger" role="combobox" aria-expanded={options.length>0} aria-controls="wait-options" aria-autocomplete="list" aria-activedescendant={n.hi>=0?`wait-option-${n.hi}`:undefined}
-      autoComplete="off" maxLength={100} placeholder="상대 또는 날짜" value={n.value} autoFocus
-      onChange={e=>set({value:e.target.value,hi:-1})}
-      onBlur={()=>commit(n.value)}
-      onKeyDown={e=>{
-        if(isCompositionKey(e.nativeEvent))return;
-        if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();if(!options.length)return;let hi=n.hi+(e.key==='ArrowDown'?1:-1);if(hi>=options.length)hi=-1;if(hi<-1)hi=options.length-1;set({hi});}
-        else if(e.key==='Enter'){e.preventDefault();commit(n.hi>=0?options[n.hi].text:n.value);}
-        // Esc leaves a fresh push unnamed and a change unmade.
-        else if(e.key==='Escape'){e.preventDefault();e.stopPropagation();commit(null);}
-      }}/>
-    {options.length>0&&<div id="wait-options" role="listbox" aria-label="트리거">
-      {options.map((o,i)=><button key={o.text} id={`wait-option-${i}`} type="button" role="option" tabIndex={-1} aria-selected={i===n.hi} className={i===n.hi?'on':''}
-        onMouseDown={e=>e.preventDefault()} onClick={()=>commit(o.text)}><span>{o.text}</span>{o.note&&<small>{o.note}</small>}</button>)}
-    </div>}
-  </div>;
-}
-
-// Over a revived block wherever it landed: its title, to be renamed for the next step.
-export function RenameField(){
-  const s=useApp(),r=s.ui.renaming,input=useRef<HTMLInputElement>(null),[box,setBox]=useState<{left:number;top:number;width:number}|null>(null);
-  useLayoutEffect(()=>{
-    if(!r)return;
-    let frame=0;
-    const place=()=>{
-      const v=CSS.escape(r.id),hit=document.querySelector<HTMLElement>(`[data-card="${v}"],[data-block] button.main[data-task="${v}"]`);
-      const el=hit?.closest<HTMLElement>('[data-card],[data-block]')??hit,rect=el?.getBoundingClientRect();
-      const fallback=document.getElementById('dock')?.getBoundingClientRect();
-      const next=rect&&rect.width?{left:rect.left,top:rect.top,width:Math.max(160,rect.width)}:fallback?{left:fallback.left+8,top:fallback.top+8,width:Math.max(200,fallback.width-16)}:{left:16,top:80,width:240};
-      setBox(b=>b&&b.left===next.left&&b.top===next.top&&b.width===next.width?b:next);
-      frame=requestAnimationFrame(place);
-    };
-    place();return ()=>cancelAnimationFrame(frame);
-  },[r?.id]);
-  const shown=!!box;
-  useEffect(()=>{if(r&&shown){input.current?.focus({preventScroll:true});input.current?.select();}},[r?.id,shown]);
-  if(!r||!box)return null;
-  return createPortal(<div className="wrename" style={box}>
-    <label className="sr-only" htmlFor="wait-rename">제목</label>
-    <input id="wait-rename" ref={input} autoComplete="off" maxLength={650} value={r.value} onChange={e=>renameTo(e.target.value)}
-      onBlur={()=>void commitRename('stop')}
-      onKeyDown={e=>{if(isCompositionKey(e.nativeEvent))return;if(e.key==='Enter'){e.preventDefault();void commitRename('next');}else if(e.key==='Escape'){e.preventDefault();e.stopPropagation();void commitRename('keep');}}}/>
-  </div>,document.body);
-}
-
-// The last push or revival can be put back for a few seconds.
-export function WaitToast(){
-  const {ui}=useApp(),t=ui.waitToast;
-  useEffect(()=>{if(!t)return;const at=t.at,timer=setTimeout(()=>{if(getState().ui.waitToast?.at===at)setUi({waitToast:null});},6000);return ()=>clearTimeout(timer);},[t]);
-  if(!t)return null;
-  return <div className="wtoast" role="status"><span>{t.text}</span><button type="button" onClick={()=>{setUi({waitToast:null});t.undo();}}>되돌리기</button></div>;
-}
-
-// Everything of the band that lives outside it: the floating trigger field, the rename field and the toast.
-export function WaitHosts(){
-  const {ui,nav}=useApp(),floating=!!ui.naming&&!(nav.view==='plan'&&nav.band==='open');
-  return <>{floating&&<NamingField floating/>}<RenameField/><WaitToast/></>;
 }
