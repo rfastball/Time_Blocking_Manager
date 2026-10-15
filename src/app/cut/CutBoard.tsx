@@ -10,6 +10,7 @@ import {cancelCut,commitCut,cutPlace,editCut} from '../store/cut.ts';
 import {setGesture} from '../store/tasks.ts';
 import {release,retry} from '../store/session.ts';
 import {reduced} from '../ui/motion.ts';
+import {follow} from '../ui/gesture.ts';
 import {Icon} from '../ui/icons.tsx';
 import './cut.css';
 
@@ -48,18 +49,16 @@ export function CutBoard({mode}:{mode:'inline'|'dialog'}){
   function edge(e:ReactPointerEvent<HTMLDivElement>,i:number){
     if(e.button!==0)return;e.preventDefault();e.stopPropagation();
     const y0=e.clientY,base=segs;gesture.current=true;setGesture(true);setKnife(null);
-    const moveTo=(ev:PointerEvent)=>editCut({segs:trade(base,i,(ev.clientY-y0)/BS)});
-    const up=()=>{removeEventListener('pointermove',moveTo);removeEventListener('pointerup',up);removeEventListener('pointercancel',up);gesture.current=false;setGesture(false);};
-    addEventListener('pointermove',moveTo);addEventListener('pointerup',up);addEventListener('pointercancel',up);
+    follow(e,{move:ev=>editCut({segs:trade(base,i,(ev.clientY-y0)/BS)}),end:()=>{gesture.current=false;setGesture(false);}});
   }
   // A piece's grip moves it; the line shows where it goes.
   function grip(e:ReactPointerEvent<HTMLButtonElement>,i:number){
     if(e.button!==0)return;e.preventDefault();e.stopPropagation();
     gesture.current=true;setGesture(true);setGrab(i);setKnife(null);let target:number|null=null;
     const moveTo=(ev:PointerEvent)=>{const at=minuteAt(ev.clientY);let idx=0;tops.forEach((top,j)=>{if(top+heightOf(segs[j])/2<at)idx=j+1;});target=idx===i||idx===i+1?null:idx;setDrop(target);};
-    const up=()=>{removeEventListener('pointermove',moveTo);removeEventListener('pointerup',up);removeEventListener('pointercancel',up);gesture.current=false;setGesture(false);setGrab(-1);setDrop(null);
+    const up=()=>{gesture.current=false;setGesture(false);setGrab(-1);setDrop(null);
       if(target!=null){const to=target>i?target-1:target;set(move(getState().drafts.cut!.segs,i,to),segs[i].key);}};
-    addEventListener('pointermove',moveTo);addEventListener('pointerup',up);addEventListener('pointercancel',up);
+    follow(e,{move:moveTo,end:up});
   }
   // A piece's name reads like a line of text: Enter cuts, Backspace on an empty name joins, arrows move between pieces.
   function nameKeys(e:KeyboardEvent<HTMLInputElement>,i:number){

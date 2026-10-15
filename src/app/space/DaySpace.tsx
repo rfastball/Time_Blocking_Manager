@@ -13,6 +13,7 @@ import {completeTasks,dayRule,issueAt,reorder,resize,setGesture,taskMinute,uncom
 import {blockButton} from '../editor/actions.ts';
 import {openAvailability} from '../store/schedule.ts';
 import {reflow,reduced} from '../ui/motion.ts';
+import {follow} from '../ui/gesture.ts';
 import {Icon,Lock} from '../ui/icons.tsx';
 import {isGestureActive,useDrag,useDwell,useRegion} from './drag.tsx';
 import {COLUMN_GEOMETRY,DAY_GEOMETRY,runnerReach,type Geometry} from '../../drag-zone.ts';
@@ -75,12 +76,12 @@ export function DaySpace({date,axis,variant,bin,selected,multi=[],onOpen,onMulti
       dur=next;setSizing({id:t.id,dur});
     };
     const up=async()=>{
-      el.removeEventListener('pointermove',move);el.removeEventListener('pointerup',up);el.removeEventListener('pointercancel',up);setGesture(false);
+      setGesture(false);
       setSizing(s=>s&&{...s,done:true});
       if(dur!==d0)await resize(t,dur);
       setSizing(null);
     };
-    el.addEventListener('pointermove',move);el.addEventListener('pointerup',up);el.addEventListener('pointercancel',up);
+    follow(e,{move,end:()=>void up()});
   }
   // Arrow keys on a block: Alt moves a flow block in its order, otherwise the length changes by 15 minutes.
   async function nudge(id:string,delta:number,order:boolean,from:HTMLElement){

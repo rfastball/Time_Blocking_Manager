@@ -10,6 +10,7 @@ import type {Task} from '../../types.ts';
 import {useApp,type Composer} from '../store/state.ts';
 import {closeComposer,dayRule,editCapture,issueAt,openComposer,setComposerFixed,setGesture,submitComposer} from '../store/tasks.ts';
 import {Icon,Lock} from '../ui/icons.tsx';
+import {follow} from '../ui/gesture.ts';
 import {useDrag} from '../space/drag.tsx';
 import {COLUMN_GEOMETRY,DAY_GEOMETRY} from '../../drag-zone.ts';
 import {OffHours} from '../space/OffHours.tsx';
@@ -29,28 +30,22 @@ export function useNewBlock(date:string,axis:TimeAxis,variant:'day'|'column',ali
   function onBackgroundPointerDown(e:ReactPointerEvent<HTMLDivElement>,minute:number,onRail:boolean){
     if(e.button!==0||!e.isPrimary)return;
     e.preventDefault();
-    const space=e.currentTarget,origin=snap(minute),x0=e.clientX,y0=e.clientY,id=e.pointerId;
+    const space=e.currentTarget,origin=snap(minute);
     let moved=false,last:Range|null=null;
     const at=(y:number)=>snap(axis.minute(y-space.getBoundingClientRect().top));
-    const move=(ev:PointerEvent)=>{
-      if(ev.pointerId!==id||!moved&&Math.hypot(ev.clientX-x0,ev.clientY-y0)<5)return;
-      if(!moved){moved=true;setGesture(true);}
-      ev.preventDefault();
-      // A jittered click stays a flow block; only a deliberate range (or the rail) reserves a time.
-      const r=selectionRange(origin,at(ev.clientY)),fixed=onRail||r.duration>15;
-      last=fixed?{...r,fixed,issue:issueAt('',date,r.start,r.duration)?.label??null}:null;
-      setRange(last);
-    };
-    const cleanup=()=>{
-      document.removeEventListener('pointermove',move);document.removeEventListener('pointerup',up);document.removeEventListener('pointercancel',cancel);document.removeEventListener('keydown',escape);window.removeEventListener('blur',cancel);
-      if(moved)setGesture(false);setRange(null);
-    };
-    const up=(ev:PointerEvent)=>{
-      if(ev.pointerId!==id)return;cleanup();focusNext=true;
-      if(!(last?openComposer(date,last.start,last.duration,true):openComposer(date,origin,30,onRail)))focusNext=false;
-    };
-    const cancel=()=>cleanup(),escape=(ev:KeyboardEvent)=>{if(ev.key==='Escape'){ev.preventDefault();cancel();}};
-    document.addEventListener('pointermove',move,{passive:false});document.addEventListener('pointerup',up);document.addEventListener('pointercancel',cancel);document.addEventListener('keydown',escape);window.addEventListener('blur',cancel);
+    const cleanup=()=>{if(moved)setGesture(false);setRange(null);};
+    follow(e,{threshold:5,start:()=>{moved=true;setGesture(true);},cancel:cleanup,
+      move:ev=>{
+        ev.preventDefault();
+        // A jittered click stays a flow block; only a deliberate range (or the rail) reserves a time.
+        const r=selectionRange(origin,at(ev.clientY)),fixed=onRail||r.duration>15;
+        last=fixed?{...r,fixed,issue:issueAt('',date,r.start,r.duration)?.label??null}:null;
+        setRange(last);
+      },
+      end:()=>{
+        cleanup();focusNext=true;
+        if(!(last?openComposer(date,last.start,last.duration,true):openComposer(date,origin,30,onRail)))focusNext=false;
+      }});
   }
   const c=drafts.composer?.date===date?drafts.composer:null;
   const band=(start:number,duration:number)=>({top:axis.position(start)+1,height:Math.max(8,axis.position(start+duration)-axis.position(start)-2)});

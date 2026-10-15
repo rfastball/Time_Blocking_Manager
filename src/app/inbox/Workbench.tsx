@@ -13,6 +13,7 @@ import {completeHere,mergeSelected,moveTo,placeOfCard,readingOrder,selectRange,s
 import {menuKeys,clamp} from '../editor/actions.ts';
 import {useDrag,useRegion,type Form} from '../space/drag.tsx';
 import {reflow,reduced} from '../ui/motion.ts';
+import {follow} from '../ui/gesture.ts';
 import {Icon} from '../ui/icons.tsx';
 
 // One hour is 72px, as on 오늘, so a block on the shelf is the size it will be on a day.
@@ -111,11 +112,11 @@ function Card({task:t,place,past,onOpen}:{task:Task;place:Place;past?:boolean;on
       value=from===0&&raw<7.5?null:snapDuration(raw);setLive(value);
     };
     const up=()=>{
-      el.removeEventListener('pointermove',move);el.removeEventListener('pointerup',up);el.removeEventListener('pointercancel',up);setGesture(false);
+      setGesture(false);
       if(value===null||value===t.duration&&!t.proto){setLive(undefined);return;}
       void setLength(t,value).finally(()=>setLive(undefined));
     };
-    el.addEventListener('pointermove',move);el.addEventListener('pointerup',up);el.addEventListener('pointercancel',up);
+    follow(e,{move,end:up});
   }
   function click(e:ReactMouseEvent){
     if(e.shiftKey){selectRange(t.id);return;}

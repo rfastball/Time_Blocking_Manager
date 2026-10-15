@@ -8,6 +8,7 @@ import {minutes,time} from '../../dates.ts';
 import type {WorkingDay} from '../../types.ts';
 import {setGesture} from '../store/tasks.ts';
 import {settle} from '../ui/motion.ts';
+import {follow as followPointer} from '../ui/gesture.ts';
 
 export type Selection={day:number;target:AvailabilityTarget};
 type Props={
@@ -61,11 +62,9 @@ export function BandEditor({days,names,short=names,compact=false,initial=null,au
     if(e.button!==0||!e.isPrimary)return;
     const t=e.target as HTMLElement,column=e.currentTarget,bandEl=t.closest<HTMLElement>('[data-band]'),edgeEl=t.closest<HTMLElement>('[data-edge]');
     const band=bandEl?targetOf(bandEl.dataset.band!):null,g=bandGesture(band,edgeEl?edgeEl.dataset.edge as 'start'|'end':null,mode),source=days[i];
-    let ax=axis,moved=false,result:{day:WorkingDay;target:AvailabilityTarget}|null=null;
-    const minuteAt=(y:number)=>ax.minute(y-column.getBoundingClientRect().top),origin=minuteAt(e.clientY),startY=e.clientY,before=selected;
+    let ax=axis,result:{day:WorkingDay;target:AvailabilityTarget}|null=null;
+    const minuteAt=(y:number)=>ax.minute(y-column.getBoundingClientRect().top),origin=minuteAt(e.clientY),before=selected;
     const move=(ev:PointerEvent)=>{
-      if(ev.pointerId!==e.pointerId||!moved&&Math.abs(ev.clientY-startY)<GESTURE_THRESHOLD)return;
-      if(!moved){moved=true;gestureLive.current=true;setGesture(true);}
       ev.preventDefault();
       const sc=scroll.current!,r=sc.getBoundingClientRect();
       if(ev.clientY<r.top+70)sc.scrollTop-=16;else if(ev.clientY>r.bottom-24)sc.scrollTop+=16;
@@ -75,20 +74,16 @@ export function BandEditor({days,names,short=names,compact=false,initial=null,au
       try{result=gestureDay(source,g,mode,origin,point);onError('');setPreview({day:i,value:result.day});setSelected({day:i,target:result.target});}
       catch(err){result=null;onError((err as Error).message);}
     };
-    const cleanup=()=>{
-      document.removeEventListener('pointermove',move);document.removeEventListener('pointerup',finish);document.removeEventListener('pointercancel',cancel);document.removeEventListener('keydown',escape,true);window.removeEventListener('blur',cancel);
-      gestureLive.current=false;setGesture(false);setPreview(null);setGestureAxis(null);
-    };
-    const finish=(ev:PointerEvent)=>{
-      if(ev.pointerId!==e.pointerId)return;cleanup();
+    const cleanup=()=>{gestureLive.current=false;setGesture(false);setPreview(null);setGestureAxis(null);};
+    const finish=(_:PointerEvent,moved:boolean)=>{
+      cleanup();
       if(!moved){if(band!==null){setSelected({day:i,target:band});if(edgeEl)edgeEl.focus({preventScroll:true});else focusLater(bandSelector({day:i,target:band}));}return;}
       swallowClick();
       if(result){onChange(i,result.day);setSelected({day:i,target:result.target});focusLater(bandSelector({day:i,target:result.target}));}
       else setSelected(before);
     };
     const cancel=()=>{cleanup();setSelected(before);onError('');};
-    const escape=(ev:KeyboardEvent)=>{if(ev.key==='Escape'){ev.preventDefault();ev.stopPropagation();cancel();}};
-    document.addEventListener('pointermove',move,{passive:false});document.addEventListener('pointerup',finish);document.addEventListener('pointercancel',cancel);document.addEventListener('keydown',escape,true);window.addEventListener('blur',cancel);
+    followPointer(e,{threshold:GESTURE_THRESHOLD,along:'y',start:()=>{gestureLive.current=true;setGesture(true);},move,end:finish,cancel});
   }
   function edgeKey(e:ReactKeyboardEvent,i:number,target:AvailabilityTarget,edge:'start'|'end'){
     if(e.key!=='ArrowUp'&&e.key!=='ArrowDown')return;
