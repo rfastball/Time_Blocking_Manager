@@ -1,0 +1,15 @@
+# 공공 GitLab push 보안 검사(OSV-Scanner) 예외
+# glib 0.18 은 Tauri 의 Linux GTK3 의존성에서만 들어온다. 이 앱은 Windows(NSIS, WebView2)
+# 전용이라 해당 크레이트를 빌드하지 않고, Tauri 가 고정한 버전이라 올릴 수도 없다.
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2024-0429"
+reason = "glib 0.18: Tauri Linux GTK3 전용 의존성, Windows 빌드에 포함되지 않음"
+
+[[IgnoredVulns]]
+id = "GHSA-wrw7-89jp-8q8g"
+reason = "RUSTSEC-2024-0429 와 동일"
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2024-0370"
+reason = "proc-macro-error: 유지보수 중단 알림(취약점 아님), Linux GTK 매크로 전용"
