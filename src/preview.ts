@@ -120,6 +120,15 @@ function update({s}:Write,a:Of<'update'>){
   const date=a.starts_at?.slice(0,10)??a.plan_date;if(date!==null)parseDate(date);
   if(a.before!=null&&(a.starts_at!==null||date===null))reject('순서는 날짜만 정한 작업에서 지정할 수 있습니다.');
   if(!date&&wasDone&&wasDated)reject('완료한 작업은 준비로 옮길 수 없어요. 완료를 취소한 뒤 옮겨 주세요.');
+  if(a.wait){
+    if(!t.wait_since)reject('기다리는 작업만 조건을 바꿀 수 있어요.');
+    const trigger=a.wait.trigger.trim();if(bytes(trigger)>200)reject('기다림 조건을 확인하세요.');
+    if(a.wait.until!==null)parseDate(a.wait.until);
+    if(!date){
+      if((t.wait_for??'')!==trigger||(t.wait_until??null)!==a.wait.until)t.pile_order=null;
+      t.wait_for=trigger;t.wait_until=a.wait.until;
+    }
+  }
   // A length chosen or a date given makes a proto block a sized one, for good.
   t.proto=!!t.proto&&!date&&a.duration===t.duration&&a.sized!==true;
   Object.assign(t,{title:a.title.trim(),body:a.body,duration:a.duration,starts_at:a.starts_at,revision:t.revision+1});

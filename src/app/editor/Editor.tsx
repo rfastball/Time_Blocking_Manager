@@ -2,10 +2,10 @@ import {useEffect,useId,useRef,useState,type KeyboardEvent as ReactKeyboardEvent
 import {motion} from 'motion/react';
 import {isCompositionKey,needsSavedReview} from '../../capture.ts';
 import {formatDuration} from '../../format.ts';
-import {time} from '../../dates.ts';
+import {slashDate,time} from '../../dates.ts';
+import {triggerOptions} from '../../waiting.ts';
 import {checkCount,checklist,durationValid,quarter,scheduleHint,scheduleSummary,taskState,toggleCheck,withSchedule} from '../../detail.ts';
-import type {Task} from '../../types.ts';
-import {getState,setUi,useApp} from '../store/state.ts';
+import {getState,setUi,useApp,type EditorDraft} from '../store/state.ts';
 import {changeEditor,closeEditor,completeFromEditor,editorConflict,rebaseEditor,saveEditor,switchToPending,syncEditor} from '../store/editor.ts';
 import {releaseFailure,retry,showError} from '../store/session.ts';
 import {dayRule,deleteTask,issueAt,planOf,taskMinute} from '../store/tasks.ts';
@@ -49,7 +49,7 @@ export function Editor({mode,closer}:{mode:'panel'|'dialog';closer?:MutableRefOb
   },[want]);
   if(closer)closer.current=requestClose;
 
-  function edit(patch:Partial<Task>){changeEditor(patch);setStatus('');}
+  function edit(patch:Partial<EditorDraft>){changeEditor(patch);setStatus('');}
   function prefill(){
     if(!e.plan_date)return '';
     const item=planOf(e.plan_date).items.find(i=>i.task.id===e.id);
@@ -107,6 +107,11 @@ export function Editor({mode,closer}:{mode:'panel'|'dialog';closer?:MutableRefOb
       {pending&&<div className="ed-note" role="alert"><p>먼저 ‘{e.title||'제목 없음'}’의 변경을 정리해 주세요.</p><button type="button" className="btn" onClick={switchToPending}>버리고 ‘{pending.title}’ 열기</button></div>}
       {conflict&&<div className="ed-note" role="alert"><p>다른 곳에서 이 항목이 바뀌었어요. 입력한 내용은 그대로 있어요.</p><button type="button" className="btn" onClick={()=>void rebase()}>내 입력으로 저장</button></div>}
       <textarea className="ed-memo" aria-label="메모" placeholder="메모" rows={mode==='dialog'?9:7} value={e.body} onChange={x=>edit({body:x.target.value})}/>
+      {e.wait_since&&!e.plan_date&&!e.starts_at&&<label className="ed-field ed-trigger"><span>트리거</span>
+        <input aria-label="트리거" list={ids+'triggers'} autoComplete="off" maxLength={100} placeholder="상대 또는 날짜"
+          value={e.triggerInput??(e.wait_until?slashDate(e.wait_until):e.wait_for??'')} onChange={x=>edit({triggerInput:x.target.value})}/>
+        <datalist id={ids+'triggers'}>{triggerOptions('',snapshot!.tasks,s.today).map(o=><option key={o.text} value={o.text}/>)}</datalist>
+      </label>}
       {items.length>0&&<details className="ed-fold ed-checklist">
         <summary>체크리스트 <b>{count.done}/{count.total}</b></summary>
         <div className="ed-checks">{items.map(i=><label key={i.line} className="ed-check"><input type="checkbox" checked={i.checked} onChange={x=>edit({body:toggleCheck(e.body,i.line,x.target.checked)})}/><span>{i.label||'항목'}</span></label>)}</div>

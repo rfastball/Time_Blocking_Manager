@@ -22,7 +22,7 @@ export interface BackupInspection {created_at:string|null;tasks:number;completed
 export interface ManagedBackup {id:string;kind:'hour'|'day'|'manual'|'safety'|'migration';created_at:string|null;tasks:number|null;completed:number|null;scheduled:number|null;error:string|null}
 export interface TaskRevision {id:string;revision:number}
 export type Action = {type:'create';id:string;title:string}
- | {type:'update';id:string;expected_revision:number;title:string;body:string;starts_at:string|null;duration:number;plan_date:string|null;before?:string|null;sized?:boolean}
+ | {type:'update';id:string;expected_revision:number;title:string;body:string;starts_at:string|null;duration:number;plan_date:string|null;before?:string|null;sized?:boolean;wait?:{trigger:string;until:string|null}}
  | {type:'place_unplanned';items:TaskRevision[];pile:string|null;create_at?:number|null;index:number}
  | {type:'merge_unplanned';id:string;items:TaskRevision[]}
  | {type:'ship_flow';date:string;items:TaskRevision[];before?:string|null}

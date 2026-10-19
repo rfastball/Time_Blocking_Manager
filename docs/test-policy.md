@@ -1,5 +1,12 @@
 # 검증 범위
 
+## 대기블록 상세 트리거·정렬 속도 Test delta (2026-10-19)
+
+- Unique risk: 상세에서 바꾼 트리거만 저장되지 않거나 제목·메모와 부분 저장되는 것, 같은 묶음의 다른 블록이 바뀌는 것, 초안 재개 시 입력이 사라지는 것. 열린 묶음의 순서 변경만 느린 spring을 쓰는 것.
+- Existing owner / Selected layer: `wait.mjs` UI 사례 1개 추가 및 기존 재정렬 사례에 200ms 시점 위치 단언 추가. 기존 `wait_revive` parity 6단계 추가·날짜 배치 단계 확장, `storage.rs` 기다림 사례 확장. 기존 update 리터럴은 optional wait 필드를 명시한다.
+- Added / extended / removed: UI +1, Node 사례 수 변화 0, Rust WaitEdit 바인딩 내보내기 +1. 신규 UI 실행·lane·의존성·coverage 기준 변화 0. 기존 저장소/브라우저 프로세스를 재사용한다.
+- Runtime delta: 동일 환경 변경 전 기준이 없어 미측정. 새 UI 사례 단독 본체 약 5.3초. 편집창·기다림 UI 24/24, Node 106/106, Rust 60/60 및 TypeScript·Vite 빌드 통과. 네이티브 창 수동 조작은 별도 미실시.
+
 ## 대기 묶음 드래그 Test delta (2026-10-19)
 
 - Unique risk: 펼친 카드의 transform을 뺀 좌표로 복사본이 뜨고, peek 묶음의 높이 0 때문에 캘린더에서 납작해지거나 전체 배치가 막히는 것. 묶음 내부 순서가 저장·정규화에서 사라지는 것.

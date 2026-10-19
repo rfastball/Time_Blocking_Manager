@@ -9,10 +9,10 @@ fn create(s: &mut Store, id: &str) -> Task {
     s.apply(&c).unwrap().tasks.into_iter().find(|t| t.id == id).unwrap()
 }
 fn update(t: &Task, start: &str, duration: i64) -> Action {
-    Action::Update { id: t.id.clone(), expected_revision: t.revision, title: t.title.clone(), body: "[x] 확인\n메모 보존".into(), starts_at: Some(start.into()), duration, plan_date: None, before: None, sized: None }
+    Action::Update { id: t.id.clone(), expected_revision: t.revision, title: t.title.clone(), body: "[x] 확인\n메모 보존".into(), starts_at: Some(start.into()), duration, plan_date: None, before: None, sized: None,wait:None }
 }
 fn place(t: &Task, date: Option<&str>, before: Option<&str>) -> Action {
-    Action::Update { id: t.id.clone(), expected_revision: t.revision, title: t.title.clone(), body: t.body.clone(), starts_at: None, duration: t.duration, plan_date: date.map(Into::into), before: before.map(Into::into), sized: None }
+    Action::Update { id: t.id.clone(), expected_revision: t.revision, title: t.title.clone(), body: t.body.clone(), starts_at: None, duration: t.duration, plan_date: date.map(Into::into), before: before.map(Into::into), sized: None,wait:None }
 }
 fn find(s: &Snapshot, id: &str) -> Task { s.tasks.iter().find(|t| t.id == id).unwrap().clone() }
 fn flow(s: &mut Store, id: &str, date: &str, duration: i64) -> Task {
@@ -538,7 +538,7 @@ fn flow_plans_keep_order_without_minutes_and_switch_with_fixed_reservations() {
         let cmd=command(&s,place(&c,date,target));assert_eq!(s.apply(&cmd).unwrap_err().code,"validation","{date:?} {target:?}");
         assert_eq!(s.snapshot().unwrap().tasks,before.tasks);
     }
-    let mismatch=command(&s,Action::Update{id:c.id.clone(),expected_revision:c.revision,title:c.title.clone(),body:String::new(),starts_at:Some("2026-10-08T10:00".into()),duration:30,plan_date:Some("2026-10-09".into()),before:None,sized:None});
+    let mismatch=command(&s,Action::Update{id:c.id.clone(),expected_revision:c.revision,title:c.title.clone(),body:String::new(),starts_at:Some("2026-10-08T10:00".into()),duration:30,plan_date:Some("2026-10-09".into()),before:None,sized:None,wait:None});
     assert_eq!(s.apply(&mismatch).unwrap_err().code,"validation");
     // Fixing reserves exact minutes against other fixed tasks only.
     let cmd=command(&s,update(&find(&before,"a"),"2026-10-08T10:00",60));let snap=s.apply(&cmd).unwrap();
@@ -726,7 +726,7 @@ fn merging_replaces_selected_work_at_the_first_place_and_preserves_whole_origina
     let dir=tempdir().unwrap();let path=dir.path().join("app.db");let mut s=Store::open(&path).unwrap();
     for id in ["a","b","c","d"] {create(&mut s,id);}
     for (id,title,body,duration) in [("b","첫 작업","메모\r\n- [x] 기존 확인",45),("d","다음\n작업","[ ] 남은 일",15)] {
-        let t=find(&s.snapshot().unwrap(),id);let c=command(&s,Action::Update{id:id.into(),expected_revision:t.revision,title:title.into(),body:body.into(),duration,starts_at:None,plan_date:None,before:None,sized:None});s.apply(&c).unwrap();
+        let t=find(&s.snapshot().unwrap(),id);let c=command(&s,Action::Update{id:id.into(),expected_revision:t.revision,title:title.into(),body:body.into(),duration,starts_at:None,plan_date:None,before:None,sized:None,wait:None});s.apply(&c).unwrap();
     }
     let before=put(&mut s,&["a","b","c"],Some("p"),Some(1),0).unwrap();
     let c=command(&s,Action::MergeUnplanned{id:"merged".into(),items:revs(&before,&["b","d"])});
@@ -765,12 +765,12 @@ fn merging_rejects_all_invalid_sources_and_aggregate_limits_atomically() {
     conn.execute_batch("DROP TRIGGER reject_merge;").unwrap();drop(conn);
     for (duration_a,duration_b,body) in [(720,735,String::new()),(30,30,"가".repeat(66666))] {
         for (id,duration,body) in [("a",duration_a,body),("b",duration_b,String::new())] {
-            let t=find(&s.snapshot().unwrap(),id);let c=command(&s,Action::Update{id:id.into(),expected_revision:t.revision,title:t.title,body,duration,starts_at:None,plan_date:None,before:None,sized:None});s.apply(&c).unwrap();
+            let t=find(&s.snapshot().unwrap(),id);let c=command(&s,Action::Update{id:id.into(),expected_revision:t.revision,title:t.title,body,duration,starts_at:None,plan_date:None,before:None,sized:None,wait:None});s.apply(&c).unwrap();
         }
         let before=s.snapshot().unwrap();let c=command(&s,Action::MergeUnplanned{id:"new".into(),items:revs(&before,&["a","b"])});
         assert_eq!(s.apply(&c).unwrap_err().code,"validation");let after=s.snapshot().unwrap();assert_eq!(after.tasks,before.tasks);assert_eq!(after.trash,before.trash);assert_eq!(after.piles,before.piles);
     }
-    for id in ["a","b"] {let t=find(&s.snapshot().unwrap(),id);let c=command(&s,Action::Update{id:id.into(),expected_revision:t.revision,title:t.title,body:String::new(),duration:720,starts_at:None,plan_date:None,before:None,sized:None});s.apply(&c).unwrap();}
+    for id in ["a","b"] {let t=find(&s.snapshot().unwrap(),id);let c=command(&s,Action::Update{id:id.into(),expected_revision:t.revision,title:t.title,body:String::new(),duration:720,starts_at:None,plan_date:None,before:None,sized:None,wait:None});s.apply(&c).unwrap();}
     let items=revs(&s.snapshot().unwrap(),&["b","a"]);let c=command(&s,Action::MergeUnplanned{id:"new".into(),items});assert_eq!(find(&s.apply(&c).unwrap(),"new").duration,1440);
 }
 
@@ -798,9 +798,9 @@ fn piles_keep_relations_protos_size_once_and_everything_survives_restore() {
     assert_eq!(bench(&snap),vec![(None,ids(&["d","c","b","a"]))]);assert!(snap.tasks.iter().all(|t|t.proto&&t.duration==30));
     // Editing the title keeps it a proto; choosing a length, even the same one, sizes it for good.
     let a=find(&snap,"a");let c=command(&s,place(&a,None,None));let a=find(&s.apply(&c).unwrap(),"a");assert!(a.proto);
-    let c=command(&s,Action::Update{id:"a".into(),expected_revision:a.revision,title:a.title.clone(),body:String::new(),starts_at:None,duration:30,plan_date:None,before:None,sized:Some(true)});
+    let c=command(&s,Action::Update{id:"a".into(),expected_revision:a.revision,title:a.title.clone(),body:String::new(),starts_at:None,duration:30,plan_date:None,before:None,sized:Some(true),wait:None});
     let a=find(&s.apply(&c).unwrap(),"a");assert!(!a.proto);
-    let b=find(&s.snapshot().unwrap(),"b");let c=command(&s,Action::Update{id:"b".into(),expected_revision:b.revision,title:b.title.clone(),body:String::new(),starts_at:None,duration:45,plan_date:None,before:None,sized:None});
+    let b=find(&s.snapshot().unwrap(),"b");let c=command(&s,Action::Update{id:"b".into(),expected_revision:b.revision,title:b.title.clone(),body:String::new(),starts_at:None,duration:45,plan_date:None,before:None,sized:None,wait:None});
     assert!(!find(&s.apply(&c).unwrap(),"b").proto);
     // A new pile at a position, a card into it, another pile before it; moving within the bench keeps revisions.
     let before=find(&s.snapshot().unwrap(),"a").revision;
@@ -951,7 +951,7 @@ fn v8_free_board_becomes_the_shelf_and_the_inbox_in_reading_order() {
     // q and s were sized on the board; p and r are still protos. Sizing keeps a card where it is.
     for id in ["q","s"] {
         let t=find(&s.snapshot().unwrap(),id);
-        let c=command(&s,Action::Update{id:id.into(),expected_revision:t.revision,title:t.title.clone(),body:String::new(),starts_at:None,duration:45,plan_date:None,before:None,sized:Some(true)});
+        let c=command(&s,Action::Update{id:id.into(),expected_revision:t.revision,title:t.title.clone(),body:String::new(),starts_at:None,duration:45,plan_date:None,before:None,sized:Some(true),wait:None});
         assert_eq!(s.apply(&c).unwrap().piles.len(),0);
     }
     drop(s);
@@ -1001,6 +1001,17 @@ fn waiting_work_keeps_its_trigger_until_revived_onto_the_shelf_or_the_inbox() {
     }
     assert!(find(&snap,"p").proto,"a waiting proto stays one");assert!(!find(&snap,"a").proto);
     assert_eq!(bench(&snap),vec![(None,vec![]),(some("shelf"),ids(&["b","keep"]))]);assert_eq!(ordered(&snap,day),["g"]);assert_eq!(find(&snap,"g"),g);
+    // The editor saves text and a single trigger atomically, preserving age and unchanged group order.
+    let c=command(&s,Action::ReorderWait{expected:revs(&snap,&["x","f","a","p"])});let snap=s.apply(&c).unwrap();
+    let old=find(&snap,"a");let mut edit=place(&old,None,None);
+    if let Action::Update{title,body,wait,..}=&mut edit {*title="제목 수정".into();*body="메모 수정".into();*wait=Some(WaitEdit{trigger:"  김부장 결재  ".into(),until:None});}
+    let c=command(&s,edit);let snap=s.apply(&c).unwrap();let a=find(&snap,"a");
+    assert_eq!((a.title.as_str(),a.body.as_str(),a.wait_since.as_deref(),a.pile_order,a.revision),("제목 수정","메모 수정",Some(today),old.pile_order,old.revision+1));
+    let mut edit=place(&a,None,None);
+    if let Action::Update{wait,..}=&mut edit {*wait=Some(WaitEdit{trigger:"회신".into(),until:Some("2026-10-21".into())});}
+    let c=command(&s,edit);let snap=s.apply(&c).unwrap();let a=find(&snap,"a");
+    assert_eq!((a.wait_for.as_deref(),a.wait_until.as_deref(),a.wait_since.as_deref(),a.pile_order),(Some("회신"),Some("2026-10-21"),Some(today),None));
+    assert_eq!(find(&snap,"f").wait_for.as_deref(),Some("김부장 결재"));
     // A new trigger keeps the day it was first pushed; an unnamed one is ''.
     let snap=wait(&mut s,&["a"],"",Some("2026-10-20"),"2026-10-13").unwrap();
     assert_eq!((find(&snap,"a").wait_for,find(&snap,"a").wait_until,find(&snap,"a").wait_since),(some(""),some("2026-10-20"),some(today)));
@@ -1030,7 +1041,7 @@ fn a_date_a_completion_or_a_placement_ends_the_wait_and_trash_keeps_it() {
     let items=revs(&s.snapshot().unwrap(),&["b"]);let c=command(&s,Action::ShipFlow{date:day.into(),items,before:None});let snap=s.apply(&c).unwrap();
     assert_eq!(ordered(&snap,day),["a","b"]);assert!(find(&snap,"b").wait_since.is_none());
     // Editing it without a date keeps it waiting.
-    let c_=find(&snap,"c");let c=command(&s,Action::Update{id:"c".into(),expected_revision:c_.revision,title:"새 제목".into(),body:"메모".into(),starts_at:None,duration:30,plan_date:None,before:None,sized:None});
+    let c_=find(&snap,"c");let c=command(&s,Action::Update{id:"c".into(),expected_revision:c_.revision,title:"새 제목".into(),body:"메모".into(),starts_at:None,duration:30,plan_date:None,before:None,sized:None,wait:None});
     let snap=s.apply(&c).unwrap();assert_eq!((find(&snap,"c").wait_since,find(&snap,"c").pile_id),(some(today),None));
     // Dragged to a chosen place: there, no longer waiting.
     let snap=put(&mut s,&["c"],None,None,0).unwrap();assert_eq!(bench(&snap),vec![(None,ids(&["c"]))]);assert!(find(&snap,"c").wait_for.is_none());

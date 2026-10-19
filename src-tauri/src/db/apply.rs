@@ -47,8 +47,8 @@ impl Store {
             Action::Create{id,title} => w.create(id,title),
             Action::CreateScheduled{id,title,starts_at,duration} => w.create_scheduled(id,title,starts_at,*duration),
             Action::CreateFlow{id,title,date,duration} => w.create_flow(id,title,date,*duration),
-            Action::Update{id,expected_revision,title,body,starts_at,duration,plan_date,before,sized} =>
-                w.update(w.task_at(id,*expected_revision)?,title,body,starts_at,*duration,plan_date,before,*sized),
+            Action::Update{id,expected_revision,title,body,starts_at,duration,plan_date,before,sized,wait} =>
+                w.update(w.task_at(id,*expected_revision)?,title,body,starts_at,*duration,plan_date,before,*sized,wait),
             Action::SetCompleted{id,expected_revision,completed,date} => w.set_completed(w.task_at(id,*expected_revision)?,*completed,date),
             Action::Delete{id,expected_revision} => w.delete(w.task_at(id,*expected_revision)?),
             Action::RestoreTrashed{id} => w.restore_trashed(id),
@@ -126,7 +126,7 @@ impl<'a> Write<'a> {
     }
 
     #[allow(clippy::too_many_arguments)]
-    fn update(&self, current: &Task, title: &str, body: &str, starts_at: &Option<String>, duration: i64, plan_date: &Option<String>, before: &Option<String>, sized: Option<bool>) -> Result<()> {
+    fn update(&self, current: &Task, title: &str, body: &str, starts_at: &Option<String>, duration: i64, plan_date: &Option<String>, before: &Option<String>, sized: Option<bool>, wait: &Option<WaitEdit>) -> Result<()> {
         let (id,revision)=(&current.id,current.revision);
         let derived=starts_at.as_deref().map(|start|start.get(..10).unwrap_or_default().to_string());
         if derived.is_some() && plan_date.is_some() && derived!=*plan_date {return Err(error("validation","시각을 고정한 날짜와 계획 날짜가 다릅니다."));}
@@ -145,13 +145,23 @@ impl<'a> Write<'a> {
             (None,Some(date),None) => Some(next_flow_order(&self.s.tasks,date)),
             _ => None,
         };
-        let task = Task { title: title.trim().into(), body: body.into(), starts_at: starts_at.clone(), duration, plan_date: date, flow_order, ..current.clone() };
+        let mut task = Task { title: title.trim().into(), body: body.into(), starts_at: starts_at.clone(), duration, plan_date: date, flow_order, ..current.clone() };
+        if let Some(wait)=wait {
+            if current.wait_since.is_none() {return Err(error("validation","기다리는 작업만 조건을 바꿀 수 있어요."));}
+            let trigger=wait.trigger.trim();
+            if trigger.len()>200 {return Err(error("validation","기다림 조건을 확인하세요."));}
+            if let Some(until)=&wait.until {parse_date(until)?;}
+            if task.plan_date.is_none() {
+                if current.wait_for.as_deref().unwrap_or("")!=trigger || current.wait_until!=wait.until {task.pile_order=None;}
+                task.wait_for=Some(trigger.into());task.wait_until=wait.until.clone();
+            }
+        }
         validate_task(&task, &self.s.tasks)?;
         // Inserting before another task moves only the later order numbers of that day.
         if let Some((date,order))=shift {self.tx.execute("UPDATE tasks SET flow_order=flow_order+1 WHERE plan_date=?1 AND starts_at IS NULL AND flow_order>=?2 AND id<>?3 AND deleted_at IS NULL",params![date,order,id])?;}
         // A length chosen or a date given makes a proto block a sized one, for good.
         let proto=current.proto&&task.plan_date.is_none()&&duration==current.duration&&sized!=Some(true);
-        self.tx.execute("UPDATE tasks SET title=?1,body=?2,starts_at=?3,duration=?4,plan_date=?5,flow_order=?6,proto=?7,revision=revision+1 WHERE id=?8 AND revision=?9", params![task.title,task.body,task.starts_at,task.duration,task.plan_date,task.flow_order,proto,id,revision])?;
+        self.tx.execute("UPDATE tasks SET title=?1,body=?2,starts_at=?3,duration=?4,plan_date=?5,flow_order=?6,proto=?7,wait_for=?8,wait_until=?9,pile_order=?10,revision=revision+1 WHERE id=?11 AND revision=?12", params![task.title,task.body,task.starts_at,task.duration,task.plan_date,task.flow_order,proto,task.wait_for,task.wait_until,task.pile_order,id,revision])?;
         // Sent back to 준비 by a button: on top of the shelf.
         if task.plan_date.is_none()&&current.plan_date.is_some()&&!current.completed {shelve(self.tx,std::slice::from_ref(id))?;}
         Ok(())

@@ -15,7 +15,7 @@ export type Band='open'|'closed';
 // 일 is one day's editor with its week as a strip above it, so it spans the same seven dates as 주.
 export type Period='day'|'week'|'two'|'month';
 // The task as typed in the editor. epoch/revision are the saved state it started from.
-export type EditorDraft=Task&{epoch:string};
+export type EditorDraft=Task&{epoch:string;triggerInput?:string};
 export type Composer={date:string;start:number;duration:number;fixed?:boolean};
 // The cutting board in progress: the task it started from and the pieces as laid out so far.
 export type CutDraft={taskId:string;epoch:string;revision:number;title:string;body:string;segs:Seg[]};
