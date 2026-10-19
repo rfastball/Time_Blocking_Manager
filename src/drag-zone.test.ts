@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {DAY_GEOMETRY,arrive,listIndex,pace,spaceZone,steadiness,type Passage,type SpaceInput,type Travel} from './drag-zone.ts';
+import {DAY_GEOMETRY,arrive,createSpaceZone,listIndex,pace,spaceZone,steadiness,type Passage,type SpaceInput,type Travel} from './drag-zone.ts';
 import {noIntent} from './intent.ts';
 import {createTimeAxis} from './time-axis.ts';
 import type {Task,WorkingDay} from './types.ts';
@@ -19,6 +19,30 @@ test('in the day order the block goes before the first flow block whose middle i
   assert.deepEqual([z.intent.zone,z.intent.before,z.entered],['body','a',date]);
   assert.equal(spaceZone(over(200,560)).intent.before,'b');
   assert.deepEqual(z.slot,{start:540,end:600,over:false},'the hollow shows where it would stand');
+});
+
+test('a drag reuses its day without keeping stale task, rule, anchor, selection or destination results',()=>{
+  const evaluate=createSpaceZone(),input=over(200,520),before=structuredClone(tasks);
+  const first=evaluate(input);first.slot!.start=-1;
+  assert.deepEqual(evaluate({...input,py:input.py+1}).slot,{start:540,end:600,over:false},'a returned slot cannot corrupt later moves');
+  const cases:[Partial<SpaceInput>,string|null,number,number][]=[
+    [{tasks:tasks.map(t=>t.id==='c'?{...t,duration:90}:t)},'a',540,630],
+    [{rule:{...rule,start:600}},'a',600,660],
+    [{layouts:[{date,anchor:720}]},'a',720,780],
+    [{ids:['c','a']},null,600,720],
+    [{date:'2026-10-15'},null,540,600],
+  ];
+  for(const [replacement,before,start,end] of cases){
+    evaluate(input);
+    const result=evaluate({...input,...replacement});
+    assert.deepEqual([result.intent.before,result.slot?.start,result.slot?.end],[before,start,end]);
+  }
+  const ids=['c'];evaluate({...input,ids});ids.push('a');
+  assert.equal(evaluate({...input,ids}).intent.before,null,'changing the ordered selection invalidates its saved copy');
+  const rail=evaluate({...input,px:60,py:axis.position(607),entered:date});
+  assert.equal(rail.intent.start,600);
+  assert.equal(evaluate({...input,px:60,py:axis.position(608),entered:date,prev:rail.intent}).intent.start,615,'the latest pointer and latch remain live');
+  assert.deepEqual(tasks,before,'the drag leaves the saved tasks untouched');
 });
 
 test('a block coming in over the rail passes by; one that came into the order bites when pushed left',()=>{

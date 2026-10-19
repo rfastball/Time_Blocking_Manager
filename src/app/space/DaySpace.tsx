@@ -1,4 +1,4 @@
-import {useEffect,useRef,useState,type KeyboardEvent,type MouseEvent as ReactMouseEvent,type PointerEvent as ReactPointerEvent,type ReactNode} from 'react';
+import {useEffect,useMemo,useRef,useState,type KeyboardEvent,type MouseEvent as ReactMouseEvent,type PointerEvent as ReactPointerEvent,type ReactNode} from 'react';
 import {useDraggable} from '@dnd-kit/core';
 import {AnimatePresence,motion,useAnimate} from 'motion/react';
 import {dayPlan,nextFlowId,type DayItem} from '../../today.ts';
@@ -35,7 +35,7 @@ type Props={
 // One day as a space: rail and fixed latches on the left, flow blocks in order, completed work leaves through the top.
 export function DaySpace({date,axis,variant,bin,selected,multi=[],onOpen,onMulti,children,overlay,onBackgroundPointerDown}:Props){
   const snapshot=useApp(s=>s.snapshot),today=useApp(s=>s.today),now=useApp(s=>s.now),landed=useApp(s=>s.ui.landed);
-  useApp(s=>s.drafts.settingsDraft);
+  const settings=useApp(s=>s.drafts.settingsDraft??s.snapshot?.settings);
   const {held,tasks,pushed}=useDrag();
   const geometry=variant==='day'?DAY_GEOMETRY:COLUMN_GEOMETRY;
   const rule=dayRule(date);
@@ -45,8 +45,8 @@ export function DaySpace({date,axis,variant,bin,selected,multi=[],onOpen,onMulti
   const spaceRef=useRegion('space',date,{axis,geometry});
   // The block being sized follows the hand; the others make way only for a length it rests on, as on the rail.
   const settled=useDwell(sizing,sizing?`${sizing.id}:${sizing.dur}`:'',!!sizing&&!sizing.done);
-  const shown=settled?tasks.map(t=>t.id===settled.id?{...t,duration:settled.dur}:t):tasks;
-  const plan=dayPlan(date,shown,rule,snapshot?.layouts??[]);
+  const shown=useMemo(()=>settled?tasks.map(t=>t.id===settled.id?{...t,duration:settled.dur}:t):tasks,[settled,tasks]);
+  const plan=useMemo(()=>dayPlan(date,shown,dayRule(date),snapshot?.layouts??[]),[date,shown,settings,snapshot?.layouts]);
   const sized=(item:DayItem)=>{
     if(sizing?.id!==item.task.id)return item;
     const end=item.start+sizing.dur,outside=unavailableParts(item.start,end,rule).reduce((n,p)=>n+p.end-p.start,0);
