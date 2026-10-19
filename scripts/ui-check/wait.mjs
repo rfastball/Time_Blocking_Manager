@@ -82,8 +82,8 @@ const scenarios=[
   }},
   {name:'collapsed destinations keep an anchored block from arrival through editing in both directions',run:async page=>{
     const preview=async side=>{
-      await page.until(`(()=>{const e=document.querySelector('.held.rail-token'),r=e?.getBoundingClientRect();return !!document.querySelector('.rail-panel.${side} .rail-face')&&r&&r.width<=100&&r.height<=36;})()`,{message:side+' rail narrows the held block into a token'});
-      assert.equal(await page.js(`document.querySelectorAll('.rail-panel.${side} .rail-face .ttl,.rail-panel.${side} .rail-face input').length`),0,'the arrival slot does not duplicate the held block or start editing');
+      await page.until(`(()=>{const e=document.querySelector('.held.rail-token'),r=e?.getBoundingClientRect();return !!document.querySelector('.rail-panel.${side} .rail-face')&&r&&getComputedStyle(e).opacity==='0';})()`,{message:side+' rail hides the held block completely'});
+      assert.equal(await page.js(`document.querySelectorAll('.rail-panel.${side} .rail-face .ttl,.rail-panel.${side} .rail-face input').length`),0,'the arrival slot stays empty until release');
     };
     const transit=async side=>{
       await page.until(`!!document.querySelector('[data-rail-transfer="${side}"]')`,{message:side+' drop travels through the icon'});

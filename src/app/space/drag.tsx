@@ -274,21 +274,21 @@ export function DragProvider({children}:{children:ReactNode}){
       const side=saved&&dropped.valid?(dropped.intent.zone==='tray'&&nav.dock==='hidden'?'left':dropped.intent.zone==='wait'&&nav.band==='closed'?'right':null):null;
       const icon=side?document.querySelector<HTMLElement>(side==='left'?'#dock .dock-unfold':'#wait .wait-unfold'):null;
       if(side&&icon&&rect&&copy&&!reduced()){
-        // One travelling face: squeeze into the rail, then unfold from that same point into the empty arrival slot.
+        // The held face is already hidden at the rail; reveal it only as it unfolds from the icon.
         const button=icon.getBoundingClientRect(),ix=button.left+button.width/2-4,iy=button.top+button.height/2-4;
         const options:KeyframeAnimationOptions={duration:280,easing:'cubic-bezier(.2,.8,.2,1)',fill:'forwards'};
         dragOverlay.node.dataset.railTransfer=side;icon.dataset.receiving='true';
         const travel=dragOverlay.node.animate([
-          {offset:0,transform:translate(transform.x,transform.y),opacity:1},
-          {offset:.48,transform:translate(transform.x+ix-box.left,transform.y+iy-box.top),opacity:.25},
+          {offset:0,transform:translate(transform.x,transform.y),opacity:0},
+          {offset:.48,transform:translate(transform.x+ix-box.left,transform.y+iy-box.top),opacity:0},
           {offset:.58,transform:translate(transform.x+ix-box.left,transform.y+iy-box.top),opacity:.25},
           {offset:1,transform:translate(transform.x+rect.left-box.left,transform.y+rect.top-box.top),opacity:1}
         ],options);
         const reshape=copy.animate([
-          {offset:0,width:box.width+'px',height:box.height+'px'},
-          {offset:.48,width:'8px',height:'8px'},
-          {offset:.58,width:'8px',height:'8px'},
-          {offset:1,width:rect.width+'px',height:rect.height+'px'}
+          {offset:0,width:box.width+'px',height:box.height+'px',opacity:0},
+          {offset:.48,width:'8px',height:'8px',opacity:0},
+          {offset:.58,width:'8px',height:'8px',opacity:1},
+          {offset:1,width:rect.width+'px',height:rect.height+'px',opacity:1}
         ],options);
         const pulse=icon.animate([{transform:'scale(1)'},{transform:'scale(1.12)',offset:.5},{transform:'scale(1)'}],options);
         try{await Promise.all([travel.finished,reshape.finished,pulse.finished].map(p=>p.catch(()=>{})));}
