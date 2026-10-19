@@ -1,5 +1,5 @@
 // plan_date only: flow plan ordered by flow_order. starts_at: fixed at that time. Neither: unplanned.
-// proto: captured with no chosen length yet. pile_id: null in the 들어옴, 'shelf' on the 준비 shelf; pile_order: the order there.
+// proto: captured with no chosen length yet. pile_id: null in the 들어옴, 'shelf' on the 준비 shelf; pile_order: the order there or within a waiting group.
 // board_x/y: the retired free board's position, read once by the v9 migration and otherwise unused.
 // wait_since: in 기다림 since that local day (open, dateless, no pile, a proto stays one); wait_for: what it waits on ('' unnamed);
 // wait_until: the day from which it may come back. Only reviving, a date, a completion or a placement ends the wait; time never does.
@@ -29,6 +29,7 @@ export type Action = {type:'create';id:string;title:string}
  // Out to 기다림 in order (or a new trigger there; `since` only marks a first push); back: sized on top of the shelf, protos on top of the 들어옴.
  | {type:'wait';items:TaskRevision[];trigger:string;until:string|null;since:string}
  | {type:'revive';items:TaskRevision[]}
+ | {type:'reorder_wait';expected:TaskRevision[]}
  | {type:'set_completed';id:string;expected_revision:number;completed:boolean;date?:string}
  | {type:'complete_flow';date:string;items:TaskRevision[];at:string|null}
  | {type:'reflow';date:string;at:string}

@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {initials,jump,keyInitial,parseTrigger,staleLabel,triggerOptions,waitGroups} from './waiting.ts';
+import {initials,jump,keyInitial,parseTrigger,staleLabel,triggerOptions,waitGroups,waitOrderAction} from './waiting.ts';
 import type {Task} from './types.ts';
 
 const TODAY='2026-10-14';
@@ -47,4 +47,17 @@ test('letters jump by initial consonant, a pile by its trigger before any title'
   assert.equal(jump(entries,'1','ㅎ')?.id,'3','a title inside a pile when no trigger matches');
   assert.equal(jump(entries,'1','ㅂㅁ')?.id,'2');
   assert.equal(jump(entries,'1','ㄱㄱ')?.id,'4','the same letter again steps on');
+});
+
+
+test('a waiting group preserves a moved block position without changing its trigger or other groups',()=>{
+  const tasks=[w('a','2026-10-01',{for:'회신'}),w('b','2026-10-02',{for:'회신'}),w('c','2026-10-03',{for:'회신'}),w('x','2026-10-01',{for:'결재'})];
+  const action=waitOrderAction(tasks,'a',2);
+  assert.equal(action?.type,'reorder_wait');
+  if(action?.type!=='reorder_wait')return;
+  assert.deepEqual(action.expected.map(t=>t.id),['b','c','a']);
+  const ordered=tasks.map(t=>({...t,pile_order:action.expected.findIndex(x=>x.id===t.id)+1||null}));
+  assert.deepEqual(waitGroups(ordered,TODAY).find(g=>g.text==='회신')!.items.map(t=>t.id),['b','c','a']);
+  assert.equal(waitOrderAction(ordered,'a',2),null);
+  assert.deepEqual(waitOrderAction(ordered,'a',0)?.type,'reorder_wait');
 });

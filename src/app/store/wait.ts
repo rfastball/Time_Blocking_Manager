@@ -2,7 +2,7 @@ import type {Task} from '../../types.ts';
 import {benchAction,updateAction} from '../../intent.ts';
 import {byFlowOrder} from '../../flow.ts';
 import {waiting} from '../../bench.ts';
-import {parseTrigger,triggerLabel} from '../../waiting.ts';
+import {parseTrigger,triggerLabel,waitOrderAction} from '../../waiting.ts';
 import {quotedObject} from '../../format.ts';
 import {fly} from '../ui/flight.ts';
 import {getState,setNav,setUi} from './state.ts';
@@ -65,6 +65,11 @@ export function editTrigger(ids:string[],at:{x:number;y:number}|null=null){
   setUi({naming:{ids,value:t.wait_until?slashDate(t.wait_until):t.wait_for??'',hi:-1,fresh:false,at}});
 }
 export const closeNaming=()=>setUi({naming:null});
+
+export function reorderWait(id:string,index:number){
+  const action=waitOrderAction(snap().tasks,id,index);
+  return action?dispatch(action,{done:()=>announce('기다림 순서를 옮겼어요')}):Promise.resolve(false);
+}
 
 // What it waited for has come: sized blocks go on top of the shelf, protos on top of the 들어옴, in the band's order.
 export async function revive(ids:string[],{flown=false}:{flown?:boolean}={}){

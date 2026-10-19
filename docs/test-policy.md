@@ -1,5 +1,14 @@
 # 검증 범위
 
+## 대기 묶음 드래그 Test delta (2026-10-19)
+
+- Unique risk: 펼친 카드의 transform을 뺀 좌표로 복사본이 뜨고, peek 묶음의 높이 0 때문에 캘린더에서 납작해지거나 전체 배치가 막히는 것. 묶음 내부 순서가 저장·정규화에서 사라지는 것.
+- Existing owner / Selected layer: `scripts/ui-check/wait.mjs`의 실제 포인터 검사, `src/waiting.test.ts` 순서 계산, `src/wait.test.ts` 정규화, 기존 Rust↔preview `wait_revive` parity 및 `storage.rs` 파일 검증.
+- Added / extended / removed: Node 1개 추가, UI 2개 추가, parity 3단계 확장. 기존 파일 검사의 대기 `pile_order=1` 거부 기대는 0 및 실제 pile 소속 거부로 교체했다. 신규 테스트 파일·의존성·lane·브라우저 시작 수·coverage 기준 변화 0.
+- 검증: Node 106/106, Rust lib 25/25·parity 1/1·storage 33/33, TypeScript 및 Vite 빌드 통과. 저장소 파일 접근 검사는 샌드박스 외 실행으로 확인했다.
+- UI: 기다림 11/11, plan·today·wait 합계 46/47. 기존 `the rail of a column fixes the time it is dropped at`는 다른 날짜 레일에 바로 진입해 유동으로 배치되므로 실패하며, 수정 전 `drag.tsx`로도 동일 실패를 재현했다. 이번 대기블록 수정 범위에서 해당 동작·기대값은 변경하지 않았다.
+- Runtime delta: 동일 환경 변경 전 기준이 없어 미측정. 새 UI 두 시나리오의 개별 실행 본체는 약 6.4초·6.3초이며 기존 Edge 실행을 공유한다. Windows 네이티브 창 수동 조작은 별도 미실시.
+
 ## 기간 탭 전환 Test delta (2026-10-15)
 
 - Unique risk: 일·주·2주·월을 바꿀 때 이전 탭과 새 탭의 채움이 0.1초 교차 페이드해 둘 다 반쯤 칠해진 프레임이 생기고(흰 글자가 옅은 바탕에서 사라짐), 제목 길이에 따라 탭 묶음이 최대 37px 옆으로 밀리던 것.

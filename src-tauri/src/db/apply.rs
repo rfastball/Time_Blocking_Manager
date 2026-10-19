@@ -68,6 +68,7 @@ impl Store {
             Action::ShipFlow{date,items,before} => w.ship_flow(date,items,before),
             Action::Wait{items,trigger,until,since} => w.wait(items,trigger,until,since),
             Action::Revive{items} => w.revive(items),
+            Action::ReorderWait{expected} => w.reorder_wait(expected),
         }?;
         normalize_piles(&tx)?;
         // Retain a tolerated future request until its own retry horizon also expires.
@@ -435,6 +436,16 @@ impl<'a> Write<'a> {
             self.tx.execute("UPDATE tasks SET starts_at=NULL,plan_date=NULL,flow_order=NULL,pile_id=NULL,pile_order=NULL,wait_for=?1,wait_until=?2,wait_since=?3,revision=revision+1 WHERE id=?4",
                 params![trigger,until,t.wait_since.as_deref().unwrap_or(since),t.id])?;
         }
+        Ok(())
+    }
+    fn reorder_wait(&self, expected: &[TaskRevision]) -> Result<()> {
+        unique_revisions(expected,"순서를 바꿀 기다림을 확인하세요.")?;
+        if expected.is_empty() {return Err(error("validation","순서를 바꿀 기다림을 선택하세요."));}
+        let tasks=self.tasks_at(expected,|t|t.wait_since.is_some())?;
+        let first=tasks[0];
+        let group:Vec<_>=self.s.tasks.iter().filter(|t|t.wait_since.is_some()&&t.wait_for.as_deref().unwrap_or("")==first.wait_for.as_deref().unwrap_or("")&&t.wait_until==first.wait_until).collect();
+        if group.len()!=tasks.len()||tasks.iter().any(|t|!group.iter().any(|g|g.id==t.id)) {return Err(error("conflict","기다림 묶음이 바뀌었습니다."));}
+        for (n,t) in tasks.iter().enumerate() {self.tx.execute("UPDATE tasks SET pile_order=?1,revision=revision+1 WHERE id=?2",params![n as i64+1,t.id])?;}
         Ok(())
     }
     fn revive(&self, items: &[TaskRevision]) -> Result<()> {

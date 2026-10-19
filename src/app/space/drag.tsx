@@ -1,5 +1,5 @@
 import {createContext,useCallback,useContext,useEffect,useMemo,useRef,useState,type ReactNode} from 'react';
-import {DndContext,DragOverlay,PointerSensor,TouchSensor,useSensor,useSensors,type DragEndEvent,type DragMoveEvent,type DragStartEvent,type DropAnimation,type Modifier,type Active} from '@dnd-kit/core';
+import {DndContext,DragOverlay,PointerSensor,TouchSensor,getClientRect,useSensor,useSensors,type DragEndEvent,type DragMoveEvent,type DragStartEvent,type DropAnimation,type Modifier,type Active} from '@dnd-kit/core';
 import {applyIntent,carried,noIntent,type Intent} from '../../intent.ts';
 import {dayPlan,newlyOver,overrunEnd} from '../../today.ts';
 import {arrive,listIndex,pace,spaceZone,steadiness,type Geometry,type Passage,type Slot,type Travel} from '../../drag-zone.ts';
@@ -61,6 +61,8 @@ class MousePenSensor extends PointerSensor{
   static activators=[{eventName:'onPointerDown' as const,handler:(...a:Parameters<typeof PointerSensor.activators[0]['handler']>)=>(a[0].nativeEvent as PointerEvent).pointerType!=='touch'&&PointerSensor.activators[0].handler(...a)}];
 }
 const point=(e:Event)=>{const p='touches' in e?(e as TouchEvent).touches[0]??(e as TouchEvent).changedTouches[0]:e as PointerEvent;return {x:p.clientX,y:p.clientY};};
+// Raised waiting cards use transforms for their layout; the overlay must start at their visible box.
+const measuring={draggable:{measure:getClientRect}};
 
 export function DragProvider({children}:{children:ReactNode}){
   const {snapshot}=useApp();
@@ -123,9 +125,7 @@ export function DragProvider({children}:{children:ReactNode}){
       if(floating.kind==='wait'&&!waiting(task)&&ids.every(id=>!base.find(t=>t.id===id)?.completed))return {intent:{...intent,zone:'wait',since:getState().today},region:floating};
       if(floating.kind==='tray'&&(waiting(task)||task.plan_date&&!task.completed&&ids.length===1))return {intent:{...intent,zone:'tray'},region:floating};
     }
-    // A pile from the band goes back to 준비 whole; its blocks reach a day one at a time.
-    const pile=ids.length>1&&ids.every(id=>{const t=base.find(x=>x.id===id);return !!t&&waiting(t);});
-    for(const region of pile?[]:all.filter(r=>r.kind==='space')){
+    for(const region of all.filter(r=>r.kind==='space')){
       const r=inside(region.el);if(!r||!region.axis||!region.geometry||!region.date)continue;
       const zone=spaceZone({task,ids,tasks:base,layouts:snapshot!.layouts??[],date:region.date,rule:dayRule(region.date),axis:region.axis,geometry:region.geometry,
         rect:r,px,py,grabY,grab,prev,stretch,entered:entered.current});
@@ -134,9 +134,9 @@ export function DragProvider({children}:{children:ReactNode}){
     }
     entered.current=null;
     const current=(region:Region)=>region.kind==='date'?prev.zone==='date'&&prev.date===region.date:prev.zone===region.kind;
-    for(const kind of ['inbox','shelf','date','tray','wait'] as const)for(const region of all.filter(r=>r.kind===kind&&!(pile&&kind==='date'))){
+    for(const kind of ['inbox','shelf','date','tray','wait'] as const)for(const region of all.filter(r=>r.kind===kind).sort((a,b)=>Number(!!b.list)-Number(!!a.list))){
       const r=inside(region.el,current(region)?0:EDGE);if(!r)continue;
-      if((kind==='inbox'||kind==='shelf')&&region.list){
+      if((kind==='inbox'||kind==='shelf'||kind==='wait'&&waiting(task)&&ids.length===1&&region.list?.items().some(i=>i.id===task.id))&&region.list){
         // Before the first remaining card whose middle is below the held block's middle, as the list draws them.
         const items=region.list.items().filter(i=>!ids.includes(i.id)),h=(region.form?.(task,ids)??lifted)?.height??0;
         const centre=py-(region.list.top?.()??r.top)-grabY*h+h/2;
@@ -289,7 +289,7 @@ export function DragProvider({children}:{children:ReactNode}){
     }
   };
   return <DragCtx.Provider value={{held,pending,tasks,pushed,register}}>
-    <DndContext sensors={sensors} accessibility={accessibility} onDragStart={onDragStart} onDragMove={onDragMove} onDragEnd={onDragEnd} onDragCancel={()=>{const h=heldRef.current;if(h)beginLanding(h,h.intent,false);else setGesture(false);}} autoScroll={false}>
+    <DndContext sensors={sensors} measuring={measuring} accessibility={accessibility} onDragStart={onDragStart} onDragMove={onDragMove} onDragEnd={onDragEnd} onDragCancel={()=>{const h=heldRef.current;if(h)beginLanding(h,h.intent,false);else setGesture(false);}} autoScroll={false}>
       {children}
       <DragOverlay modifiers={[snapModifier]} dropAnimation={dropAnimation}>{held&&<HeldBlock held={held} out={pushed.length} outside={shownOutside(tasks,snapshot?.layouts??[],shown)}/>}</DragOverlay>
     </DndContext>

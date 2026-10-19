@@ -1,4 +1,4 @@
-import type {Task} from './types.ts';
+import type {Action,Task} from './types.ts';
 import {triggerText,waiting} from './bench.ts';
 import {dateKey,dateOf,plusDays,slashDate} from './dates.ts';
 
@@ -17,7 +17,7 @@ export const isReady=(t:Task,today:string)=>!!t.wait_until&&t.wait_until<=today;
 export const triggerLabel=(t:Task)=>triggerText(t)||'정하지 않음';
 
 // Met dates first, then triggers in 가나다 order (an unnamed one first), then later dates by date.
-// Inside a pile the oldest waits in front.
+// Inside a pile a chosen order leads; untouched blocks follow oldest first.
 export function waitGroups(tasks:Task[],today:string):WaitGroup[]{
   const groups=new Map<string,WaitGroup>();
   for(const t of tasks.filter(waiting)){
@@ -30,8 +30,17 @@ export function waitGroups(tasks:Task[],today:string):WaitGroup[]{
   const list=[...groups.values()].sort((a,b)=>rank[a.kind]-rank[b.kind]||(a.kind==='who'
     ?(a.named===b.named?a.text.localeCompare(b.text,'ko'):a.named?1:-1)
     :(a.until??'')<(b.until??'')?-1:(a.until??'')>(b.until??'')?1:0));
-  for(const g of list)g.items.sort((a,b)=>(a.wait_since??'')<(b.wait_since??'')?-1:(a.wait_since??'')>(b.wait_since??'')?1:a.id<b.id?-1:a.id>b.id?1:0);
+  for(const g of list)g.items.sort((a,b)=>(a.pile_order??Infinity)-(b.pile_order??Infinity)||((a.wait_since??'')<(b.wait_since??'')?-1:(a.wait_since??'')>(b.wait_since??'')?1:a.id<b.id?-1:a.id>b.id?1:0));
   return list;
+}
+
+export function waitOrderAction(tasks:Task[],id:string,index:number):Action|null{
+  const group=waitGroups(tasks,'').find(g=>g.items.some(t=>t.id===id));
+  if(!group||!Number.isInteger(index))return null;
+  const next=group.items.filter(t=>t.id!==id),task=group.items.find(t=>t.id===id)!;
+  next.splice(Math.max(0,Math.min(index,next.length)),0,task);
+  if(next.every((t,n)=>t.id===group.items[n].id))return null;
+  return {type:'reorder_wait',expected:next.map(({id,revision})=>({id,revision}))};
 }
 
 // What was typed into the trigger field: a date (10/20, 10.20, 내일, 모레) or the 상대+무엇 text.

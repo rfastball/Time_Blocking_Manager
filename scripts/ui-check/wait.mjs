@@ -202,6 +202,49 @@ const scenarios=[
     for(let i=0;i<3;i++){await page.key('Enter');await page.sleep(250);}
     assert.equal(await page.js(`!!document.querySelector('#wait-rename')`),false,'Enter walks the revived blocks, then lets go');
   }},
+  {name:'an open waiting pile saves pointer and keyboard reordering',run:async page=>{
+    await toPlan(page);await openBand(page);
+    await page.click('#wait .wpile .wtag-text');await page.sleep(650);
+    const first=await page.rect('.wpile-layer [data-flight="sample-w1"]'),last=await page.rect('.wpile-layer [data-flight="sample-w3"]');
+    await page.drag({x:first.cx,y:first.cy},{x:last.cx,y:last.y+last.h-2},{hold:400});
+    const order=()=>page.js(`(async()=>{const {getState}=await __mod('/src/app/store/state.ts');const {waitGroups}=await __mod('/src/waiting.ts');const s=getState();return waitGroups(s.snapshot.tasks,s.today).find(g=>g.text==='김부장 결재').items.map(t=>t.id);})()`);
+    assert.deepEqual(await order(),['sample-w2','sample-w3','sample-w1'],'drag saves the last position');
+    await page.js(`document.querySelector('.wpile-layer [data-wait="sample-w1"]').focus()`);
+    await page.key('ArrowUp',{modifiers:1});await page.sleep(350);
+    assert.deepEqual(await order(),['sample-w2','sample-w1','sample-w3'],'Alt+Up saves one position up');
+    await page.key('Escape');await page.mouse('mouseMoved',720,100,0);await page.sleep(650);
+    await page.click('#wait .wpile .wtag-text');await page.sleep(650);
+    assert.deepEqual(await page.js(`[...document.querySelectorAll('.wpile-layer [data-wait]')].map(e=>e.dataset.wait)`),['sample-w2','sample-w1','sample-w3'],'reopening retains the saved order');
+    await page.shot('wait-reordered');
+  }},
+  {name:'raised waiting cards keep the grab point and a hovered pile expands onto the calendar',run:async page=>{
+    await toPlan(page);await openBand(page);
+    await page.click('#wait .wpile .wtag-text');await page.sleep(650);
+    const card=await page.rect('.wpile-layer [data-flight="sample-w2"]');
+    assert.ok(card);
+    const x=card.x+card.w*.7,y=card.cy;
+    await page.mouse('mouseMoved',x,y,0);await page.mouse('mousePressed',x,y);
+    await page.mouse('mouseMoved',x-6,y);await page.sleep(50);
+    await page.mouse('mouseMoved',x-12,y);await page.sleep(100);
+    const lifted=await page.rect('.held');
+    assert.ok(lifted,'one card lifts');
+    assert.ok(Math.abs(lifted.x-(card.x-12))<3&&Math.abs(lifted.y-card.y)<3,`grab point stays on the card: ${JSON.stringify({card,lifted})}`);
+    await page.key('Escape');await page.mouse('mouseReleased',x-12,y,0);await page.sleep(400);
+    await page.key('Escape');await page.mouse('mouseMoved',720,100,0);await page.sleep(650);
+    const pile=await page.rect('#wait .wpile-rest');
+    await page.mouse('mouseMoved',pile.cx,pile.y+45,0);await page.sleep(650);
+    const head=await page.rect('.wpile-layer .wtag-text'),day=await page.rect('.wk-head:not(.past):not(.today)');
+    assert.ok(head&&day);
+    await page.drag({x:head.cx,y:head.cy},{x:day.cx,y:day.y+day.h+200},{hold:500,before:async()=>{
+      const copy=await page.rect('.held');
+      assert.ok(copy&&Number.isFinite(copy.y)&&copy.h>80,'the entire pile takes its time-axis height');
+      assert.equal(await page.js(`document.querySelector('.held-more')?.textContent`),'+2','all three are carried');
+      assert.ok(await page.js(`document.querySelector('.held')?.classList.contains('column')`),'the calendar owns the shape');
+      await page.shot('wait-pile-calendar');
+    }});
+    const moved=await Promise.all(['상신 문서 보완','출장비 정산','물품 구매 요청'].map(name=>task(page,name)));
+    assert.ok(moved.every(t=>t.date&&t.date===moved[0].date&&t.since===null),'all three land on the day and leave waiting');
+  }},
   {name:'the band and its blocks take each theme’s corners, edges and ink',run:async page=>{
     await toPlan(page);await openBand(page);
     const pile=await page.rect('#wait .wpile'),off=[];

@@ -1071,7 +1071,7 @@ fn waiting_rejects_bad_triggers_and_broken_files() {
     assert_eq!(s.apply(&c).unwrap_err().code,"conflict");
     // A file whose waiting work sits in a pile, has a date or a bad day, or whose trigger has no wait, is refused.
     let backup=dir.path().join("backup.db");s.backup(&backup).unwrap();assert!(Store::inspect_backup(&backup).is_ok());
-    for sql in ["UPDATE tasks SET pile_order=1 WHERE id='a'","UPDATE tasks SET plan_date='2026-10-14',flow_order=1 WHERE id='a'","UPDATE tasks SET wait_since='2026-13-01' WHERE id='a'",
+    for sql in ["UPDATE tasks SET pile_order=0 WHERE id='a'","UPDATE tasks SET pile_id='shelf' WHERE id='a'","UPDATE tasks SET plan_date='2026-10-14',flow_order=1 WHERE id='a'","UPDATE tasks SET wait_since='2026-13-01' WHERE id='a'",
         "UPDATE tasks SET wait_until='내일' WHERE id='a'","UPDATE tasks SET wait_for='회신' WHERE id='b'","UPDATE tasks SET completed=1 WHERE id='a'"] {
         let broken=dir.path().join(format!("broken-{}.db",uuid::Uuid::new_v4()));std::fs::copy(&backup,&broken).unwrap();
         {rusqlite::Connection::open(&broken).unwrap().execute_batch(sql).unwrap();}

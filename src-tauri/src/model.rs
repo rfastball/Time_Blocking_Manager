@@ -172,6 +172,7 @@ pub enum Action {
     Wait { items:Vec<TaskRevision>, trigger:String, #[serde(default)] until:Option<String>, since:String },
     // Back from 기다림: sized work on top of the shelf, protos on top of the 들어옴, each in the given order.
     Revive { items:Vec<TaskRevision> },
+    ReorderWait { expected:Vec<TaskRevision> },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

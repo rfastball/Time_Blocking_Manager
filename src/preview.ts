@@ -300,10 +300,19 @@ function revive({s}:Write,a:Of<'revive'>){
   const protos=back.filter(t=>t.proto).map(t=>t.id);if(protos.length)put(s,protos,null,0);
 }
 
+function reorderWait({s}:Write,a:Of<'reorder_wait'>){
+  uniqueRevisions(a.expected);
+  if(!a.expected.length)reject('순서를 바꿀 기다림을 선택하세요.');
+  const tasks=tasksAt(s,a.expected,t=>!!t.wait_since),first=tasks[0];
+  const group=s.tasks.filter(t=>t.wait_since&&(t.wait_for??'')===(first.wait_for??'')&&(t.wait_until??null)===(first.wait_until??null));
+  if(group.length!==tasks.length||tasks.some(t=>!group.includes(t)))reject('기다림 묶음이 바뀌었습니다.','conflict');
+  tasks.forEach((t,n)=>{t.pile_order=n+1;t.revision++;});
+}
+
 const actions:{[K in Action['type']]:(w:Write,a:Of<K>)=>void}={
   create,create_scheduled:create,create_flow:create,update,set_completed:setCompleted,delete:remove,restore_trashed:restoreTrashed,purge_trashed:purgeTrashed,
   split_pieces:splitPieces,set_settings:setSettings,set_schedule:setSettings,set_routines:setRoutines,ensure_routines:ensureRoutines,clear_day:clearDay,
-  reorder_flow:reorderFlow,complete_flow:completeFlow,reflow,ship_flow:shipFlow,place_unplanned:placeUnplanned,merge_unplanned:mergeUnplanned,wait,revive,
+  reorder_flow:reorderFlow,reorder_wait:reorderWait,complete_flow:completeFlow,reflow,ship_flow:shipFlow,place_unplanned:placeUnplanned,merge_unplanned:mergeUnplanned,wait,revive,
 };
 
 // Browser preview stand-in for the Rust store: the same transitions on a cloned snapshot.

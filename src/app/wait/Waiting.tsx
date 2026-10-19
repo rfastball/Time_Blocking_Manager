@@ -6,7 +6,7 @@ import type {Task} from '../../types.ts';
 import {isCompositionKey} from '../../capture.ts';
 import {jump,keyInitial,sinceLabel,staleLabel,waitGroups,type WaitGroup} from '../../waiting.ts';
 import {getState,useApp} from '../store/state.ts';
-import {editTrigger,revive,setBand} from '../store/wait.ts';
+import {editTrigger,reorderWait,revive,setBand} from '../store/wait.ts';
 import {deleteTask} from '../store/tasks.ts';
 import {openEditor} from '../store/editor.ts';
 import {aimedAt,useDrag,useRegion} from '../space/drag.tsx';
@@ -75,8 +75,12 @@ export function Waiting(){
   const heldIds=new Set(held&&!held.dropping?held.ids:[]);
 
   function keyOf(id:string,e:KeyboardEvent){
-    const g=groupOf.get(id);if(!g||e.ctrlKey||e.metaKey||e.altKey||getState().ui.naming)return;
+    const g=groupOf.get(id);if(!g||e.ctrlKey||e.metaKey||getState().ui.naming)return;
     const pile=g.items.length>1,isOpen=raised===g.key,closedTop=pile&&!isOpen,at=visible.indexOf(id),t=g.items.find(x=>x.id===id)!;
+    if(e.altKey){
+      if(isOpen&&(e.key==='ArrowUp'||e.key==='ArrowDown')){e.preventDefault();void reorderWait(id,at+(e.key==='ArrowUp'?-1:1)).then(()=>focus(id));}
+      return;
+    }
     const go=(to:string|undefined)=>{e.preventDefault();if(to)focus(to);};
     if(e.key==='ArrowDown')return go(visible[at+1]);
     if(e.key==='ArrowUp')return go(visible[at-1]);
@@ -218,11 +222,13 @@ function Pile({group}:{group:WaitGroup}){
 function PileFace({group,mode,width,top,openUp,close,static:still=false,drag}:{group:WaitGroup;mode:Mode;width:number;top:number;openUp:(id?:string)=>void;close:()=>void;static?:boolean;drag?:{ids:string[]}}){
   const b=useBand(),ready=group.kind==='ready',n=group.items.length,ids=group.items.map(t=>t.id);
   const p=pose(n,mode,ready,width||236,top),rest=pose(n,'rest',ready,width||236,top),full=mode==='open'&&!still;
+  const reorderRegion=useRegion('wait',null,{list:{gap:6,items:()=>group.items.map(t=>({id:t.id,height:32})),top:()=>top+p.cards[0].y},form:()=>({width:width||236,height:32})});
   const prev=useRef(mode),rising=RANK[mode]>RANK[prev.current];useEffect(()=>{prev.current=mode;});
   const spring=(delay=0)=>reduced()||still?{duration:0}:{type:'spring' as const,...SPRING[mode],delay:rising?delay:0};
-  const whole=useDraggable({id:`wait-peek:${group.key}`,data:{taskId:ids[0],ids},disabled:!drag||still});
+  const whole=useDraggable({id:`${still?'wait-peek-rest':'wait-peek'}:${group.key}`,data:{taskId:ids[0],ids},disabled:!drag||still});
   const allOff=group.items.every(t=>b.unclip.has(t.id));
-  return <div className="wface" ref={drag&&!still?whole.setNodeRef:undefined} data-block={drag&&!still?'true':undefined} {...(drag&&!still?whole.listeners:{})}>
+  return <div className="wface" ref={drag&&!still?whole.setNodeRef:undefined} style={drag&&!still?{height:restHeight(n,ready)}:undefined} data-block={drag&&!still?'true':undefined} {...(drag&&!still?whole.listeners:{})}>
+    {full&&<div ref={reorderRegion} style={{position:'absolute',top:p.cards[0].y,width:'100%',height:(n-1)*38+32,pointerEvents:'none'}}/>}
     <motion.div aria-hidden="true" className="wtray" initial={still?false:{x:rest.tray.x,y:rest.tray.y,width:rest.tray.width,height:rest.tray.height,opacity:0,boxShadow:lift(0)}}
       animate={{x:p.tray.x,y:p.tray.y,width:p.tray.width,height:p.tray.height,opacity:p.tray.opacity,boxShadow:lift(p.tray.shadow)}} transition={spring()}/>
     <motion.div className={'wtag whead'+(ready?' ready':'')+(allOff?' off':'')} style={{zIndex:n+2}} initial={still?false:{y:rest.head.y,boxShadow:lift(0)}} animate={{y:p.head.y,boxShadow:lift(p.head.shadow)}} transition={spring()}>
@@ -241,7 +247,7 @@ function PileFace({group,mode,width,top,openUp,close,static:still=false,drag}:{g
 function PileCard({t,i,n,group,pose:p,from,transition,still,full,openUp}:{t:Task;i:number;n:number;group:WaitGroup;pose:CardPose;from:CardPose;transition:object;still:boolean;full:boolean;openUp:(id?:string)=>void}){
   const b=useBand(),ready=group.kind==='ready',corner=i===0&&!ready;
   // Raised, each block is its own: dragged alone, its own tag slice meets its own trigger.
-  const one=useDraggable({id:`wait:${t.id}`,data:{taskId:t.id},disabled:!full});
+  const one=useDraggable({id:`${still?'wait-rest':'wait'}:${t.id}`,data:{taskId:t.id},disabled:!full});
   const since=group.kind==='who'?sinceLabel(t):'',stale=group.kind==='who'?staleLabel(t,b.today):'';
   const focusable=still?i===0&&b.openKey!==group.key:full;
   return <motion.div ref={full?one.setNodeRef:undefined} data-block={full?'true':undefined} data-flight={full?t.id:undefined} {...(full?one.listeners:{})}
@@ -253,7 +259,7 @@ function PileCard({t,i,n,group,pose:p,from,transition,still,full,openUp}:{t:Task
       onClick={e=>{e.stopPropagation();if(full)b.releaseIds([t.id]);else openUp(t.id);}}>
       <motion.span className="handle" aria-hidden="true" initial={false} animate={{opacity:p.handle}} transition={{duration:still?0:.18}}><Check/></motion.span>
     </motion.button>
-    <button type="button" className="wbody" data-wait={focusable?t.id:undefined} tabIndex={focusable&&b.cursor===t.id?0:-1} aria-keyshortcuts={full?'B F2 Delete':'Enter B F2'}
+    <button type="button" className="wbody" data-wait={focusable?t.id:undefined} tabIndex={focusable&&b.cursor===t.id?0:-1} aria-keyshortcuts={full?'B F2 Delete Alt+ArrowUp Alt+ArrowDown':'Enter B F2'}
       aria-label={!full&&i===0?`${t.title} 외 ${n-1}건, 기다림: ${label(group)}${ready?', 충족':''}`:`${t.title}, 기다림: ${label(group)}${since?', '+since:''}, ${n}건 중 ${i+1}`} title={full&&since?since+' 기다림':undefined}
       aria-expanded={!full&&i===0?false:undefined}
       onClick={e=>{e.stopPropagation();if(full)openEditor(t.id,'dialog');else openUp(t.id);}} onKeyDown={e=>b.keyOf(t.id,e)} onFocus={()=>{if(b.cursor!==t.id)b.focus(t.id);}}>

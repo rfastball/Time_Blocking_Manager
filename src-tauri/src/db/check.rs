@@ -11,7 +11,7 @@ pub(super) fn validate_bench(s: &Snapshot) -> Result<()> {
     }
     for t in &s.tasks {
         if t.wait_since.is_some() {
-            if t.plan_date.is_some()||t.starts_at.is_some()||t.flow_order.is_some()||t.completed||t.pile_id.is_some()||t.pile_order.is_some() {return Err(bad());}
+            if t.plan_date.is_some()||t.starts_at.is_some()||t.flow_order.is_some()||t.completed||t.pile_id.is_some()||t.pile_order.is_some_and(|n|n<1) {return Err(bad());}
             continue;
         }
         let bench=t.plan_date.is_none()&&!t.completed;
