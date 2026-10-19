@@ -1,5 +1,13 @@
 # 검증 범위
 
+## 저장 발신 창 중복 조회 제거 Test delta (2026-10-20)
+
+- Unique risk: 발신 창의 저장 응답이 반영되지 않거나 다른 창·복원·유지보수 알림까지 무시되는 것.
+- Owner / layer: 기존 `capture.mjs` 미해결 캡처 IPC 사례를 확장해 실제 lifecycle/dispatch 경로의 발신·타 창·전역·쓰기 중 지연 알림을 확인했다. 발신 저장의 추가 load는 0회, 다른 알림은 각각 1회다.
+- Added / extended / removed: 0 / 1 / 0. 수집 사례·새 파일·브라우저 실행·CI lane·coverage 기준 변화 0. 대체할 중복 증거 없음.
+- 검증: 해당 UI 사례 1/1(5.47초), TypeScript, desktop `cargo check --locked --offline`, diff 검사 통과. 기본 Edge 디버깅 포트 연결 실패로 동일 시나리오를 임시 CDP pipe 어댑터에서 실행했다.
+- Runtime delta: 동일 UI 사례의 변경 전 시간은 미측정. 실제 네이티브 두 창 통신은 미실시이며 IPC mock과 desktop 컴파일로 검증했다.
+
 ## 기다림 정렬·트리거 변경 Codex 리뷰 Test delta (2026-10-20)
 
 - Unique risk: 묶음 전체의 조건 변경이 사용자 정렬을 지우는 것, 위치만 바꾼 뒤 다른 창에서 작성하던 내용을 저장할 때 내용 충돌이 나는 것. 기존 사례는 재정렬 직후의 revision과 전체 묶음 조건 변경을 확인하지 않았다.

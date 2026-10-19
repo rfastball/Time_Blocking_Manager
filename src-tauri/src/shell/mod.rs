@@ -32,10 +32,10 @@ fn with_store<T>(s: &State, f: impl FnOnce(&mut Store) -> Result<T>) -> Result<T
 }
 /// Logs how a store operation ended and passes its result through.
 fn audited<T>(s: &State, event: &str, result: Result<T>) -> Result<T> { audit::record(&s.root, event, audit::outcome(&result)); result }
-/// Like `audited`, and asks every window to reload once the data changed.
-fn changed<T>(app: &tauri::AppHandle, s: &State, event: &str, result: Result<T>) -> Result<T> {
+/// The origin already receives the mutation snapshot; other changes refresh every window.
+fn changed<T>(app: &tauri::AppHandle, s: &State, event: &str, origin: Option<&str>, result: Result<T>) -> Result<T> {
     let result = audited(s, event, result);
-    if result.is_ok() { let _ = app.emit(DATA_CHANGED, ()); }
+    if result.is_ok() { let _ = app.emit(DATA_CHANGED, origin); }
     result
 }
 fn set_warning(s: &State, message: String) { if let Ok(mut warning)=s.warning.lock() { *warning=Some(message); } }

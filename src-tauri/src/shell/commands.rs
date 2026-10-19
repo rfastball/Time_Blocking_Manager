@@ -28,8 +28,8 @@ pub fn save_draft(s:tauri::State<State>,window:WebviewWindow,sequence:i64,conten
 #[tauri::command]
 pub fn acknowledge(s: tauri::State<State>, command: Command) -> Result<Option<Snapshot>> {with_store(&s,|db|db.acknowledge(&command))}
 #[tauri::command]
-pub fn mutate(s: tauri::State<State>, app: AppHandle, command: Command) -> Result<Snapshot> {
-    changed(&app,&s,"mutation",with_store(&s, |db| db.apply(&command)))
+pub fn mutate(s: tauri::State<State>, app: AppHandle, window: WebviewWindow, command: Command) -> Result<Snapshot> {
+    changed(&app,&s,"mutation",Some(window.label()),with_store(&s, |db| db.apply(&command)))
 }
 
 #[tauri::command]
@@ -55,7 +55,7 @@ pub fn restore(s: tauri::State<State>, app: AppHandle, window: WebviewWindow, id
         fs::create_dir_all(safety.parent().unwrap())?;
         with_store(&s, |db| db.restore(&source,&epoch,&safety))
     };
-    changed(&app,&s,"restore",result)
+    changed(&app,&s,"restore",None,result)
 }
 #[tauri::command]
 pub fn recover_backup(s: tauri::State<State>, app: AppHandle, window: WebviewWindow, id: String) -> Result<Snapshot> {
@@ -67,7 +67,7 @@ pub fn recover_backup(s: tauri::State<State>, app: AppHandle, window: WebviewWin
             let snapshot=store.snapshot()?;*guard=Ok(store);Ok(snapshot)
         })
     };
-    changed(&app,&s,"recovery",result)
+    changed(&app,&s,"recovery",None,result)
 }
 #[tauri::command]
 pub fn set_dirty(s: tauri::State<State>, window: WebviewWindow, dirty: bool) -> Result<()> {
