@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {search} from './search.ts';
+import {createSearch,search} from './search.ts';
 import type {Task,Trashed} from './types.ts';
 
 const task=(id:string,title:string,extra:Partial<Task>={}):Task=>({id,title,body:'',starts_at:null,duration:30,completed:false,revision:1,plan_date:null,flow_order:null,pile_id:null,pile_order:1,...extra});
@@ -35,4 +35,32 @@ test('the match is a plain partial match, any case, partly typed Korean included
   assert.deepEqual(search(source,'   '),[]);
   assert.deepEqual(search(source,'ㅅㄱ'),[],'no initial-consonant search');
   assert.equal(search(source,'설계',3).length,3);
+  assert.deepEqual(search(source,'설계',-2),search(source,'설계').slice(0,-2));
+  assert.deepEqual(search(source,'설계',0),[]);
+  assert.deepEqual(search({tasks:[task('nfc','가 SQL',{body:'메모'})]},'가').map(h=>h.id),['nfc']);
+});
+
+test('a search projection owns one snapshot and returns independent hits; a replacement rebuilds text and places',()=>{
+  const original={piles:[{id:'shelf',position:1},{id:'legacy',position:2}],tasks:[
+    task('legacy','검색 구형',{pile_id:'legacy',pile_order:1}),
+    task('shelf','검색 선반',{pile_id:'shelf',pile_order:2}),
+    task('wait','검색 기다림',{wait_since:'2026-10-01',wait_for:' 검토 ',wait_until:'2026-10-22'}),
+    task('late','검색 둘째',{plan_date:'2026-10-21',flow_order:2}),
+    task('early','검색 첫째',{plan_date:'2026-10-21',flow_order:1}),
+    task('other','검색 다른 날',{plan_date:'2026-10-20',flow_order:1}),
+  ]};
+  const before=structuredClone(original),find=createSearch(original),hits=find('검색');
+  assert.deepEqual(hits.map(h=>[h.id,h.where]),[
+    ['shelf','선반 · 1번째'],['legacy','선반 · 2번째'],['wait','기다림 · 검토 · 10/22 이후'],
+    ['other','10월 20일 · 순서 1'],['late','10월 21일 · 순서 2'],['early','10월 21일 · 순서 1'],
+  ]);
+  hits[0].title='외부 수정';hits[0].where='외부 수정';hits.splice(1);
+  assert.equal(find('검색')[0].title,'검색 선반');
+  assert.equal(find('검색')[0].where,'선반 · 1번째');
+  const next={...original,tasks:original.tasks.map(t=>t.id==='shelf'?{...t,title:'바뀐 제목',body:'새 메모',pile_id:null}:t)};
+  const updated=createSearch(next);
+  assert.equal(find('검색').length,6,'the old snapshot remains usable');
+  assert.equal(updated('검색').length,5,'replacement removes the old title');
+  assert.deepEqual(updated('새 메모').map(h=>[h.id,h.where,h.inTitle]),[['shelf','들어옴',false]]);
+  assert.deepEqual(original,before,'building and querying never sort or edit source arrays');
 });

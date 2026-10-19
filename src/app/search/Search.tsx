@@ -2,7 +2,7 @@
 import {useEffect,useLayoutEffect,useMemo,useRef,useState,type KeyboardEvent} from 'react';
 import {motion} from 'motion/react';
 import {isCompositionKey} from '../../capture.ts';
-import {search,type Hit} from '../../search.ts';
+import {createSearch,type Hit} from '../../search.ts';
 import {getState,openBench,setNav,setUi,useApp} from '../store/state.ts';
 import {reduced} from '../ui/motion.ts';
 import {Icon} from '../ui/icons.tsx';
@@ -29,7 +29,8 @@ export function SearchHost(){
 function SearchPanel(){
   const {snapshot}=useApp(),[query,setQuery]=useState(''),[active,setActive]=useState(0);
   const [opener]=useState(()=>document.activeElement),input=useRef<HTMLInputElement>(null),panel=useRef<HTMLDivElement>(null);
-  const hits=useMemo(()=>search(snapshot!,query),[snapshot,query]);
+  const search=useMemo(()=>createSearch(snapshot!),[snapshot]);
+  const hits=useMemo(()=>search(query),[search,query]);
   useLayoutEffect(()=>{input.current?.focus();},[]);
   useEffect(()=>{setActive(0);},[query]);
   useEffect(()=>{document.getElementById('hit-'+hits[active]?.id)?.scrollIntoView({block:'nearest'});},[active,hits]);
