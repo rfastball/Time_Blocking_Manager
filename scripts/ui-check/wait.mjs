@@ -228,6 +228,23 @@ const scenarios=[
     const input='.ed input[aria-label="트리거"]';
     assert.equal(await page.js(`document.querySelector('${input}')?.value`),'김부장 결재');
     const before=await page.task('출장비 정산');
+    await page.js(`document.querySelector('${input}').select()`);await page.type(' ');
+    for(const theme of ['default','g1','g3','g4']){
+      await page.js(`document.documentElement.dataset.theme=${JSON.stringify(theme)}`);
+      const field=await page.rect(input),list=await page.rect('.ed-trigger-options'),save=await page.rect('.ed button[type="submit"]');
+      assert.ok(list&&Math.abs(field.x-list.x)<1&&Math.abs(field.w-list.w)<1,theme+': suggestions align with the input');
+      assert.ok(list.y+list.h<=save.y,theme+': suggestions do not cover save');
+      if(theme==='g3')await page.shot('wait-editor-trigger-options');
+    }
+    await page.js(`document.documentElement.dataset.theme='default'`);
+    await page.key('ArrowUp');
+    assert.match(await page.text('.ed-trigger-options [aria-selected="true"]'),/다음 주 월/,'Up starts at the last suggestion');
+    await page.key('ArrowDown');await page.key('Enter');
+    assert.equal(await page.js(`document.querySelector('${input}').value`),'김부장 결재','Enter selects the active suggestion without saving');
+    assert.equal((await page.task('출장비 정산')).revision,before.revision);
+    await page.js(`document.querySelector('${input}').select()`);await page.type(' ');await page.key('Escape');
+    assert.equal(await page.js(`!!document.querySelector('.ed-trigger-options')`),false,'Escape closes suggestions only');
+    assert.ok(await page.rect(input),'the editor remains open');
     await page.js(`document.querySelector('${input}').select()`);await page.type('법무팀 회신');
     await page.click('.ed textarea');await page.type('정산 확인 요청');
     await page.key('Escape');await page.click('.ed-confirm button','초안으로 남기고 닫기');
@@ -241,7 +258,8 @@ const scenarios=[
     assert.equal(saved.wait_since,before.wait_since);assert.equal(saved.revision,before.revision+1,'one atomic update');
     assert.equal((await page.task('상신 문서 보완')).wait_for,'김부장 결재','siblings keep their trigger');
     await page.click('#wait [data-wait="sample-w2"]');
-    await page.js(`document.querySelector('${input}').select()`);await page.type('내일');
+    await page.js(`document.querySelector('${input}').select()`);await page.type(' ');
+    await page.click('.ed-trigger-options button','내일');
     await page.click('.ed button[type="submit"]');await page.sleep(350);
     const dated=await page.task('출장비 정산');
     assert.ok(dated.wait_until);assert.equal(dated.wait_for,'');assert.equal(dated.wait_since,before.wait_since);

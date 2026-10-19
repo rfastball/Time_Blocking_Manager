@@ -1,5 +1,11 @@
 # 검증 범위
 
+## 상세 트리거 추천 목록 Test delta (2026-10-19)
+
+- Unique risk: native datalist가 앱 테마·입력 폭과 다르게 렌더링되는 것, 추천 선택 Enter가 폼을 저장하거나 Esc가 편집창까지 닫는 것.
+- Owner / layer: 기존 `wait.mjs` 상세 트리거 사례에 네 테마 폭·저장 버튼 비가림, ↑/↓·Enter·Esc, 마우스 날짜 선택을 확장했다. 수집 사례·프로세스·lane·coverage 기준 변화 0.
+- 기존 브라우저 기본 목록을 앱의 테마 토큰을 쓰는 combobox/listbox로 교체했다. 해당 UI 사례와 TypeScript·Vite 빌드 통과. Runtime delta는 기준 미측정(최종 사례 본체 5.3초). 네이티브 창 수동 조작은 미실시.
+
 ## 대기블록 드래그 원본 유지 Test delta (2026-10-19)
 
 - Unique risk: 드래그 시작 시 원본 내용이 숨겨지거나 캘린더 호버만으로 기다림 원본이 사라지는 것.

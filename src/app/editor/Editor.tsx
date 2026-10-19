@@ -107,11 +107,7 @@ export function Editor({mode,closer}:{mode:'panel'|'dialog';closer?:MutableRefOb
       {pending&&<div className="ed-note" role="alert"><p>먼저 ‘{e.title||'제목 없음'}’의 변경을 정리해 주세요.</p><button type="button" className="btn" onClick={switchToPending}>버리고 ‘{pending.title}’ 열기</button></div>}
       {conflict&&<div className="ed-note" role="alert"><p>다른 곳에서 이 항목이 바뀌었어요. 입력한 내용은 그대로 있어요.</p><button type="button" className="btn" onClick={()=>void rebase()}>내 입력으로 저장</button></div>}
       <textarea className="ed-memo" aria-label="메모" placeholder="메모" rows={mode==='dialog'?9:7} value={e.body} onChange={x=>edit({body:x.target.value})}/>
-      {e.wait_since&&!e.plan_date&&!e.starts_at&&<label className="ed-field ed-trigger"><span>트리거</span>
-        <input aria-label="트리거" list={ids+'triggers'} autoComplete="off" maxLength={100} placeholder="상대 또는 날짜"
-          value={e.triggerInput??(e.wait_until?slashDate(e.wait_until):e.wait_for??'')} onChange={x=>edit({triggerInput:x.target.value})}/>
-        <datalist id={ids+'triggers'}>{triggerOptions('',snapshot!.tasks,s.today).map(o=><option key={o.text} value={o.text}/>)}</datalist>
-      </label>}
+      {e.wait_since&&!e.plan_date&&!e.starts_at&&<TriggerField value={e.triggerInput??(e.wait_until?slashDate(e.wait_until):e.wait_for??'')} onChange={value=>edit({triggerInput:value})}/>}
       {items.length>0&&<details className="ed-fold ed-checklist">
         <summary>체크리스트 <b>{count.done}/{count.total}</b></summary>
         <div className="ed-checks">{items.map(i=><label key={i.line} className="ed-check"><input type="checkbox" checked={i.checked} onChange={x=>edit({body:toggleCheck(e.body,i.line,x.target.checked)})}/><span>{i.label||'항목'}</span></label>)}</div>
@@ -156,4 +152,33 @@ export function Editor({mode,closer}:{mode:'panel'|'dialog';closer?:MutableRefOb
       </div>}
     </footer>
   </form>;
+}
+
+function TriggerField({value,onChange}:{value:string;onChange:(value:string)=>void}){
+  const {snapshot,today}=useApp(),id=useId(),[open,setOpen]=useState(false),[hi,setHi]=useState(-1);
+  const options=triggerOptions(value,snapshot!.tasks,today),shown=open&&options.length>0;
+  const choose=(text:string)=>{onChange(text);setOpen(false);setHi(-1);};
+  return <div className="ed-field ed-trigger">
+    <label htmlFor={id}>트리거</label>
+    <input id={id} aria-label="트리거" role="combobox" aria-autocomplete="list" aria-expanded={shown} aria-controls={shown?id+'-options':undefined}
+      aria-activedescendant={shown&&hi>=0?id+'-option-'+hi:undefined} autoComplete="off" maxLength={100} placeholder="상대 또는 날짜" value={value}
+      onFocus={()=>setOpen(true)} onClick={()=>setOpen(true)} onBlur={e=>{
+        // Keep the form button under the pointer until its click has been handled.
+        if(!(e.relatedTarget instanceof HTMLButtonElement))setOpen(false);
+        setHi(-1);
+      }}
+      onChange={e=>{onChange(e.target.value);setOpen(true);setHi(-1);}}
+      onKeyDown={e=>{
+        if(isCompositionKey(e.nativeEvent)||e.ctrlKey||e.metaKey)return;
+        if(e.key==='ArrowDown'||e.key==='ArrowUp'){
+          e.preventDefault();setOpen(true);
+          if(options.length)setHi(!shown||hi<0?(e.key==='ArrowDown'?0:options.length-1):(hi+(e.key==='ArrowDown'?1:-1)+options.length)%options.length);
+        }else if(e.key==='Enter'&&shown&&hi>=0){e.preventDefault();e.stopPropagation();choose(options[hi].text);}
+        else if(e.key==='Escape'&&shown){e.preventDefault();e.stopPropagation();setOpen(false);setHi(-1);}
+      }}/>
+    {shown&&<div id={id+'-options'} className="ed-trigger-options" role="listbox" aria-label="트리거 추천">
+      {options.map((o,i)=><button key={o.text} id={id+'-option-'+i} type="button" role="option" tabIndex={-1} aria-selected={i===hi}
+        onMouseDown={e=>e.preventDefault()} onClick={()=>choose(o.text)}><span>{o.text}</span>{o.note&&<small>{o.note}</small>}</button>)}
+    </div>}
+  </div>;
 }
