@@ -441,10 +441,14 @@ impl<'a> Write<'a> {
         let trigger=trigger.trim();
         if trigger.len()>200 {return Err(error("validation","기다림 조건을 확인하세요."));}
         parse_date(since)?;if let Some(until)=until {parse_date(until)?;}
-        // Out of its day, pile or 기다림 trigger; the day keeps its other order numbers, as when work goes back to 준비.
-        for t in self.tasks_at(items,|t|!t.completed)? {
-            self.tx.execute("UPDATE tasks SET starts_at=NULL,plan_date=NULL,flow_order=NULL,pile_id=NULL,pile_order=NULL,wait_for=?1,wait_until=?2,wait_since=?3,revision=revision+1 WHERE id=?4",
-                params![trigger,until,t.wait_since.as_deref().unwrap_or(since),t.id])?;
+        let tasks=self.tasks_at(items,|t|!t.completed)?;
+        let first=tasks[0];
+        // Retagging a complete waiting group keeps its chosen order; moving a subset starts afresh.
+        let keep_order=tasks.iter().all(|t|t.wait_since.is_some()&&t.wait_for==first.wait_for&&t.wait_until==first.wait_until)
+            && self.s.tasks.iter().filter(|t|t.wait_since.is_some()&&t.wait_for==first.wait_for&&t.wait_until==first.wait_until).count()==tasks.len();
+        for t in tasks {
+            self.tx.execute("UPDATE tasks SET starts_at=NULL,plan_date=NULL,flow_order=NULL,pile_id=NULL,pile_order=?5,wait_for=?1,wait_until=?2,wait_since=?3,revision=revision+1 WHERE id=?4",
+                params![trigger,until,t.wait_since.as_deref().unwrap_or(since),t.id,if keep_order {t.pile_order} else {None}])?;
         }
         Ok(())
     }
@@ -455,7 +459,7 @@ impl<'a> Write<'a> {
         let first=tasks[0];
         let group:Vec<_>=self.s.tasks.iter().filter(|t|t.wait_since.is_some()&&t.wait_for.as_deref().unwrap_or("")==first.wait_for.as_deref().unwrap_or("")&&t.wait_until==first.wait_until).collect();
         if group.len()!=tasks.len()||tasks.iter().any(|t|!group.iter().any(|g|g.id==t.id)) {return Err(error("conflict","기다림 묶음이 바뀌었습니다."));}
-        for (n,t) in tasks.iter().enumerate() {self.tx.execute("UPDATE tasks SET pile_order=?1,revision=revision+1 WHERE id=?2",params![n as i64+1,t.id])?;}
+        for (n,t) in tasks.iter().enumerate() {self.tx.execute("UPDATE tasks SET pile_order=?1 WHERE id=?2",params![n as i64+1,t.id])?;}
         Ok(())
     }
     fn revive(&self, items: &[TaskRevision]) -> Result<()> {

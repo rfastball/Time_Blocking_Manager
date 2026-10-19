@@ -1,5 +1,13 @@
 # 검증 범위
 
+## 기다림 정렬·트리거 변경 Codex 리뷰 Test delta (2026-10-20)
+
+- Unique risk: 묶음 전체의 조건 변경이 사용자 정렬을 지우는 것, 위치만 바꾼 뒤 다른 창에서 작성하던 내용을 저장할 때 내용 충돌이 나는 것. 기존 사례는 재정렬 직후의 revision과 전체 묶음 조건 변경을 확인하지 않았다.
+- Owner / layer: 기존 storage.rs 기다림 사례에서 재정렬 전 revision으로 편집 저장, 전체 묶음의 날짜·텍스트 조건 왕복 변경 후 순서·최초 대기일 유지를 검증한다. 기존 wait_revive parity에 조건 변경 2단계를 넣어 Rust와 preview의 변환을 함께 확인한다.
+- Added / extended / removed: 0 / 2 / 0. 수집 사례·파일·프로세스·브라우저 실행·coverage 기준 변화 0, 중복으로 대체할 기존 증거 없음.
+- 두 지적 모두 수정 전 실패 확인 후 통과. Node 106/106, Rust core 26/26·parity 1/1·storage 33/33, TypeScript·Vite 빌드 및 git diff --check 통과.
+- Runtime delta: 같은 조건의 성공 baseline이 없어 미측정. 확장한 storage 단독 본체 0.26초. UI·네이티브 수동 검사는 실행하지 않았다.
+
 ## 트리거 추천 팝업의 편집창 고정 Test delta (2026-10-19)
 
 - Unique risk: 추천 목록이 편집창의 높이·중앙 위치를 바꾸거나 스크롤 영역에 잘리는 것.

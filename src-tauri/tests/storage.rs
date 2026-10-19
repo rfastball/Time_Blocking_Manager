@@ -1002,11 +1002,23 @@ fn waiting_work_keeps_its_trigger_until_revived_onto_the_shelf_or_the_inbox() {
     assert!(find(&snap,"p").proto,"a waiting proto stays one");assert!(!find(&snap,"a").proto);
     assert_eq!(bench(&snap),vec![(None,vec![]),(some("shelf"),ids(&["b","keep"]))]);assert_eq!(ordered(&snap,day),["g"]);assert_eq!(find(&snap,"g"),g);
     // The editor saves text and a single trigger atomically, preserving age and unchanged group order.
-    let c=command(&s,Action::ReorderWait{expected:revs(&snap,&["x","f","a","p"])});let snap=s.apply(&c).unwrap();
-    let old=find(&snap,"a");let mut edit=place(&old,None,None);
+    let revisions=revs(&snap,&["x","f","a","p"]);
+    let c=command(&s,Action::ReorderWait{expected:revisions.clone()});let snap=s.apply(&c).unwrap();
+    for r in &revisions {assert_eq!(find(&snap,&r.id).revision,r.revision,"position-only changes keep open editors valid");}
+    // Retagging the whole group keeps its chosen order, including across date/text triggers.
+    for (trigger,until) in [("  회신  ",Some("2026-10-21")),("김부장 결재",None)] {
+        let snap=wait(&mut s,&["p","a","f","x"],trigger,until,today).unwrap();
+        for (n,id) in ["x","f","a","p"].iter().enumerate() {
+            let t=find(&snap,id);assert_eq!((t.pile_order,t.wait_since.as_deref()),(Some(n as i64+1),Some(today)));
+        }
+    }
+    // The editor revision captured before a later reorder remains usable.
+    let snap=s.snapshot().unwrap();let old=find(&snap,"a");
+    let c=command(&s,Action::ReorderWait{expected:revs(&snap,&["p","a","f","x"])});s.apply(&c).unwrap();
+    let mut edit=place(&old,None,None);
     if let Action::Update{title,body,wait,..}=&mut edit {*title="제목 수정".into();*body="메모 수정".into();*wait=Some(WaitEdit{trigger:"  김부장 결재  ".into(),until:None});}
     let c=command(&s,edit);let snap=s.apply(&c).unwrap();let a=find(&snap,"a");
-    assert_eq!((a.title.as_str(),a.body.as_str(),a.wait_since.as_deref(),a.pile_order,a.revision),("제목 수정","메모 수정",Some(today),old.pile_order,old.revision+1));
+    assert_eq!((a.title.as_str(),a.body.as_str(),a.wait_since.as_deref(),a.pile_order,a.revision),("제목 수정","메모 수정",Some(today),Some(2),old.revision+1));
     let mut edit=place(&a,None,None);
     if let Action::Update{wait,..}=&mut edit {*wait=Some(WaitEdit{trigger:"회신".into(),until:Some("2026-10-21".into())});}
     let c=command(&s,edit);let snap=s.apply(&c).unwrap();let a=find(&snap,"a");

@@ -297,8 +297,11 @@ function wait({s}:Write,a:Of<'wait'>){
   uniqueRevisions(a.items);if(!a.items.length)reject('기다릴 작업을 선택하세요.');
   const trigger=a.trigger.trim();if(bytes(trigger)>200)reject('기다림 조건을 확인하세요.');
   parseDate(a.since);if(a.until!==null)parseDate(a.until);
-  // Out of its day, pile or 기다림 trigger; the day keeps its other order numbers, as when work goes back to 준비.
-  for(const t of tasksAt(s,a.items,t=>!t.completed))Object.assign(t,{starts_at:null,plan_date:null,flow_order:null,pile_id:null,pile_order:null,wait_for:trigger,wait_until:a.until,wait_since:t.wait_since??a.since,revision:t.revision+1});
+  const tasks=tasksAt(s,a.items,t=>!t.completed),first=tasks[0];
+  // Retagging a complete waiting group keeps its chosen order; moving a subset starts afresh.
+  const same=(t:Task)=>!!t.wait_since&&(t.wait_for??'')===(first.wait_for??'')&&(t.wait_until??null)===(first.wait_until??null);
+  const keepOrder=tasks.every(same)&&s.tasks.filter(same).length===tasks.length;
+  for(const t of tasks)Object.assign(t,{starts_at:null,plan_date:null,flow_order:null,pile_id:null,pile_order:keepOrder?t.pile_order??null:null,wait_for:trigger,wait_until:a.until,wait_since:t.wait_since??a.since,revision:t.revision+1});
 }
 function revive({s}:Write,a:Of<'revive'>){
   uniqueRevisions(a.items);if(!a.items.length)reject('꺼낼 작업을 선택하세요.');
@@ -315,7 +318,7 @@ function reorderWait({s}:Write,a:Of<'reorder_wait'>){
   const tasks=tasksAt(s,a.expected,t=>!!t.wait_since),first=tasks[0];
   const group=s.tasks.filter(t=>t.wait_since&&(t.wait_for??'')===(first.wait_for??'')&&(t.wait_until??null)===(first.wait_until??null));
   if(group.length!==tasks.length||tasks.some(t=>!group.includes(t)))reject('기다림 묶음이 바뀌었습니다.','conflict');
-  tasks.forEach((t,n)=>{t.pile_order=n+1;t.revision++;});
+  tasks.forEach((t,n)=>{t.pile_order=n+1;});
 }
 
 const actions:{[K in Action['type']]:(w:Write,a:Of<K>)=>void}={
