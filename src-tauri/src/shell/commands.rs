@@ -1,5 +1,5 @@
 //! Every command the frontend invokes by name. Signatures are the IPC contract; keep names and arguments stable.
-use super::{audited, changed, lock, quit, windows::{hide, show, CAPTURE}, with_store, State, STORE_LOCK};
+use super::{audited, changed, lock, quit, windows::{hide, show, CAPTURE}, with_store, State, BACKUP_LOCK, STORE_LOCK};
 use blokky_core::{db::{managed_backup_path, BackupInspection, ManagedBackup, Store}, maintenance::open_store, model::*, settings};
 use std::{fs, sync::MutexGuard};
 use tauri::{AppHandle, WebviewWindow};
@@ -50,6 +50,7 @@ pub async fn inspect_backup(s: tauri::State<'_,State>, id: String) -> Result<Bac
 pub fn restore(s: tauri::State<State>, app: AppHandle, window: WebviewWindow, id: String, epoch: String) -> Result<Snapshot> {
     let result={
         let _busy=only_caller_unsaved(&s,&window)?;
+        let _backup=lock(&s.backup,BACKUP_LOCK)?;
         let source=managed_backup_path(&s.root,&id)?;
         let safety = s.root.join("backups").join(format!("before-restore-{}.sqlite", uuid::Uuid::new_v4()));
         fs::create_dir_all(safety.parent().unwrap())?;
@@ -61,6 +62,7 @@ pub fn restore(s: tauri::State<State>, app: AppHandle, window: WebviewWindow, id
 pub fn recover_backup(s: tauri::State<State>, app: AppHandle, window: WebviewWindow, id: String) -> Result<Snapshot> {
     let result={
         let _busy=only_caller_unsaved(&s,&window)?;
+        let _backup=lock(&s.backup,BACKUP_LOCK)?;
         let mut guard=lock(&s.store,STORE_LOCK)?;
         if guard.is_ok() {return Err(error("conflict","정상 저장소는 기록을 다시 불러온 뒤 일반 복원을 사용하세요."));}
         Store::recover_from_backup(&s.root,&id).and_then(|store|{

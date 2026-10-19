@@ -511,14 +511,17 @@ fn automatic_backups_keep_distinct_hours_and_days_and_verify_metadata() {
     use chrono::{Local,TimeZone,Duration};
     let dir=tempdir().unwrap();let s=Store::open(&dir.path().join("app.db")).unwrap();let backups=dir.path().join("backups");
     let start=Local.with_ymd_and_hms(2026,9,1,9,0,0).unwrap();
-    for n in 0..32 {s.automatic_backup(&backups,start+Duration::days(n)).unwrap();}
-    s.automatic_backup(&backups,start+Duration::days(31)).unwrap();
+    for n in 0..32 {Store::automatic_backup(&backups,start+Duration::days(n),|path|s.backup(path)).unwrap();}
+    drop(s);
+    Store::automatic_backup(&backups,start+Duration::days(31),|_|panic!("existing backups must not copy the live store")).unwrap();
     let names:Vec<_>=std::fs::read_dir(&backups).unwrap().map(|e|e.unwrap().file_name().to_string_lossy().to_string()).collect();
     assert_eq!(names.iter().filter(|n|n.starts_with("hour-")).count(),24);
     assert_eq!(names.iter().filter(|n|n.starts_with("day-")).count(),30);
     let broken=backups.join("hour-2026100409.sqlite");std::fs::write(&broken,b"broken").unwrap();
-    assert!(s.automatic_backup(&backups,start+Duration::days(33)).is_err());
+    assert!(Store::automatic_backup(&backups,start+Duration::days(33),|_|panic!("a corrupt hour must fail before the daily copy")).is_err());
     assert_eq!(std::fs::read(&broken).unwrap(),b"broken");
+    assert!(names.iter().all(|name|backups.join(name).exists()));
+    assert!(!backups.join("day-20261004.sqlite").exists());
 }
 
 #[test]
