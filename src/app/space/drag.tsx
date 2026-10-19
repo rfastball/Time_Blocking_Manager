@@ -26,7 +26,7 @@ type Region={key:string;kind:'space'|'date'|'tray'|'inbox'|'shelf'|'wait';date:s
 // `passing`: the hand is crossing a place it has not come to rest on; the copy keeps the shape and `look` (the zone it was
 // last shaped by) of the place before, and that place's preview stays, while `intent` already says where a release would land.
 // `ready`: the day whose rail the block can be pushed into now (it has come into that day's order).
-export type Held={task:Task;ids:string[];intent:Intent;ready?:string|null;slot:Slot|null;column:boolean;density?:Density;boundary?:boolean;axis?:TimeAxis;startRect:{left:number;top:number;width:number;height:number};grabX:number;grabY:number;width:number;height:number;dropping?:boolean;passing?:boolean;look?:Intent['zone']};
+export type Held={folded?:'left'|'right'|null;task:Task;ids:string[];intent:Intent;ready?:string|null;slot:Slot|null;column:boolean;density?:Density;boundary?:boolean;axis?:TimeAxis;startRect:{left:number;top:number;width:number;height:number};grabX:number;grabY:number;width:number;height:number;dropping?:boolean;passing?:boolean;look?:Intent['zone']};
 // `pushed`: blocks the shown change would newly put past working time.
 type Ctx={held:Held|null;pending:Intent|null;tasks:Task[];pushed:string[];register:(r:Region)=>()=>void};
 const DragCtx=createContext<Ctx>({held:null,pending:null,tasks:[],pushed:[],register:()=>()=>{}});
@@ -193,16 +193,18 @@ export function DragProvider({children}:{children:ReactNode}){
     const rect=region?.el.getBoundingClientRect(),g=region?.geometry,axis=region?.axis;
     // Only the rail constrains the hand to a 15-minute tick; the hollow carries the projected order slot.
     snap.current=!passing&&rect&&g&&axis&&intent.zone==='rail'?{left:rect.left+g.fixedLeft+near*g.give,top:rect.top+axis.position(intent.start!)+1}:null;
-    const form=region?.form?.(h.task,h.ids)??null;
+    const nav=getState().nav;
+    const folded:Held['folded']=intent.ok?(intent.zone==='tray'&&nav.dock==='hidden'?'left':intent.zone==='wait'&&nav.band==='closed'?'right':null):null;
+    const form=folded?{width:84,height:28,density:'line' as const}:region?.form?.(h.task,h.ids)??null;
     const width=form?form.width:rect&&g?(intent.zone==='rail'?rect.width-g.fixedLeft-g.right:intent.zone==='body'?rect.width-g.flowLeft-g.right:s.width):s.width;
     const at=intent.zone==='rail'?intent.start:null;
     const duration=h.ids.reduce((n,id)=>n+(base.find(t=>t.id===id)?.duration??0),0);
     const height=form?form.height:axis?Math.max(10,at!==null?axis.position(at+duration)-axis.position(at)-2:duration*axis.scale-2):s.height;
     const column=g?.ruler===0,density:Density=form?.density??(column?'narrow':'full');
     // Passing through, the copy stays as the last place made it.
-    const shape=passing?{column:h.column,density:h.density,width:h.width,height:h.height,axis:h.axis,look:h.look}:{column,density,width,height,axis,look:intent.zone};
+    const shape=passing?{folded:h.folded,column:h.column,density:h.density,width:h.width,height:h.height,axis:h.axis,look:h.look}:{folded,column,density,width,height,axis,look:intent.zone};
     const i=h.intent;
-    if(h.column!==shape.column||h.density!==shape.density||i.zone!==intent.zone||i.date!==intent.date||i.before!==intent.before||i.start!==intent.start||i.ok!==intent.ok||shape.width!==h.width||shape.height!==h.height||h.boundary!==boundary
+    if(h.folded!==shape.folded||h.column!==shape.column||h.density!==shape.density||i.zone!==intent.zone||i.date!==intent.date||i.before!==intent.before||i.start!==intent.start||i.ok!==intent.ok||shape.width!==h.width||shape.height!==h.height||h.boundary!==boundary
       ||i.index!==intent.index||h.passing!==passing||h.look!==shape.look||h.ready!==ready
       ||h.slot?.start!==slot?.start||h.slot?.end!==slot?.end)setHeld({...h,intent,slot,boundary,passing,ready,...shape});
   }
@@ -268,7 +270,30 @@ export function DragProvider({children}:{children:ReactNode}){
       // The copy settles into the saved block's box: its place and its shape together.
       const rect=target?.getBoundingClientRect(),copy=dragOverlay.node.querySelector<HTMLElement>('.held'),box=copy?.getBoundingClientRect()??dragOverlay.rect;
       const translate=(x:number,y:number)=>`translate3d(${x}px,${y}px,0) scaleX(${transform.scaleX}) scaleY(${transform.scaleY})`;
-      if(!reduced()){
+      const nav=getState().nav;
+      const side=saved&&dropped.valid?(dropped.intent.zone==='tray'&&nav.dock==='hidden'?'left':dropped.intent.zone==='wait'&&nav.band==='closed'?'right':null):null;
+      const icon=side?document.querySelector<HTMLElement>(side==='left'?'#dock .dock-unfold':'#wait .wait-unfold'):null;
+      if(side&&icon&&rect&&copy&&!reduced()){
+        // One travelling face: squeeze into the rail, then unfold from that same point into the empty arrival slot.
+        const button=icon.getBoundingClientRect(),ix=button.left+button.width/2-4,iy=button.top+button.height/2-4;
+        const options:KeyframeAnimationOptions={duration:280,easing:'cubic-bezier(.2,.8,.2,1)',fill:'forwards'};
+        dragOverlay.node.dataset.railTransfer=side;icon.dataset.receiving='true';
+        const travel=dragOverlay.node.animate([
+          {offset:0,transform:translate(transform.x,transform.y),opacity:1},
+          {offset:.48,transform:translate(transform.x+ix-box.left,transform.y+iy-box.top),opacity:.25},
+          {offset:.58,transform:translate(transform.x+ix-box.left,transform.y+iy-box.top),opacity:.25},
+          {offset:1,transform:translate(transform.x+rect.left-box.left,transform.y+rect.top-box.top),opacity:1}
+        ],options);
+        const reshape=copy.animate([
+          {offset:0,width:box.width+'px',height:box.height+'px'},
+          {offset:.48,width:'8px',height:'8px'},
+          {offset:.58,width:'8px',height:'8px'},
+          {offset:1,width:rect.width+'px',height:rect.height+'px'}
+        ],options);
+        const pulse=icon.animate([{transform:'scale(1)'},{transform:'scale(1.12)',offset:.5},{transform:'scale(1)'}],options);
+        try{await Promise.all([travel.finished,reshape.finished,pulse.finished].map(p=>p.catch(()=>{})));}
+        finally{delete icon.dataset.receiving;delete dragOverlay.node.dataset.railTransfer;}
+      }else if(!reduced()){
         const options:KeyframeAnimationOptions={duration:LAND_MS,easing:'cubic-bezier(.16,1,.3,1)',fill:'forwards'};
         const animation=dragOverlay.node.animate(rect?[
           {transform:translate(transform.x,transform.y)},

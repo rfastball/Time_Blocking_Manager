@@ -27,7 +27,7 @@ export function HeldBlock({held,out,outside}:{held:Held;out:number;outside:numbe
   // The place follows the hand at once; only the shape eases into the destination's: width first, height a little after.
   const shape=reduced()?{duration:0}:{duration:MORPH_MS/1000,ease:MORPH_EASE},late={...shape,delay:reduced()?0:MORPH_MS/4000};
   // Bypass the animated grab offsets while snapped, including the first frame on the rail.
-  return <motion.div className={'blk held '+(zone==='wait'?'waits ':'')+(held.column?'column ':'')+(fixedLook?'fixed':'flow')+(height<(held.column?47:56)?' compact':'')+(density!=='full'?' '+density:'')+(bad?' bad':'')+(!rail&&!passing&&slot?.over&&intent.zone==='body'?' over':'')+(proto?' proto':'')}
+  return <motion.div className={'blk held '+(held.folded?'rail-token ':'')+(zone==='wait'?'waits ':'')+(held.column?'column ':'')+(fixedLook?'fixed':'flow')+(height<(held.column?47:56)?' compact':'')+(density!=='full'?' '+density:'')+(bad?' bad':'')+(!rail&&!passing&&slot?.over&&intent.zone==='body'?' over':'')+(proto?' proto':'')}
     style={{marginLeft:snapped?0:'var(--grab-x)',marginTop:snapped?0:'var(--grab-y)'}}
     initial={false} animate={{x:bad?[0,-4,3,-2,0]:0,width,height,'--grab-x':shiftX+'px','--grab-y':shiftY+'px'}}
     transition={{x:{duration:reduced()?0:.18},width:shape,'--grab-x':shape,height:late,'--grab-y':late}}>

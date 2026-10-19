@@ -81,9 +81,19 @@ const scenarios=[
     assert.equal(await band(page),'open','\\ opens it again');
   }},
   {name:'collapsed destinations keep an anchored block from arrival through editing in both directions',run:async page=>{
+    const preview=async side=>{
+      await page.until(`(()=>{const e=document.querySelector('.held.rail-token'),r=e?.getBoundingClientRect();return !!document.querySelector('.rail-panel.${side} .rail-face')&&r&&r.width<=100&&r.height<=36;})()`,{message:side+' rail narrows the held block into a token'});
+      assert.equal(await page.js(`document.querySelectorAll('.rail-panel.${side} .rail-face .ttl,.rail-panel.${side} .rail-face input').length`),0,'the arrival slot does not duplicate the held block or start editing');
+    };
+    const transit=async side=>{
+      await page.until(`!!document.querySelector('[data-rail-transfer="${side}"]')`,{message:side+' drop travels through the icon'});
+      assert.ok(await page.js(`!!document.querySelector('${side==='left'?'#dock':'#wait'} [data-receiving="true"]')`),'the receiving icon is highlighted during transit');
+      assert.equal(await page.js(`document.querySelectorAll('.rail-panel input').length`),0,'editing waits for the travelling block');
+    };
     const anchored=async(side,field)=>{
       const panel='.rail-panel.'+side;
       await page.until(`document.activeElement?.id===${JSON.stringify(field)}&&!!document.querySelector('${panel} #${field}')`,{message:side+' panel owns the focused editor'});
+      assert.equal(await page.js(`document.querySelectorAll('[data-rail-transfer],[data-receiving="true"],.held').length`),0,'arrival clears the travelling copy and icon highlight');
       assert.ok(await page.js(`!!document.querySelector('${panel} [data-flight]')`),'the editor has an arrival block');
       const p=await page.rect(panel),i=await page.rect('#'+field),rail=await page.rect(side==='left'?'#dock':'#wait');
       assert.ok(i.x>=p.x-1&&i.y>=p.y-1&&i.x+i.w<=p.x+p.w+1&&i.y+i.h<=p.y+p.h+1,'input stays inside its block panel');
@@ -111,13 +121,17 @@ const scenarios=[
     for(let i=1;i<=14;i++){
       await page.mouse('mouseMoved',from.cx+(to.cx-from.cx)*i/14,from.cy+(to.y+to.h-40-from.cy)*i/14);await page.sleep(16);
     }
-    await page.until(`!!document.querySelector('.rail-panel.right [data-flight]')`,{message:'resting over the rail previews the destination block'});
+    await preview('right');
     assert.equal(await band(page),'closed','preview preserves the collapsed band');
+    await page.mouse('mouseMoved',720,100);await page.sleep(250);
+    assert.equal(await page.js(`document.querySelectorAll('.rail-panel.right,.held.rail-token').length`),0,'leaving the rail restores the held block and removes its arrival slot');
+    await page.mouse('mouseMoved',to.cx,to.y+to.h-40);await preview('right');
     await page.sleep(200); // Let the panel entrance finish before crossing into its arrival face.
     const arrival=await page.rect('.rail-panel.right [data-flight]');
     await page.mouse('mouseMoved',arrival.cx,arrival.cy);await page.sleep(250);
     assert.ok(await page.js(`!!document.querySelector('.rail-panel.right [data-flight]')`),'crossing from the rail into its preview keeps the destination available');
     await page.mouse('mouseReleased',arrival.cx,arrival.cy,0);
+    await transit('right');
     await anchored('right','wait-trigger');
     assert.equal(await band(page),'closed','dropping preserves the collapsed band');
     assert.equal(await dockState(page),'narrow','the source dock width is unchanged');
@@ -126,6 +140,23 @@ const scenarios=[
     await page.until(`!document.querySelector('.rail-panel.right')`,{message:'right panel closes after naming'});
     assert.equal((await task(page,'협약서 발송')).for,'법무팀 회신');
     assert.equal(await band(page),'closed');
+
+    await setDock(page,'hidden');await openBand(page);
+    const waiting=await page.rect('#wait [data-flight="sample-w4"] .wbody'),dock=await page.rect('#dock');
+    await page.mouse('mouseMoved',waiting.cx,waiting.cy,0);await page.mouse('mousePressed',waiting.cx,waiting.cy);
+    for(let i=1;i<=14;i++){
+      await page.mouse('mouseMoved',waiting.cx+(dock.cx-waiting.cx)*i/14,waiting.cy+(dock.cy-waiting.cy)*i/14);await page.sleep(16);
+    }
+    await preview('left');
+    await page.shot('wait-hidden-dock-token');
+    await page.mouse('mouseReleased',dock.cx,dock.cy,0);
+    await transit('left');
+    await anchored('left','wait-rename');
+    assert.equal(await dockState(page),'hidden','dragging back preserves the collapsed dock');
+    assert.equal(await band(page),'open','dragging back preserves the source band');
+    assert.equal((await task(page,'협약서 발송')).since,null,'the returning block is released from waiting');
+    await page.key('Escape');
+    await page.until(`!document.querySelector('.rail-panel.left')`,{message:'left panel closes after cancelling rename'});
   }},
   {name:'the band is one tab stop: arrows walk rows, → raises a pile, letters jump by 초성, F2 changes a trigger, B meets one',run:async page=>{
     await toPlan(page);await openBand(page);

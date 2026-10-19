@@ -93,6 +93,11 @@ function RailPanel({side,ids,editing}:{side:'left'|'right';ids:string[];editing:
   const {snapshot,gesture,ui}=useApp(),node=useRef<HTMLDivElement|null>(null);
   const region=useRegion(side==='left'?'tray':'wait',null,{form:()=>({width:220,height:56})});
   const [box,setBox]=useState({left:8,top:80,width:236});
+  useEffect(()=>{
+    const icon=document.querySelector<HTMLElement>(side==='left'?'#dock .dock-unfold':'#wait .wait-unfold');
+    if(icon)icon.dataset.arrival='true';
+    return ()=>{if(icon)delete icon.dataset.arrival;};
+  },[side]);
   useLayoutEffect(()=>{
     let frame=0;
     const place=()=>{
@@ -109,12 +114,12 @@ function RailPanel({side,ids,editing}:{side:'left'|'right';ids:string[];editing:
   const tasks=ids.map(id=>snapshot?.tasks.find(t=>t.id===id)).filter((t):t is Task=>!!t),first=tasks[0];
   if(!first)return null;
   const label=side==='right'?'기다림':tasks.every(t=>t.proto)?'들어옴':tasks.every(t=>!t.proto)?'선반':'준비';
-  return <motion.div ref={el=>{node.current=el;region(el);}} className={'rail-panel '+side} style={box}
+  return <motion.div ref={el=>{node.current=el;region(el);}} className={'rail-panel '+side+(gesture?' receiving':'')} style={box}
     initial={{opacity:0,x:side==='left'?-8:8}} animate={{opacity:1,x:0}} exit={{opacity:0,x:side==='left'?-12:12,scale:.96}}
     transition={{duration:reduced()?0:.14}} aria-label={label}>
     <div className="rail-label">{label}{ids.length>1&&<span>{ids.length}</span>}</div>
     <div className="rail-face" data-flight={first.id}>
-      {editing&&!gesture&&(side==='left'?ui.renaming:ui.naming)?(side==='left'?<RenameField inline/>:<NamingField/>):<span className="ttl">{first.title}</span>}
+      {editing&&!gesture&&(side==='left'?ui.renaming:ui.naming)?(side==='left'?<RenameField inline/>:<NamingField/>):!gesture&&<span className="ttl">{first.title}</span>}
     </div>
   </motion.div>;
 }
