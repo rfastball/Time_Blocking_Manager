@@ -21,7 +21,7 @@ const open=(t:Task)=>openEditor(t.id,'dialog');
 export function Week({dates}:{dates:string[]}){
   const axis=useDaysAxis(dates,SCALE.week);
   const hours=axisHours(axis);
-  const {today,nav}=useApp(),scroll=useRef<HTMLDivElement>(null),shown=useRef(false);
+  const today=useApp(s=>s.today),nav=useApp(s=>s.nav),scroll=useRef<HTMLDivElement>(null),shown=useRef(false);
   const target=dates.includes(today)?today:dates.includes(nav.selected)?nav.selected:null;
   // A grid wider than the card would start with today cut off: bring its column in sideways, never vertically.
   useLayoutEffect(()=>{
@@ -47,7 +47,7 @@ export function Week({dates}:{dates:string[]}){
 
 // A date head: its allocation at a glance, a place to drop work, and the way into that day's 일 view.
 export function Head({date}:{date:string}){
-  const {today,nav}=useApp(),{held,tasks}=useDrag(),box=useRef<HTMLDivElement|null>(null),head=useRef<HTMLButtonElement>(null);
+  const today=useApp(s=>s.today),nav=useApp(s=>s.nav),{held,tasks}=useDrag(),box=useRef<HTMLDivElement|null>(null),head=useRef<HTMLButtonElement>(null);
   // Work dropped on a head goes to the end of that day's column, so it takes the column's shape on the week's scale.
   const ref=useRegion('date',date,{form:(task,ids)=>{
     const minutes=ids.reduce((n,id)=>n+(getState().snapshot!.tasks.find(t=>t.id===id)??task).duration,0);
@@ -74,8 +74,8 @@ export function Head({date}:{date:string}){
 }
 
 function Column({date,axis,align}:{date:string;axis:TimeAxis;align:'left'|'right'}){
-  const {drafts,today}=useApp(),nb=useNewBlock(date,axis,'column',align);
-  return <div className={'wk-col'+(date<today?' past':'')+(!dayRule(date).enabled?' off':'')+(drafts.composer?.date===date?' composing':'')} data-date={date}>
+  const composing=useApp(s=>s.drafts.composer?.date===date),today=useApp(s=>s.today),nb=useNewBlock(date,axis,'column',align);
+  return <div className={'wk-col'+(date<today?' past':'')+(!dayRule(date).enabled?' off':'')+(composing?' composing':'')} data-date={date}>
     <DaySpace date={date} axis={axis} variant="column" bin onOpen={open} {...nb}/>
   </div>;
 }

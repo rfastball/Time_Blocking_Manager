@@ -18,7 +18,7 @@ const weekdays=['월','화','수','목','금','토','일'];
 
 // 2주 shows titles, 월 shows load. The grid keeps its rows while a date is chosen; the chosen date opens beside it.
 export function Calendar({dates,period,panels}:{dates:string[];period:Exclude<Period,'week'|'day'>;panels:ReturnType<typeof usePanelResize>}){
-  const {nav}=useApp();
+  const nav=useApp(s=>s.nav);
   return <div ref={panels.ref} data-panel-stacked={panels.stacked} className="cal-layout">
     <section id="calendar-summary" className="card cal" aria-label={period==='two'?'2주 작업 목록':'월간 작업량'}>
       <div className="cal-weekdays" aria-hidden="true">{weekdays.map(d=><span key={d}>{d}</span>)}</div>
@@ -30,7 +30,7 @@ export function Calendar({dates,period,panels}:{dates:string[];period:Exclude<Pe
 }
 
 function Cell({date,period,outside}:{date:string;period:Exclude<Period,'week'>;outside:boolean}){
-  const {today,nav}=useApp(),{held,tasks}=useDrag(),box=useRef<HTMLDivElement|null>(null);
+  const today=useApp(s=>s.today),nav=useApp(s=>s.nav),{held,tasks}=useDrag(),box=useRef<HTMLDivElement|null>(null);
   // 2주 shows titles, so a block arrives flattened into one; 월 shows load, so it arrives as its share of the day's bar.
   const ref=useRegion('date',date,{form:(task,ids):Form=>{
     const minutes=ids.reduce((n,id)=>n+(getState().snapshot!.tasks.find(t=>t.id===id)??task).duration,0),cell=box.current;

@@ -44,6 +44,13 @@ const scenarios=[
     assert.ok((await page.blocks(space)).includes('설계 문서 초안 작성 보완, 예상 10:00–10:45'));
     assert.doesNotMatch(await page.text(panel+' .ed-badges'),/저장 안 됨/);
     assert.match(await page.text(panel+' .ed-status'),/미리보기에 반영했어요/);
+    const clock=await page.js(`(async()=>{const [{getState,setState},{time}]=await Promise.all([__mod('/src/app/store/state.ts'),__mod('/src/dates.ts')]);const before=getState().now;setState({now:before+15});return {before,expected:time(before+15)};})()`);
+    try{
+      await page.until(`document.querySelector('${space} .nowline span')?.textContent===${JSON.stringify(clock.expected)}`,{message:'the existing timetable to follow the minute clock'});
+      assert.equal(await page.text(space+' .nowline span'),clock.expected);
+    }finally{
+      await page.js(`(async()=>{const {setState}=await __mod('/src/app/store/state.ts');setState({now:${clock.before}});})()`);
+    }
   }},
   {name:'a checklist toggle rewrites that memo line',run:async page=>{
     await openBlock(page,'설계 문서 초안');

@@ -120,6 +120,7 @@ export default [
     await page.js(`(()=>{const s=document.querySelector('.ap select');s.value='early';s.dispatchEvent(new Event('change',{bubbles:true}));})()`);await page.sleep(150);
     await page.js(`(()=>{const i=document.querySelector('.ap [data-time=end]');i.focus();i.value='16:00';i.blur();})()`);await page.sleep(200);
     assert.match(await page.text('.ap .rh-detail-head output'),/09:00–16:00/);
+    assert.ok(await page.rect('.today-day .off[aria-label^="16:00"]'),'the timetable previews unsaved settings without remounting');
     await page.shot('settings-popover');
     await page.click('.ap .btn.primary');await page.sleep(500);
     assert.equal(await page.js(`!!document.querySelector('.ap')`),false);

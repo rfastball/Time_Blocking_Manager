@@ -1,4 +1,4 @@
-import {useEffect,useRef,useState,type CSSProperties,type PointerEvent as ReactPointerEvent} from 'react';
+import {useEffect,useMemo,useRef,useState,type CSSProperties,type PointerEvent as ReactPointerEvent} from 'react';
 import {motion} from 'motion/react';
 import {selectionRange} from '../../placement.ts';
 import {dayPlan} from '../../today.ts';
@@ -25,7 +25,7 @@ let focusNext=false;
 // New blocks on a day space: a click is 30 minutes at the end of that day's order, a range drag or the rail reserves the time.
 // Spread the result onto <DaySpace>.
 export function useNewBlock(date:string,axis:TimeAxis,variant:'day'|'column',align:'left'|'right'='left'){
-  const {drafts}=useApp();
+  const composer=useApp(s=>s.drafts.composer);
   const [range,setRange]=useState<Range|null>(null);
   const g=variant==='day'?DAY_GEOMETRY:COLUMN_GEOMETRY;
   function onBackgroundPointerDown(e:ReactPointerEvent<HTMLDivElement>,minute:number,onRail:boolean){
@@ -48,7 +48,7 @@ export function useNewBlock(date:string,axis:TimeAxis,variant:'day'|'column',ali
         if(!(last?openComposer(date,last.start,last.duration,true):openComposer(date,origin,30,onRail)))focusNext=false;
       }});
   }
-  const c=drafts.composer?.date===date?drafts.composer:null;
+  const c=composer?.date===date?composer:null;
   const band=(start:number,duration:number)=>({top:axis.position(start)+1,height:Math.max(8,axis.position(start+duration)-axis.position(start)-2)});
   return {
     onBackgroundPointerDown,
@@ -64,10 +64,12 @@ export function useNewBlock(date:string,axis:TimeAxis,variant:'day'|'column',ali
 
 // The slot a flow composer would take: after the day's last flow block, laid out like the day itself.
 function useFlowSlot(c:Composer){
-  const {snapshot}=useApp(),{tasks}=useDrag();
-  if(c.fixed)return null;
-  const phantom:Task={id:'\u0000composer',title:'',body:'',starts_at:null,duration:c.duration,completed:false,revision:0,plan_date:c.date,flow_order:Number.MAX_SAFE_INTEGER};
-  return dayPlan(c.date,[...tasks,phantom],dayRule(c.date),snapshot?.layouts??[]).items.find(i=>i.task.id===phantom.id)??null;
+  const snapshot=useApp(s=>s.snapshot),settings=useApp(s=>s.drafts.settingsDraft??s.snapshot!.settings),{tasks}=useDrag();
+  return useMemo(()=>{
+    if(c.fixed)return null;
+    const phantom:Task={id:'\u0000composer',title:'',body:'',starts_at:null,duration:c.duration,completed:false,revision:0,plan_date:c.date,flow_order:Number.MAX_SAFE_INTEGER};
+    return dayPlan(c.date,[...tasks,phantom],dayRule(c.date),snapshot?.layouts??[]).items.find(i=>i.task.id===phantom.id)??null;
+  },[c,tasks,settings,snapshot?.layouts]);
 }
 
 // Where the new block would land: the reserved range, or the slot after the day's last flow block.

@@ -1,5 +1,14 @@
 # 검증 범위
 
+## 캘린더 구독 범위 축소 Test delta (2026-10-20)
+
+- Unique risk: 구독을 좁힌 화면에서 저장 결과·현재 시각·설정 초안이 갱신되지 않는 것.
+- Owner / layer: 기존 `editor.mjs` 제목 저장 사례에 현재선 시각 갱신을, `settings.mjs` 날짜 팝업 사례에 저장 전 조퇴 밴드 미리보기를 확장했다. 기존 저장/이동/완료 UI 사례를 그대로 재사용했다.
+- Added / extended / removed: UI 0 / 2 / 0. 사례·파일·브라우저 실행·coverage 기준 변화 0. 중복 증거 제거 대상 없음.
+- 검증: Node 107/107, editor/plan/settings/today UI 59/59, TypeScript, syntax/diff 검사 통과. 최적화 전 editor/plan/search/today/wait UI 기준은 64/64 통과했다.
+- 성능: 같은 예시 데이터·개발 StrictMode에서 제목 10회 수정 시 `dayPlan` 호출이 주 840→20회, 월 820→20회. 임시 Vite 계측으로 측정했으며 제품 코드에 계측을 남기지 않았다. 남은 호출은 편집기 자체 계산을 포함한다.
+- Runtime delta: UI 사례가 공유 프로세스에서 수행되어 개별 기능 속도 변화로 해석하지 않는다. 실제 WebView2 CPU/FPS는 미측정.
+
 ## 검색 계산 재사용 Test delta (2026-10-20)
 
 - Unique risk: 검색용 데이터 재사용 후 제목·메모·위치가 낡거나 반환 결과 수정이 다음 검색을 오염시키는 것.

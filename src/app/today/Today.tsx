@@ -23,12 +23,13 @@ const open=(t:Task)=>openEditor(t.id,editorModeHere());
 // 오늘 is for doing the day, not planning it: a slim timetable strip, what comes next, and the queue of what is left.
 // Planning a day in full (new blocks, clearing it) is the plan tab's 일 view.
 export function Today(){
-  const {snapshot,nav,today,drafts,ui}=useApp();
+  const snapshot=useApp(s=>s.snapshot),nav=useApp(s=>s.nav),today=useApp(s=>s.today);
+  const editing=useApp(s=>s.ui.editorMode==='panel'?s.drafts.editor?.id??null:null);
+  useApp(s=>s.drafts.settingsDraft);
   const panels=usePanelResize('today',.3,'시간표와 상세 패널 크기','today-timetable today-detail');
   const [multi,setMulti]=useState<string[]>([]);
   const date=nav.selected,rule=dayRule(date),axis=useDaysAxis([date],SCALE),plan=planOf(date),load=allocation(date,snapshot!.tasks);
   const anchor=Math.max(rule.start,plan.anchor??rule.start);
-  const editing=ui.editorMode==='panel'?drafts.editor?.id??null:null;
   const toggleMulti=(t:Task)=>{if(!t.completed)setMulti(m=>m.includes(t.id)?m.filter(x=>x!==t.id):[...m,t.id]);};
   // Esc lets go of a selection first; only then does it leave 몰입.
   useEffect(()=>{

@@ -34,7 +34,8 @@ type Props={
 
 // One day as a space: rail and fixed latches on the left, flow blocks in order, completed work leaves through the top.
 export function DaySpace({date,axis,variant,bin,selected,multi=[],onOpen,onMulti,children,overlay,onBackgroundPointerDown}:Props){
-  const {snapshot,today,now,ui}=useApp();
+  const snapshot=useApp(s=>s.snapshot),today=useApp(s=>s.today),now=useApp(s=>s.now),landed=useApp(s=>s.ui.landed);
+  useApp(s=>s.drafts.settingsDraft);
   const {held,tasks,pushed}=useDrag();
   const geometry=variant==='day'?DAY_GEOMETRY:COLUMN_GEOMETRY;
   const rule=dayRule(date);
@@ -113,7 +114,7 @@ export function DaySpace({date,axis,variant,bin,selected,multi=[],onOpen,onMulti
       <AnimatePresence initial={false} custom={doneIds}>
         {plan.items.map(item=><Block key={item.task.id} date={date} item={sized(item)} pushed={pushed.includes(item.task.id)} axis={axis} geometry={geometry} variant={variant} next={item.task.id===nextId}
           hollow={!!holding?.ids.includes(item.task.id)} resizing={sizing?.id===item.task.id} selected={selected===item.task.id&&!multi.length} multi={multi.includes(item.task.id)} squash={squash.includes(item.task.id)}
-          landed={ui.landed?.id===item.task.id?ui.landed:null}
+          landed={landed?.id===item.task.id?landed:null}
           onCheck={()=>void check(byId(item.task.id))} onGrip={e=>grip(e,byId(item.task.id))} onNudge={(d,order,el)=>void nudge(item.task.id,d,order,el)}
           onOpen={e=>{if((e.shiftKey||e.ctrlKey||e.metaKey)&&onMulti){onMulti(byId(item.task.id));return;}onOpen(byId(item.task.id));}}
           onMenu={e=>menu(e,byId(item.task.id),item.start)}/>)}

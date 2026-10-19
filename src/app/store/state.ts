@@ -118,5 +118,7 @@ export function setSingleKeys(on:boolean){
   setState({singleKeys:on});
 }
 const subscribe=(l:()=>void)=>{listeners.add(l);return ()=>{listeners.delete(l);};};
-// The whole state; its identity changes only when something changed.
-export function useApp():AppState{return useSyncExternalStore(subscribe,getState);}
+// Select existing references or primitive values so unrelated updates keep the same snapshot.
+export function useApp():AppState;
+export function useApp<T>(select:(s:AppState)=>T):T;
+export function useApp(select?:(s:AppState)=>unknown){return useSyncExternalStore(subscribe,()=>select?select(state):state);}

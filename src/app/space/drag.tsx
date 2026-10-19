@@ -47,7 +47,8 @@ export function useRegion(kind:Region['kind'],date:string|null,extra:RegionExtra
 // The days' shared time axis, stretched to show flow work that runs past working time.
 // While a block is held it only grows, so the space under the pointer never moves.
 export function useDaysAxis(dates:string[],scale:number){
-  const {snapshot}=useApp(),{tasks}=useDrag();
+  const snapshot=useApp(s=>s.snapshot),{tasks}=useDrag();
+  useApp(s=>s.drafts.settingsDraft);
   const axis=timeAxisForDays(dates.map(dayRule),scale);
   const ends=[snapshot?.tasks??[],tasks].flatMap(list=>dates.map(d=>overrunEnd(dayPlan(d,list,dayRule(d),snapshot?.layouts??[]))??0));
   const end=Math.max(...ends);
@@ -65,7 +66,7 @@ const point=(e:Event)=>{const p='touches' in e?(e as TouchEvent).touches[0]??(e 
 const measuring={draggable:{measure:getClientRect}};
 
 export function DragProvider({children}:{children:ReactNode}){
-  const {snapshot}=useApp();
+  const snapshot=useApp(s=>s.snapshot);
   const [held,setHeld]=useState<Held|null>(null);
   const [pending,setPending]=useState<Intent|null>(null);
   const regions=useRef(new Map<string,Region>());
@@ -102,6 +103,7 @@ export function DragProvider({children}:{children:ReactNode}){
   const shown=held&&!held.dropping?resting:pending;
   const tasks=useMemo(()=>applyIntent(base,shown?.ok?shown:null),[base,shown]);
   const pushed=useMemo(()=>held&&!held.dropping?pushedBy(base,snapshot?.layouts??[],shown):[],[held,shown,base,snapshot]);
+  const context=useMemo(()=>({held,pending,tasks,pushed,register}),[held,pending,tasks,pushed,register]);
 
   // `grab` is where along its width the block was taken; `prev` is the last intent, for the latch's hysteresis.
   // `stretch` scales the bite and pull distances (see `steadiness`).
@@ -288,7 +290,7 @@ export function DragProvider({children}:{children:ReactNode}){
       finishLanding(dropped);
     }
   };
-  return <DragCtx.Provider value={{held,pending,tasks,pushed,register}}>
+  return <DragCtx.Provider value={context}>
     <DndContext sensors={sensors} measuring={measuring} accessibility={accessibility} onDragStart={onDragStart} onDragMove={onDragMove} onDragEnd={onDragEnd} onDragCancel={()=>{const h=heldRef.current;if(h)beginLanding(h,h.intent,false);else setGesture(false);}} autoScroll={false}>
       {children}
       <DragOverlay modifiers={[snapModifier]} dropAnimation={dropAnimation}>{held&&<HeldBlock held={held} out={pushed.length} outside={shownOutside(tasks,snapshot?.layouts??[],shown)}/>}</DragOverlay>
