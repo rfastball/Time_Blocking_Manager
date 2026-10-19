@@ -114,13 +114,16 @@ function RailPanel({side,ids,editing}:{side:'left'|'right';ids:string[];editing:
   const tasks=ids.map(id=>snapshot?.tasks.find(t=>t.id===id)).filter((t):t is Task=>!!t),first=tasks[0];
   if(!first)return null;
   const label=side==='right'?'기다림':tasks.every(t=>t.proto)?'들어옴':tasks.every(t=>!t.proto)?'선반':'준비';
-  return <motion.div ref={el=>{node.current=el;region(el);}} className={'rail-panel '+side+(gesture?' receiving':'')} style={box}
+  return <motion.div ref={el=>{node.current=el;region(el);}} className={'rail-panel '+side} style={box}
     initial={{opacity:0,x:side==='left'?-8:8}} animate={{opacity:1,x:0}} exit={{opacity:0,x:side==='left'?-12:12,scale:.96}}
     transition={{duration:reduced()?0:.14}} aria-label={label}>
     <div className="rail-label">{label}{ids.length>1&&<span>{ids.length}</span>}</div>
-    <div className="rail-face" data-flight={first.id}>
-      {editing&&!gesture&&(side==='left'?ui.renaming:ui.naming)?(side==='left'?<RenameField inline/>:<NamingField/>):!gesture&&<span className="ttl">{first.title}</span>}
-    </div>
+    <motion.div className="rail-face" data-flight={first.id}
+      style={{transformOrigin:side==='left'?'left center':'right center'}}
+      initial={gesture?{opacity:0,scaleX:.4,x:side==='left'?-12:12}:false} animate={{opacity:1,scaleX:1,x:0}}
+      transition={{duration:reduced()?0:.16,ease:[.2,.8,.2,1]}}>
+      {editing&&!gesture&&(side==='left'?ui.renaming:ui.naming)?(side==='left'?<RenameField inline/>:<NamingField/>):!ui.railLanding&&<span className="ttl">{first.title}</span>}
+    </motion.div>
   </motion.div>;
 }
 export function WaitHosts(){

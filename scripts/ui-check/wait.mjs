@@ -83,17 +83,13 @@ const scenarios=[
   {name:'collapsed destinations keep an anchored block from arrival through editing in both directions',run:async page=>{
     const preview=async side=>{
       await page.until(`(()=>{const e=document.querySelector('.held.rail-token'),r=e?.getBoundingClientRect();return !!document.querySelector('.rail-panel.${side} .rail-face')&&r&&getComputedStyle(e).opacity==='0';})()`,{message:side+' rail hides the held block completely'});
-      assert.equal(await page.js(`document.querySelectorAll('.rail-panel.${side} .rail-face .ttl,.rail-panel.${side} .rail-face input').length`),0,'the arrival slot stays empty until release');
-    };
-    const transit=async side=>{
-      await page.until(`!!document.querySelector('[data-rail-transfer="${side}"]')`,{message:side+' drop travels through the icon'});
-      assert.ok(await page.js(`!!document.querySelector('${side==='left'?'#dock':'#wait'} [data-receiving="true"]')`),'the receiving icon is highlighted during transit');
-      assert.equal(await page.js(`document.querySelectorAll('.rail-panel input').length`),0,'editing waits for the travelling block');
+      assert.equal(await page.js(`document.querySelectorAll('.rail-panel.${side} .rail-face .ttl').length`),1,'the destination shows one preview title');
+      assert.equal(await page.js(`document.querySelectorAll('.rail-panel.${side} input').length`),0,'the preview waits for release before editing');
     };
     const anchored=async(side,field)=>{
       const panel='.rail-panel.'+side;
       await page.until(`document.activeElement?.id===${JSON.stringify(field)}&&!!document.querySelector('${panel} #${field}')`,{message:side+' panel owns the focused editor'});
-      assert.equal(await page.js(`document.querySelectorAll('[data-rail-transfer],[data-receiving="true"],.held').length`),0,'arrival clears the travelling copy and icon highlight');
+      assert.equal(await page.js(`document.querySelectorAll('.flight.unified,.held').length`),0,'arrival clears the travelling copy');
       assert.ok(await page.js(`!!document.querySelector('${panel} [data-flight]')`),'the editor has an arrival block');
       const p=await page.rect(panel),i=await page.rect('#'+field),rail=await page.rect(side==='left'?'#dock':'#wait');
       assert.ok(i.x>=p.x-1&&i.y>=p.y-1&&i.x+i.w<=p.x+p.w+1&&i.y+i.h<=p.y+p.h+1,'input stays inside its block panel');
@@ -104,6 +100,8 @@ const scenarios=[
     };
     await setDock(page,'hidden');await openBand(page);
     await page.click('#wait [data-flight="sample-w4"] .handle');
+    await page.until(`!!document.querySelector('.flight.unified')`,{message:'release moves the waiting block as one face'});
+    assert.equal(await page.js(`document.querySelectorAll('.wtag.off,.rail-panel .ttl,.rail-panel input').length`),0,'the travelling block has no separate departing tag or duplicate arrival content');
     await anchored('left','wait-rename');
     assert.equal(await dockState(page),'hidden','release preserves the collapsed dock');
     assert.equal((await task(page,'협약서 문안')).since,null);
@@ -131,7 +129,6 @@ const scenarios=[
     await page.mouse('mouseMoved',arrival.cx,arrival.cy);await page.sleep(250);
     assert.ok(await page.js(`!!document.querySelector('.rail-panel.right [data-flight]')`),'crossing from the rail into its preview keeps the destination available');
     await page.mouse('mouseReleased',arrival.cx,arrival.cy,0);
-    await transit('right');
     await anchored('right','wait-trigger');
     assert.equal(await band(page),'closed','dropping preserves the collapsed band');
     assert.equal(await dockState(page),'narrow','the source dock width is unchanged');
@@ -148,9 +145,8 @@ const scenarios=[
       await page.mouse('mouseMoved',waiting.cx+(dock.cx-waiting.cx)*i/14,waiting.cy+(dock.cy-waiting.cy)*i/14);await page.sleep(16);
     }
     await preview('left');
-    await page.shot('wait-hidden-dock-token');
+    await page.shot('wait-hidden-dock-preview');
     await page.mouse('mouseReleased',dock.cx,dock.cy,0);
-    await transit('left');
     await anchored('left','wait-rename');
     assert.equal(await dockState(page),'hidden','dragging back preserves the collapsed dock');
     assert.equal(await band(page),'open','dragging back preserves the source band');

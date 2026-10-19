@@ -43,7 +43,7 @@ export async function pushOut(ids:string[],{at=null,flown=false}:{at?:{x:number;
   const s=getState(),tasks=ids.map(find).filter((t):t is Task=>!!t&&!t.completed&&!waiting(t));
   if(!tasks.length||s.ui.naming)return false;
   const origins=tasks.map(origin);
-  if(s.nav.view==='plan'&&s.nav.band==='closed')setUi({railLanding:{side:'right',ids:tasks.map(t=>t.id)}});
+  if(!flown&&s.nav.view==='plan'&&s.nav.band==='closed')setUi({railLanding:{side:'right',ids:tasks.map(t=>t.id)}});
   const move=()=>dispatch({type:'wait',items:revisions(tasks),trigger:'',until:null,since:s.today},{done:()=>announce(`${named(tasks,true)} 기다림으로 옮겼어요`)});
   if(!await (flown?move():fly(tasks.map(t=>t.id),move))){setUi({railLanding:null});return false;}
   setUi({naming:{ids:tasks.map(t=>t.id),value:'',hi:-1,fresh:true,at:getState().nav.band==='open'&&getState().nav.view==='plan'?null:at}});
@@ -72,9 +72,9 @@ export async function revive(ids:string[],{flown=false}:{flown?:boolean}={}){
   if(!tasks.length)return false;
   const before=tasks.map(t=>({...t}));
   const {nav}=getState();
-  if(nav.view==='plan'&&nav.dock==='hidden')setUi({railLanding:{side:'left',ids:tasks.map(t=>t.id)}});
+  if(!flown&&nav.view==='plan'&&nav.dock==='hidden')setUi({railLanding:{side:'left',ids:tasks.map(t=>t.id)}});
   const move=()=>dispatch({type:'revive',items:revisions(tasks)});
-  if(!await (flown?move():fly(tasks.map(t=>t.id),move))){setUi({railLanding:null});return false;}
+  if(!await (flown?move():fly(tasks.map(t=>t.id),move,{unified:nav.view==='plan'&&nav.dock==='hidden'}))){setUi({railLanding:null});return false;}
   revived(before,tasks.every(t=>t.proto)?'들어옴으로':tasks.some(t=>t.proto)?'준비로':'선반으로');
   setUi({railLanding:null});
   return true;

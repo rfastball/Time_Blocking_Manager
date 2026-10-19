@@ -113,12 +113,10 @@
 .rail-panel .wrename{position:static;width:100%;z-index:auto}
 .rail-panel .wname{width:100%;box-sizing:border-box;border:0}
 
-/* Over a folded rail only its icon signals the held block; the face returns as it leaves the icon on release. */
+/* Over a folded rail the panel owns the visible face; the pointer copy stays hidden until it leaves. */
 .held.rail-token{opacity:0;overflow:hidden;min-width:0;min-height:0}
 .held.rail-token .tile{min-width:0;min-height:0;overflow:hidden}
 .held.rail-token .meta,.held.rail-token .chk,.held.rail-token .latch{display:none}
 .held.rail-token .main{padding:3px 6px;min-width:0;overflow:hidden}
 .held.rail-token.waits>.tile{border-top-width:3px}
-.rail-panel.receiving .rail-face{background:var(--color-control-hover);border:1px dashed var(--color-selection-border)}
 .dock-unfold[data-arrival],.wait-unfold[data-arrival]{background:var(--color-text-selection);color:var(--color-action);border-color:var(--color-selection-border)}
-.dock-unfold[data-receiving],.wait-unfold[data-receiving]{background:var(--color-action);color:var(--color-on-action)}

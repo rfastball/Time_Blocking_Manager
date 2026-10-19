@@ -67,6 +67,7 @@ export function Waiting(){
   },[]);
   const releaseIds=useCallback((ids:string[])=>{
     if(getState().ui.naming)return;
+    if(getState().nav.dock==='hidden'){void revive(ids);return;}
     // The tag comes off first; then the freed blocks travel to 준비.
     setUnclip(new Set(ids));
     setTimeout(()=>{void revive(ids).finally(()=>setUnclip(new Set()));},reduced()?0:150);

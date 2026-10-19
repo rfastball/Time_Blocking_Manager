@@ -20,8 +20,35 @@ function face(el:HTMLElement){
     title:el.querySelector('.ttl')?.textContent??el.textContent?.trim()??''};
 }
 
-export async function fly(ids:string[],move:()=>Promise<boolean>):Promise<boolean>{
+// A release into the folded dock moves one complete face, including a group, without detaching its tag first.
+async function unifiedFlight(ids:string[],move:()=>Promise<boolean>){
+  const sources=ids.map(boxOf).filter((el):el is HTMLElement=>!!el),source=sources[0];
+  if(!source)return move();
+  const start=source.getBoundingClientRect(),look=face(source.querySelector<HTMLElement>('.wbody')??source);
+  const ghost=document.createElement('div');
+  ghost.className='flight unified';ghost.setAttribute('aria-hidden','true');
+  ghost.textContent=look.title+(ids.length>1?` 외 ${ids.length-1}개`:'');
+  Object.assign(ghost.style,{left:start.left+'px',top:start.top+'px',width:start.width+'px',height:start.height+'px',background:look.background,border:look.border,borderRadius:look.radius,color:look.color});
+  const visibility=sources.map(el=>el.style.visibility);
+  document.body.append(ghost);sources.forEach(el=>{el.style.visibility='hidden';});
+  try{
+    const ok=await move();if(!ok)return false;
+    await new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve())));
+    const target=document.querySelector<HTMLElement>(`.rail-panel.left [data-flight="${CSS.escape(ids[0])}"]`);if(!target)return true;
+    const end=target.getBoundingClientRect();
+    // Move the face as a unit; only its outer bounds change, with enough travel time to follow across the screen.
+    const animation=ghost.animate([
+      {left:start.left+'px',top:start.top+'px',width:start.width+'px',height:start.height+'px'},
+      {left:end.left+'px',top:end.top+'px',width:end.width+'px',height:end.height+'px'}
+    ],{duration:420,easing:'cubic-bezier(.4,0,.2,1)',fill:'forwards'});
+    await animation.finished.catch(()=>{});
+    return true;
+  }finally{ghost.remove();sources.forEach((el,i)=>{el.style.visibility=visibility[i];});}
+}
+
+export async function fly(ids:string[],move:()=>Promise<boolean>,{unified=false}:{unified?:boolean}={}):Promise<boolean>{
   if(reduced())return move();
+  if(unified)return unifiedFlight(ids,move);
   const from=ids.flatMap(id=>{const el=boxOf(id);return el?[{id,box:el.getBoundingClientRect(),face:face(el)}]:[];});
   const ok=await move();
   if(!ok||!from.length)return ok;
