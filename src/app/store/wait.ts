@@ -2,7 +2,7 @@ import type {Task} from '../../types.ts';
 import {benchAction,updateAction} from '../../intent.ts';
 import {byFlowOrder} from '../../flow.ts';
 import {waiting} from '../../bench.ts';
-import {parseTrigger,triggerLabel} from '../../waiting.ts';
+import {parseTrigger,triggerLabel,waitOrderAction} from '../../waiting.ts';
 import {quotedObject} from '../../format.ts';
 import {fly} from '../ui/flight.ts';
 import {getState,setNav,setUi} from './state.ts';
@@ -43,9 +43,11 @@ export async function pushOut(ids:string[],{at=null,flown=false}:{at?:{x:number;
   const s=getState(),tasks=ids.map(find).filter((t):t is Task=>!!t&&!t.completed&&!waiting(t));
   if(!tasks.length||s.ui.naming)return false;
   const origins=tasks.map(origin);
+  if(!flown&&s.nav.view==='plan'&&s.nav.band==='closed')setUi({railLanding:{side:'right',ids:tasks.map(t=>t.id)}});
   const move=()=>dispatch({type:'wait',items:revisions(tasks),trigger:'',until:null,since:s.today},{done:()=>announce(`${named(tasks,true)} 기다림으로 옮겼어요`)});
-  if(!await (flown?move():fly(tasks.map(t=>t.id),move)))return false;
+  if(!await (flown?move():fly(tasks.map(t=>t.id),move))){setUi({railLanding:null});return false;}
   setUi({naming:{ids:tasks.map(t=>t.id),value:'',hi:-1,fresh:true,at:getState().nav.band==='open'&&getState().nav.view==='plan'?null:at}});
+  setUi({railLanding:null});
   toast(`${named(tasks)} 기다림으로`,()=>void putBack(origins));
   return true;
 }
@@ -64,14 +66,22 @@ export function editTrigger(ids:string[],at:{x:number;y:number}|null=null){
 }
 export const closeNaming=()=>setUi({naming:null});
 
+export function reorderWait(id:string,index:number){
+  const action=waitOrderAction(snap().tasks,id,index);
+  return action?dispatch(action,{done:()=>announce('기다림 순서를 옮겼어요')}):Promise.resolve(false);
+}
+
 // What it waited for has come: sized blocks go on top of the shelf, protos on top of the 들어옴, in the band's order.
 export async function revive(ids:string[],{flown=false}:{flown?:boolean}={}){
   const tasks=ids.map(find).filter((t):t is Task=>!!t&&waiting(t));
   if(!tasks.length)return false;
   const before=tasks.map(t=>({...t}));
+  const {nav}=getState();
+  if(!flown&&nav.view==='plan'&&nav.dock==='hidden')setUi({railLanding:{side:'left',ids:tasks.map(t=>t.id)}});
   const move=()=>dispatch({type:'revive',items:revisions(tasks)});
-  if(!await (flown?move():fly(tasks.map(t=>t.id),move)))return false;
+  if(!await (flown?move():fly(tasks.map(t=>t.id),move,{unified:nav.view==='plan'&&nav.dock==='hidden'}))){setUi({railLanding:null});return false;}
   revived(before,tasks.every(t=>t.proto)?'들어옴으로':tasks.some(t=>t.proto)?'준비로':'선반으로');
+  setUi({railLanding:null});
   return true;
 }
 // After any revival (released here, or dropped from the band somewhere): name each block for its next action, and offer the way back.
@@ -96,7 +106,8 @@ export async function commitRename(mode:'next'|'stop'|'keep'){
   const r=getState().ui.renaming;if(!r)return;
   const t=find(r.id),v=r.value.trim(),queue=mode==='next'?r.queue.filter(id=>find(id)):[];
   setUi({renaming:queue.length?{id:queue[0],value:find(queue[0])!.title,queue:queue.slice(1)}:null});
-  if(!queue.length)focusLater(`[data-card="${CSS.escape(r.id)}"] button.main,button.main${taskSelector(r.id)}`);
+  if(!queue.length&&getState().nav.view==='plan'&&getState().nav.dock==='hidden'&&!find(r.id)?.plan_date)focusLater('#dock .dock-unfold');
+  else if(!queue.length)focusLater(`[data-card="${CSS.escape(r.id)}"] button.main,button.main${taskSelector(r.id)}`);
   if(mode!=='keep'&&t&&v&&v!==t.title)await dispatch({...updateAction(t,t.plan_date,t.starts_at),title:v},{done:()=>announce(`${quoted(v)}(으)로 바꿨어요`)});
 }
 

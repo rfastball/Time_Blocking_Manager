@@ -131,6 +131,10 @@ pub fn validate_request_time(command: &Command, now: i64, cutoff: i64) -> Result
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(test, derive(ts_rs::TS), ts(export, export_to = "../../src/generated/"))]
+pub struct WaitEdit { pub trigger: String, pub until: Option<String> }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 #[cfg_attr(test, derive(ts_rs::TS), ts(export, export_to = "../../src/generated/"))]
 pub enum Action {
@@ -142,7 +146,8 @@ pub enum Action {
         #[serde(default, skip_serializing_if="Option::is_none")] plan_date: Option<String>,
         #[serde(default, skip_serializing_if="Option::is_none")] before: Option<String>,
         // The length was chosen explicitly, even if it equals the stored one: a proto block becomes a sized one.
-        #[serde(default, skip_serializing_if="Option::is_none")] sized: Option<bool> },
+        #[serde(default, skip_serializing_if="Option::is_none")] sized: Option<bool>,
+        #[serde(default, skip_serializing_if="Option::is_none")] wait: Option<WaitEdit> },
     // `date`: the day a 준비 task is completed on (today); dated work keeps its own date.
     SetCompleted { id: String, expected_revision: i64, completed: bool,
         #[serde(default, skip_serializing_if="Option::is_none")] date: Option<String> },
@@ -172,6 +177,7 @@ pub enum Action {
     Wait { items:Vec<TaskRevision>, trigger:String, #[serde(default)] until:Option<String>, since:String },
     // Back from 기다림: sized work on top of the shelf, protos on top of the 들어옴, each in the given order.
     Revive { items:Vec<TaskRevision> },
+    ReorderWait { expected:Vec<TaskRevision> },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -6,6 +6,7 @@ import {InboxTray} from './InboxTray.tsx';
 import {SCALE} from '../ui/scales.ts';
 import {Bench} from './Bench.tsx';
 import './dock.css';
+import {useRegion} from '../space/drag.tsx';
 
 // Changing the width swaps what the dock draws. If the keyboard was in the dock and its element went with the old width,
 // it is handed to the control that undoes the change, as the old drawer's close returned it to its toggle.
@@ -23,8 +24,9 @@ export function setDock(to:DockWidth){
 // folded it keeps only the count. Its width changes only when asked, never as a side effect of editing.
 export function Dock(){
   const {nav,snapshot}=useApp(),dock=nav.dock;
+  const folded=useRegion('tray',null,{form:()=>({width:220,height:56})});
   const count=snapshot?benchTasks().length+overdueTasks().length:0;
-  if(dock==='hidden')return <aside id="dock" className="dock hidden" aria-label="준비 도크">
+  if(dock==='hidden')return <aside ref={folded} id="dock" className="dock hidden" aria-label="준비 도크">
     <button type="button" className="dock-unfold" aria-label={`준비 펴기${count?`, ${count}건`:''}`} aria-keyshortcuts="[" onClick={()=>setDock('narrow')}>
       <Icon name="inbox" size={18}/>{count>0&&<span className="cnt">{count}</span>}
     </button>

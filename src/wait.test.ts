@@ -25,7 +25,7 @@ test('normalizing ends a wait on a date or a completion and keeps waiting protos
   const {tasks,piles}=normalize([card('p',null,4,{proto:true,wait_for:'',wait_since:today}),card('s','shelf',1,{wait_for:'x',wait_since:today}),
     card('dated',null,null,{plan_date:day,flow_order:1,wait_for:'x',wait_until:day,wait_since:today}),card('a',null,null)],[{id:'shelf',position:1}]);
   const by=(id:string)=>tasks.find(t=>t.id===id)!;
-  assert.deepEqual([by('p').proto,by('p').pile_id,by('p').pile_order,trigger(by('p'))],[true,null,null,['',null,today]]);
+  assert.deepEqual([by('p').proto,by('p').pile_id,by('p').pile_order,trigger(by('p'))],[true,null,4,['',null,today]]);
   assert.deepEqual([by('s').pile_id,by('s').pile_order],[null,null]);
   assert.deepEqual(trigger(by('dated')),[null,null,null]);
   assert.deepEqual(view(tasks,piles),[[],['a']],'the orphan rule leaves waiting work alone');

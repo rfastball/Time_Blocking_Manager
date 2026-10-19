@@ -1,8 +1,8 @@
-import type {Task} from '../../types.ts';
 import {getState,setDrafts,setUi,type EditorDraft} from './state.ts';
 import {announce,ask,dispatch,draftChanged,persistDraft,queue,showError} from './session.ts';
 import {toggleComplete} from './tasks.ts';
 import {durationValid} from '../../detail.ts';
+import {parseTrigger} from '../../waiting.ts';
 
 // The editor holds one task draft. Opening another task while it has unsaved changes keeps the draft and asks first.
 export function openEditor(id:string,mode:'panel'|'dialog'='dialog',focus:'fix'|'duration'|null=null){
@@ -14,7 +14,7 @@ export function openEditor(id:string,mode:'panel'|'dialog'='dialog',focus:'fix'|
   }else setDrafts({pendingEditorId:null});
   setUi({editorMode:mode,editorFocus:focus});
 }
-export function changeEditor(patch:Partial<Task>){
+export function changeEditor(patch:Partial<EditorDraft>){
   const d=getState().drafts;if(!d.editor)return;
   setDrafts({editor:{...d.editor,...patch},editorDirty:true,editorSequence:d.editorSequence+1});draftChanged();
 }
@@ -48,12 +48,13 @@ export async function saveEditor(){
   if(!durationValid(t.duration)){showError(Error('소요시간은 15분 단위로 입력해 주세요.'));return false;}
   let saved=false;
   void persistDraft();
+  const wait=t.wait_since&&!t.plan_date&&!t.starts_at&&t.triggerInput!==undefined?parseTrigger(t.triggerInput,s.today):undefined;
   // Drafts saved before flow plans existed carry only starts_at.
-  await dispatch({type:'update',id:t.id,expected_revision:t.revision,title:t.title,body:t.body,starts_at:t.starts_at,duration:t.duration,plan_date:t.plan_date??t.starts_at?.slice(0,10)??null},{epoch:t.epoch,done:()=>{
+  await dispatch({type:'update',id:t.id,expected_revision:t.revision,title:t.title,body:t.body,starts_at:t.starts_at,duration:t.duration,plan_date:t.plan_date??t.starts_at?.slice(0,10)??null,...(wait?{wait}:{})},{epoch:t.epoch,done:()=>{
     saved=true;const now=getState(),e=now.drafts.editor;
     if(e?.id===t.id){
-      const revision=now.snapshot!.tasks.find(x=>x.id===t.id)!.revision,clean=seq===now.drafts.editorSequence;
-      setDrafts({editor:{...e,revision,epoch:now.snapshot!.epoch},editorDirty:!clean});void persistDraft();
+      const stored=now.snapshot!.tasks.find(x=>x.id===t.id)!,clean=seq===now.drafts.editorSequence;
+      setDrafts({editor:{...(clean?stored:e),revision:stored.revision,epoch:now.snapshot!.epoch},editorDirty:!clean});void persistDraft();
       announce(clean?(now.native?'로컬 저장 완료':'미리보기에 반영했어요'):'새 변경이 남아 있어요. 다시 저장해 주세요.');
     }
   }});

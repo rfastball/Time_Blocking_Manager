@@ -50,7 +50,7 @@ export function place(tasks:Task[],ids:string[],pile:string|null,index:number):T
 // no protos; empty piles go; numbers count from 1.
 export function normalize(tasks:Task[],piles:Pile[]):{tasks:Task[];piles:Pile[]}{
   let next=tasks.map(t=>t.wait_since&&(t.plan_date||t.completed)?{...t,wait_for:null,wait_until:null,wait_since:null}:t);
-  next=next.map(t=>onBench(t)?t:t.pile_id!=null||t.pile_order!=null||t.proto&&!t.wait_since?{...t,pile_id:null,pile_order:null,proto:!!t.proto&&!!t.wait_since}:t);
+  next=next.map(t=>onBench(t)?t:waiting(t)?{...t,pile_id:null,pile_order:t.pile_id==null?t.pile_order:null}:t.pile_id!=null||t.pile_order!=null||t.proto?{...t,pile_id:null,pile_order:null,proto:false}:t);
   const orphan=(t:Task)=>onBench(t)&&!t.proto&&t.pile_id==null&&t.pile_order==null;
   if(next.some(orphan)){
     if(!piles.some(p=>p.id===SHELF))piles=[...piles,{id:SHELF,position:Math.max(0,...piles.map(p=>p.position))+1}];

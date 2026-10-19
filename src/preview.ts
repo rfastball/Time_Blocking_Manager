@@ -120,6 +120,15 @@ function update({s}:Write,a:Of<'update'>){
   const date=a.starts_at?.slice(0,10)??a.plan_date;if(date!==null)parseDate(date);
   if(a.before!=null&&(a.starts_at!==null||date===null))reject('순서는 날짜만 정한 작업에서 지정할 수 있습니다.');
   if(!date&&wasDone&&wasDated)reject('완료한 작업은 준비로 옮길 수 없어요. 완료를 취소한 뒤 옮겨 주세요.');
+  if(a.wait){
+    if(!t.wait_since)reject('기다리는 작업만 조건을 바꿀 수 있어요.');
+    const trigger=a.wait.trigger.trim();if(bytes(trigger)>200)reject('기다림 조건을 확인하세요.');
+    if(a.wait.until!==null)parseDate(a.wait.until);
+    if(!date){
+      if((t.wait_for??'')!==trigger||(t.wait_until??null)!==a.wait.until)t.pile_order=null;
+      t.wait_for=trigger;t.wait_until=a.wait.until;
+    }
+  }
   // A length chosen or a date given makes a proto block a sized one, for good.
   t.proto=!!t.proto&&!date&&a.duration===t.duration&&a.sized!==true;
   Object.assign(t,{title:a.title.trim(),body:a.body,duration:a.duration,starts_at:a.starts_at,revision:t.revision+1});
@@ -288,8 +297,11 @@ function wait({s}:Write,a:Of<'wait'>){
   uniqueRevisions(a.items);if(!a.items.length)reject('기다릴 작업을 선택하세요.');
   const trigger=a.trigger.trim();if(bytes(trigger)>200)reject('기다림 조건을 확인하세요.');
   parseDate(a.since);if(a.until!==null)parseDate(a.until);
-  // Out of its day, pile or 기다림 trigger; the day keeps its other order numbers, as when work goes back to 준비.
-  for(const t of tasksAt(s,a.items,t=>!t.completed))Object.assign(t,{starts_at:null,plan_date:null,flow_order:null,pile_id:null,pile_order:null,wait_for:trigger,wait_until:a.until,wait_since:t.wait_since??a.since,revision:t.revision+1});
+  const tasks=tasksAt(s,a.items,t=>!t.completed),first=tasks[0];
+  // Retagging a complete waiting group keeps its chosen order; moving a subset starts afresh.
+  const same=(t:Task)=>!!t.wait_since&&(t.wait_for??'')===(first.wait_for??'')&&(t.wait_until??null)===(first.wait_until??null);
+  const keepOrder=tasks.every(same)&&s.tasks.filter(same).length===tasks.length;
+  for(const t of tasks)Object.assign(t,{starts_at:null,plan_date:null,flow_order:null,pile_id:null,pile_order:keepOrder?t.pile_order??null:null,wait_for:trigger,wait_until:a.until,wait_since:t.wait_since??a.since,revision:t.revision+1});
 }
 function revive({s}:Write,a:Of<'revive'>){
   uniqueRevisions(a.items);if(!a.items.length)reject('꺼낼 작업을 선택하세요.');
@@ -300,10 +312,19 @@ function revive({s}:Write,a:Of<'revive'>){
   const protos=back.filter(t=>t.proto).map(t=>t.id);if(protos.length)put(s,protos,null,0);
 }
 
+function reorderWait({s}:Write,a:Of<'reorder_wait'>){
+  uniqueRevisions(a.expected);
+  if(!a.expected.length)reject('순서를 바꿀 기다림을 선택하세요.');
+  const tasks=tasksAt(s,a.expected,t=>!!t.wait_since),first=tasks[0];
+  const group=s.tasks.filter(t=>t.wait_since&&(t.wait_for??'')===(first.wait_for??'')&&(t.wait_until??null)===(first.wait_until??null));
+  if(group.length!==tasks.length||tasks.some(t=>!group.includes(t)))reject('기다림 묶음이 바뀌었습니다.','conflict');
+  tasks.forEach((t,n)=>{t.pile_order=n+1;});
+}
+
 const actions:{[K in Action['type']]:(w:Write,a:Of<K>)=>void}={
   create,create_scheduled:create,create_flow:create,update,set_completed:setCompleted,delete:remove,restore_trashed:restoreTrashed,purge_trashed:purgeTrashed,
   split_pieces:splitPieces,set_settings:setSettings,set_schedule:setSettings,set_routines:setRoutines,ensure_routines:ensureRoutines,clear_day:clearDay,
-  reorder_flow:reorderFlow,complete_flow:completeFlow,reflow,ship_flow:shipFlow,place_unplanned:placeUnplanned,merge_unplanned:mergeUnplanned,wait,revive,
+  reorder_flow:reorderFlow,reorder_wait:reorderWait,complete_flow:completeFlow,reflow,ship_flow:shipFlow,place_unplanned:placeUnplanned,merge_unplanned:mergeUnplanned,wait,revive,
 };
 
 // Browser preview stand-in for the Rust store: the same transitions on a cloned snapshot.

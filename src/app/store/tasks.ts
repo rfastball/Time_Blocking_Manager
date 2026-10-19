@@ -82,7 +82,11 @@ export function resize(t:Task,duration:number){
 export const unplan=(t:Task)=>t.plan_date&&!t.completed?fly([t.id],()=>dispatch(updateAction(t,null,null),{done:()=>announce(`‘${t.title}’ 준비 선반 맨 위로 옮겼어요`)})):Promise.resolve(false);
 // One stored command for a drop: order, date, time or back to 준비. Out to the band, or back from it, goes through the waiting store.
 export function drop(intent:Intent){
-  if(intent.zone==='wait')return pushOut(carried(intent),{flown:true});
+  if(intent.zone==='wait'){
+    if(intent.index===undefined)return pushOut(carried(intent),{flown:true});
+    const action=intentAction(snap().tasks,intent);
+    return action?dispatch(action,{done:()=>announce('기다림 순서를 옮겼어요')}):Promise.resolve(false);
+  }
   const from=carried(intent).map(find).filter((t):t is Task=>!!t&&waiting(t));
   if(from.length&&intent.zone==='tray')return revive(from.map(t=>t.id),{flown:true});
   const action=intentAction(snap().tasks,intent,snap().piles??[]);

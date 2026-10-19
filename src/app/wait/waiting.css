@@ -19,7 +19,7 @@
 .wrow{display:flex;flex-direction:column;gap:1px;flex-shrink:0;border-radius:var(--radius-block);transition:opacity .22s}
 .wrow.ready{gap:3px;margin-left:-22px}
 .wrow.hollow,.wpile.hollow{outline:1px dashed var(--color-text-muted);outline-offset:-1px}
-.wrow.hollow>*,.wpile.hollow>.wpile-rest{visibility:hidden}
+.wrow.hollow>*,.wpile.hollow>.wpile-rest{opacity:.45}
 .dim{opacity:.4}
 /* A theme with edged blocks draws them as an outline, so the tag and body keep their heights and share one seam. */
 .wtag,.wbody,.wslice{outline:var(--border-block-width) solid var(--color-wait-edge)}
@@ -61,7 +61,7 @@
 .wcard.ready .wslice{background:var(--color-wait-ready)}
 .wslice .handle{margin:0}
 .wcard.hollow{outline:1px dashed var(--color-text-muted);outline-offset:-1px}
-.wcard.hollow>*{visibility:hidden}
+.wcard.hollow>*{opacity:.45}
 /* Slivers behind the front step down in tone within their own hue (multiplied by their tag colour); on the tray each block takes its own colour. */
 .wshade{position:absolute;inset:0;border-radius:inherit;background:var(--color-wait-shade);mix-blend-mode:multiply;pointer-events:none}
 .wcard.ready .wshade{background:var(--color-wait-ready-shade)}
@@ -103,3 +103,20 @@
 }
 @media (pointer:coarse){.wait-fold{width:44px;height:44px;min-height:44px}.handle{width:24px;height:24px}}
 @media (prefers-reduced-motion:reduce){.wtag,.wslice,.wrow,.wpile{transition:none}}
+
+/* Attached arrival surface for either folded sidebar. */
+.rail-panel{position:fixed;z-index:var(--z-float);box-sizing:border-box;padding:8px;background:var(--color-surface);border-radius:var(--radius-panel);box-shadow:var(--sp-lift);max-height:calc(100vh - 16px);overflow:auto}
+.rail-label{display:flex;justify-content:space-between;gap:8px;margin-bottom:6px;font-size:12px;font-weight:600;color:var(--color-text-muted)}
+.rail-face{min-height:56px;box-sizing:border-box;display:flex;align-items:center;background:var(--color-surface);border-radius:var(--radius-control);color:var(--color-text)}
+.rail-face>.ttl{padding:8px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-size:13px}
+.rail-panel.right .rail-face{background:var(--color-wait-body);border-top:8px solid var(--color-wait-tag)}
+.rail-panel .wrename{position:static;width:100%;z-index:auto}
+.rail-panel .wname{width:100%;box-sizing:border-box;border:0}
+
+/* Over a folded rail the panel owns the visible face; the pointer copy stays hidden until it leaves. */
+.held.rail-token{opacity:0;overflow:hidden;min-width:0;min-height:0}
+.held.rail-token .tile{min-width:0;min-height:0;overflow:hidden}
+.held.rail-token .meta,.held.rail-token .chk,.held.rail-token .latch{display:none}
+.held.rail-token .main{padding:3px 6px;min-width:0;overflow:hidden}
+.held.rail-token.waits>.tile{border-top-width:3px}
+.dock-unfold[data-arrival],.wait-unfold[data-arrival]{background:var(--color-text-selection);color:var(--color-action);border-color:var(--color-selection-border)}

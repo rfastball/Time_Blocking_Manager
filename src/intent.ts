@@ -2,6 +2,7 @@ import type {Action,Pile,Task} from './types.ts';
 import {startAt} from './dates.ts';
 import {byFlowOrder} from './flow.ts';
 import {SHELF,cardsIn,pileOf,place,waiting} from './bench.ts';
+import {waitOrderAction} from './waiting.ts';
 
 // Where a held block would go if it were let go right now.
 // body: into that day's order before `before` · rail: fixed at `start` · below/date: end of that day's order · tray: back to 준비 (top of the shelf)
@@ -28,7 +29,15 @@ export function applyIntent(tasks:Task[],intent:Intent|null):Task[]{
   const {id,date}=intent,ids=carried(intent);
   // Leaving a date or the band: no date, no trigger.
   const undated=(list:Task[])=>list.map(t=>!ids.includes(t.id)?t:unwaited(t.plan_date?{...t,plan_date:null,starts_at:null,flow_order:null}:t));
-  if(intent.zone==='wait')return tasks.map(t=>ids.includes(t.id)&&!waiting(t)&&!t.completed?{...t,plan_date:null,starts_at:null,flow_order:null,pile_id:null,pile_order:null,wait_for:'',wait_until:null,wait_since:intent.since??''}:t);
+  if(intent.zone==='wait'){
+    if(intent.index!==undefined){
+      const action=waitOrderAction(tasks,id,intent.index);
+      if(action?.type!=='reorder_wait')return tasks;
+      const order=new Map(action.expected.map((t,n)=>[t.id,n+1]));
+      return tasks.map(t=>order.has(t.id)?{...t,pile_order:order.get(t.id)!}:t);
+    }
+    return tasks.map(t=>ids.includes(t.id)&&!waiting(t)&&!t.completed?{...t,plan_date:null,starts_at:null,flow_order:null,pile_id:null,pile_order:null,wait_for:'',wait_until:null,wait_since:intent.since??''}:t);
+  }
   if(toBench(intent.zone)){
     const next=place(undated(tasks),ids,pileOf(intent.zone),intent.index??Infinity);
     return intent.zone==='shelf'?next.map(t=>ids.includes(t.id)&&t.proto?{...t,proto:false}:t):next;
@@ -66,7 +75,7 @@ export function intentAction(tasks:Task[],intent:Intent,piles:Pile[]=[]):Action|
   if(!t||!lands(intent))return null;
   if(toBench(intent.zone))return benchAction(tasks,piles,carried(intent),intent.zone,intent.index??Infinity);
   // The band's own moves (push out, revive to the shelf's top) go through the waiting store, not a single command here.
-  if(intent.zone==='wait')return null;
+  if(intent.zone==='wait')return intent.index===undefined?null:waitOrderAction(tasks,t.id,intent.index);
   if(intent.zone==='tray')return waiting(t)?{type:'revive',items:revisions(tasks,carried(intent))}:t.plan_date&&!t.completed?updateAction(t,null,null):null;
   const date=intent.date!,ids=carried(intent);
   // Several at once retain their order at the pointed slot; date heads append.

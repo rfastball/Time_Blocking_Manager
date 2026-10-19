@@ -1,5 +1,48 @@
 # 검증 범위
 
+## 기다림 정렬·트리거 변경 Codex 리뷰 Test delta (2026-10-20)
+
+- Unique risk: 묶음 전체의 조건 변경이 사용자 정렬을 지우는 것, 위치만 바꾼 뒤 다른 창에서 작성하던 내용을 저장할 때 내용 충돌이 나는 것. 기존 사례는 재정렬 직후의 revision과 전체 묶음 조건 변경을 확인하지 않았다.
+- Owner / layer: 기존 storage.rs 기다림 사례에서 재정렬 전 revision으로 편집 저장, 전체 묶음의 날짜·텍스트 조건 왕복 변경 후 순서·최초 대기일 유지를 검증한다. 기존 wait_revive parity에 조건 변경 2단계를 넣어 Rust와 preview의 변환을 함께 확인한다.
+- Added / extended / removed: 0 / 2 / 0. 수집 사례·파일·프로세스·브라우저 실행·coverage 기준 변화 0, 중복으로 대체할 기존 증거 없음.
+- 두 지적 모두 수정 전 실패 확인 후 통과. Node 106/106, Rust core 26/26·parity 1/1·storage 33/33, TypeScript·Vite 빌드 및 git diff --check 통과.
+- Runtime delta: 같은 조건의 성공 baseline이 없어 미측정. 확장한 storage 단독 본체 0.26초. UI·네이티브 수동 검사는 실행하지 않았다.
+
+## 트리거 추천 팝업의 편집창 고정 Test delta (2026-10-19)
+
+- Unique risk: 추천 목록이 편집창의 높이·중앙 위치를 바꾸거나 스크롤 영역에 잘리는 것.
+- Owner / layer: 기존 `wait.mjs` 상세 트리거 사례에서 저장 버튼 비가림 기대를 제거하고, 네 테마의 열기·닫기 전후 편집창 rect 동일 및 입력 바로 아래 팝업 정렬로 교체했다. 추천 목록은 레이아웃 밖의 top-layer popover로 표시한다.
+- 사례·파일·실행 프로세스·coverage 기준 변화 0. 해당 UI 사례(6.8초) 및 TypeScript·Vite 빌드 통과. Runtime delta는 기준 미측정, 네이티브 창 수동 조작은 미실시.
+
+## 상세 트리거 추천 목록 Test delta (2026-10-19)
+
+- Unique risk: native datalist가 앱 테마·입력 폭과 다르게 렌더링되는 것, 추천 선택 Enter가 폼을 저장하거나 Esc가 편집창까지 닫는 것.
+- Owner / layer: 기존 `wait.mjs` 상세 트리거 사례에 네 테마 폭·저장 버튼 비가림, ↑/↓·Enter·Esc, 마우스 날짜 선택을 확장했다. 수집 사례·프로세스·lane·coverage 기준 변화 0.
+- 기존 브라우저 기본 목록을 앱의 테마 토큰을 쓰는 combobox/listbox로 교체했다. 해당 UI 사례와 TypeScript·Vite 빌드 통과. Runtime delta는 기준 미측정(최종 사례 본체 5.3초). 네이티브 창 수동 조작은 미실시.
+
+## 대기블록 드래그 원본 유지 Test delta (2026-10-19)
+
+- Unique risk: 드래그 시작 시 원본 내용이 숨겨지거나 캘린더 호버만으로 기다림 원본이 사라지는 것.
+- Owner / layer: 기존 `wait.mjs` 단일 블록·묶음 드래그 두 사례에 내용 가시성, 다른 영역 호버, 취소, 저장 후 제거 단언을 확장했다. 새 사례·파일·브라우저 시작·coverage 기준 변화 0.
+- 드래그 중 목록 내부 순서 미리보기는 유지하며, 다른 영역으로 나간 대기 원본만 저장 전까지 남긴다. 원본에 흐림·점선 표식을 적용하고 포인터 복사본과 구분한다.
+- Runtime delta는 동일 환경 변경 전 기준이 없어 미측정. 기다림 UI 12/12 및 TypeScript·Vite 빌드 통과. 네이티브 창 수동 조작은 별도 미실시.
+
+## 대기블록 상세 트리거·정렬 속도 Test delta (2026-10-19)
+
+- Unique risk: 상세에서 바꾼 트리거만 저장되지 않거나 제목·메모와 부분 저장되는 것, 같은 묶음의 다른 블록이 바뀌는 것, 초안 재개 시 입력이 사라지는 것. 열린 묶음의 순서 변경만 느린 spring을 쓰는 것.
+- Existing owner / Selected layer: `wait.mjs` UI 사례 1개 추가 및 기존 재정렬 사례에 200ms 시점 위치 단언 추가. 기존 `wait_revive` parity 6단계 추가·날짜 배치 단계 확장, `storage.rs` 기다림 사례 확장. 기존 update 리터럴은 optional wait 필드를 명시한다.
+- Added / extended / removed: UI +1, Node 사례 수 변화 0, Rust WaitEdit 바인딩 내보내기 +1. 신규 UI 실행·lane·의존성·coverage 기준 변화 0. 기존 저장소/브라우저 프로세스를 재사용한다.
+- Runtime delta: 동일 환경 변경 전 기준이 없어 미측정. 새 UI 사례 단독 본체 약 5.3초. 편집창·기다림 UI 24/24, Node 106/106, Rust 60/60 및 TypeScript·Vite 빌드 통과. 네이티브 창 수동 조작은 별도 미실시.
+
+## 대기 묶음 드래그 Test delta (2026-10-19)
+
+- Unique risk: 펼친 카드의 transform을 뺀 좌표로 복사본이 뜨고, peek 묶음의 높이 0 때문에 캘린더에서 납작해지거나 전체 배치가 막히는 것. 묶음 내부 순서가 저장·정규화에서 사라지는 것.
+- Existing owner / Selected layer: `scripts/ui-check/wait.mjs`의 실제 포인터 검사, `src/waiting.test.ts` 순서 계산, `src/wait.test.ts` 정규화, 기존 Rust↔preview `wait_revive` parity 및 `storage.rs` 파일 검증.
+- Added / extended / removed: Node 1개 추가, UI 2개 추가, parity 3단계 확장. 기존 파일 검사의 대기 `pile_order=1` 거부 기대는 0 및 실제 pile 소속 거부로 교체했다. 신규 테스트 파일·의존성·lane·브라우저 시작 수·coverage 기준 변화 0.
+- 검증: Node 106/106, Rust lib 25/25·parity 1/1·storage 33/33, TypeScript 및 Vite 빌드 통과. 저장소 파일 접근 검사는 샌드박스 외 실행으로 확인했다.
+- UI: 기다림 11/11, plan·today·wait 합계 46/47. 기존 `the rail of a column fixes the time it is dropped at`는 다른 날짜 레일에 바로 진입해 유동으로 배치되므로 실패하며, 수정 전 `drag.tsx`로도 동일 실패를 재현했다. 이번 대기블록 수정 범위에서 해당 동작·기대값은 변경하지 않았다.
+- Runtime delta: 동일 환경 변경 전 기준이 없어 미측정. 새 UI 두 시나리오의 개별 실행 본체는 약 6.4초·6.3초이며 기존 Edge 실행을 공유한다. Windows 네이티브 창 수동 조작은 별도 미실시.
+
 ## 기간 탭 전환 Test delta (2026-10-15)
 
 - Unique risk: 일·주·2주·월을 바꿀 때 이전 탭과 새 탭의 채움이 0.1초 교차 페이드해 둘 다 반쯤 칠해진 프레임이 생기고(흰 글자가 옅은 바탕에서 사라짐), 제목 길이에 따라 탭 묶음이 최대 37px 옆으로 밀리던 것.

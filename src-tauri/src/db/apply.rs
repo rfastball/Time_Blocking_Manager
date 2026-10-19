@@ -47,8 +47,8 @@ impl Store {
             Action::Create{id,title} => w.create(id,title),
             Action::CreateScheduled{id,title,starts_at,duration} => w.create_scheduled(id,title,starts_at,*duration),
             Action::CreateFlow{id,title,date,duration} => w.create_flow(id,title,date,*duration),
-            Action::Update{id,expected_revision,title,body,starts_at,duration,plan_date,before,sized} =>
-                w.update(w.task_at(id,*expected_revision)?,title,body,starts_at,*duration,plan_date,before,*sized),
+            Action::Update{id,expected_revision,title,body,starts_at,duration,plan_date,before,sized,wait} =>
+                w.update(w.task_at(id,*expected_revision)?,title,body,starts_at,*duration,plan_date,before,*sized,wait),
             Action::SetCompleted{id,expected_revision,completed,date} => w.set_completed(w.task_at(id,*expected_revision)?,*completed,date),
             Action::Delete{id,expected_revision} => w.delete(w.task_at(id,*expected_revision)?),
             Action::RestoreTrashed{id} => w.restore_trashed(id),
@@ -68,6 +68,7 @@ impl Store {
             Action::ShipFlow{date,items,before} => w.ship_flow(date,items,before),
             Action::Wait{items,trigger,until,since} => w.wait(items,trigger,until,since),
             Action::Revive{items} => w.revive(items),
+            Action::ReorderWait{expected} => w.reorder_wait(expected),
         }?;
         normalize_piles(&tx)?;
         // Retain a tolerated future request until its own retry horizon also expires.
@@ -125,7 +126,7 @@ impl<'a> Write<'a> {
     }
 
     #[allow(clippy::too_many_arguments)]
-    fn update(&self, current: &Task, title: &str, body: &str, starts_at: &Option<String>, duration: i64, plan_date: &Option<String>, before: &Option<String>, sized: Option<bool>) -> Result<()> {
+    fn update(&self, current: &Task, title: &str, body: &str, starts_at: &Option<String>, duration: i64, plan_date: &Option<String>, before: &Option<String>, sized: Option<bool>, wait: &Option<WaitEdit>) -> Result<()> {
         let (id,revision)=(&current.id,current.revision);
         let derived=starts_at.as_deref().map(|start|start.get(..10).unwrap_or_default().to_string());
         if derived.is_some() && plan_date.is_some() && derived!=*plan_date {return Err(error("validation","시각을 고정한 날짜와 계획 날짜가 다릅니다."));}
@@ -144,13 +145,23 @@ impl<'a> Write<'a> {
             (None,Some(date),None) => Some(next_flow_order(&self.s.tasks,date)),
             _ => None,
         };
-        let task = Task { title: title.trim().into(), body: body.into(), starts_at: starts_at.clone(), duration, plan_date: date, flow_order, ..current.clone() };
+        let mut task = Task { title: title.trim().into(), body: body.into(), starts_at: starts_at.clone(), duration, plan_date: date, flow_order, ..current.clone() };
+        if let Some(wait)=wait {
+            if current.wait_since.is_none() {return Err(error("validation","기다리는 작업만 조건을 바꿀 수 있어요."));}
+            let trigger=wait.trigger.trim();
+            if trigger.len()>200 {return Err(error("validation","기다림 조건을 확인하세요."));}
+            if let Some(until)=&wait.until {parse_date(until)?;}
+            if task.plan_date.is_none() {
+                if current.wait_for.as_deref().unwrap_or("")!=trigger || current.wait_until!=wait.until {task.pile_order=None;}
+                task.wait_for=Some(trigger.into());task.wait_until=wait.until.clone();
+            }
+        }
         validate_task(&task, &self.s.tasks)?;
         // Inserting before another task moves only the later order numbers of that day.
         if let Some((date,order))=shift {self.tx.execute("UPDATE tasks SET flow_order=flow_order+1 WHERE plan_date=?1 AND starts_at IS NULL AND flow_order>=?2 AND id<>?3 AND deleted_at IS NULL",params![date,order,id])?;}
         // A length chosen or a date given makes a proto block a sized one, for good.
         let proto=current.proto&&task.plan_date.is_none()&&duration==current.duration&&sized!=Some(true);
-        self.tx.execute("UPDATE tasks SET title=?1,body=?2,starts_at=?3,duration=?4,plan_date=?5,flow_order=?6,proto=?7,revision=revision+1 WHERE id=?8 AND revision=?9", params![task.title,task.body,task.starts_at,task.duration,task.plan_date,task.flow_order,proto,id,revision])?;
+        self.tx.execute("UPDATE tasks SET title=?1,body=?2,starts_at=?3,duration=?4,plan_date=?5,flow_order=?6,proto=?7,wait_for=?8,wait_until=?9,pile_order=?10,revision=revision+1 WHERE id=?11 AND revision=?12", params![task.title,task.body,task.starts_at,task.duration,task.plan_date,task.flow_order,proto,task.wait_for,task.wait_until,task.pile_order,id,revision])?;
         // Sent back to 준비 by a button: on top of the shelf.
         if task.plan_date.is_none()&&current.plan_date.is_some()&&!current.completed {shelve(self.tx,std::slice::from_ref(id))?;}
         Ok(())
@@ -430,11 +441,25 @@ impl<'a> Write<'a> {
         let trigger=trigger.trim();
         if trigger.len()>200 {return Err(error("validation","기다림 조건을 확인하세요."));}
         parse_date(since)?;if let Some(until)=until {parse_date(until)?;}
-        // Out of its day, pile or 기다림 trigger; the day keeps its other order numbers, as when work goes back to 준비.
-        for t in self.tasks_at(items,|t|!t.completed)? {
-            self.tx.execute("UPDATE tasks SET starts_at=NULL,plan_date=NULL,flow_order=NULL,pile_id=NULL,pile_order=NULL,wait_for=?1,wait_until=?2,wait_since=?3,revision=revision+1 WHERE id=?4",
-                params![trigger,until,t.wait_since.as_deref().unwrap_or(since),t.id])?;
+        let tasks=self.tasks_at(items,|t|!t.completed)?;
+        let first=tasks[0];
+        // Retagging a complete waiting group keeps its chosen order; moving a subset starts afresh.
+        let keep_order=tasks.iter().all(|t|t.wait_since.is_some()&&t.wait_for==first.wait_for&&t.wait_until==first.wait_until)
+            && self.s.tasks.iter().filter(|t|t.wait_since.is_some()&&t.wait_for==first.wait_for&&t.wait_until==first.wait_until).count()==tasks.len();
+        for t in tasks {
+            self.tx.execute("UPDATE tasks SET starts_at=NULL,plan_date=NULL,flow_order=NULL,pile_id=NULL,pile_order=?5,wait_for=?1,wait_until=?2,wait_since=?3,revision=revision+1 WHERE id=?4",
+                params![trigger,until,t.wait_since.as_deref().unwrap_or(since),t.id,if keep_order {t.pile_order} else {None}])?;
         }
+        Ok(())
+    }
+    fn reorder_wait(&self, expected: &[TaskRevision]) -> Result<()> {
+        unique_revisions(expected,"순서를 바꿀 기다림을 확인하세요.")?;
+        if expected.is_empty() {return Err(error("validation","순서를 바꿀 기다림을 선택하세요."));}
+        let tasks=self.tasks_at(expected,|t|t.wait_since.is_some())?;
+        let first=tasks[0];
+        let group:Vec<_>=self.s.tasks.iter().filter(|t|t.wait_since.is_some()&&t.wait_for.as_deref().unwrap_or("")==first.wait_for.as_deref().unwrap_or("")&&t.wait_until==first.wait_until).collect();
+        if group.len()!=tasks.len()||tasks.iter().any(|t|!group.iter().any(|g|g.id==t.id)) {return Err(error("conflict","기다림 묶음이 바뀌었습니다."));}
+        for (n,t) in tasks.iter().enumerate() {self.tx.execute("UPDATE tasks SET pile_order=?1 WHERE id=?2",params![n as i64+1,t.id])?;}
         Ok(())
     }
     fn revive(&self, items: &[TaskRevision]) -> Result<()> {

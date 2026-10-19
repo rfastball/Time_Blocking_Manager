@@ -61,7 +61,7 @@ pub(super) fn normalize_piles(conn: &Connection) -> Result<()> {
     // The shelf holds sized work only: a proto put there takes its default length for good.
     conn.execute(&format!("UPDATE tasks SET proto=0 WHERE {BENCH} AND proto=1 AND pile_id=?1"),[SHELF])?;
     conn.execute_batch(&format!("
-        UPDATE tasks SET pile_id=NULL,pile_order=NULL WHERE deleted_at IS NULL AND NOT ({BENCH}) AND (pile_id IS NOT NULL OR pile_order IS NOT NULL);
+        UPDATE tasks SET pile_id=NULL,pile_order=NULL WHERE deleted_at IS NULL AND NOT ({BENCH}) AND (wait_since IS NULL OR pile_id IS NOT NULL) AND (pile_id IS NOT NULL OR pile_order IS NOT NULL);
         UPDATE tasks SET proto=0 WHERE deleted_at IS NULL AND proto=1 AND NOT ({BENCH}) AND wait_since IS NULL;
         UPDATE tasks SET pile_id=NULL WHERE {BENCH} AND pile_id IS NOT NULL AND pile_id NOT IN (SELECT id FROM piles);
         DELETE FROM piles WHERE id NOT IN (SELECT pile_id FROM tasks WHERE {BENCH} AND pile_id IS NOT NULL);"))?;
