@@ -1,5 +1,11 @@
 # 검증 범위
 
+## 트리거 추천 팝업의 편집창 고정 Test delta (2026-10-19)
+
+- Unique risk: 추천 목록이 편집창의 높이·중앙 위치를 바꾸거나 스크롤 영역에 잘리는 것.
+- Owner / layer: 기존 `wait.mjs` 상세 트리거 사례에서 저장 버튼 비가림 기대를 제거하고, 네 테마의 열기·닫기 전후 편집창 rect 동일 및 입력 바로 아래 팝업 정렬로 교체했다. 추천 목록은 레이아웃 밖의 top-layer popover로 표시한다.
+- 사례·파일·실행 프로세스·coverage 기준 변화 0. 해당 UI 사례(6.8초) 및 TypeScript·Vite 빌드 통과. Runtime delta는 기준 미측정, 네이티브 창 수동 조작은 미실시.
+
 ## 상세 트리거 추천 목록 Test delta (2026-10-19)
 
 - Unique risk: native datalist가 앱 테마·입력 폭과 다르게 렌더링되는 것, 추천 선택 Enter가 폼을 저장하거나 Esc가 편집창까지 닫는 것.

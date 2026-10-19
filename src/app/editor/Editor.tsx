@@ -1,4 +1,4 @@
-import {useEffect,useId,useRef,useState,type KeyboardEvent as ReactKeyboardEvent,type MutableRefObject} from 'react';
+import {useEffect,useLayoutEffect,useId,useRef,useState,type KeyboardEvent as ReactKeyboardEvent,type MutableRefObject} from 'react';
 import {motion} from 'motion/react';
 import {isCompositionKey,needsSavedReview} from '../../capture.ts';
 import {formatDuration} from '../../format.ts';
@@ -157,16 +157,25 @@ export function Editor({mode,closer}:{mode:'panel'|'dialog';closer?:MutableRefOb
 function TriggerField({value,onChange}:{value:string;onChange:(value:string)=>void}){
   const {snapshot,today}=useApp(),id=useId(),[open,setOpen]=useState(false),[hi,setHi]=useState(-1);
   const options=triggerOptions(value,snapshot!.tasks,today),shown=open&&options.length>0;
+  const input=useRef<HTMLInputElement>(null),list=useRef<HTMLDivElement>(null);
+  useLayoutEffect(()=>{
+    if(!shown||!list.current)return;
+    const menu=list.current;
+    const place=()=>{
+      const r=input.current!.getBoundingClientRect();
+      Object.assign(menu.style,{left:r.left+'px',top:r.bottom+4+'px',width:r.width+'px',maxHeight:Math.max(0,innerHeight-r.bottom-12)+'px'});
+    };
+    place();menu.showPopover();
+    addEventListener('resize',place);document.addEventListener('scroll',place,true);
+    return ()=>{removeEventListener('resize',place);document.removeEventListener('scroll',place,true);};
+  },[shown]);
+  useEffect(()=>{if(shown&&hi>=0)list.current?.children[hi]?.scrollIntoView({block:'nearest'});},[shown,hi]);
   const choose=(text:string)=>{onChange(text);setOpen(false);setHi(-1);};
   return <div className="ed-field ed-trigger">
     <label htmlFor={id}>트리거</label>
-    <input id={id} aria-label="트리거" role="combobox" aria-autocomplete="list" aria-expanded={shown} aria-controls={shown?id+'-options':undefined}
+    <input ref={input} id={id} aria-label="트리거" role="combobox" aria-autocomplete="list" aria-expanded={shown} aria-controls={shown?id+'-options':undefined}
       aria-activedescendant={shown&&hi>=0?id+'-option-'+hi:undefined} autoComplete="off" maxLength={100} placeholder="상대 또는 날짜" value={value}
-      onFocus={()=>setOpen(true)} onClick={()=>setOpen(true)} onBlur={e=>{
-        // Keep the form button under the pointer until its click has been handled.
-        if(!(e.relatedTarget instanceof HTMLButtonElement))setOpen(false);
-        setHi(-1);
-      }}
+      onFocus={()=>setOpen(true)} onClick={()=>setOpen(true)} onBlur={()=>{setOpen(false);setHi(-1);}}
       onChange={e=>{onChange(e.target.value);setOpen(true);setHi(-1);}}
       onKeyDown={e=>{
         if(isCompositionKey(e.nativeEvent)||e.ctrlKey||e.metaKey)return;
@@ -176,7 +185,7 @@ function TriggerField({value,onChange}:{value:string;onChange:(value:string)=>vo
         }else if(e.key==='Enter'&&shown&&hi>=0){e.preventDefault();e.stopPropagation();choose(options[hi].text);}
         else if(e.key==='Escape'&&shown){e.preventDefault();e.stopPropagation();setOpen(false);setHi(-1);}
       }}/>
-    {shown&&<div id={id+'-options'} className="ed-trigger-options" role="listbox" aria-label="트리거 추천">
+    {shown&&<div ref={list} popover="manual" id={id+'-options'} className="ed-trigger-options" role="listbox" aria-label="트리거 추천">
       {options.map((o,i)=><button key={o.text} id={id+'-option-'+i} type="button" role="option" tabIndex={-1} aria-selected={i===hi}
         onMouseDown={e=>e.preventDefault()} onClick={()=>choose(o.text)}><span>{o.text}</span>{o.note&&<small>{o.note}</small>}</button>)}
     </div>}

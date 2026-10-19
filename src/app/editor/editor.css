@@ -41,7 +41,8 @@
 .ed-when{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:14px}
 .ed-field{display:flex;flex-direction:column;gap:6px;min-width:0;font-size:var(--font-size-label);color:var(--color-text-muted)}
 .ed .ed-trigger input{width:100%;padding:6px 8px;color:var(--color-text)}
-.ed-trigger-options{display:flex;flex-direction:column;gap:2px;padding:4px;border:1px solid var(--color-control-border);border-radius:var(--radius-control);background:var(--color-surface)}
+.ed-trigger-options{position:fixed;inset:auto;margin:0;box-sizing:border-box;overflow-y:auto;flex-direction:column;gap:2px;padding:4px;border:1px solid var(--color-control-border);border-radius:var(--radius-control);background:var(--color-surface);color:var(--color-text);font-size:var(--font-size-label);box-shadow:var(--shadow-dialog)}
+.ed-trigger-options:popover-open{display:flex}
 .ed-trigger-options button{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:30px;padding:5px 8px;border:0;border-radius:var(--radius-control);background:transparent;color:var(--color-text);font:inherit;text-align:left;cursor:pointer}
 .ed-trigger-options button:hover,.ed-trigger-options button[aria-selected=true]{background:var(--color-text-selection);color:var(--color-action)}
 .ed-trigger-options small{font:inherit;color:var(--color-text-muted)}
