@@ -51,6 +51,7 @@ export type Ui={
   // Revived blocks are renamed to their next action in turn, in place: the one being named and the ones after it.
   renaming:{id:string;value:string;queue:string[]}|null;
   // The last push or revival, undoable for a few seconds.
+  railLanding:{side:'left'|'right';ids:string[]}|null;
   waitToast:{text:string;undo:()=>void;at:number}|null;
 };
 export type Info={dbPath:string;warning:string;lastBackup:string;autoStart:boolean;shortcut:string;exitOnClose:boolean;failed:boolean};
@@ -90,7 +91,7 @@ let state:AppState={
   now:clockMinute(),today:day,
   nav:{view:'plan',selected:day,planAnchor:day,period:'week',dock:storedDock(),band:storedBand()},
   drafts:emptyDrafts(),
-  ui:{editorMode:null,editorFocus:null,contextMenu:null,availability:null,split:null,pendingShortcut:null,landed:null,benchSelection:[],doneHere:[],search:false,found:null,naming:null,renaming:null,waitToast:null},
+  ui:{editorMode:null,editorFocus:null,contextMenu:null,availability:null,split:null,pendingShortcut:null,landed:null,benchSelection:[],doneHere:[],search:false,found:null,naming:null,renaming:null,waitToast:null,railLanding:null},
   quitSaving:false,draftPending:false,gesture:false,
   singleKeys:(()=>{try{return localStorage.getItem('blokky.single-keys')!=='off';}catch{return true;}})()
 };

@@ -36,7 +36,7 @@ export function Waiting(){
   const count=groups.reduce((n,g)=>n+g.items.length,0),ready=groups.filter(g=>g.kind==='ready').reduce((n,g)=>n+g.items.length,0);
   const list=useRef<HTMLDivElement>(null);
   // Over the band a held block becomes a waiting token: the band's width, no time axis.
-  const ref=useRegion('wait',null,{form:()=>({width:Math.max(160,(list.current?.clientWidth??236)-40),height:63})});
+  const ref=useRegion('wait',null,{form:()=>({width:open?Math.max(160,(list.current?.clientWidth??236)-40):220,height:63})});
   const hot=aimedAt(held,'wait');
   const [cursor,setCursor]=useState<string|null>(null),[openKey,setOpenKey]=useState<string|null>(null);
   const [openReq,setOpenReq]=useState<{key:string;id:string}|null>(null);

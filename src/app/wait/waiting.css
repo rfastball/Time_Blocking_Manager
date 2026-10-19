@@ -103,3 +103,12 @@
 }
 @media (pointer:coarse){.wait-fold{width:44px;height:44px;min-height:44px}.handle{width:24px;height:24px}}
 @media (prefers-reduced-motion:reduce){.wtag,.wslice,.wrow,.wpile{transition:none}}
+
+/* Attached arrival surface for either folded sidebar. */
+.rail-panel{position:fixed;z-index:var(--z-float);box-sizing:border-box;padding:8px;background:var(--color-surface);border-radius:var(--radius-panel);box-shadow:var(--sp-lift);max-height:calc(100vh - 16px);overflow:auto}
+.rail-label{display:flex;justify-content:space-between;gap:8px;margin-bottom:6px;font-size:12px;font-weight:600;color:var(--color-text-muted)}
+.rail-face{min-height:56px;box-sizing:border-box;display:flex;align-items:center;background:var(--color-surface);border-radius:var(--radius-control);color:var(--color-text)}
+.rail-face>.ttl{padding:8px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-size:13px}
+.rail-panel.right .rail-face{background:var(--color-wait-body);border-top:8px solid var(--color-wait-tag)}
+.rail-panel .wrename{position:static;width:100%;z-index:auto}
+.rail-panel .wname{width:100%;box-sizing:border-box;border:0}

@@ -118,6 +118,11 @@ export function DragProvider({children}:{children:ReactNode}){
       return r;
     };
     const all=[...regions.current.values()];
+    const floating=all.find(r=>r.el.classList.contains('rail-panel')&&inside(r.el));
+    if(floating){
+      if(floating.kind==='wait'&&!waiting(task)&&ids.every(id=>!base.find(t=>t.id===id)?.completed))return {intent:{...intent,zone:'wait',since:getState().today},region:floating};
+      if(floating.kind==='tray'&&(waiting(task)||task.plan_date&&!task.completed&&ids.length===1))return {intent:{...intent,zone:'tray'},region:floating};
+    }
     // A pile from the band goes back to 준비 whole; its blocks reach a day one at a time.
     const pile=ids.length>1&&ids.every(id=>{const t=base.find(x=>x.id===id);return !!t&&waiting(t);});
     for(const region of pile?[]:all.filter(r=>r.kind==='space')){
@@ -137,7 +142,7 @@ export function DragProvider({children}:{children:ReactNode}){
         const centre=py-(region.list.top?.()??r.top)-grabY*h+h/2;
         return {intent:{...intent,zone:kind,index:listIndex(items,region.list.gap,centre)},region};
       }
-      if(kind==='tray')return waiting(task)||task.plan_date&&!task.completed&&ids.length===1?{intent:{...intent,zone:'tray'}}:{intent};
+      if(kind==='tray')return waiting(task)||task.plan_date&&!task.completed&&ids.length===1?{intent:{...intent,zone:'tray'},region}:{intent};
       // Out to the band: anything open that is not already waiting there.
       if(kind==='wait')return !waiting(task)&&ids.every(id=>!base.find(t=>t.id===id)?.completed)?{intent:{...intent,zone:'wait',since:getState().today},region}:{intent,region};
       return {intent:{...intent,zone:'date',date:region.date},region};
@@ -237,6 +242,8 @@ export function DragProvider({children}:{children:ReactNode}){
   function savedTarget(h:Held,intent:Intent,saved:boolean){
     const task=getState().snapshot?.tasks.find(t=>t.id===h.task.id);if(!task)return null;
     const id=CSS.escape(task.id),all=[...regions.current.values()];
+    const floating=saved?document.querySelector<HTMLElement>(`.rail-panel [data-flight="${id}"]`):null;
+    if(floating)return floating;
     for(const r of all){
       if(r.kind==='inbox'||r.kind==='shelf'){const card=r.el.querySelector<HTMLElement>(`[data-card="${id}"]`);if(card)return card;continue;}
       if(r.kind==='wait'){const card=r.el.querySelector<HTMLElement>(`[data-flight="${id}"]`);if(card)return card;continue;}

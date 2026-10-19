@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {setDock,toFocus,toPlan} from './support/nav.mjs';
+import {dockState,setDock,toFocus,toPlan} from './support/nav.mjs';
 
 // 기다림: the band right of the calendar. Sample data has a pile of three on 김부장 결재, one on 법무팀 검토, one met date
 // (today) and one later date.
@@ -79,6 +79,53 @@ const scenarios=[
     assert.match(await page.js(`document.querySelector('.wait-unfold').getAttribute('aria-label')`),/^기다림 펴기, \d+건, 충족 1건$/);
     await page.key('\\',{code:'Backslash'});await page.sleep(300);
     assert.equal(await band(page),'open','\\ opens it again');
+  }},
+  {name:'collapsed destinations keep an anchored block from arrival through editing in both directions',run:async page=>{
+    const anchored=async(side,field)=>{
+      const panel='.rail-panel.'+side;
+      await page.until(`document.activeElement?.id===${JSON.stringify(field)}&&!!document.querySelector('${panel} #${field}')`,{message:side+' panel owns the focused editor'});
+      assert.ok(await page.js(`!!document.querySelector('${panel} [data-flight]')`),'the editor has an arrival block');
+      const p=await page.rect(panel),i=await page.rect('#'+field),rail=await page.rect(side==='left'?'#dock':'#wait');
+      assert.ok(i.x>=p.x-1&&i.y>=p.y-1&&i.x+i.w<=p.x+p.w+1&&i.y+i.h<=p.y+p.h+1,'input stays inside its block panel');
+      assert.ok(side==='left'?Math.abs(p.x-(rail.x+rail.w))<24:Math.abs(p.x+p.w-rail.x)<24,'panel stays attached to its collapsed rail');
+      assert.ok(p.y>=0&&p.y+p.h<=1000,'panel fits the viewport');
+      await page.mouse('mouseMoved',720,100,0);await page.sleep(200);
+      assert.ok(await page.js(`!!document.querySelector('${panel} #${field}')`),'leaving the rail keeps the editor available');
+    };
+    await setDock(page,'hidden');await openBand(page);
+    await page.click('#wait [data-flight="sample-w4"] .handle');
+    await anchored('left','wait-rename');
+    assert.equal(await dockState(page),'hidden','release preserves the collapsed dock');
+    assert.equal((await task(page,'협약서 문안')).since,null);
+    await page.shot('wait-hidden-dock-arrival');
+    await page.type('협약서 발송');await page.key('Enter');
+    await page.until(`!document.querySelector('.rail-panel.left')`,{message:'left panel closes after naming'});
+    assert.ok(await task(page,'협약서 발송'),'the arrival title is saved');
+    assert.equal(await dockState(page),'hidden');
+
+    await setDock(page,'narrow'); // User opens the source; the destination remains collapsed.
+    assert.equal(await band(page),'closed');
+    const from=await page.rect('#dock .tblk','협약서 발송'),to=await page.rect('#wait');
+    assert.ok(from);
+    await page.mouse('mouseMoved',from.cx,from.cy,0);await page.mouse('mousePressed',from.cx,from.cy);
+    for(let i=1;i<=14;i++){
+      await page.mouse('mouseMoved',from.cx+(to.cx-from.cx)*i/14,from.cy+(to.y+to.h-40-from.cy)*i/14);await page.sleep(16);
+    }
+    await page.until(`!!document.querySelector('.rail-panel.right [data-flight]')`,{message:'resting over the rail previews the destination block'});
+    assert.equal(await band(page),'closed','preview preserves the collapsed band');
+    await page.sleep(200); // Let the panel entrance finish before crossing into its arrival face.
+    const arrival=await page.rect('.rail-panel.right [data-flight]');
+    await page.mouse('mouseMoved',arrival.cx,arrival.cy);await page.sleep(250);
+    assert.ok(await page.js(`!!document.querySelector('.rail-panel.right [data-flight]')`),'crossing from the rail into its preview keeps the destination available');
+    await page.mouse('mouseReleased',arrival.cx,arrival.cy,0);
+    await anchored('right','wait-trigger');
+    assert.equal(await band(page),'closed','dropping preserves the collapsed band');
+    assert.equal(await dockState(page),'narrow','the source dock width is unchanged');
+    await page.shot('wait-closed-band-arrival');
+    await page.type('법무팀 회신');await page.key('Enter');
+    await page.until(`!document.querySelector('.rail-panel.right')`,{message:'right panel closes after naming'});
+    assert.equal((await task(page,'협약서 발송')).for,'법무팀 회신');
+    assert.equal(await band(page),'closed');
   }},
   {name:'the band is one tab stop: arrows walk rows, → raises a pile, letters jump by 초성, F2 changes a trigger, B meets one',run:async page=>{
     await toPlan(page);await openBand(page);

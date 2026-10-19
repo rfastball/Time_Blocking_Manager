@@ -26,6 +26,7 @@ export async function fly(ids:string[],move:()=>Promise<boolean>):Promise<boolea
   const ok=await move();
   if(!ok||!from.length)return ok;
   await new Promise<void>(r=>requestAnimationFrame(()=>requestAnimationFrame(()=>r())));
+  const flights:Promise<unknown>[]=[];
   for(const f of from){
     const to=boxOf(f.id);if(!to)continue;
     const box=to.getBoundingClientRect(),end=face(to);
@@ -39,7 +40,8 @@ export async function fly(ids:string[],move:()=>Promise<boolean>):Promise<boolea
       {left:f.box.left+'px',top:f.box.top+'px',width:f.box.width+'px',height:f.box.height+'px',background:f.face.background,borderRadius:f.face.radius},
       {left:box.left+'px',top:box.top+'px',width:box.width+'px',height:box.height+'px',background:end.background,borderRadius:end.radius},
     ],{duration:FLY_MS,easing:'cubic-bezier(.2,.8,.2,1)',fill:'forwards'});
-    animation.finished.then(done,done);
+    flights.push(animation.finished.then(done,done));
   }
+  await Promise.all(flights);
   return ok;
 }
