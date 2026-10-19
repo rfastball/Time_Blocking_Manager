@@ -210,8 +210,10 @@ const scenarios=[
     const order=()=>page.js(`(async()=>{const {getState}=await __mod('/src/app/store/state.ts');const {waitGroups}=await __mod('/src/waiting.ts');const s=getState();return waitGroups(s.snapshot.tasks,s.today).find(g=>g.text==='김부장 결재').items.map(t=>t.id);})()`);
     assert.deepEqual(await order(),['sample-w2','sample-w3','sample-w1'],'drag saves the last position');
     await page.js(`document.querySelector('.wpile-layer [data-wait="sample-w1"]').focus()`);
-    await page.key('ArrowUp',{modifiers:1});await page.sleep(350);
+    await page.key('ArrowUp',{modifiers:1});await page.sleep(200);
     assert.deepEqual(await order(),['sample-w2','sample-w1','sample-w3'],'Alt+Up saves one position up');
+    const moved=await page.rect('.wpile-layer [data-flight="sample-w1"]');
+    assert.ok(Math.abs(moved.y-(first.y+38))<1,'waiting neighbors settle at the same 160ms pace as the calendar');
     await page.key('Escape');await page.mouse('mouseMoved',720,100,0);await page.sleep(650);
     await page.click('#wait .wpile .wtag-text');await page.sleep(650);
     assert.deepEqual(await page.js(`[...document.querySelectorAll('.wpile-layer [data-wait]')].map(e=>e.dataset.wait)`),['sample-w2','sample-w1','sample-w3'],'reopening retains the saved order');

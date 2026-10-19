@@ -10,7 +10,7 @@ import {editTrigger,reorderWait,revive,setBand} from '../store/wait.ts';
 import {deleteTask} from '../store/tasks.ts';
 import {openEditor} from '../store/editor.ts';
 import {aimedAt,useDrag,useRegion} from '../space/drag.tsx';
-import {reduced} from '../ui/motion.ts';
+import {reduced,reflow} from '../ui/motion.ts';
 import {Icon} from '../ui/icons.tsx';
 import './waiting.css';
 import {useDismiss} from '../ui/dismiss.ts';
@@ -224,7 +224,7 @@ function PileFace({group,mode,width,top,openUp,close,static:still=false,drag}:{g
   const p=pose(n,mode,ready,width||236,top),rest=pose(n,'rest',ready,width||236,top),full=mode==='open'&&!still;
   const reorderRegion=useRegion('wait',null,{list:{gap:6,items:()=>group.items.map(t=>({id:t.id,height:32})),top:()=>top+p.cards[0].y},form:()=>({width:width||236,height:32})});
   const prev=useRef(mode),rising=RANK[mode]>RANK[prev.current];useEffect(()=>{prev.current=mode;});
-  const spring=(delay=0)=>reduced()||still?{duration:0}:{type:'spring' as const,...SPRING[mode],delay:rising?delay:0};
+  const spring=(delay=0)=>reduced()||still?{duration:0}:full&&prev.current==='open'?reflow:{type:'spring' as const,...SPRING[mode],delay:rising?delay:0};
   const whole=useDraggable({id:`${still?'wait-peek-rest':'wait-peek'}:${group.key}`,data:{taskId:ids[0],ids},disabled:!drag||still});
   const allOff=group.items.every(t=>b.unclip.has(t.id));
   return <div className="wface" ref={drag&&!still?whole.setNodeRef:undefined} style={drag&&!still?{height:restHeight(n,ready)}:undefined} data-block={drag&&!still?'true':undefined} {...(drag&&!still?whole.listeners:{})}>
