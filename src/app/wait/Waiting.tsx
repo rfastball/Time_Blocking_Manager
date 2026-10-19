@@ -3,6 +3,7 @@ import {createPortal} from 'react-dom';
 import {useDraggable} from '@dnd-kit/core';
 import {motion} from 'motion/react';
 import type {Task} from '../../types.ts';
+import {waiting} from '../../bench.ts';
 import {isCompositionKey} from '../../capture.ts';
 import {jump,keyInitial,sinceLabel,staleLabel,waitGroups,type WaitGroup} from '../../waiting.ts';
 import {getState,useApp} from '../store/state.ts';
@@ -32,7 +33,11 @@ const useBand=()=>useContext(BandCtx)!;
 
 export function Waiting(){
   const s=useApp(),{held,tasks}=useDrag(),open=s.nav.band==='open';
-  const groups=useMemo(()=>waitGroups(tasks,s.today),[tasks,s.today]);
+  const groups=useMemo(()=>{
+    // Keep the waiting source until release; an internal reorder still previews its new place.
+    const source=new Map(!held||held.dropping?[]:(s.snapshot?.tasks??[]).filter(t=>held.ids.includes(t.id)&&waiting(t)).map(t=>[t.id,t]));
+    return waitGroups(tasks.map(t=>!waiting(t)&&source.has(t.id)?source.get(t.id)!:t),s.today);
+  },[tasks,s.today,s.snapshot,held]);
   const count=groups.reduce((n,g)=>n+g.items.length,0),ready=groups.filter(g=>g.kind==='ready').reduce((n,g)=>n+g.items.length,0);
   const list=useRef<HTMLDivElement>(null);
   // Over the band a held block becomes a waiting token: the band's width, no time axis.

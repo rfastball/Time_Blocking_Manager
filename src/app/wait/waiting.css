@@ -19,7 +19,7 @@
 .wrow{display:flex;flex-direction:column;gap:1px;flex-shrink:0;border-radius:var(--radius-block);transition:opacity .22s}
 .wrow.ready{gap:3px;margin-left:-22px}
 .wrow.hollow,.wpile.hollow{outline:1px dashed var(--color-text-muted);outline-offset:-1px}
-.wrow.hollow>*,.wpile.hollow>.wpile-rest{visibility:hidden}
+.wrow.hollow>*,.wpile.hollow>.wpile-rest{opacity:.45}
 .dim{opacity:.4}
 /* A theme with edged blocks draws them as an outline, so the tag and body keep their heights and share one seam. */
 .wtag,.wbody,.wslice{outline:var(--border-block-width) solid var(--color-wait-edge)}
@@ -61,7 +61,7 @@
 .wcard.ready .wslice{background:var(--color-wait-ready)}
 .wslice .handle{margin:0}
 .wcard.hollow{outline:1px dashed var(--color-text-muted);outline-offset:-1px}
-.wcard.hollow>*{visibility:hidden}
+.wcard.hollow>*{opacity:.45}
 /* Slivers behind the front step down in tone within their own hue (multiplied by their tag colour); on the tray each block takes its own colour. */
 .wshade{position:absolute;inset:0;border-radius:inherit;background:var(--color-wait-shade);mix-blend-mode:multiply;pointer-events:none}
 .wcard.ready .wshade{background:var(--color-wait-ready-shade)}

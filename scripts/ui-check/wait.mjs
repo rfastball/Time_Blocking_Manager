@@ -188,7 +188,9 @@ const scenarios=[
     await toPlan(page);await openBand(page);
     const from=await page.rect('#wait .wrow:not(.ready) .wbody'),title=await page.js(`document.querySelector('#wait .wrow:not(.ready) .wbody .ttl').textContent`);
     const day=await page.rect('.wk-head:not(.past):not(.today)');
-    await page.drag({x:from.cx,y:from.cy},{x:day.cx,y:day.y+day.h+200},{hold:400});await page.sleep(500);
+    await page.drag({x:from.cx,y:from.cy},{x:day.cx,y:day.y+day.h+200},{hold:400,before:async()=>{
+      assert.ok(await page.js(`document.querySelector('#wait [data-flight="sample-w4"] .wbody')?.checkVisibility({visibilityProperty:true,opacityProperty:true})`),'a single waiting source stays visible over a day');
+    }});await page.sleep(500);
     const t=await task(page,title);
     assert.ok(t.date&&t.since===null,'a date ends the wait');
     assert.ok(await page.js(`document.activeElement?.id==='wait-rename'`),'named in place');
@@ -258,7 +260,10 @@ const scenarios=[
     await page.mouse('mouseMoved',x-12,y);await page.sleep(100);
     const lifted=await page.rect('.held');
     assert.ok(lifted,'one card lifts');
+    assert.ok(await page.js(`document.querySelector('.wpile-layer [data-flight="sample-w2"] .wbody').checkVisibility({visibilityProperty:true,opacityProperty:true})`),'the original card remains visible while lifted');
     assert.ok(Math.abs(lifted.x-(card.x-12))<3&&Math.abs(lifted.y-card.y)<3,`grab point stays on the card: ${JSON.stringify({card,lifted})}`);
+    await page.mouse('mouseMoved',720,350);await page.sleep(400);
+    assert.ok(await page.js(`document.querySelector('.wpile-layer [data-flight="sample-w2"] .wbody')?.checkVisibility({visibilityProperty:true,opacityProperty:true})`),'an individual card stays in its open pile over the calendar');
     await page.key('Escape');await page.mouse('mouseReleased',x-12,y,0);await page.sleep(400);
     await page.key('Escape');await page.mouse('mouseMoved',720,100,0);await page.sleep(650);
     const pile=await page.rect('#wait .wpile-rest');
@@ -270,10 +275,12 @@ const scenarios=[
       assert.ok(copy&&Number.isFinite(copy.y)&&copy.h>80,'the entire pile takes its time-axis height');
       assert.equal(await page.js(`document.querySelector('.held-more')?.textContent`),'+2','all three are carried');
       assert.ok(await page.js(`document.querySelector('.held')?.classList.contains('column')`),'the calendar owns the shape');
+      assert.ok(await page.js(`document.querySelector('#wait [data-flight="sample-w1"] .wbody').checkVisibility({visibilityProperty:true,opacityProperty:true})`),'the original pile stays visible until release');
       await page.shot('wait-pile-calendar');
     }});
     const moved=await Promise.all(['상신 문서 보완','출장비 정산','물품 구매 요청'].map(name=>task(page,name)));
     assert.ok(moved.every(t=>t.date&&t.date===moved[0].date&&t.since===null),'all three land on the day and leave waiting');
+    assert.equal(await page.js(`!!document.querySelector('#wait [data-flight="sample-w1"]')`),false,'only the committed drop removes the original pile');
   }},
   {name:'the band and its blocks take each theme’s corners, edges and ink',run:async page=>{
     await toPlan(page);await openBand(page);
