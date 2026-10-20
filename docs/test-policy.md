@@ -1,5 +1,52 @@
 # 검증 범위
 
+## 자동 백업 저장소 잠금 축소 Test delta (2026-10-20)
+
+- Unique risk: 저장소 잠금 분리로 검증·보존 정책이 달라지거나 복원 중 선택한 자동 백업이 삭제되는 것.
+- Owner / layer: 기존 `storage.rs`의 자동 백업 SQLite 사례를 확장했다. Store를 닫은 뒤 기존 이력을 검증할 수 있고, 손상된 시간 백업은 일 백업 복사 전에 실패하며 이전 파일을 지우지 않는지 확인한다.
+- Added / extended / removed: 0 / 1 / 0. 수집·파일·프로세스·heavy-resource launch·의존성·CI lane·coverage 기준 변화 0. 중복 증거 제거 대상 없음.
+- 구현: 기존 시간/일별 생성·검증·정리 순서를 유지하고 신규 복사만 콜백으로 분리했다. 기존 파일 검증과 정리는 Store 잠금 밖에서 실행한다. 자동 백업·복원·복구는 별도 백업 잠금을 공유하고 항상 Store보다 먼저 얻는다. 저장소 읽기 오류에 대한 사전 확인도 유지한다.
+- 검증: 자동 백업 사례 1/1, Rust 전체 60/60(lib 26·parity 1·storage 33), desktop `cargo check --locked --offline`, diff 검사 통과. 복사 검증·동기화·덮어쓰기 방지·복원 안전 절차는 유지한다.
+- Runtime delta: storage 전체 5.33→5.39초(+0.06초)는 단일 실행 차이이며 성능 추정이 아니다. 최적화 대상은 과거 백업 검사 중 일반 저장의 잠금 대기이며, 실제 네이티브 동시 조작·잠금 대기 시간은 미측정이다.
+
+## 드래그 반복 계산 축소 Test delta (2026-10-20)
+
+- Unique risk: 캐시 때문에 작업·설정·날짜·선택·배치 기준 변경 후 이전 위치가 남거나 포인터 판정이 멈추는 것.
+- Owner / layer: 기존 `drag-zone.test.ts`에 입력 교체·반환 slot 독립성·현재 포인터 반영을 한 사례로 추가했다. 화면 연결은 기존 전체 UI 시나리오를 재사용한다.
+- Added / extended / removed: Node 1 / 0 / 0, 수집 107→108. 새 테스트 파일·프로세스·heavy-resource launch·의존성·CI lane·coverage 기준 변화 0. 중복 증거 제거 대상 없음.
+- 검증: Node 108/108, TypeScript·Vite 빌드 통과. 이전 구현과 캐시/일회 API의 대표 입력 흐름 1,800개 결과가 일치했다. Impeccable detector의 변경 UI 대상 결과는 0건이다.
+- 전체 UI 결과: 123개 중 121개 통과. 검색 단축키 열기 사례는 전체 실행에서 1회 실패했으나 동일 코드 단독 재검증 1/1(2.07초) 통과했다. 나머지 실패는 아래 기존 761px 공간 전제다. 편집창 전후 스크린샷도 확인했으며 제품 화면 디자인은 변경하지 않았다.
+- UI 실행 환경: 기본 Edge 디버깅 포트 연결 대신 기존 시나리오를 임시 CDP pipe 어댑터로 실행했다. Playwright의 자동 확인창 닫기를 끄고 원래 시나리오의 응답을 사용하도록 보완했다. 임시 실행기·계측·스크린샷은 제품/커밋에 포함하지 않는다.
+- 기존 UI 실패: `beside follows a window resize...`의 761px 공간 전제(`a block with room beside it`)는 현재 예시 날짜에서 충족되지 않는다. 최적화 이전 `2b42287`의 전체 src를 임시 Vite 로더로 읽어 같은 실패를 재현했다. 이 테스트와 제품의 창 배치 동작은 변경하지 않았다.
+- 성능: Node 24, 준비 3회/측정 9회 중앙값. 동일 삽입 위치 100회 평가가 합성 1,000건에서 4.04→0.06ms, 10,000건에서 43.12→0.05ms. 캐시 준비 후 반복 평가만 측정하며 최초 계산·DOM·화면 그리기는 제외한다.
+- Runtime delta: Node 전체 테스트의 동일 조건 전후 시간은 미측정. 실제 WebView2 프레임 시간·CPU·터치 조작은 별도 미실시.
+
+## 캘린더 구독 범위 축소 Test delta (2026-10-20)
+
+- Unique risk: 구독을 좁힌 화면에서 저장 결과·현재 시각·설정 초안이 갱신되지 않는 것.
+- Owner / layer: 기존 `editor.mjs` 제목 저장 사례에 현재선 시각 갱신을, `settings.mjs` 날짜 팝업 사례에 저장 전 조퇴 밴드 미리보기를 확장했다. 기존 저장/이동/완료 UI 사례를 그대로 재사용했다.
+- Added / extended / removed: UI 0 / 2 / 0. 사례·파일·브라우저 실행·coverage 기준 변화 0. 중복 증거 제거 대상 없음.
+- 검증: Node 107/107, editor/plan/settings/today UI 59/59, TypeScript, syntax/diff 검사 통과. 최적화 전 editor/plan/search/today/wait UI 기준은 64/64 통과했다.
+- 성능: 같은 예시 데이터·개발 StrictMode에서 제목 10회 수정 시 `dayPlan` 호출이 주 840→20회, 월 820→20회. 임시 Vite 계측으로 측정했으며 제품 코드에 계측을 남기지 않았다. 남은 호출은 편집기 자체 계산을 포함한다.
+- Runtime delta: UI 사례가 공유 프로세스에서 수행되어 개별 기능 속도 변화로 해석하지 않는다. 실제 WebView2 CPU/FPS는 미측정.
+
+## 검색 계산 재사용 Test delta (2026-10-20)
+
+- Unique risk: 검색용 데이터 재사용 후 제목·메모·위치가 낡거나 반환 결과 수정이 다음 검색을 오염시키는 것.
+- Owner / layer: `search.test.ts`에 snapshot 수명/결과 독립성 사례 1개 추가, 기존 정규화·limit 사례 확장. `search.mjs` 메모·IME 사례에 열린 검색의 snapshot 교체 반영을 확장했다.
+- Added / extended / removed: Node 1 / 1 / 0, UI 0 / 1 / 0. Node 수집 +1, UI 수집·파일·브라우저 실행·CI lane·coverage 기준 변화 0. 중복 증거 제거 대상 없음.
+- 검증: Node 107/107, 검색 UI 4/4, TypeScript, syntax/diff 검사 통과. 이전 구현과 두 API의 합성 입력 2,400개 조합(날짜·기다림·구형 선반·완료·휴지통·NFC·limit) 결과가 일치했다.
+- 성능: Node 24, 합성 10,000건·365일 분산, 준비 3회/측정 9회 중앙값. 기존 검색 204.90ms, 변경 후 일회 검색 89.02ms, 검색창의 최초 projection 72.00ms, 이후 조회 0.47ms. 브라우저 렌더 시간 제외; 실행 시 부하에 따른 변동 있음.
+- Runtime delta: 테스트 전체의 동일 조건 전후 시간 미측정. 검색 결과 정렬·한글 조합 중 갱신·부분 일치·위치 표기는 유지한다.
+
+## 저장 발신 창 중복 조회 제거 Test delta (2026-10-20)
+
+- Unique risk: 발신 창의 저장 응답이 반영되지 않거나 다른 창·복원·유지보수 알림까지 무시되는 것.
+- Owner / layer: 기존 `capture.mjs` 미해결 캡처 IPC 사례를 확장해 실제 lifecycle/dispatch 경로의 발신·타 창·전역·쓰기 중 지연 알림을 확인했다. 발신 저장의 추가 load는 0회, 다른 알림은 각각 1회다.
+- Added / extended / removed: 0 / 1 / 0. 수집 사례·새 파일·브라우저 실행·CI lane·coverage 기준 변화 0. 대체할 중복 증거 없음.
+- 검증: 해당 UI 사례 1/1(5.47초), TypeScript, desktop `cargo check --locked --offline`, diff 검사 통과. 기본 Edge 디버깅 포트 연결 실패로 동일 시나리오를 임시 CDP pipe 어댑터에서 실행했다.
+- Runtime delta: 동일 UI 사례의 변경 전 시간은 미측정. 실제 네이티브 두 창 통신은 미실시이며 IPC mock과 desktop 컴파일로 검증했다.
+
 ## 기다림 정렬·트리거 변경 Codex 리뷰 Test delta (2026-10-20)
 
 - Unique risk: 묶음 전체의 조건 변경이 사용자 정렬을 지우는 것, 위치만 바꾼 뒤 다른 창에서 작성하던 내용을 저장할 때 내용 충돌이 나는 것. 기존 사례는 재정렬 직후의 revision과 전체 묶음 조건 변경을 확인하지 않았다.

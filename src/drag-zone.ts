@@ -28,11 +28,30 @@ export type SpaceInput={task:Task;ids:string[];tasks:Task[];layouts:DayLayout[];
 
 const unit=(n:number)=>Math.max(0,Math.min(1,n));
 
+type SpacePlans={task:Task;tasks:Task[];layouts:DayLayout[];date:string;rule:WorkingDay;ids:string[];duration:number;
+  origin?:number;flows?:ReturnType<typeof dayPlan>['items'];projected?:{before:string|null;slot?:Slot}};
+
+// One day's immutable inputs and last insertion slot, owned by a single drag.
+export function createSpaceZone(){
+  let plans:SpacePlans|undefined;
+  return (a:SpaceInput):SpaceZone=>{
+    if(!plans||plans.task!==a.task||plans.tasks!==a.tasks||plans.layouts!==a.layouts||plans.date!==a.date||plans.rule!==a.rule
+      ||plans.ids.length!==a.ids.length||plans.ids.some((id,n)=>id!==a.ids[n])){
+      plans={task:a.task,tasks:a.tasks,layouts:a.layouts,date:a.date,rule:a.rule,ids:[...a.ids],
+        duration:a.ids.reduce((n,id)=>n+(a.tasks.find(t=>t.id===id)?.duration??0),0)};
+    }
+    return evaluateSpaceZone(a,plans);
+  };
+}
+
 // Where a block held over a day space would land: fixed on the rail, or into the day's order.
 export function spaceZone(a:SpaceInput):SpaceZone{
+  return createSpaceZone()(a);
+}
+function evaluateSpaceZone(a:SpaceInput,plans:SpacePlans):SpaceZone{
   const {task,ids,tasks,layouts,date,rule,axis,geometry:g,rect:r,px,py,grabY,grab,prev}=a;
   const intent:Intent={...noIntent(task.id),ids};
-  const duration=ids.reduce((n,id)=>n+(tasks.find(t=>t.id===id)?.duration??0),0);
+  const duration=plans.duration;
   const topIn=py-r.top-grabY*Math.max(10,duration*axis.scale-2);
   // A fixed block starts latched on its own day; anything latched keeps the wider fixed shape while it is measured.
   const was=prev.zone==='rail'?prev.date===date:prev.zone==='none'&&task.starts_at?.slice(0,10)===date;
@@ -43,18 +62,21 @@ export function spaceZone(a:SpaceInput):SpaceZone{
   const bite=g.bite*a.stretch,pull=g.pull*a.stretch;
   if(ids.length===1&&ready&&(px-r.left<g.bodyLeft||(was?edge<g.fixedLeft+pull:edge<=g.flowLeft-bite))){
     const raw=Math.max(0,Math.min(1440-task.duration,axis.minute(py-r.top)-grabY*task.duration));
-    const from=prev.date===date&&prev.zone==='rail'?prev.start!:dayPlan(date,tasks,rule,layouts).items.find(i=>i.task.id===task.id)?.start??rule.start;
+    const from=prev.date===date&&prev.zone==='rail'?prev.start!:(plans.origin??=dayPlan(date,tasks,rule,layouts).items.find(i=>i.task.id===task.id)?.start??rule.start);
     const resisted=resistWorkingBoundary(from,raw,task.duration,rule,axis.position);
     const minute=Math.round(resisted/15)*15;
     const reason=placementIssue(task.id,date,minute,task.duration,rule,tasks)?.label??null;
     return {intent:{...intent,zone:'rail',date,start:minute,ok:!reason,reason},entered,boundary:resisted!==raw,near:was?unit((edge-g.fixedLeft)/pull):0};
   }
-  const rest=dayPlan(date,tasks.filter(t=>!ids.includes(t.id)),rule,layouts);
-  const centre=axis.minute(topIn+duration*axis.scale/2),flows=rest.items.filter(i=>!i.fixed);
+  const flows=plans.flows??=dayPlan(date,tasks.filter(t=>!ids.includes(t.id)),rule,layouts).items.filter(i=>!i.fixed);
+  const centre=axis.minute(topIn+duration*axis.scale/2);
   const body:Intent={...intent,zone:'body',date,before:insertionBefore(flows,centre),ok:true,reason:null};
-  const items=dayPlan(date,applyIntent(tasks,body),rule,layouts).items.filter(i=>ids.includes(i.task.id));
+  if(plans.projected?.before!==body.before){
+    const items=dayPlan(date,applyIntent(tasks,body),rule,layouts).items.filter(i=>ids.includes(i.task.id));
+    plans.projected={before:body.before,slot:items.length?{start:items[0].start,end:items[items.length-1].end,over:items.some(i=>i.over)}:undefined};
+  }
   return {intent:body,entered,boundary:false,near:ready?unit((g.flowLeft-edge)/bite):0,
-    slot:items.length?{start:items[0].start,end:items[items.length-1].end,over:items.some(i=>i.over)}:undefined};
+    slot:plans.projected.slot&&{...plans.projected.slot}};
 }
 
 // Before the first remaining card whose middle is below `centre`, as a list draws its cards top to bottom.

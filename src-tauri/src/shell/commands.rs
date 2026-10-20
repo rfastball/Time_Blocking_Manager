@@ -1,5 +1,5 @@
 //! Every command the frontend invokes by name. Signatures are the IPC contract; keep names and arguments stable.
-use super::{audited, changed, lock, quit, windows::{hide, show, CAPTURE}, with_store, State, STORE_LOCK};
+use super::{audited, changed, lock, quit, windows::{hide, show, CAPTURE}, with_store, State, BACKUP_LOCK, STORE_LOCK};
 use blokky_core::{db::{managed_backup_path, BackupInspection, ManagedBackup, Store}, maintenance::open_store, model::*, settings};
 use std::{fs, sync::MutexGuard};
 use tauri::{AppHandle, WebviewWindow};
@@ -28,8 +28,8 @@ pub fn save_draft(s:tauri::State<State>,window:WebviewWindow,sequence:i64,conten
 #[tauri::command]
 pub fn acknowledge(s: tauri::State<State>, command: Command) -> Result<Option<Snapshot>> {with_store(&s,|db|db.acknowledge(&command))}
 #[tauri::command]
-pub fn mutate(s: tauri::State<State>, app: AppHandle, command: Command) -> Result<Snapshot> {
-    changed(&app,&s,"mutation",with_store(&s, |db| db.apply(&command)))
+pub fn mutate(s: tauri::State<State>, app: AppHandle, window: WebviewWindow, command: Command) -> Result<Snapshot> {
+    changed(&app,&s,"mutation",Some(window.label()),with_store(&s, |db| db.apply(&command)))
 }
 
 #[tauri::command]
@@ -50,24 +50,26 @@ pub async fn inspect_backup(s: tauri::State<'_,State>, id: String) -> Result<Bac
 pub fn restore(s: tauri::State<State>, app: AppHandle, window: WebviewWindow, id: String, epoch: String) -> Result<Snapshot> {
     let result={
         let _busy=only_caller_unsaved(&s,&window)?;
+        let _backup=lock(&s.backup,BACKUP_LOCK)?;
         let source=managed_backup_path(&s.root,&id)?;
         let safety = s.root.join("backups").join(format!("before-restore-{}.sqlite", uuid::Uuid::new_v4()));
         fs::create_dir_all(safety.parent().unwrap())?;
         with_store(&s, |db| db.restore(&source,&epoch,&safety))
     };
-    changed(&app,&s,"restore",result)
+    changed(&app,&s,"restore",None,result)
 }
 #[tauri::command]
 pub fn recover_backup(s: tauri::State<State>, app: AppHandle, window: WebviewWindow, id: String) -> Result<Snapshot> {
     let result={
         let _busy=only_caller_unsaved(&s,&window)?;
+        let _backup=lock(&s.backup,BACKUP_LOCK)?;
         let mut guard=lock(&s.store,STORE_LOCK)?;
         if guard.is_ok() {return Err(error("conflict","정상 저장소는 기록을 다시 불러온 뒤 일반 복원을 사용하세요."));}
         Store::recover_from_backup(&s.root,&id).and_then(|store|{
             let snapshot=store.snapshot()?;*guard=Ok(store);Ok(snapshot)
         })
     };
-    changed(&app,&s,"recovery",result)
+    changed(&app,&s,"recovery",None,result)
 }
 #[tauri::command]
 pub fn set_dirty(s: tauri::State<State>, window: WebviewWindow, dirty: bool) -> Result<()> {

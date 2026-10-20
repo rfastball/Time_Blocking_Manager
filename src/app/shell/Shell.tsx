@@ -1,4 +1,4 @@
-import {useCallback,useEffect,useState} from 'react';
+import {memo,useCallback,useEffect,useState} from 'react';
 import {rangeTitle} from '../../format.ts';
 import {needsSavedReview} from '../../capture.ts';
 import {dateKey,dateLabel,dateOf,plusDays} from '../../dates.ts';
@@ -22,6 +22,8 @@ import {openCut} from '../store/cut.ts';
 import {BackupManager} from '../backups/BackupManager.tsx';
 import './shell.css';
 import {focusLater} from '../ui/focus.ts';
+
+const PlanPane=memo(Plan),TodayPane=memo(Today);
 
 export function Shell(){
   const s=useApp(),{nav,ready,snapshot,quitSaving,ui,drafts}=s;
@@ -68,7 +70,7 @@ export function Shell(){
           </div>
         </header>
         <main className="content" data-view={nav.view}>
-          {!ready||!snapshot?<LoadState/>:!s.draftLoaded?<DraftState/>:focus?<Today/>:work?<div className={'work-screen'+(cutting?' cutting':'')}><Dock/><div className="plan-wrap" inert={cutting||undefined}><Plan/></div><Waiting/></div>:<Settings/>}
+          {!ready||!snapshot?<LoadState/>:!s.draftLoaded?<DraftState/>:focus?<TodayPane/>:work?<div className={'work-screen'+(cutting?' cutting':'')}><Dock/><div className="plan-wrap" inert={cutting||undefined}><PlanPane/></div><Waiting/></div>:<Settings/>}
         </main>
         <StatusBar/>
       </div>

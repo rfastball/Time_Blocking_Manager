@@ -2,7 +2,7 @@ import {createContext,useCallback,useContext,useEffect,useMemo,useRef,useState,t
 import {DndContext,DragOverlay,PointerSensor,TouchSensor,getClientRect,useSensor,useSensors,type DragEndEvent,type DragMoveEvent,type DragStartEvent,type DropAnimation,type Modifier,type Active} from '@dnd-kit/core';
 import {applyIntent,carried,noIntent,type Intent} from '../../intent.ts';
 import {dayPlan,newlyOver,overrunEnd} from '../../today.ts';
-import {arrive,listIndex,pace,spaceZone,steadiness,type Geometry,type Passage,type Slot,type Travel} from '../../drag-zone.ts';
+import {arrive,createSpaceZone,listIndex,pace,steadiness,type Geometry,type Passage,type Slot,type Travel} from '../../drag-zone.ts';
 import {createTimeAxis,timeAxisForDays,type TimeAxis} from '../../time-axis.ts';
 import type {DayLayout,Task} from '../../types.ts';
 import {quotedObject} from '../../format.ts';
@@ -30,6 +30,7 @@ export type Held={folded?:'left'|'right'|null;task:Task;ids:string[];intent:Inte
 // `pushed`: blocks the shown change would newly put past working time.
 type Ctx={held:Held|null;pending:Intent|null;tasks:Task[];pushed:string[];register:(r:Region)=>()=>void};
 const DragCtx=createContext<Ctx>({held:null,pending:null,tasks:[],pushed:[],register:()=>()=>{}});
+const EMPTY_TASKS:Task[]=[],EMPTY_LAYOUTS:DayLayout[]=[];
 export const useDrag=()=>useContext(DragCtx);
 // The place a held block would land on if let go now, once the hand has come to it; nothing while it lands.
 export const aimedAt=(held:Held|null,zone:Intent['zone'],date?:string)=>!!held&&!held.dropping&&!held.passing&&held.intent.zone===zone&&(date===undefined||held.intent.date===date);
@@ -47,13 +48,18 @@ export function useRegion(kind:Region['kind'],date:string|null,extra:RegionExtra
 // The days' shared time axis, stretched to show flow work that runs past working time.
 // While a block is held it only grows, so the space under the pointer never moves.
 export function useDaysAxis(dates:string[],scale:number){
-  const {snapshot}=useApp(),{tasks}=useDrag();
-  const axis=timeAxisForDays(dates.map(dayRule),scale);
-  const ends=[snapshot?.tasks??[],tasks].flatMap(list=>dates.map(d=>overrunEnd(dayPlan(d,list,dayRule(d),snapshot?.layouts??[]))??0));
-  const end=Math.max(...ends);
-  const starts=dates.flatMap(d=>dayPlan(d,snapshot?.tasks??[],dayRule(d),snapshot?.layouts??[]).items.map(i=>i.start));
-  const start=Math.max(0,Math.min(axis.start,...starts.map(m=>m-30)));
-  return createTimeAxis(start,Math.max(axis.end,Math.min(1440,end+30),end),scale);
+  const snapshot=useApp(s=>s.snapshot),{tasks}=useDrag();
+  const settings=useApp(s=>s.drafts.settingsDraft??s.snapshot?.settings),base=snapshot?.tasks??EMPTY_TASKS,layouts=snapshot?.layouts??EMPTY_LAYOUTS;
+  const days=dates.join('|');
+  return useMemo(()=>{
+    const axis=timeAxisForDays(dates.map(dayRule),scale);
+    const saved=dates.map(d=>dayPlan(d,base,dayRule(d),layouts));
+    const projected=tasks===base?saved:dates.map(d=>dayPlan(d,tasks,dayRule(d),layouts));
+    const end=Math.max(...[...saved,...projected].map(p=>overrunEnd(p)??0));
+    const starts=saved.flatMap(p=>p.items.map(i=>i.start));
+    const start=Math.max(0,Math.min(axis.start,...starts.map(m=>m-30)));
+    return createTimeAxis(start,Math.max(axis.end,Math.min(1440,end+30),end),scale);
+  },[days,scale,base,tasks,layouts,settings]);
 }
 
 // A mouse or pen lifts a block after a short pull. A finger must rest on it first (TouchSensor), so a swipe still scrolls.
@@ -65,7 +71,11 @@ const point=(e:Event)=>{const p='touches' in e?(e as TouchEvent).touches[0]??(e 
 const measuring={draggable:{measure:getClientRect}};
 
 export function DragProvider({children}:{children:ReactNode}){
-  const {snapshot}=useApp();
+  const snapshot=useApp(s=>s.snapshot);
+  const settings=useApp(s=>s.drafts.settingsDraft??s.snapshot?.settings);
+  const evaluator=useRef<ReturnType<typeof createSpaceZone>|null>(null);
+  evaluator.current??=createSpaceZone();
+  useEffect(()=>{evaluator.current=createSpaceZone();},[snapshot,settings]);
   const [held,setHeld]=useState<Held|null>(null);
   const [pending,setPending]=useState<Intent|null>(null);
   const regions=useRef(new Map<string,Region>());
@@ -94,18 +104,21 @@ export function DragProvider({children}:{children:ReactNode}){
     }
   }}),[]);
   const register=useCallback((r:Region)=>{regions.current.set(r.key,r);return ()=>{regions.current.delete(r.key);};},[]);
-  const base=snapshot?.tasks??[];
+  const base=snapshot?.tasks??EMPTY_TASKS,layouts=snapshot?.layouts??EMPTY_LAYOUTS;
   // A time on the rail is passed over, not chosen, until the hand rests on it: only then do the days make way for it.
   // Anything else, and the drop itself, shows at once. A rejected place is never previewed: the days stay as they are while the copy shows why.
   const live=held&&!held.dropping?held.intent:null;
   const resting=useDwell(live,live?`${live.zone}|${live.date}|${live.before}|${live.start}|${live.ok}`:'',live?.zone==='rail'||!!held?.passing);
   const shown=held&&!held.dropping?resting:pending;
   const tasks=useMemo(()=>applyIntent(base,shown?.ok?shown:null),[base,shown]);
-  const pushed=useMemo(()=>held&&!held.dropping?pushedBy(base,snapshot?.layouts??[],shown):[],[held,shown,base,snapshot]);
+  const dragging=!!held&&!held.dropping;
+  const pushed=useMemo(()=>dragging?pushedBy(base,layouts,shown):[],[dragging,shown,base,layouts,settings]);
+  const outside=useMemo(()=>shownOutside(tasks,layouts,shown),[tasks,layouts,shown,settings]);
+  const context=useMemo(()=>({held,pending,tasks,pushed,register}),[held,pending,tasks,pushed,register]);
 
   // `grab` is where along its width the block was taken; `prev` is the last intent, for the latch's hysteresis.
   // `stretch` scales the bite and pull distances (see `steadiness`).
-  function zoneAt(task:Task,px:number,py:number,grabY:number,grab:number,prev:Intent,stretch=1,ids:string[]=[task.id],lifted?:Form):{intent:Intent;region?:Region;slot?:Slot;near?:number;boundary?:boolean}{
+  function zoneAt(task:Task,px:number,py:number,grabY:number,grab:number,prev:Intent,stretch=1,ids:string[]=[task.id],lifted?:Form):{intent:Intent;region?:Region;rect?:DOMRect;slot?:Slot;near?:number;boundary?:boolean}{
     const intent:Intent={...noIntent(task.id),ids};
     // `inset`: a place not already under the block must be entered a little, so its shape does not flicker on the edge.
     const inside=(el:HTMLElement,inset=0)=>{
@@ -120,17 +133,18 @@ export function DragProvider({children}:{children:ReactNode}){
       return r;
     };
     const all=[...regions.current.values()];
-    const floating=all.find(r=>r.el.classList.contains('rail-panel')&&inside(r.el));
-    if(floating){
-      if(floating.kind==='wait'&&!waiting(task)&&ids.every(id=>!base.find(t=>t.id===id)?.completed))return {intent:{...intent,zone:'wait',since:getState().today},region:floating};
-      if(floating.kind==='tray'&&(waiting(task)||task.plan_date&&!task.completed&&ids.length===1))return {intent:{...intent,zone:'tray'},region:floating};
+    for(const floating of all.filter(r=>r.el.classList.contains('rail-panel'))){
+      const rect=inside(floating.el);if(!rect)continue;
+      if(floating.kind==='wait'&&!waiting(task)&&ids.every(id=>!base.find(t=>t.id===id)?.completed))return {intent:{...intent,zone:'wait',since:getState().today},region:floating,rect};
+      if(floating.kind==='tray'&&(waiting(task)||task.plan_date&&!task.completed&&ids.length===1))return {intent:{...intent,zone:'tray'},region:floating,rect};
+      break;
     }
     for(const region of all.filter(r=>r.kind==='space')){
       const r=inside(region.el);if(!r||!region.axis||!region.geometry||!region.date)continue;
-      const zone=spaceZone({task,ids,tasks:base,layouts:snapshot!.layouts??[],date:region.date,rule:dayRule(region.date),axis:region.axis,geometry:region.geometry,
+      const zone=evaluator.current!({task,ids,tasks:base,layouts,date:region.date,rule:dayRule(region.date),axis:region.axis,geometry:region.geometry,
         rect:r,px,py,grabY,grab,prev,stretch,entered:entered.current});
       entered.current=zone.entered;
-      return {...zone,region};
+      return {...zone,region,rect:r};
     }
     entered.current=null;
     const current=(region:Region)=>region.kind==='date'?prev.zone==='date'&&prev.date===region.date:prev.zone===region.kind;
@@ -140,12 +154,12 @@ export function DragProvider({children}:{children:ReactNode}){
         // Before the first remaining card whose middle is below the held block's middle, as the list draws them.
         const items=region.list.items().filter(i=>!ids.includes(i.id)),h=(region.form?.(task,ids)??lifted)?.height??0;
         const centre=py-(region.list.top?.()??r.top)-grabY*h+h/2;
-        return {intent:{...intent,zone:kind,index:listIndex(items,region.list.gap,centre)},region};
+        return {intent:{...intent,zone:kind,index:listIndex(items,region.list.gap,centre)},region,rect:r};
       }
-      if(kind==='tray')return waiting(task)||task.plan_date&&!task.completed&&ids.length===1?{intent:{...intent,zone:'tray'},region}:{intent};
+      if(kind==='tray')return waiting(task)||task.plan_date&&!task.completed&&ids.length===1?{intent:{...intent,zone:'tray'},region,rect:r}:{intent};
       // Out to the band: anything open that is not already waiting there.
-      if(kind==='wait')return !waiting(task)&&ids.every(id=>!base.find(t=>t.id===id)?.completed)?{intent:{...intent,zone:'wait',since:getState().today},region}:{intent,region};
-      return {intent:{...intent,zone:'date',date:region.date},region};
+      if(kind==='wait')return !waiting(task)&&ids.every(id=>!base.find(t=>t.id===id)?.completed)?{intent:{...intent,zone:'wait',since:getState().today},region,rect:r}:{intent,region,rect:r};
+      return {intent:{...intent,zone:'date',date:region.date},region,rect:r};
     }
     return {intent};
   }
@@ -158,6 +172,7 @@ export function DragProvider({children}:{children:ReactNode}){
     const ids=data?.ids?.length?data.ids:sel.length>1&&sel.includes(id)?selectedTasks().map(t=>t.id):[id];
     if(!ids.length)return;
     if(landing.current)return;
+    evaluator.current=createSpaceZone();
     // dnd-kit measures after this callback; read the block's own box so the copy starts exactly on it.
     const node=(e.activatorEvent.target as HTMLElement).closest<HTMLElement>('[data-block]')!,r=node.getBoundingClientRect();
     const {x:px,y:py}=point(e.activatorEvent!);
@@ -188,9 +203,9 @@ export function DragProvider({children}:{children:ReactNode}){
     return false;
   }
   function moveHeld(h:Held,s:Held['startRect'],px:number,py:number){
-    const {intent,region,slot=null,near=0,boundary=false}=zoneAt(h.task,px,py,h.grabY/s.height,h.grabX/s.width,h.intent,stretch.current,h.ids,s);
+    const {intent,region,rect,slot=null,near=0,boundary=false}=zoneAt(h.task,px,py,h.grabY/s.height,h.grabX/s.width,h.intent,stretch.current,h.ids,s);
     const passing=!arrived(region?.key??'none'),ready=h.ids.length===1?entered.current:null;
-    const rect=region?.el.getBoundingClientRect(),g=region?.geometry,axis=region?.axis;
+    const g=region?.geometry,axis=region?.axis;
     // Only the rail constrains the hand to a 15-minute tick; the hollow carries the projected order slot.
     snap.current=!passing&&rect&&g&&axis&&intent.zone==='rail'?{left:rect.left+g.fixedLeft+near*g.give,top:rect.top+axis.position(intent.start!)+1}:null;
     const nav=getState().nav;
@@ -228,7 +243,7 @@ export function DragProvider({children}:{children:ReactNode}){
     return dropped.saved??=dropped.valid?drop(dropped.intent):Promise.resolve(false);
   }
   function finishLanding(dropped:Landing){
-    if(landing.current===dropped){landing.current=null;snap.current=null;setHeld(null);setPending(null);setGesture(false);}
+    if(landing.current===dropped){landing.current=null;snap.current=null;evaluator.current=createSpaceZone();setHeld(null);setPending(null);setGesture(false);}
   }
   function beginLanding(h:Held,intent:Intent,valid:boolean){
     const dropped:Landing={held:h,intent,valid,animating:false};landing.current=dropped;
@@ -288,10 +303,10 @@ export function DragProvider({children}:{children:ReactNode}){
       finishLanding(dropped);
     }
   };
-  return <DragCtx.Provider value={{held,pending,tasks,pushed,register}}>
+  return <DragCtx.Provider value={context}>
     <DndContext sensors={sensors} measuring={measuring} accessibility={accessibility} onDragStart={onDragStart} onDragMove={onDragMove} onDragEnd={onDragEnd} onDragCancel={()=>{const h=heldRef.current;if(h)beginLanding(h,h.intent,false);else setGesture(false);}} autoScroll={false}>
       {children}
-      <DragOverlay modifiers={[snapModifier]} dropAnimation={dropAnimation}>{held&&<HeldBlock held={held} out={pushed.length} outside={shownOutside(tasks,snapshot?.layouts??[],shown)}/>}</DragOverlay>
+      <DragOverlay modifiers={[snapModifier]} dropAnimation={dropAnimation}>{held&&<HeldBlock held={held} out={pushed.length} outside={outside}/>}</DragOverlay>
     </DndContext>
   </DragCtx.Provider>;
 }

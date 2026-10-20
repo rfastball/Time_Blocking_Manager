@@ -12,9 +12,12 @@ use tauri::{Emitter, Manager};
 pub const DATA_CHANGED: &str = "data-changed";
 pub const BACKUP_WARNING: &str = "backup-warning";
 const STORE_LOCK: &str = "저장소 잠금을 얻지 못했습니다.";
+const BACKUP_LOCK: &str = "백업 잠금을 얻지 못했습니다.";
 
 pub struct State {
     store: Mutex<Result<Store>>,
+    // Backup readers that replace live data serialize with automatic retention, always before store.
+    backup: Mutex<()>,
     busy: Mutex<UnsavedWindows>,
     root: PathBuf,
     warning: Mutex<Option<String>>,
@@ -32,10 +35,10 @@ fn with_store<T>(s: &State, f: impl FnOnce(&mut Store) -> Result<T>) -> Result<T
 }
 /// Logs how a store operation ended and passes its result through.
 fn audited<T>(s: &State, event: &str, result: Result<T>) -> Result<T> { audit::record(&s.root, event, audit::outcome(&result)); result }
-/// Like `audited`, and asks every window to reload once the data changed.
-fn changed<T>(app: &tauri::AppHandle, s: &State, event: &str, result: Result<T>) -> Result<T> {
+/// The origin already receives the mutation snapshot; other changes refresh every window.
+fn changed<T>(app: &tauri::AppHandle, s: &State, event: &str, origin: Option<&str>, result: Result<T>) -> Result<T> {
     let result = audited(s, event, result);
-    if result.is_ok() { let _ = app.emit(DATA_CHANGED, ()); }
+    if result.is_ok() { let _ = app.emit(DATA_CHANGED, origin); }
     result
 }
 fn set_warning(s: &State, message: String) { if let Ok(mut warning)=s.warning.lock() { *warning=Some(message); } }
@@ -49,7 +52,7 @@ pub fn setup(app: &mut tauri::App) -> std::result::Result<(), Box<dyn std::error
     if let Ok(mut f)=audit::open(&root) {
         let _=writeln!(f,"startup app={} exe={} db={}",env!("CARGO_PKG_VERSION"),std::env::current_exe()?.display(),db.display());
     }
-    app.manage(State {store:Mutex::new(store),busy:Mutex::new(UnsavedWindows::default()),root,warning:Mutex::new(None),last_backup:Mutex::new(None),shortcut:Mutex::new(shortcut.clone()),exit_on_close:Mutex::new(close),quit:Mutex::new(QuitCoordinator::default())});
+    app.manage(State {store:Mutex::new(store),backup:Mutex::new(()),busy:Mutex::new(UnsavedWindows::default()),root,warning:Mutex::new(None),last_backup:Mutex::new(None),shortcut:Mutex::new(shortcut.clone()),exit_on_close:Mutex::new(close),quit:Mutex::new(QuitCoordinator::default())});
     windows::create(app,&shortcut)?;
     tray::build(app)?;
     windows::hide_on_autostart(app)?;

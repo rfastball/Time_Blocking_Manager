@@ -106,12 +106,12 @@ impl Store {
         Ok(backups.into_iter().map(|(_,backup)|backup).collect())
     }
 
-    pub fn automatic_backup(&self, directory: &Path, now: chrono::DateTime<chrono::Local>) -> Result<String> {
+    pub fn automatic_backup(directory: &Path, now: chrono::DateTime<chrono::Local>, mut create: impl FnMut(&Path) -> Result<()>) -> Result<String> {
         fs::create_dir_all(directory)?;
         let mut latest=String::new();
         for (prefix, stamp, keep) in [("hour", now.format("%Y%m%d%H").to_string(), 24), ("day", now.format("%Y%m%d").to_string(), 30)] {
             let destination = directory.join(format!("{prefix}-{stamp}.sqlite"));
-            if !destination.exists() { self.backup(&destination)?; }
+            if !destination.exists() { create(&destination)?; }
             else {
                 let existing=Connection::open_with_flags(&destination,OpenFlags::SQLITE_OPEN_READ_ONLY)?;
                 check_database(&existing)?;

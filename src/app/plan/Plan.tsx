@@ -17,8 +17,8 @@ const periods:{id:Period;label:string;key:string}[]=[{id:'day',label:'일',key:'
 
 // The calendar half of the work screen; the 준비 dock beside it belongs to the shell.
 export function Plan(){
-  const {nav,snapshot,drafts}=useApp();
-  const settings=drafts.settingsDraft??snapshot!.settings,week=weekCapacity(settings,nav.selected);
+  const nav=useApp(s=>s.nav),settings=useApp(s=>s.drafts.settingsDraft??s.snapshot!.settings);
+  const week=weekCapacity(settings,nav.selected);
   const dates=periodDates(nav.period,nav.planAnchor);
   const calendarPanels=usePanelResize(`plan-${nav.period}-calendar`,.67,'달력과 선택 날짜 패널 크기','calendar-summary calendar-day',nav.period==='two'||nav.period==='month','calendar');
   return <div className="plan">

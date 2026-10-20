@@ -1,5 +1,6 @@
 import {invoke} from '@tauri-apps/api/core';
 import {listen} from '@tauri-apps/api/event';
+import {getCurrentWindow} from '@tauri-apps/api/window';
 import {readTheme,themeStorageKey} from '../../theme.ts';
 import {calendarRefreshAllowed} from '../../today.ts';
 import {getState,openDrafts,setDrafts,setState} from './state.ts';
@@ -95,7 +96,8 @@ export async function start(){
   if(getState().ready)await loadStoredDraft();
   setState({draftLoaded:storedDraft.loaded});
   await refreshAppInfo();
-  await listen('data-changed',()=>requestRefresh());
+  const label=getCurrentWindow().label;
+  await listen<string|null>('data-changed',event=>{if(event.payload!==label)requestRefresh();});
   await listen('window-shown',()=>{syncTheme();if(getState().captureWindow){void reload();document.querySelector<HTMLElement>('#capture')?.focus();}else refreshCalendar(true);});
   if(s.captureWindow)await listen('capture-hide-request',()=>void hideCapture());
   await listen<string>('quit-request',event=>{void saveBeforeQuit(event.payload);});

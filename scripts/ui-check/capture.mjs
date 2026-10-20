@@ -83,12 +83,13 @@ const scenarios=[
       const blocked=await page.js(`(async()=>{
         const [{getState,setDrafts,setState},{queue},{submitCapture},{previewMutation}]=await Promise.all([__mod('/src/app/store/state.ts'),__mod('/src/app/store/session.ts'),__mod('/src/app/store/compose.ts'),__mod('/src/preview.ts')]);
         window.saveRecoveryPreviousIPC=window.__TAURI_INTERNALS__;
-        const mock=window.saveRecoveryMock={snapshot:structuredClone(getState().snapshot),draft:[0,''],receipts:new Set(),accepted:null,mutations:0,lookups:0,failDraft:true,loseResponse:true,failLookup:false};
-        window.__TAURI_INTERNALS__={invoke:async(cmd,args)=>{
+        const mock=window.saveRecoveryMock={snapshot:structuredClone(getState().snapshot),draft:[0,''],receipts:new Set(),accepted:null,mutations:0,lookups:0,loads:0,callbacks:[],events:{},failDraft:true,loseResponse:true,failLookup:false};
+        window.__TAURI_INTERNALS__={metadata:{currentWindow:{label:'capture'}},transformCallback:callback=>mock.callbacks.push(callback)-1,invoke:async(cmd,args)=>{
+          if(cmd==='plugin:event|listen'){mock.events[args.event]=mock.callbacks[args.handler];return args.handler;}
           if(cmd==='save_draft'){if(mock.failDraft)throw {code:'storage',message:'초안 저장 실패',retryable:true};mock.draft=[args.sequence,args.content];return;}
           if(cmd==='load_draft')return mock.draft;
-          if(cmd==='load')return structuredClone(mock.snapshot);
-          if(cmd==='mutate'){mock.mutations++;mock.snapshot=previewMutation(mock.snapshot,args.command,mock.receipts);mock.accepted=args.command;if(mock.loseResponse)throw {code:'storage',message:'저장 응답을 받지 못했습니다.',retryable:true};return structuredClone(mock.snapshot);}
+          if(cmd==='load'){mock.loads++;return structuredClone(mock.snapshot);}
+          if(cmd==='mutate'){mock.mutations++;mock.snapshot=previewMutation(mock.snapshot,args.command,mock.receipts);mock.accepted=args.command;mock.events['data-changed']?.({payload:'capture'});if(mock.concurrentChange)mock.events['data-changed']?.({payload:'main'});if(mock.loseResponse)throw {code:'storage',message:'저장 응답을 받지 못했습니다.',retryable:true};return structuredClone(mock.snapshot);}
           if(cmd==='acknowledge'){mock.lookups++;if(mock.failLookup)throw {code:'storage',message:'처리 기록 읽기 실패',retryable:true};return mock.accepted&&JSON.stringify(mock.accepted)===JSON.stringify(args.command)?structuredClone(mock.snapshot):null;}
           if(cmd==='diagnostics')return {db_path:'mock',warning:null,last_backup:null};
           if(cmd==='plugin:dialog|message')return mock.confirmDraft?'Ok':'Cancel';
@@ -135,6 +136,18 @@ const scenarios=[
       assert.equal(await page.js(`document.activeElement.id`),'capture','recovery returns focus to the field');
       assert.equal(await page.js(`(async()=>{const {getState}=await __mod('/src/app/store/state.ts');return JSON.stringify(getState().snapshot);})()`),damaged.snapshot,'recovery preserves saved tasks');
       await page.shot('capture-draft-recovered');
+      const refreshes=await page.js(`(async()=>{
+        const [{start},{dispatch,queue},{getState}]=await Promise.all([__mod('/src/app/store/lifecycle.ts'),__mod('/src/app/store/session.ts'),__mod('/src/app/store/state.ts')]);
+        const mock=window.saveRecoveryMock;mock.loseResponse=false;await start();await queue.whenIdle();
+        const before=mock.loads;
+        const saved=await dispatch({type:'create',id:'origin-snapshot',title:'저장 응답만 반영'});await queue.whenIdle();
+        const own=mock.loads-before,present=getState().snapshot.tasks.some(t=>t.id==='origin-snapshot');
+        mock.events['data-changed']({payload:'main'});const other=mock.loads-before-own;
+        mock.events['data-changed']({payload:null});const global=mock.loads-before-own-other;
+        mock.concurrentChange=true;await dispatch({type:'create',id:'concurrent-snapshot',title:'다른 창 변경도 반영'});await queue.whenIdle();
+        return {saved,present,own,other,global,deferred:mock.loads-before-own-other-global};
+      })()`);
+      assert.deepEqual(refreshes,{saved:true,present:true,own:0,other:1,global:1,deferred:1},'mutation response updates its origin once, while other-window and restore/maintenance changes still reload, including during a queued write');
     }finally{
       await page.js(`(async()=>{const [{setDrafts,setState},{queue,storedDraft}]=await Promise.all([__mod('/src/app/store/state.ts'),__mod('/src/app/store/session.ts')]);queue.discardFailed();await queue.whenIdle();setDrafts({capture:'',captureCommand:null,composer:null});setState({native:false,error:'',message:'',draftLoaded:true});storedDraft.loaded=true;if(window.saveRecoveryMock){if(window.saveRecoveryPreviousIPC)window.__TAURI_INTERNALS__=window.saveRecoveryPreviousIPC;else delete window.__TAURI_INTERNALS__;delete window.saveRecoveryMock;delete window.saveRecoveryPreviousIPC;}})()`).catch(()=>{});
       await page.sleep(250);

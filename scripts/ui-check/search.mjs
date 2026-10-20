@@ -67,6 +67,13 @@ const scenarios=[
     assert.deepEqual(await hits(page),[(await hits(page))[0]]);assert.match((await hits(page))[0],/^설계 문서 자료 조사/,'memo match: “[x] 요구사항 확인”');
     await page.js(`document.querySelector('[role=combobox]').dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true,isComposing:true,keyCode:229}))`);await page.sleep(200);
     assert.ok(await page.js('!!document.querySelector(".search-panel")'),'still open');
+    await page.js(`(async()=>{const {getState,setState}=await __mod('/src/app/store/state.ts');window.searchPriorSnapshot=getState().snapshot;setState({snapshot:{...getState().snapshot,tasks:getState().snapshot.tasks.map(t=>t.id==='sample-a'?{...t,title:'검색 교체 확인'}:t)}});})()`);
+    try{
+      await page.until(`document.querySelector('.search-hit .hit-title')?.textContent==='검색 교체 확인'`,{message:'search to refresh when its snapshot changes'});
+      assert.match((await hits(page))[0],/^검색 교체 확인/,'an open search rebuilds its projection without another keystroke');
+    }finally{
+      await page.js(`(async()=>{const {setState}=await __mod('/src/app/store/state.ts');setState({snapshot:window.searchPriorSnapshot});delete window.searchPriorSnapshot;})()`);
+    }
     await page.key('Escape');
   }},
   {name:'nothing found is said in the panel; at 720px the panel fits the window',viewport:{width:720,height:900},run:async page=>{
