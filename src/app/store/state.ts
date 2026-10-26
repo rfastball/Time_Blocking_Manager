@@ -15,7 +15,7 @@ export type Band='open'|'closed';
 // 일 is one day's editor with its week as a strip above it, so it spans the same seven dates as 주.
 export type Period='day'|'week'|'two'|'month';
 // The task as typed in the editor. epoch/revision are the saved state it started from.
-export type EditorDraft=Task&{epoch:string;triggerInput?:string};
+export type EditorDraft=Task&{epoch:string;triggerInput?:string;scheduleIncomplete?:boolean};
 export type Composer={date:string;start:number;duration:number;fixed?:boolean};
 // The cutting board in progress: the task it started from and the pieces as laid out so far.
 export type CutDraft={taskId:string;epoch:string;revision:number;title:string;body:string;segs:Seg[]};
@@ -31,7 +31,7 @@ export type Drafts={
 };
 // Cross-area UI requests: a block asks, the owning area draws.
 export type Ui={
-  editorMode:'panel'|'dialog'|null;editorFocus:'fix'|'duration'|null;
+  editorMode:'panel'|'dialog'|null;editorFocus:'fix'|'duration'|null;editorAutoSave:boolean;
   // bench: opened on a 준비 card, which offers 준비's own menu.
   contextMenu:{taskId:string|null;date:string;minute:number;x:number;y:number;bench?:boolean}|null;
   availability:{date:string;target:AvailabilityTarget;x:number;y:number}|null;
@@ -91,7 +91,7 @@ let state:AppState={
   now:clockMinute(),today:day,
   nav:{view:'plan',selected:day,planAnchor:day,period:'week',dock:storedDock(),band:storedBand()},
   drafts:emptyDrafts(),
-  ui:{editorMode:null,editorFocus:null,contextMenu:null,availability:null,split:null,pendingShortcut:null,landed:null,benchSelection:[],doneHere:[],search:false,found:null,naming:null,renaming:null,waitToast:null,railLanding:null},
+  ui:{editorMode:null,editorFocus:null,editorAutoSave:false,contextMenu:null,availability:null,split:null,pendingShortcut:null,landed:null,benchSelection:[],doneHere:[],search:false,found:null,naming:null,renaming:null,waitToast:null,railLanding:null},
   quitSaving:false,draftPending:false,gesture:false,
   singleKeys:(()=>{try{return localStorage.getItem('blokky.single-keys')!=='off';}catch{return true;}})()
 };

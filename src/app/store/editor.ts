@@ -4,26 +4,49 @@ import {toggleComplete} from './tasks.ts';
 import {durationValid} from '../../detail.ts';
 import {parseTrigger} from '../../waiting.ts';
 
-// The editor holds one task draft. Opening another task while it has unsaved changes keeps the draft and asks first.
+let autoSaveTimer:ReturnType<typeof setTimeout>|undefined,saving:Promise<boolean>|undefined,completing:Promise<boolean>|undefined,composing=false;
+let pendingOpen:{id:string;mode:'panel'|'dialog';focus:'fix'|'duration'|null}|null=null;
+function openPending(){
+  const next=pendingOpen;if(!next||getState().drafts.pendingEditorId!==next.id)return;
+  pendingOpen=null;openEditor(next.id,next.mode,next.focus);
+}
+export function setEditorComposing(value:boolean){composing=value;scheduleEditorSave(value);}
+// Composition pauses automatic writes; the next edit or composition end restarts the debounce.
+export function scheduleEditorSave(paused=false){
+  clearTimeout(autoSaveTimer);autoSaveTimer=undefined;
+  if(!paused&&!composing&&getState().ui.editorAutoSave&&getState().drafts.editorDirty)
+    autoSaveTimer=setTimeout(()=>{autoSaveTimer=undefined;if(getState().drafts.editorDirty)void saveEditor();},400);
+}
+
+// Focus changes are stored before switching tasks; other editors keep their explicit draft choice.
 export function openEditor(id:string,mode:'panel'|'dialog'='dialog',focus:'fix'|'duration'|null=null){
   const s=getState(),d=s.drafts;
+  if(d.editorDirty&&d.editor&&d.editor.id!==id&&s.ui.editorAutoSave){
+    pendingOpen={id,mode,focus};
+    setDrafts({pendingEditorId:id});
+    void saveEditor();return;
+  }
   if(d.editorDirty&&d.editor&&d.editor.id!==id){setDrafts({pendingEditorId:id});setUi({editorMode:mode==='panel'&&s.ui.editorMode==='dialog'?'dialog':mode,editorFocus:null});return;}
   if(!d.editorDirty){
     const saved=s.snapshot?.tasks.find(t=>t.id===id);if(!saved)return;
     setDrafts({editor:{...saved,epoch:s.snapshot!.epoch},editorSequence:0,pendingEditorId:null});
   }else setDrafts({pendingEditorId:null});
-  setUi({editorMode:mode,editorFocus:focus});
+  setUi({editorMode:mode,editorFocus:focus,editorAutoSave:s.nav.view==='today'});
 }
 export function changeEditor(patch:Partial<EditorDraft>){
   const d=getState().drafts;if(!d.editor)return;
   setDrafts({editor:{...d.editor,...patch},editorDirty:true,editorSequence:d.editorSequence+1});draftChanged();
+  scheduleEditorSave();
 }
 // Closing without discarding keeps a dirty draft; the status bar offers to continue it.
 export function closeEditor(discard=false){
   const d=getState().drafts;
+  composing=false;pendingOpen=null;
+  scheduleEditorSave(true);
+  if(!discard&&d.editorDirty&&getState().ui.editorAutoSave)void saveEditor();
   if(discard)setDrafts({editor:null,editorDirty:false});
   else if(!d.editorDirty)setDrafts({editor:null});
-  setDrafts({pendingEditorId:null});setUi({editorMode:null,editorFocus:null});void persistDraft();
+  setDrafts({pendingEditorId:null});setUi({editorMode:null,editorFocus:null,editorAutoSave:false});void persistDraft();
 }
 export function switchToPending(){
   const id=getState().drafts.pendingEditorId;if(!id)return;
@@ -38,14 +61,28 @@ export function syncEditor(){
 }
 export const editorConflict=()=>{const s=getState(),e=s.drafts.editor;if(!e||!s.snapshot)return false;const saved=s.snapshot.tasks.find(t=>t.id===e.id);return !saved||saved.revision!==e.revision||s.snapshot.epoch!==e.epoch;};
 
-// Resolves true when the draft was stored and no newer typing remains.
-export async function saveEditor(){
+// Every caller joins the same write, then stores typing made while its response was pending.
+export function saveEditor():Promise<boolean>{
+  scheduleEditorSave(true);
+  if(completing)return completing.then(ok=>ok&&(!getState().drafts.editorDirty||saveEditor()));
+  if(saving)return saving;
+  if(composing)return Promise.resolve(false);
+  saving=(async()=>{
+    const id=getState().drafts.editor?.id,autoSave=getState().ui.editorAutoSave;if(!id)return false;
+    do{if(!await storeEditor())return false;}while(autoSave&&!composing&&getState().drafts.editor?.id===id&&getState().drafts.editorDirty);
+    if(!getState().drafts.editorDirty){scheduleEditorSave(true);openPending();}
+    return !getState().drafts.editorDirty;
+  })().finally(()=>{saving=undefined;});
+  return saving;
+}
+async function storeEditor(){
   const s=getState(),d=s.drafts;
   if(!d.editor)return false;
   if(queue.failed){showError(Error('이전 저장 오류를 먼저 해결하세요. 입력한 내용은 그대로 있어요.'));return false;}
   const t:EditorDraft=structuredClone(d.editor),seq=d.editorSequence;
   if(!t.title.trim()){showError(Error('제목을 입력해 주세요.'));return false;}
   if(!durationValid(t.duration)){showError(Error('소요시간은 15분 단위로 입력해 주세요.'));return false;}
+  if(t.scheduleIncomplete){showError(Error('시각을 고정하려면 날짜와 시작 시각을 함께 입력해 주세요.'));return false;}
   let saved=false;
   void persistDraft();
   const wait=t.wait_since&&!t.plan_date&&!t.starts_at&&t.triggerInput!==undefined?parseTrigger(t.triggerInput,s.today):undefined;
@@ -55,10 +92,13 @@ export async function saveEditor(){
     if(e?.id===t.id){
       const stored=now.snapshot!.tasks.find(x=>x.id===t.id)!,clean=seq===now.drafts.editorSequence;
       setDrafts({editor:{...(clean?stored:e),revision:stored.revision,epoch:now.snapshot!.epoch},editorDirty:!clean});void persistDraft();
-      announce(clean?(now.native?'로컬 저장 완료':'미리보기에 반영했어요'):'새 변경이 남아 있어요. 다시 저장해 주세요.');
+      if(clean)announce(now.native?'로컬 저장 완료':'미리보기에 반영했어요');
+      else if(!now.ui.editorAutoSave)announce('새 변경이 남아 있어요. 다시 저장해 주세요.');
+      if(clean&&!saving)openPending();
+      else if(!clean)scheduleEditorSave();
     }
   }});
-  return saved&&!getState().drafts.editorDirty;
+  return saved;
 }
 // Overwrite after someone else saved this task: keep the typed fields, adopt the saved revision.
 export async function rebaseEditor(){
@@ -71,12 +111,17 @@ export async function rebaseEditor(){
 }
 // Completing from the editor saves typed changes first, then keeps the editor in step with the stored task.
 export async function completeFromEditor(){
+  if(completing)return completing;
   const s=getState(),e=s.drafts.editor;if(!e)return false;
   if(s.drafts.editorDirty&&!await saveEditor())return false;
-  const seq=getState().drafts.editorSequence,current=getState().snapshot!.tasks.find(x=>x.id===e.id);if(!current)return false;
+  completing=completeStoredEditor(e.id).finally(()=>{completing=undefined;});
+  return completing;
+}
+async function completeStoredEditor(id:string){
+  const seq=getState().drafts.editorSequence,current=getState().snapshot!.tasks.find(x=>x.id===id);if(!current)return false;
   const ok=await toggleComplete(current);
-  const after=getState(),saved=after.snapshot!.tasks.find(x=>x.id===e.id),editor=after.drafts.editor;
-  if(!ok||editor?.id!==e.id||!saved)return ok;
+  const after=getState(),saved=after.snapshot!.tasks.find(x=>x.id===id),editor=after.drafts.editor;
+  if(!ok||editor?.id!==id||!saved)return ok;
   if(seq===after.drafts.editorSequence)setDrafts({editor:{...saved,epoch:after.snapshot!.epoch}});
   else{setDrafts({editor:{...editor,revision:saved.revision,completed:saved.completed}});void persistDraft();}
   return ok;

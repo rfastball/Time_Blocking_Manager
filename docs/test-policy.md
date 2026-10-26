@@ -1,5 +1,13 @@
 # 검증 범위
 
+## 몰입 상세 자동 저장 Test delta (2026-10-26)
+
+- Unique risk: 블록 전환·닫기 전 메모 누락, 저장 응답 중 새 입력·한글 조합 손실, 완료와 겹친 자동 저장의 낡은 revision, 실패·충돌 후 초안 교체.
+- Existing owner / selected layer: 기존 `scripts/ui-check/editor.mjs`의 실제 입력·store·IPC 대역 owner. 몰입 수동 저장 전제를 자동 저장 단언으로 교체하고, 지연 저장·조합·완료·실패 재시도·명시적 충돌 복구 사례를 하나 추가했다. 작업 화면 대화상자의 기존 저장·초안 선택도 같은 owner에서 유지한다.
+- Added / extended / removed: 1 / 5 / 0, UI 수집 12→13. 이전 몰입 저장 버튼·닫기 확인·나누기 저장 안내 기대값을 대체했다. 새 파일·의존성·프로세스·CI lane·자동 heavy-resource launch·coverage 기준 변화 0.
+- 검증: editor 묶음 12/13 통과 후 남은 나누기 사례의 한국어 조사 기대값을 고쳐 해당 사례 1/1 통과했다. 지연 저장·조합·완료·실패·충돌 사례는 5.62초, TypeScript·Vite 빌드·diff 검사 통과. 브라우저 디버깅 접근 때문에 기존 실행기를 제한 밖에서 실행했으며 별도 어댑터를 추가하지 않았다.
+- Runtime delta: 이전 사례가 제거한 수동 저장 동작을 요구하므로 동일 조건의 유효한 baseline은 없어 미측정. 명시적 headless Edge 실행 한 개를 공유하며 기본 `npm test` 비용은 늘리지 않는다. 실제 Windows IME·두 창 IPC·디스크 오류 수동 검사는 별도 미실시다.
+
 ## 자동 백업 저장소 잠금 축소 Test delta (2026-10-20)
 
 - Unique risk: 저장소 잠금 분리로 검증·보존 정책이 달라지거나 복원 중 선택한 자동 백업이 삭제되는 것.

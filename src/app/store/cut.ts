@@ -5,7 +5,7 @@ import {placeLabel} from '../../bench.ts';
 import {time,monthDay} from '../../dates.ts';
 import {getState,setDrafts,setUi,type CutDraft} from './state.ts';
 import {announce,dispatch,draftChanged,persistDraft,queue,showError} from './session.ts';
-import {closeEditor,openEditor} from './editor.ts';
+import {closeEditor,openEditor,saveEditor} from './editor.ts';
 import {flowOrderOn,taskMinute} from './tasks.ts';
 import {focusLater,taskSelector} from '../ui/focus.ts';
 
@@ -17,7 +17,10 @@ let origin:HTMLElement|null=null;
 export function openCut(id:string){
   const s=getState(),d=s.drafts,t=snap().tasks.find(x=>x.id===id);
   if(!t||t.completed)return;
-  if(d.editorDirty&&d.editor?.id===id){openEditor(id,s.ui.editorMode??'dialog');showError(Error('변경을 저장한 뒤 블록을 나눠 주세요.'));return;}
+  if(d.editorDirty&&d.editor?.id===id){
+    if(s.ui.editorAutoSave){void saveEditor().then(ok=>{if(ok)openCut(id);});return;}
+    openEditor(id,s.ui.editorMode??'dialog');showError(Error('변경을 저장한 뒤 블록을 나눠 주세요.'));return;
+  }
   if(d.cut&&d.cut.taskId!==id){setUi({split:d.cut.taskId});return;}
   if(s.ui.editorMode==='dialog'&&d.editor?.id===id)closeEditor();
   if(!d.cut){
