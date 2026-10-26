@@ -27,15 +27,14 @@ export function scheduleEditorSave(paused=false){
     autoSaveTimer=setTimeout(()=>{autoSaveTimer=undefined;if(getState().drafts.editorDirty)void saveEditor();},400);
 }
 
-// Focus changes are stored before switching tasks; other editors keep their explicit draft choice.
+// Store changes before switching tasks so each editor keeps its input until the write succeeds.
 export function openEditor(id:string,mode:'panel'|'dialog'='dialog',focus:'fix'|'duration'|null=null){
   const s=getState(),d=s.drafts;
-  if(d.editorDirty&&d.editor&&d.editor.id!==id&&s.ui.editorAutoSave){
+  if(d.editorDirty&&d.editor&&d.editor.id!==id){
     pendingOpen={id,mode,focus};
     setDrafts({pendingEditorId:id});
     void saveEditor();return;
   }
-  if(d.editorDirty&&d.editor&&d.editor.id!==id){setDrafts({pendingEditorId:id});setUi({editorMode:mode==='panel'&&s.ui.editorMode==='dialog'?'dialog':mode,editorFocus:null});return;}
   if(!d.editorDirty){
     const saved=s.snapshot?.tasks.find(t=>t.id===id);if(!saved)return;
     setDrafts({editor:{...saved,epoch:s.snapshot!.epoch},editorSequence:0,pendingEditorId:null});
@@ -79,8 +78,8 @@ export function saveEditor():Promise<boolean>{
   if(saving)return saving;
   if(composing)return Promise.resolve(false);
   saving=(async()=>{
-    const id=getState().drafts.editor?.id,autoSave=getState().ui.editorAutoSave;if(!id)return false;
-    do{if(!await storeEditor())return false;}while(autoSave&&!composing&&getState().drafts.editor?.id===id&&getState().drafts.editorDirty);
+    const id=getState().drafts.editor?.id;if(!id)return false;
+    do{if(!await storeEditor())return false;}while(!composing&&getState().drafts.editor?.id===id&&getState().drafts.editorDirty);
     if(!getState().drafts.editorDirty){scheduleEditorSave(true);openPending();}
     return !getState().drafts.editorDirty;
   })().finally(()=>{saving=undefined;});
@@ -104,7 +103,6 @@ async function storeEditor(){
       const stored=now.snapshot!.tasks.find(x=>x.id===t.id)!,clean=seq===now.drafts.editorSequence;
       setDrafts({editor:{...(clean?stored:e),revision:stored.revision,epoch:now.snapshot!.epoch},editorDirty:!clean});void persistDraft();
       if(clean)announce(now.native?'로컬 저장 완료':'미리보기에 반영했어요');
-      else if(!now.ui.editorAutoSave)announce('새 변경이 남아 있어요. 다시 저장해 주세요.');
       if(clean&&!saving)openPending();
       else if(!clean)scheduleEditorSave();
     }

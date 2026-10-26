@@ -79,7 +79,7 @@ export function EditorHost(){
 }
 
 // On the work screen the editor opens beside the block it came from, so the calendar stays where it was and the block stays in sight.
-// It is the same modal dialog (confirmations, drafts and conflicts unchanged); only where it stands differs.
+// It is the same modal dialog with draft and conflict protection; only where it stands differs.
 // Anywhere else, from the status bar, or when there is no room beside the block, it stays centred.
 // It is placed again when the window changes size, and falls back to the centre when the side no longer has room.
 function beside(d:HTMLDialogElement,source:HTMLElement|null){
@@ -122,11 +122,11 @@ function EditorDialog({id}:{id:string}){
   },[id]);
   return <dialog ref={attach} className="ed-dialog" aria-label="블록 상세"
     onCancel={e=>{e.preventDefault();closer.current?.();}}
-    // A press and release both on the veil outside the box asks to close, like Esc: a changed draft still asks first.
+    // A press and release both on the veil outside the box saves and closes, like Esc.
     onPointerDown={e=>{pressed.current=e.target===e.currentTarget&&outside(e.currentTarget,e);}}
     onClick={e=>{if(pressed.current&&e.target===e.currentTarget&&outside(e.currentTarget,e))closer.current?.();pressed.current=false;}}
-    // A close the page did not ask for (the browser forcing a repeated Esc) keeps the draft, like ‘초안으로 남기고 닫기’.
-    onClose={()=>{if(getState().ui.editorMode==='dialog')closeEditor();}}>
+    // A browser-forced close uses the same validation and save path before the dialog can disappear.
+    onClose={e=>{if(getState().ui.editorMode==='dialog'&&e.currentTarget.isConnected){e.currentTarget.showModal();closer.current?.();}}}>
     <Editor key={id} mode="dialog" closer={closer}/>
   </dialog>;
 }

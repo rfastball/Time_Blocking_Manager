@@ -1,5 +1,4 @@
 import {useEffect,useLayoutEffect,useId,useRef,useState,type KeyboardEvent as ReactKeyboardEvent,type MutableRefObject} from 'react';
-import {motion} from 'motion/react';
 import {isCompositionKey,needsSavedReview} from '../../capture.ts';
 import {formatDuration} from '../../format.ts';
 import {slashDate,time} from '../../dates.ts';
@@ -13,7 +12,7 @@ import {Icon,Lock} from '../ui/icons.tsx';
 import {focusLater} from '../ui/focus.ts';
 
 const SIZES=[15,30,60,90,120];
-type Want='title'|'time'|'date'|'duration'|'confirm'|null;
+type Want='title'|'time'|'date'|'duration'|null;
 
 // One task's detail: title and memo first, schedule folded below, actions pinned at the bottom.
 // The same body serves the 오늘 side panel and the dialog; `closer` lets the dialog route its own close requests here.
@@ -22,11 +21,11 @@ export function Editor({mode,closer}:{mode:'panel'|'dialog';closer?:MutableRefOb
   const autoSave=ui.editorAutoSave;
   const saved=snapshot!.tasks.find(t=>t.id===e.id)??null;
   const pending=drafts.pendingEditorId?snapshot!.tasks.find(t=>t.id===drafts.pendingEditorId)??null:null;
-  const [confirming,setConfirming]=useState(false),[scheduleOpen,setScheduleOpen]=useState(false),[status,setStatus]=useState(''),[busy,setBusy]=useState(false);
+  const [scheduleOpen,setScheduleOpen]=useState(false),[status,setStatus]=useState(''),[busy,setBusy]=useState(false);
   // A fixed box ticked before the date or time exists has no starts_at yet; it lives here until both are typed.
   const [fix,setFix]=useState({on:!!e.starts_at||!!e.scheduleIncomplete,at:e.starts_at?.slice(11,16)??''});
   const [want,setWant]=useState<Want>(null);
-  const form=useRef<HTMLFormElement>(null),titleRef=useRef<HTMLInputElement>(null),timeRef=useRef<HTMLInputElement>(null),dateRef=useRef<HTMLInputElement>(null),durationRef=useRef<HTMLInputElement>(null),confirmRef=useRef<HTMLButtonElement>(null);
+  const form=useRef<HTMLFormElement>(null),titleRef=useRef<HTMLInputElement>(null),timeRef=useRef<HTMLInputElement>(null),dateRef=useRef<HTMLInputElement>(null),durationRef=useRef<HTMLInputElement>(null);
   const ids=useId(),fixOn=!!e.starts_at||fix.on,at=e.starts_at?.slice(11,16)??fix.at;
   const conflict=dirty&&editorConflict(),items=checklist(e.body),count=checkCount(e.body);
   const issue=e.starts_at&&durationValid(e.duration)?issueAt(e.id,e.starts_at.slice(0,10),taskMinute(e),e.duration):null;
@@ -34,7 +33,7 @@ export function Editor({mode,closer}:{mode:'panel'|'dialog';closer?:MutableRefOb
   const failure=s.error||(s.failed?'저장하지 못했어요. 입력한 내용은 그대로 있어요.':'');
 
   useEffect(()=>{syncEditor();},[snapshot,dirty]);
-  useEffect(()=>{if(!dirty){setConfirming(false);setFix({on:!!e.starts_at,at:e.starts_at?.slice(11,16)??''});}},[dirty,e.revision,e.starts_at]);
+  useEffect(()=>{if(!dirty)setFix({on:!!e.starts_at,at:e.starts_at?.slice(11,16)??''});},[dirty,e.revision,e.starts_at]);
   useEffect(()=>{if(!getState().ui.editorFocus)setWant('title');},[]);
   // Opened to fix or resize: unfold the schedule and start from the block's current place.
   useEffect(()=>{
@@ -45,7 +44,7 @@ export function Editor({mode,closer}:{mode:'panel'|'dialog';closer?:MutableRefOb
   },[ui.editorFocus]);
   useEffect(()=>{
     if(!want)return;
-    const el={title:titleRef,time:timeRef,date:dateRef,duration:durationRef,confirm:confirmRef}[want].current;
+    const el={title:titleRef,time:timeRef,date:dateRef,duration:durationRef}[want].current;
     el?.focus();setWant(null);
   },[want]);
   if(closer)closer.current=requestClose;
@@ -63,7 +62,7 @@ export function Editor({mode,closer}:{mode:'panel'|'dialog';closer?:MutableRefOb
   }
   function setDate(date:string){const patch=withSchedule(date,fixOn,at);edit({...patch,scheduleIncomplete:fixOn&&!patch.starts_at});}
   function setAt(value:string){const patch=withSchedule(e.plan_date??'',true,value);setFix({on:true,at:value});edit({...patch,scheduleIncomplete:!patch.starts_at});}
-  function requestClose(){if(!getState().drafts.editorDirty){closeEditor();return;}if(autoSave){void save().then(ok=>{if(ok)closeEditor();});return;}setConfirming(true);setWant('confirm');}
+  function requestClose(){if(!getState().drafts.editorDirty){closeEditor();return;}void save().then(ok=>{if(ok&&getState().drafts.editor?.id===e.id)closeEditor();});}
   // Browser validation first (title, 15-minute steps), then the rule the fields cannot express.
   function ready(){
     if(!form.current!.reportValidity())return false;
@@ -71,14 +70,14 @@ export function Editor({mode,closer}:{mode:'panel'|'dialog';closer?:MutableRefOb
     return true;
   }
   async function save(){
-    if(busy||!ready())return false;
+    if(!ready())return false;
     setBusy(true);const ok=await saveEditor();setBusy(false);
     if(!getState().error)setStatus(getState().message);
     return ok;
   }
-  async function submit(){if(await save()&&mode==='dialog'&&!autoSave)closeEditor();}
+  async function submit(){if(await save()&&mode==='dialog'&&!autoSave&&getState().drafts.editor?.id===e.id)closeEditor();}
   async function complete(){if(getState().drafts.editorDirty&&!ready())return;setBusy(true);await completeFromEditor();setBusy(false);}
-  async function rebase(){if(await rebaseEditor()&&mode==='dialog'&&!autoSave)closeEditor();}
+  async function rebase(){if(await rebaseEditor()&&mode==='dialog'&&!autoSave&&getState().drafts.editor?.id===e.id)closeEditor();}
   async function remove(){
     if(busy||!saved)return;
     const buttons=[...document.querySelectorAll<HTMLElement>('[data-task]')],at=buttons.findIndex(b=>b.dataset.task===saved.id);
@@ -92,7 +91,7 @@ export function Editor({mode,closer}:{mode:'panel'|'dialog';closer?:MutableRefOb
     // An Enter that commits Korean composition must not submit the title.
     if(ev.key==='Enter'&&isCompositionKey(ev.nativeEvent)){if(target.tagName==='INPUT')ev.preventDefault();return;}
     if(ev.key==='Enter'&&(ev.ctrlKey||ev.metaKey)){ev.preventDefault();form.current!.requestSubmit();return;}
-    if(ev.key==='Escape'){ev.preventDefault();ev.stopPropagation();if(confirming){setConfirming(false);setWant('title');}else requestClose();}
+    if(ev.key==='Escape'){ev.preventDefault();ev.stopPropagation();requestClose();}
   }
 
   return <form ref={form} className={'ed ed-'+mode} onSubmit={ev=>{ev.preventDefault();void submit();}} onKeyDown={keys}
@@ -107,7 +106,7 @@ export function Editor({mode,closer}:{mode:'panel'|'dialog';closer?:MutableRefOb
         {count.total>0&&<span className="ed-count">체크 {count.done}/{count.total}</span>}
         {dirty&&<span className="ed-dirty">저장 안 됨</span>}
       </div>
-      {pending&&(!autoSave||failure||conflict)&&<div className="ed-note" role="alert"><p>먼저 ‘{e.title||'제목 없음'}’의 변경을 정리해 주세요.</p><button type="button" className="btn" onClick={switchToPending}>버리고 ‘{pending.title}’ 열기</button></div>}
+      {pending&&(failure||conflict)&&<div className="ed-note" role="alert"><p>‘{e.title||'제목 없음'}’의 변경을 저장하지 못했어요. 입력한 내용은 그대로 있어요.</p><button type="button" className="btn" onClick={switchToPending}>버리고 ‘{pending.title}’ 열기</button></div>}
       {conflict&&<div className="ed-note" role="alert"><p>다른 곳에서 이 항목이 바뀌었어요. 입력한 내용은 그대로 있어요.</p><button type="button" className="btn" onClick={()=>void rebase()}>내 입력으로 저장</button></div>}
       <textarea className="ed-memo" aria-label="메모" placeholder="메모" rows={mode==='dialog'?9:7} value={e.body} onChange={x=>edit({body:x.target.value})}/>
       {e.wait_since&&!e.plan_date&&!e.starts_at&&<TriggerField value={e.triggerInput??(e.wait_until?slashDate(e.wait_until):e.wait_for??'')} onChange={value=>edit({triggerInput:value})}/>}
@@ -139,20 +138,12 @@ export function Editor({mode,closer}:{mode:'panel'|'dialog';closer?:MutableRefOb
       </div>}
     </div>
     <footer className="ed-foot">
-      {confirming?<motion.div className="ed-confirm" role="group" aria-label="저장하지 않은 변경" initial={{opacity:0,y:4}} animate={{opacity:1,y:0}} transition={{duration:.14}}>
-        <p>저장하지 않은 변경이 있어요.</p>
-        <div className="ed-row">
-          <button ref={confirmRef} type="button" className="btn primary" disabled={busy} onClick={async()=>{if(await save())closeEditor();}}>저장하고 닫기</button>
-          <button type="button" className="btn" onClick={()=>closeEditor()}>초안으로 남기고 닫기</button>
-          <button type="button" className="btn danger" onClick={()=>closeEditor(true)}>변경 버리기</button>
-        </div>
-      </motion.div>
-      :<div className="ed-row ed-actions">
+      <div className="ed-row ed-actions">
         <button type="button" className="btn" disabled={busy} onClick={()=>void complete()}>{e.completed?'미완료로 되돌리기':'완료로 표시'}</button>
         {saved&&<button type="button" className="btn danger" disabled={busy} onClick={()=>void remove()}><Icon name="delete" size={16}/>삭제</button>}
         <span className="ed-status" role="status">{status}</span>
         {!autoSave&&<button type="submit" className="btn primary" disabled={busy} aria-keyshortcuts="Control+Enter">저장</button>}
-      </div>}
+      </div>
     </footer>
   </form>;
 }

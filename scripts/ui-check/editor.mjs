@@ -26,7 +26,6 @@ async function discard(page){
   for(let i=0;i<6;i++){
     const step=await page.js(`(()=>{
       const pick=(sel,text)=>[...document.querySelectorAll(sel)].find(b=>b.textContent.includes(text));
-      const drop=pick('.ed-confirm button','변경 버리기');if(drop){drop.click();return 'drop';}
       const close=document.querySelector('.ed-dirty')&&document.querySelector('.ed-close');if(close){close.click();return 'close';}
       const resume=pick('.status button','이어서 편집');if(resume){resume.click();return 'resume';}
       return 'clean';})()`);
@@ -137,11 +136,31 @@ const scenarios=[
       await page.until(`document.querySelector('.ed-next')?.dataset.task==='sample-b'`,{message:'explicit discard to honor the requested summary destination'});
       assert.equal(await page.rect('.ed-title'),null,'discard opens the selected summary, not its editor');
       assert.doesNotMatch((await page.task('분리망 배포 의존성 검토')).body,/버릴 입력/);
+      await page.js(`(async()=>{const {releaseFailure}=await __mod('/src/app/store/session.ts');await releaseFailure();window.autoFailure='storage';})()`);
+      await toPlan(page);
+      await page.js(`(async()=>{const {openEditor}=await __mod('/src/app/store/editor.ts');openEditor('sample-c');})()`);
+      await page.click('dialog.ed-dialog textarea');await page.type(' 대화상자 실패 입력');
+      await page.click('dialog.ed-dialog .ed-close');
+      await page.until(`document.querySelector('dialog.ed-dialog .ed-recovery')?.textContent.includes('자동 저장 실패')`,{message:'a failed work-dialog close to show recovery'});
+      await page.js(`document.querySelector('dialog.ed-dialog').close()`);
+      await page.until(`document.querySelector('dialog.ed-dialog')?.open`,{message:'a forced close to reopen the unsaved dialog'});
+      assert.match(await value(page,'dialog.ed-dialog textarea'),/대화상자 실패 입력/);
+      await page.shot('editor-close-failure');
+      await page.js('window.autoFailure=null');await page.click('dialog.ed-dialog .ed-recovery button','다시 시도');
+      await page.until(`!document.querySelector('dialog.ed-dialog .ed-dirty')`,{message:'retry to store the failed close input'});
+      await page.js('window.autoHold=true');
+      await caretEnd(page,'dialog.ed-dialog textarea');await page.type(' 닫기 전 입력');
+      await page.click('dialog.ed-dialog .ed-close');
+      await page.until('window.autoHeld.length===1',{message:'work-dialog close to await storage'});
+      await caretEnd(page,'dialog.ed-dialog textarea');await page.type(' 저장 중 입력');
+      await page.js('window.autoHold=false;window.autoHeld.shift()()');
+      await page.until(`!document.querySelector('dialog.ed-dialog')`,{message:'close to store typing made during its response'});
+      assert.match((await page.task('회의록 정리')).body,/닫기 전 입력 저장 중 입력/);
     }finally{
       await page.js(`(async()=>{const [{setState},{queue},{setEditorComposing}]=await Promise.all([__mod('/src/app/store/state.ts'),__mod('/src/app/store/session.ts'),__mod('/src/app/store/editor.ts')]);setEditorComposing(false);window.autoHeld.splice(0).forEach(resolve=>resolve());queue.discardFailed();setState({native:false,error:''});if(window.autoPriorIPC)window.__TAURI_INTERNALS__=window.autoPriorIPC;else delete window.__TAURI_INTERNALS__;})()`);
     }
   }},
-  {name:'focus closing saves without confirmation while work dialogs keep their draft choices',run:async page=>{
+  {name:'all task editors save on close; invalid input stays open and switches store changes first',run:async page=>{
     await openBlock(page,'회의록 정리');
     await page.click(panel+' textarea[aria-label="메모"]');await page.type('결정 사항 정리');
     await page.click(panel+' .ed-close');
@@ -151,19 +170,29 @@ const scenarios=[
     assert.equal((await page.task('회의록 정리')).body,'결정 사항 정리');
     await toPlan(page);
     await page.js(`(async()=>{const {openEditor}=await __mod('/src/app/store/editor.ts');openEditor('sample-c');})()`);
-    await page.click('dialog.ed-dialog textarea');await page.type(' 수동 초안');
+    await page.click('dialog.ed-dialog textarea');await page.type(' 작업 화면 입력');
     await page.click('dialog.ed-dialog .ed-close');
-    assert.ok(await page.rect('dialog.ed-dialog .ed-confirm'),'work dialog keeps its confirmation');
-    await page.click('dialog.ed-dialog .ed-confirm button','초안으로 남기고 닫기');
-    assert.match(await page.text('.status'),/‘회의록 정리’ 이어서 편집/);
-    await page.click('.status button','이어서 편집');
-    assert.ok(await page.js(`document.querySelector('dialog.ed-dialog')?.open`),'dialog open');
-    assert.match(await value(page,'dialog.ed-dialog textarea'),/수동 초안/);
-    await page.sleep(300);await page.shot('editor-dialog');
+    await page.until(`!document.querySelector('dialog.ed-dialog')`,{message:'work dialog X to save and close'});
+    assert.match((await page.task('회의록 정리')).body,/작업 화면 입력/);
+    await page.js(`(async()=>{const {openEditor}=await __mod('/src/app/store/editor.ts');openEditor('sample-c');})()`);
+    await page.click('dialog.ed-dialog textarea');await page.type(' Esc 입력');
     await page.key('Escape');
-    assert.ok(await page.rect('dialog.ed-dialog .ed-confirm'),'Esc asks too');
-    await page.click('dialog.ed-dialog .ed-confirm button','변경 버리기');
-    assert.equal(await page.js(`!!document.querySelector('dialog.ed-dialog')`),false);
+    await page.until(`!document.querySelector('dialog.ed-dialog')`,{message:'work dialog Esc to save and close'});
+    assert.match((await page.task('회의록 정리')).body,/Esc 입력/);
+    await page.js(`(async()=>{const {openEditor}=await __mod('/src/app/store/editor.ts');openEditor('sample-c');})()`);
+    await page.js(`document.querySelector('.ed-title').select()`);await page.type(' ');
+    await page.click('dialog.ed-dialog .ed-close');
+    assert.ok(await page.js(`document.querySelector('dialog.ed-dialog')?.open`),'invalid title keeps the editor open');
+    assert.match(await page.text('.ed-recovery'),/제목을 입력/);
+    assert.equal(await page.rect('.ed-confirm'),null,'closing never asks to save, keep a draft or discard');
+    await page.shot('editor-close-invalid');
+    await page.js(`document.querySelector('.ed-title').select()`);await page.type('회의록 정리');
+    await page.click('dialog.ed-dialog textarea');await page.type(' 전환 전 입력');
+    await page.js(`(async()=>{const {openEditor}=await __mod('/src/app/store/editor.ts');openEditor('sample-d');})()`);
+    await page.until(`document.querySelector('.ed-title')?.value==='분리망 배포 의존성 검토'`,{message:'another work task to open after saving'});
+    assert.match((await page.task('회의록 정리')).body,/전환 전 입력/);
+    assert.equal(await page.rect('.ed-note'),null,'successful switching has no cleanup prompt');
+    await page.click('dialog.ed-dialog .ed-close');
     assert.equal(await page.js(`document.querySelector('.status')?.textContent.includes('이어서 편집')??false`),false);
   }},
   {name:'fixing in the schedule section moves the block to the rail',run:async page=>{

@@ -221,7 +221,7 @@ const scenarios=[
     assert.deepEqual(await page.js(`[...document.querySelectorAll('.wpile-layer [data-wait]')].map(e=>e.dataset.wait)`),['sample-w2','sample-w1','sample-w3'],'reopening retains the saved order');
     await page.shot('wait-reordered');
   }},
-  {name:'waiting details edit one trigger with the task and keep unsaved input as a draft',run:async page=>{
+  {name:'waiting details save the trigger and memo together when the editor closes',run:async page=>{
     await toPlan(page);await openBand(page);
     await page.click('#wait .wpile .wtag-text');await page.sleep(650);
     await page.click('.wpile-layer [data-wait="sample-w2"]');
@@ -254,12 +254,9 @@ const scenarios=[
     assert.ok(await page.rect(input),'the editor remains open');
     await page.js(`document.querySelector('${input}').select()`);await page.type('법무팀 회신');
     await page.click('.ed textarea');await page.type('정산 확인 요청');
-    await page.key('Escape');await page.click('.ed-confirm button','초안으로 남기고 닫기');
-    assert.equal((await page.task('출장비 정산')).wait_for,'김부장 결재','closing a draft does not save the trigger');
-    await page.click('.status button','이어서 편집');
-    assert.equal(await page.js(`document.querySelector('${input}')?.value`),'법무팀 회신','draft retains trigger input');
     await page.shot('wait-editor-trigger');
-    await page.click('.ed button[type="submit"]');await page.sleep(350);
+    await page.key('Escape');
+    await page.until(`!document.querySelector('dialog.ed-dialog')`,{message:'closing the waiting editor to save its trigger and memo'});
     const saved=await page.task('출장비 정산');
     assert.equal(saved.wait_for,'법무팀 회신');assert.match(saved.body,/정산 확인 요청/);
     assert.equal(saved.wait_since,before.wait_since);assert.equal(saved.revision,before.revision+1,'one atomic update');

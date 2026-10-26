@@ -38,11 +38,14 @@ export default [
     await page.key('Escape');await page.sleep(300);
     assert.equal(await dialog(page),null,'Esc closes it as before');
     assert.equal(await focused(page,'.wk-col .blk .main'),id,'and back on the block');
-    // A press on the veil asks to close like Esc does.
+    // A press on the veil saves and closes like Esc does.
     await page.click('.wk-col .blk .main');await page.sleep(400);
+    const savedTitle=await page.js(`document.querySelector('.ed-title').value`);
+    await page.click('.ed textarea');await page.type(' 바깥 클릭 저장');
     const open=await dialog(page);
     await page.mouse('mouseMoved',open.x-6,open.y+open.h-4,0);await page.mouse('mousePressed',open.x-6,open.y+open.h-4);await page.mouse('mouseReleased',open.x-6,open.y+open.h-4,0);await page.sleep(300);
     assert.equal(await dialog(page),null,'a press outside closes it');
+    assert.match((await page.task(savedTitle)).body,/바깥 클릭 저장/,'backdrop close stores the memo');
     assert.equal(await focused(page,'.wk-col .blk .main'),id,'and the keyboard is back on the block');
   }},
   {name:'beside follows a window resize, rises before it shrinks, and narrows before it centres',run:async page=>{
