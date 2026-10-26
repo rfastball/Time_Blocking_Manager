@@ -31,7 +31,7 @@ export type Drafts={
 };
 // Cross-area UI requests: a block asks, the owning area draws.
 export type Ui={
-  editorMode:'panel'|'dialog'|null;editorFocus:'fix'|'duration'|null;editorAutoSave:boolean;
+  editorMode:'panel'|'dialog'|null;editorFocus:'fix'|'duration'|null;editorAutoSave:boolean;focusTaskId:string|null;
   // bench: opened on a 준비 card, which offers 준비's own menu.
   contextMenu:{taskId:string|null;date:string;minute:number;x:number;y:number;bench?:boolean}|null;
   availability:{date:string;target:AvailabilityTarget;x:number;y:number}|null;
@@ -91,7 +91,7 @@ let state:AppState={
   now:clockMinute(),today:day,
   nav:{view:'plan',selected:day,planAnchor:day,period:'week',dock:storedDock(),band:storedBand()},
   drafts:emptyDrafts(),
-  ui:{editorMode:null,editorFocus:null,editorAutoSave:false,contextMenu:null,availability:null,split:null,pendingShortcut:null,landed:null,benchSelection:[],doneHere:[],search:false,found:null,naming:null,renaming:null,waitToast:null,railLanding:null},
+  ui:{editorMode:null,editorFocus:null,editorAutoSave:false,focusTaskId:null,contextMenu:null,availability:null,split:null,pendingShortcut:null,landed:null,benchSelection:[],doneHere:[],search:false,found:null,naming:null,renaming:null,waitToast:null,railLanding:null},
   quitSaving:false,draftPending:false,gesture:false,
   singleKeys:(()=>{try{return localStorage.getItem('blokky.single-keys')!=='off';}catch{return true;}})()
 };

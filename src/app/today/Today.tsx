@@ -3,9 +3,9 @@ import {nextFlowId,type DayItem} from '../../today.ts';
 import {time} from '../../dates.ts';
 import {formatDuration} from '../../format.ts';
 import type {Task} from '../../types.ts';
-import {useApp} from '../store/state.ts';
+import {setUi,useApp} from '../store/state.ts';
 import {completeTasks,dayRule,overdueTasks,planOf,reflowToday} from '../store/tasks.ts';
-import {openEditor} from '../store/editor.ts';
+import {selectFocusTask} from '../store/editor.ts';
 import {Icon,Lock} from '../ui/icons.tsx';
 import {usePanelResize} from '../ui/PanelResize.tsx';
 import {DaySpace} from '../space/DaySpace.tsx';
@@ -13,22 +13,22 @@ import {useDaysAxis} from '../space/drag.tsx';
 import {allocation,allocationLabel,allocationShort,Meter,Outside} from '../plan/load.tsx';
 import {InboxTray} from '../dock/InboxTray.tsx';
 import {EditorPanel} from '../editor/hosts.tsx';
-import {editorModeHere} from '../editor/actions.ts';
 import './today.css';
 import {SCALE as SCALES} from '../ui/scales.ts';
 
 const SCALE=SCALES.focus;
-const open=(t:Task)=>openEditor(t.id,editorModeHere());
+const open=(t:Task)=>selectFocusTask(t.id);
 
 // 오늘 is for doing the day, not planning it: a slim timetable strip, what comes next, and the queue of what is left.
 // Planning a day in full (new blocks, clearing it) is the plan tab's 일 view.
 export function Today(){
   const snapshot=useApp(s=>s.snapshot),nav=useApp(s=>s.nav),today=useApp(s=>s.today);
-  const editing=useApp(s=>s.ui.editorMode==='panel'?s.drafts.editor?.id??null:null);
+  const selected=useApp(s=>s.ui.focusTaskId);
   useApp(s=>s.drafts.settingsDraft);
   const panels=usePanelResize('today',.3,'시간표와 상세 패널 크기','today-timetable today-detail');
   const [multi,setMulti]=useState<string[]>([]);
   const date=nav.selected,rule=dayRule(date),axis=useDaysAxis([date],SCALE),plan=planOf(date),load=allocation(date,snapshot!.tasks);
+  useEffect(()=>{setUi({focusTaskId:null});},[date]);
   const anchor=Math.max(rule.start,plan.anchor??rule.start);
   const toggleMulti=(t:Task)=>{if(!t.completed)setMulti(m=>m.includes(t.id)?m.filter(x=>x!==t.id):[...m,t.id]);};
   // Esc lets go of a selection first; only then does it leave 몰입.
@@ -58,16 +58,16 @@ export function Today(){
     </div>
     <div ref={panels.ref} style={panels.style} data-panel-stacked={panels.stacked} className="today-cols">
       <section id="today-timetable" className="card today-day" aria-label="시간표">
-        <DaySpace date={date} axis={axis} variant="day" bin selected={editing} multi={multi} onOpen={open} onMulti={toggleMulti}/>
+        <DaySpace date={date} axis={axis} variant="day" bin selected={selected} multi={multi} onOpen={open} onMulti={toggleMulti}/>
       </section>
       {panels.separator}
       <div id="today-detail" className="today-flow">
         <div className="today-main">
           <EditorPanel nextId={nextId}/>
-          {queue.length>0&&<Queue items={queue} nextId={nextId} selected={editing}/>}
+          {queue.length>0&&<Queue items={queue} nextId={nextId} selected={selected}/>}
         </div>
         <aside className="today-side">
-          <InboxTray scale={SCALE} overdue={overdueTasks()} selected={editing} onOpen={open}/>
+          <InboxTray scale={SCALE} overdue={overdueTasks()} selected={selected} onOpen={open}/>
         </aside>
       </div>
     </div>

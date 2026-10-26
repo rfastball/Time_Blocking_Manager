@@ -12,9 +12,14 @@ const rightClick=(page,selector,text)=>page.js(`(()=>{const e=[...document.query
 const menuItems=page=>page.js(`[...document.querySelectorAll('.ctx-menu [role=menuitem]')].map(b=>b.textContent)`);
 const focusBlock=(page,title)=>page.js(`[...document.querySelectorAll('${space} .blk .main')].find(b=>b.textContent.includes(${JSON.stringify(title)})).focus()`);
 // Pressed by its title: on a short block the button's center sits on the resize grip.
-async function openBlock(page,title){
+async function selectBlock(page,title){
   const r=await page.rect(space+' .blk .main',title);if(!r)throw Error('no block '+title);
   await page.mouse('mouseMoved',r.x+60,r.y+10,0);await page.mouse('mousePressed',r.x+60,r.y+10);await page.mouse('mouseReleased',r.x+60,r.y+10,0);await page.sleep(200);
+}
+async function openBlock(page,title){
+  await selectBlock(page,title);
+  await page.until(`document.querySelector('.ed-next-title')?.textContent.includes(${JSON.stringify(title)})`,{message:'the selected block summary'});
+  await page.click('.ed-next-open');
 }
 // An unsaved draft makes the next navigation stop at the leave-page prompt, so every scenario ends clean.
 async function discard(page){
@@ -31,8 +36,14 @@ async function discard(page){
 }
 
 const scenarios=[
-  {name:'a block opens beside the space and automatically saves title and memo before switching',run:async page=>{
-    await openBlock(page,'설계 문서 초안');
+  {name:'a block selects its summary, opens editing on activation and saves before switching summaries',run:async page=>{
+    await selectBlock(page,'설계 문서 초안');
+    assert.equal(await page.rect('.ed-title'),null,'selecting a block shows no editable title');
+    assert.equal(await page.text('.ed-next-title'),'설계 문서 초안 작성');
+    assert.equal(await page.text('.ed-next .pill'),'계획','a selected block is not mislabeled Next');
+    await page.shot('focus-selected-summary');
+    await page.key('Enter',{text:'\r'});
+    await page.until(`document.activeElement?.getAttribute('aria-label')==='제목'`,{message:'summary keyboard activation to focus the editor title'});
     assert.equal(await value(page,panel+' .ed-title'),'설계 문서 초안 작성');
     assert.match(await value(page,panel+' textarea[aria-label="메모"]'),/진행 상황과 필요한 맥락/);
     assert.equal((await active(page)).label,'제목','title takes the first focus');
@@ -45,8 +56,9 @@ const scenarios=[
     assert.ok((await page.blocks(space)).includes('설계 문서 초안 작성 보완, 예상 10:00–10:45'));
     assert.doesNotMatch(await page.text(panel+' .ed-badges'),/저장 안 됨/);
     await page.click(panel+' textarea');await page.type('자동 저장 메모');
-    await openBlock(page,'회의록 정리');
-    await page.until(`document.querySelector(${JSON.stringify(panel+' .ed-title')})?.value==='회의록 정리'`,{message:'the next task to open after saving'});
+    await selectBlock(page,'회의록 정리');
+    await page.until(`document.querySelector('.ed-next-title')?.textContent==='회의록 정리'`,{message:'the next summary to open after saving'});
+    assert.equal(await page.rect('.ed-title'),null,'editing returns to summary when selecting another block');
     assert.match((await page.task('설계 문서 초안 작성 보완')).body,/자동 저장 메모/);
     assert.equal(await page.rect(panel+' .ed-note'),null,'ordinary switching has no discard prompt');
     const clock=await page.js(`(async()=>{const [{getState,setState},{time}]=await Promise.all([__mod('/src/app/store/state.ts'),__mod('/src/dates.ts')]);const before=getState().now;setState({now:before+15});return {before,expected:time(before+15)};})()`);
@@ -100,13 +112,14 @@ const scenarios=[
       assert.match((await page.task('회의록 정리')).body,/완료 중 입력/);
       await page.js(`window.autoFailure='storage'`);
       await page.click(panel+' textarea');await page.type('실패해도 남는 메모');
-      await openBlock(page,'분리망 배포');
+      await selectBlock(page,'분리망 배포');
       await page.until(`document.querySelector('.status')?.textContent.includes('자동 저장 실패')`,{message:'the write failure to be visible'});
       assert.equal(await value(page,panel+' .ed-title'),'회의록 정리','failed input prevents replacing the draft');
       assert.match(await value(page,panel+' textarea'),/실패해도 남는 메모/);
       await page.js('window.autoFailure=null');await page.click('.status button','다시 시도');
-      await page.until(`document.querySelector(${JSON.stringify(panel+' .ed-title')})?.value==='분리망 배포 의존성 검토'`,{message:'retry to store the draft and finish its pending switch'});
+      await page.until(`document.querySelector('.ed-next-title')?.textContent==='분리망 배포 의존성 검토'`,{message:'retry to store the draft and finish its pending summary switch'});
       assert.match((await page.task('회의록 정리')).body,/실패해도 남는 메모/);
+      await page.click('.ed-next-open');
       await page.click(panel+' textarea');await page.type('충돌에도 남는 메모');
       await page.js(`(async()=>{const {getState,setState}=await __mod('/src/app/store/state.ts');const s=getState();setState({snapshot:{...s.snapshot,tasks:s.snapshot.tasks.map(t=>t.id==='sample-d'?{...t,body:'다른 창의 메모',revision:t.revision+1}:t)}});})()`);
       await page.until(`(async()=>{const {getState}=await __mod('/src/app/store/state.ts');return getState().failed?.code==='conflict';})()`,{message:'a revision conflict'});
@@ -116,6 +129,14 @@ const scenarios=[
       await page.js('window.confirm=()=>true');await page.click(panel+' .ed-note button','내 입력으로 저장');
       await page.until(`!document.querySelector(${JSON.stringify(panel+' .ed-dirty')})`,{message:'explicit conflict recovery'});
       assert.match((await page.task('분리망 배포 의존성 검토')).body,/충돌에도 남는 메모/);
+      await page.js(`window.autoFailure='validation'`);
+      await page.click(panel+' textarea');await page.type(' 버릴 입력');
+      await selectBlock(page,'설계 문서 초안');
+      await page.until(`(async()=>{const {getState}=await __mod('/src/app/store/state.ts');return getState().failed?.code==='validation';})()`,{message:'the failed switch to offer draft recovery'});
+      await page.click(panel+' .ed-note button','버리고');
+      await page.until(`document.querySelector('.ed-next')?.dataset.task==='sample-b'`,{message:'explicit discard to honor the requested summary destination'});
+      assert.equal(await page.rect('.ed-title'),null,'discard opens the selected summary, not its editor');
+      assert.doesNotMatch((await page.task('분리망 배포 의존성 검토')).body,/버릴 입력/);
     }finally{
       await page.js(`(async()=>{const [{setState},{queue},{setEditorComposing}]=await Promise.all([__mod('/src/app/store/state.ts'),__mod('/src/app/store/session.ts'),__mod('/src/app/store/editor.ts')]);setEditorComposing(false);window.autoHeld.splice(0).forEach(resolve=>resolve());queue.discardFailed();setState({native:false,error:''});if(window.autoPriorIPC)window.__TAURI_INTERNALS__=window.autoPriorIPC;else delete window.__TAURI_INTERNALS__;})()`);
     }
@@ -310,7 +331,13 @@ const scenarios=[
     assert.equal(await page.js(`document.activeElement?.classList.contains('ed-next-open')`),true,'the remounted Next card takes focus again');
   }},
   {name:'the narrow detail keeps its direct delete action visible',viewport:{width:720,height:900},run:async page=>{
-    await openBlock(page,'분리망 배포');
+    await selectBlock(page,'분리망 배포');
+    assert.equal(await page.rect('dialog.ed-dialog'),null,'narrow selection starts with a summary');
+    const summary=await page.rect('.ed-next-open');
+    assert.ok(summary.y>=0&&summary.y+summary.h<=900,'selection reveals the summary below the timetable');
+    await page.shot('focus-selected-summary-narrow');
+    await page.key('Enter',{text:'\r'});
+    await page.until(`document.activeElement?.getAttribute('aria-label')==='제목'`,{message:'narrow summary keyboard activation to focus the editor title'});
     assert.equal(await page.rect('dialog.ed-dialog button[type=submit]'),null,'narrow focus also has no Save button');
     await page.click('dialog.ed-dialog textarea');await page.type('좁은 몰입 메모');
     await page.key('Escape');

@@ -66,6 +66,10 @@ const scenarios=[
       assert.ok(title.y>=bin.y&&title.y+title.h<=bin.y+bin.h,'keyboard focus reveals the last completed title');
       assert.equal(await page.js(`document.querySelector('.today-day .space-wrap').scrollTop`),timelineScroll,'completed focus does not scroll the timetable');
       await page.key('Enter',{text:'\r'});await page.sleep(180);
+      assert.equal(await page.js(`document.querySelector('.ed-next-title')?.textContent.startsWith('완료 40')`),true,'last completed task first shows its summary');
+      assert.equal(await page.text('.ed-next .pill'),'완료');
+      assert.equal(await page.text('.ed-next-done'),'미완료로 되돌리기');
+      await page.key('Enter',{text:'\r'});await page.sleep(180);
       assert.equal(await page.js(`document.querySelector('.ed-title')?.value.startsWith('완료 40')`),true,'last completed task opens for editing');
       await page.key('Escape');await page.sleep(120);
       await page.js(`document.querySelector('${last}').focus()`);
@@ -170,9 +174,12 @@ const scenarios=[
     // Each scenario starts from the preview data: 60 → 90 minutes pushes the next block to 10:30.
     assert.deepEqual((await page.blocks(space)).slice(0,2),['설계 문서 자료 조사, 예상 09:00–10:30','설계 문서 초안 작성, 예상 10:30–11:15']);
   }},
-  {name:'clicking a block opens it beside the space with title and memo first',run:async page=>{
+  {name:'clicking a block selects its summary and the summary opens title and memo editing',run:async page=>{
     await page.click('.today-day .blk .main','설계 문서 초안');
     assert.equal(await page.js('document.querySelector(".today-day .blk.sel")?.textContent.includes("설계 문서 초안")'),true);
+    assert.equal(await page.text('.ed-next-title'),'설계 문서 초안 작성');
+    assert.equal(await page.rect('.ed-title'),null);
+    await page.click('.ed-next-open');
     assert.ok(await page.js('!!document.querySelector(".today-main [aria-label=\'블록 상세\']")'));
   }},
   {name:'at 960px the execution flow scrolls independently and reveals capture',viewport:{width:960,height:640},run:async page=>{

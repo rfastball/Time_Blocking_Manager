@@ -5,10 +5,10 @@ import {animate,motion} from 'motion/react';
 import {time} from '../../dates.ts';
 import {formatDuration} from '../../format.ts';
 import type {Task} from '../../types.ts';
-import {memoPreview} from '../../detail.ts';
-import {getState,useApp} from '../store/state.ts';
+import {memoPreview,taskState} from '../../detail.ts';
+import {getState,setUi,useApp} from '../store/state.ts';
 import {closeEditor,openEditor} from '../store/editor.ts';
-import {completeTasks,planOf,resize,unplan} from '../store/tasks.ts';
+import {planOf,resize,toggleComplete,unplan} from '../store/tasks.ts';
 import {reduced} from '../ui/motion.ts';
 import {Editor} from './Editor.tsx';
 import {blockButton,editorModeHere} from './actions.ts';
@@ -17,10 +17,13 @@ import {focusLater} from '../ui/focus.ts';
 
 export {ContextMenuHost} from './Menus.tsx';
 
-// Today's side: the open task when the editor is in panel mode, otherwise the next block with what can be done to it.
+// Focus shows the selected block's summary first, or the next block until one is selected.
 export function EditorPanel({nextId}:{nextId:string|null}){
   const {drafts,ui,snapshot}=useApp(),e=ui.editorMode==='panel'?drafts.editor:null;
-  const nextButton=useRef<HTMLButtonElement|null>(null),memoId=useId();
+  const selected=snapshot!.tasks.find(t=>t.id===ui.focusTaskId),next=selected??snapshot!.tasks.find(t=>t.id===nextId);
+  const nextButton=useRef<HTMLButtonElement|null>(null),summaryButton=useRef<HTMLButtonElement|null>(null),memoId=useId();
+  useEffect(()=>{if(ui.focusTaskId&&!selected)setUi({focusTaskId:null});},[ui.focusTaskId,selected]);
+  useEffect(()=>{if(ui.focusTaskId&&!ui.editorMode){summaryButton.current?.focus({preventScroll:true});summaryButton.current?.scrollIntoView({block:'nearest'});}},[ui.focusTaskId,ui.editorMode]);
   const opening=useRef<{panel:HTMLElement;opener:Element|null}|null>(null);
   const attach=useCallback((panel:HTMLElement|null)=>{
     if(!panel)return;
@@ -40,36 +43,37 @@ export function EditorPanel({nextId}:{nextId:string|null}){
   if(e)return <motion.section key={e.id} ref={attach} className="card ed-panel" aria-label="블록 상세" initial={{opacity:0,y:6}} animate={{opacity:1,y:0}} transition={{type:'spring',visualDuration:.22,bounce:.15}}>
     <Editor key={e.id} mode="panel"/>
   </motion.section>;
-  const next=nextId?snapshot!.tasks.find(t=>t.id===nextId):null;
   if(!next)return null;
   const item=next.plan_date?planOf(next.plan_date).items.find(i=>i.task.id===next.id):null;
   // The next block is the first remaining flow block whatever the clock says, so nothing here counts down or turns late.
   const memo=next.body.trim()?memoPreview(next.body):'';
-  return <section className="card ed-next" aria-label="다음 블록" data-task={next.id}>
-    <button type="button" className="ed-next-open" aria-label={[next.title,item&&`예상 ${time(item.start)}–${time(item.end)}`,formatDuration(next.duration)].filter(Boolean).join(', ')}
+  const isNext=next.id===nextId;
+  return <section className="card ed-next" aria-label={isNext?'다음 블록':'선택한 블록'} data-task={next.id}>
+    <button ref={summaryButton} type="button" className="ed-next-open" aria-label={[next.title,item&&`${item.fixed?'시각 고정':'예상'} ${time(item.start)}–${time(item.end)}`,formatDuration(next.duration)].filter(Boolean).join(', ')}
       aria-describedby={memo?memoId:undefined} onClick={event=>{nextButton.current=event.currentTarget;openEditor(next.id,editorModeHere());}}>
-      <span className="pill">다음</span>
+      <span className="pill">{isNext?'다음':taskState(next)}</span>
       <span className="ed-next-title">{next.title}</span>
       {memo&&<span id={memoId} className="ed-next-memo">{memo}</span>}
-      {item&&<span className="ed-next-time">예상 {time(item.start)}–{time(item.end)} · {formatDuration(next.duration)}</span>}
+      <span className="ed-next-time">{item&&`${item.fixed?'시각 고정':'예상'} ${time(item.start)}–${time(item.end)} · `}{formatDuration(next.duration)}</span>
     </button>
     <div className="ed-next-acts" role="group" aria-label={next.title+' 처리'}>
-      <button type="button" className="btn primary ed-next-done" onClick={()=>void doNext(next)}>완료</button>
-      <button type="button" className="btn" aria-label={`${next.title} 15분 늘리기`} onClick={()=>void resize(next,next.duration+15)}>+15분</button>
-      <button type="button" className="btn" aria-label={`${next.title} 나중에, 준비 선반 맨 위로`} onClick={()=>void later(next)}>나중에</button>
+      <button type="button" className="btn primary ed-next-done" onClick={()=>void doNext(next)}>{next.completed?'미완료로 되돌리기':'완료'}</button>
+      {!next.completed&&<button type="button" className="btn" aria-label={`${next.title} 15분 늘리기`} onClick={()=>void resize(next,next.duration+15)}>+15분</button>}
+      {!next.completed&&next.plan_date&&<button type="button" className="btn" aria-label={`${next.title} 나중에, 준비 선반 맨 위로`} onClick={()=>void later(next)}>나중에</button>}
     </div>
   </section>;
 }
 
 // Done or put off from the card, the keyboard stays on the card: the next block's 완료, or the capture field when the day is through.
 const keepOnCard=()=>focusLater(['.ed-next .ed-next-done','#tray-capture']);
-async function doNext(t:Task){if(await completeTasks([t]))keepOnCard();}
-async function later(t:Task){if(await unplan(t))keepOnCard();}
+function advanceSummary(id:string){if(getState().ui.focusTaskId===id)setUi({focusTaskId:null});keepOnCard();}
+async function doNext(t:Task){if(await toggleComplete(t))advanceSummary(t.id);}
+async function later(t:Task){if(await unplan(t))advanceSummary(t.id);}
 
 export function EditorHost(){
   const {drafts,ui,nav}=useApp();
   // The panel only exists on 오늘; leaving it keeps a dirty draft for ‘이어서 편집’ instead of an invisible editor.
-  useEffect(()=>{if(ui.editorMode==='panel'&&nav.view!=='today')closeEditor();},[ui.editorMode,nav.view]);
+  useEffect(()=>{if(nav.view!=='today'){if(ui.editorMode==='panel')closeEditor();if(ui.focusTaskId)setUi({focusTaskId:null});}},[ui.editorMode,nav.view,ui.focusTaskId]);
   if(ui.editorMode!=='dialog'||!drafts.editor)return null;
   return <EditorDialog id={drafts.editor.id}/>;
 }

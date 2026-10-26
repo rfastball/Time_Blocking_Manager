@@ -5,10 +5,19 @@ import {durationValid} from '../../detail.ts';
 import {parseTrigger} from '../../waiting.ts';
 
 let autoSaveTimer:ReturnType<typeof setTimeout>|undefined,saving:Promise<boolean>|undefined,completing:Promise<boolean>|undefined,composing=false;
-let pendingOpen:{id:string;mode:'panel'|'dialog';focus:'fix'|'duration'|null}|null=null;
+let pendingOpen:{id:string;mode:'panel'|'dialog';focus:'fix'|'duration'|null;summary?:boolean}|null=null;
 function openPending(){
   const next=pendingOpen;if(!next||getState().drafts.pendingEditorId!==next.id)return;
-  pendingOpen=null;openEditor(next.id,next.mode,next.focus);
+  pendingOpen=null;if(next.summary)selectFocusTask(next.id);else openEditor(next.id,next.mode,next.focus);
+}
+// Selecting a focus block shows its summary; a dirty editor stays visible until its write succeeds.
+export function selectFocusTask(id:string){
+  const s=getState();if(!s.snapshot?.tasks.some(t=>t.id===id))return;
+  if(s.drafts.editorDirty&&s.ui.editorAutoSave){
+    pendingOpen={id,mode:s.ui.editorMode??'panel',focus:null,summary:true};
+    setDrafts({pendingEditorId:id});void saveEditor();return;
+  }
+  if(s.ui.editorMode)closeEditor();setUi({focusTaskId:id});
 }
 export function setEditorComposing(value:boolean){composing=value;scheduleEditorSave(value);}
 // Composition pauses automatic writes; the next edit or composition end restarts the debounce.
@@ -31,7 +40,7 @@ export function openEditor(id:string,mode:'panel'|'dialog'='dialog',focus:'fix'|
     const saved=s.snapshot?.tasks.find(t=>t.id===id);if(!saved)return;
     setDrafts({editor:{...saved,epoch:s.snapshot!.epoch},editorSequence:0,pendingEditorId:null});
   }else setDrafts({pendingEditorId:null});
-  setUi({editorMode:mode,editorFocus:focus,editorAutoSave:s.nav.view==='today'});
+  setUi({editorMode:mode,editorFocus:focus,editorAutoSave:s.nav.view==='today',...(s.nav.view==='today'?{focusTaskId:id}:{})});
 }
 export function changeEditor(patch:Partial<EditorDraft>){
   const d=getState().drafts;if(!d.editor)return;
@@ -50,7 +59,9 @@ export function closeEditor(discard=false){
 }
 export function switchToPending(){
   const id=getState().drafts.pendingEditorId;if(!id)return;
-  setDrafts({editor:null,editorDirty:false,pendingEditorId:null});void persistDraft();openEditor(id,getState().ui.editorMode??'dialog');
+  const next=pendingOpen?.id===id?pendingOpen:null;pendingOpen=null;
+  setDrafts({editor:null,editorDirty:false,pendingEditorId:null});void persistDraft();
+  if(next?.summary)selectFocusTask(id);else openEditor(id,next?.mode??getState().ui.editorMode??'dialog',next?.focus);
 }
 // With nothing typed, the open draft follows the stored task (drag, resize, menu actions beside the panel) instead of reporting a conflict.
 export function syncEditor(){

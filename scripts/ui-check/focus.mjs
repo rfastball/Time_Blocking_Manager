@@ -28,6 +28,38 @@ export default [
     await page.js(`(async()=>{const {getState}=await __mod('/src/app/store/state.ts');const {resize}=await __mod('/src/app/store/tasks.ts');const t=getState().snapshot.tasks.find(t=>t.title===${JSON.stringify(title)});await resize(t,${before.duration});})()`);
     await page.sleep(400);
     assert.equal((await task(page,title)).duration,before.duration);
+    await page.click('.queue .q-main','회의록 정리');
+    assert.equal(await next(page),'회의록 정리','queue selection changes the summary');
+    assert.equal(await page.text('.ed-next .pill'),'계획');
+    assert.equal(await page.rect('.ed-title'),null,'selection does not start editing');
+    const selected=await task(page,'회의록 정리');
+    await act(page,'+15분');
+    assert.equal((await task(page,'회의록 정리')).duration,selected.duration+15,'resize targets the selected block');
+    assert.equal((await task(page,title)).duration,before.duration,'the default Next block is untouched');
+    await act(page,'나중에');
+    assert.equal((await task(page,'회의록 정리')).date,null,'postpone targets the selected block');
+    assert.equal(await next(page),title,'postpone returns to the next summary');
+    await page.js(`document.querySelector('.today-side [data-task="sample-4"]').scrollIntoView({block:'center'})`);
+    await page.click('.today-side [data-task="sample-4"]');
+    assert.equal(await next(page),'회의록 템플릿 업데이트','preparation selection changes the same summary');
+    assert.equal(await page.text('.ed-next .pill'),'준비');
+    assert.deepEqual(await page.js(`[...document.querySelectorAll('.ed-next-acts button')].map(b=>b.textContent)`),['완료','+15분'],'preparation omits postpone');
+    await act(page,'완료');
+    assert.equal((await task(page,'회의록 템플릿 업데이트')).done,true,'completion targets the selected preparation block');
+    assert.equal(await next(page),title,'completion returns to Next');
+    await page.js(`document.querySelector('.today-day [data-task="sample-4"]').focus()`);await page.key('Enter',{text:'\r'});await page.sleep(150);
+    await act(page,'미완료로 되돌리기');
+    assert.equal((await task(page,'회의록 템플릿 업데이트')).done,false,'completed summaries undo their selected block');
+    await page.click('.queue .q-main','설계 워크숍');
+    assert.equal(await page.text('.ed-next .pill'),'시각 고정');
+    assert.match(await nextTime(page),/^시각 고정 14:00–15:00/);
+    await page.click('header.topbar button[aria-label="다음 날"]');
+    assert.equal(await page.rect('.ed-next'),null,'changing the focus date releases the selected summary');
+    await page.click('header.topbar button[aria-label="이전 날"]');
+    assert.equal(await next(page),title,'returning to the day starts with Next');
+    await page.click('.queue .q-main','설계 워크숍');
+    await page.click('header.topbar button','작업 화면');await toFocus(page);
+    assert.equal(await next(page),title,'leaving focus also releases the selection');
   }},
   {name:'Esc lets go of a selection before it leaves 몰입, and the bar reads its allocation',run:async page=>{
     await go(page);

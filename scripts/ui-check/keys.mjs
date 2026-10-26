@@ -65,6 +65,8 @@ export default [
     await press(page,'Escape','Escape');assert.equal(await view(page),'today','Esc in the field stays with the field');
     await page.js(`document.activeElement.blur()`);
     await page.click('.today-day .blk .main');await page.sleep(400);
+    assert.equal(await page.rect('.ed-panel'),null,'block selection starts in summary');
+    await page.key('Enter',{text:'\r'});await page.sleep(200);
     assert.ok(await page.js(`!!document.querySelector('.ed-panel')`),'the side editor is open');
     await page.js(`document.activeElement.blur()`);
     await press(page,'Escape','Escape');
